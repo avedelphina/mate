@@ -71,6 +71,22 @@ All four items that were left are done.
    anchor. The passage may run over several lines. When the same words occur
    twice, the comment goes under the place you selected.
 
+## Left to do
+
+- [ ] **Click the folder picker.** Press Open context, pick
+  `contexts/_example` in the native dialog, and see `document-review` and
+  `sibling` listed. This is the one part of step 6 the script did not
+  exercise. Tick it when a person has done it.
+
+## Known limits
+
+**The same words twice on one line.** A passage that occurs more than once
+on the line it ends on cannot be commented by itself. Mate answers "Those
+words occur more than once on that line. Select a little more." The marker
+sits under a line and says nothing finer than that. Two such passages could
+not be told apart later, and Apply could replace the wrong one. Select
+enough around the words to make the passage the only one on its line.
+
 ## Do not build yet
 
 A second OS window, an agent, an index, mail, issues, or a way to publish
