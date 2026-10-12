@@ -106,10 +106,35 @@ A comment whose quote is nowhere in the text has `start: null`. It is
 kept and shown as unanchored. Nothing re-anchors it but `anchorComment`,
 which runs when the reader selects a passage and presses the button.
 
-`applySuggestion` is the only function that changes the prose. It runs
-when the reader presses Apply. It replaces the passage, sets `status` to
-`"resolved"`, and keeps any other comment's marker that was inside the
-passage.
+Two functions change the prose, and only the reader runs them.
+`applySuggestion` runs when the reader presses Apply. It replaces the
+passage, sets `status` to `"resolved"`, and keeps any other comment's
+marker that was inside the passage. `retype` runs when the reader types
+in the draft: see "Typing in a draft".
+
+## Typing in a draft
+
+Edit turns the page into the text of the file, to type in. It is the
+text the page shows: the comment markers are not in it, so the reader
+cannot break one. Save, or leaving the field, writes what was typed.
+Done goes back to the drawn page. A new draft is started from the rail:
+a file with its title, open to be written.
+
+`retype` gives the file its new text. It compares the old text and the
+new one line by line. A line the reader did not touch keeps its bytes,
+and the markers under it stay under it. A new line takes the line ending
+the file already uses. A marker whose line is gone is kept, on a line of
+its own after what took that line's place. Its comment is then found by
+its quote, or shown as unanchored. No comment is lost by typing.
+
+The save carries the text the reader began from. If the file holds
+another text by then, because an agent or another program wrote it,
+nothing is saved, and the reader is told. What they typed stays in the
+field.
+
+Only a draft can be typed in. The shelf, the intents, the principles
+and all other files are read. No agent can reach this path: an agent
+proposes a replacement, and the reader applies it.
 
 ## Drawing the markdown
 

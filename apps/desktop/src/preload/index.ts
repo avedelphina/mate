@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('mate', {
   readFile: (path: string) => ipcRenderer.invoke('file:read', path),
   revealFile: (path: string) => ipcRenderer.invoke('file:reveal', path),
   openProject: (project: string, file?: string) => ipcRenderer.invoke('project:open', project, file),
+  writeDraft: (project: string, file: string, base: string, text: string) => ipcRenderer.invoke('draft:write', project, file, base, text),
+  createDraft: (project: string, name: string) => ipcRenderer.invoke('draft:create', project, name),
   addComment: (
     project: string,
     file: string,

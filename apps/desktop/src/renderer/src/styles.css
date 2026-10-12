@@ -100,6 +100,14 @@ button.wide { width: 100%; }
 .hit b { color: var(--ink); font-weight: 600; }
 .hint { margin: 4px 10px; }
 
+/* The page, while the reader types in it: the text of the file, in the same place and the same letters. */
+.editor { display: block; width: 100%; box-sizing: border-box; min-height: 70vh; border: 0; outline: 0; background: none; color: inherit; resize: none; field-sizing: content; }
+.bar .acts { display: flex; gap: 2px; margin-left: auto; -webkit-app-region: no-drag; }
+.tree-new { margin-left: 12px; }
+.tree-new .row { padding: 3px 10px 3px 21px; border-radius: 6px; color: var(--soft); font-size: 12.5px; }
+.tree-new .row:hover { background: var(--hover); }
+.tree-new input { width: calc(100% - 21px); box-sizing: border-box; margin: 2px 0 2px 21px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); font-size: 12.5px; }
+
 /* The page */
 .page { max-width: 720px; margin: 0 auto; padding: 20px 32px 96px; font: 17px/1.7 var(--read); }
 

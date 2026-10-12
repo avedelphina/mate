@@ -58,6 +58,38 @@ test('the window, on the example context: a comment into the file, the tree, a p
     const draft = (await readFile(path.join(project, 'draft/document.md'), 'utf8')).split('\n')
     assert.match(draft[draft.indexOf(passage) + 1], /^<!-- @comment\{.*"text":"Said by the test\.".*\} -->$/)
 
+    // Type in the draft. The file gets the new text, and each comment stays under its passage.
+    await app.press('.center .bar button', 'Edit')
+    await app.until(`!!document.querySelector('textarea.editor')`, 'the editor on the page')
+    await app.page(`(() => {
+      const editor = document.querySelector('textarea.editor')
+      const text = editor.value.replace('Replace this text with the copy.', 'Replace this text with the copy, soon.') + '\\nA line typed in the window.\\n'
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(editor, text)
+      editor.dispatchEvent(new Event('input', { bubbles: true }))
+    })()`)
+    await app.press('.center .bar button', 'Save')
+    await app.until(`[...document.querySelectorAll('.center .bar button')].find((each) => each.textContent === 'Save')?.disabled === true`, 'the draft is saved')
+    const typed = (await readFile(path.join(project, 'draft/document.md'), 'utf8')).split('\n')
+    assert.ok(typed.includes('A line typed in the window.'))
+    assert.ok(typed.some((line) => line.startsWith('Replace this text with the copy, soon.')))
+    assert.match(typed[typed.indexOf(passage) + 1], /Said by the test/)
+    await app.press('.center .bar button', 'Done')
+    await app.until(`document.querySelector('.page.prose')?.textContent.includes('A line typed in the window.')`, 'the page shows what was typed')
+    assert.equal(await app.page(`document.querySelectorAll('.thread').length`), 2)
+
+    // A new draft is a file with its title, open to be written. Then back to the first one.
+    await app.press('.tree-new .row', '+ New draft')
+    await app.page(`(() => {
+      const input = document.querySelector('.tree-new input')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Second draft')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.form.requestSubmit()
+    })()`)
+    await app.until(`document.querySelector('textarea.editor')?.value === '# Second draft\\n'`, 'the new draft, open to be written')
+    assert.equal(await readFile(path.join(project, 'draft/Second draft.md'), 'utf8'), '# Second draft\n')
+    await app.press('.rail .tree .row', 'document.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the first draft again')
+
     // Another file of the project is read on the page, and the project stays open beside it.
     await app.press('.rail .tree .row', 'intents.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('intents.md')`, 'the file on the page')

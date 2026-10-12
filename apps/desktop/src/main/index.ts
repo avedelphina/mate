@@ -5,7 +5,7 @@ import path from 'node:path'
 import { addReply, anchorComment, applySuggestion } from '../shared/comments'
 import { listAgents } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
-import { addComment, editDraft, listProjects, placeOnDisk, readContextFile, readProject } from './context'
+import { addComment, createDraft, editDraft, listProjects, placeOnDisk, readContextFile, readProject, writeDraft } from './context'
 import { refreshIndex, searchIndex } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
 import { approve, describe, instructionFiles, keepPinsIn, unapproved } from './pins'
@@ -207,7 +207,13 @@ app.whenReady().then(() => {
     editDraft(requireContext(event), project, file, (markdown) => addReply(markdown, id, text, author))
   )
 
-  // The only handler that changes the prose. It runs when the reader presses Apply, never otherwise.
+  // The reader types in the open draft, or starts a new one. No agent can reach these two.
+  ipcMain.handle('draft:write', (event, project: string, file: string, base: string, text: string) =>
+    writeDraft(requireContext(event), project, file, String(base), String(text))
+  )
+  ipcMain.handle('draft:create', (event, project: string, name: string) => createDraft(requireContext(event), project, String(name)))
+
+  // The other handler that changes the prose. It runs when the reader presses Apply, never otherwise.
   ipcMain.handle('comment:apply', (event, project: string, file: string, id: string) =>
     editDraft(requireContext(event), project, file, (markdown) => applySuggestion(markdown, id))
   )

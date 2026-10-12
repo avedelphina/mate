@@ -3,14 +3,15 @@ import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { addComment, placeOnDisk, readProject, resolveInside } from '../src/main/context.ts'
+import { addComment, createDraft, placeOnDisk, readProject, resolveInside, writeDraft } from '../src/main/context.ts'
 import {
   addReply,
   anchorComment,
   applySuggestion,
   insertComment,
   parseComments,
-  readDocument
+  readDocument,
+  retype
 } from '../src/shared/comments.ts'
 
 test('a comment is written on the line after the sentence it quotes', () => {
@@ -154,5 +155,71 @@ test('any file of the context can be shown where it lies, and nothing hidden or 
   } finally {
     await rm(root, { recursive: true, force: true })
     await rm(`${root}-outside.txt`, { force: true })
+  }
+})
+
+test('typing in a draft keeps every comment, and every line that was not touched', () => {
+  const marker = (id: string, anchor: string) => `<!-- @comment{"id":"${id}","anchor":"${anchor}","text":"Why.","author":"ada"} -->`
+  const file = ['# Title', '', 'First line.', marker('1', 'First line.'), 'Second line.', '', 'Third line.', marker('2', 'Third'), ''].join('\n')
+  const shown = readDocument(file).text
+  assert.equal(shown, '# Title\n\nFirst line.\nSecond line.\n\nThird line.\n')
+
+  // Nothing typed: the file is the same, byte for byte.
+  assert.equal(retype(file, shown), file)
+
+  // A commented line is changed, and a paragraph is added far from it. Each marker is still under its line.
+  const typed = retype(file, '# Title\n\nFirst line, edited.\nSecond line.\n\nA new paragraph.\n\nThird line.\n')
+  assert.equal(typed, ['# Title', '', 'First line, edited.', marker('1', 'First line.'), 'Second line.', '', 'A new paragraph.', '', 'Third line.', marker('2', 'Third'), ''].join('\n'))
+  const after = readDocument(typed)
+  assert.equal(after.text, '# Title\n\nFirst line, edited.\nSecond line.\n\nA new paragraph.\n\nThird line.\n')
+  // The first comment quotes words that are gone: it is kept, and shown as unanchored. The second is where it was.
+  assert.deepEqual(after.comments.map((each) => [each.id, each.start === null]), [['1', true], ['2', false]])
+
+  // A commented line is taken out. Its comment stays in the file.
+  const cut = retype(file, '# Title\n\nSecond line.\n\nThird line.\n')
+  assert.deepEqual(parseComments(cut).map((each) => each.id), ['1', '2'])
+  assert.equal(readDocument(cut).text, '# Title\n\nSecond line.\n\nThird line.\n')
+
+  // Windows line endings: a typed line takes the ending the file uses, and no other line changes.
+  const windows = `One.\r\n${marker('1', 'One.')}\r\nTwo.\r\n`
+  assert.equal(retype(windows, 'One.\nBetween.\nTwo.\n'), `One.\r\n${marker('1', 'One.')}\r\nBetween.\r\nTwo.\r\n`)
+
+  // A file with no line break at its end keeps none, unless the reader types one.
+  assert.equal(retype('One.\nTwo.', 'One.\nTwo, edited.'), 'One.\nTwo, edited.')
+  assert.equal(retype('One.\nTwo.', 'One.\nTwo.\n'), 'One.\nTwo.\n')
+  assert.equal(retype('', 'A first line.\n'), 'A first line.\n')
+  // A marker that md-redline wrote inside a line goes with the line when it is kept, and survives when it is not.
+  const inline = `${marker('1', 'Quoted')}Quoted words.\nNext.\n`
+  assert.equal(retype(inline, readDocument(inline).text), inline)
+  assert.deepEqual(parseComments(retype(inline, 'Other words.\nNext.\n')).map((each) => each.id), ['1'])
+})
+
+test('a draft is saved from what the reader began with, and a new draft never writes over a file', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-'))
+  try {
+    const draft = path.join(root, 'projects', 'review', 'draft')
+    await mkdir(draft, { recursive: true })
+    await writeFile(path.join(draft, 'document.md'), 'The current sentence.\n')
+    const opened = await readProject(root, 'review')
+    const saved = await writeDraft(root, 'review', 'document.md', opened.text, 'The current sentence.\nAnd one more.\n')
+    assert.equal(saved.text, 'The current sentence.\nAnd one more.\n')
+    assert.equal(await readFile(path.join(draft, 'document.md'), 'utf8'), 'The current sentence.\nAnd one more.\n')
+
+    // Someone else wrote the file meanwhile. What the reader typed on the old text is not saved over it.
+    await writeFile(path.join(draft, 'document.md'), 'Written by an agent.\n')
+    await assert.rejects(writeDraft(root, 'review', 'document.md', saved.text, 'Mine.\n'), /has changed since you began/)
+    assert.equal(await readFile(path.join(draft, 'document.md'), 'utf8'), 'Written by an agent.\n')
+    await assert.rejects(writeDraft(root, 'review', '../intents.md', '', 'x'), /not in this project/)
+
+    const made = await createDraft(root, 'review', 'Second thoughts')
+    assert.deepEqual([made.file, made.text, made.drafts], ['Second thoughts.md', '# Second thoughts\n', ['Second thoughts.md', 'document.md']])
+    await assert.rejects(createDraft(root, 'review', 'Second thoughts.md'), /already there/)
+    for (const name of ['', '.hidden', '../up', 'a/b']) await assert.rejects(createDraft(root, 'review', name), /Name the draft/)
+    await assert.rejects(createDraft(root, 'nowhere', 'x'), /not in this context/)
+    // A project with no draft folder gets one with its first draft.
+    await mkdir(path.join(root, 'projects', 'empty'))
+    assert.equal((await createDraft(root, 'empty', 'first')).file, 'first.md')
+  } finally {
+    await rm(root, { recursive: true, force: true })
   }
 })

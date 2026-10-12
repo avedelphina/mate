@@ -123,6 +123,14 @@ export function App() {
   // Where the agent is drawn. Each is there only while its place is on show.
   const [pageSlot, setPageSlot] = useState<HTMLElement | null>(null)
   const [marginSlot, setMarginSlot] = useState<HTMLElement | null>(null)
+  // The draft as the reader is typing it. Null while the page is read and not written.
+  const [typing, setTyping] = useState<string | null>(null)
+  // The text the reader began from. A save is refused when the file holds another text by now.
+  const based = useRef('')
+  // A save that has not come back yet, and whether it went through. Whatever opens next waits for it.
+  const saving = useRef<Promise<boolean>>(Promise.resolve(true))
+  // The name of a new draft, while the reader is typing it in the rail. Null when they are not.
+  const [naming, setNaming] = useState<string | null>(null)
   // The panes of the open project as last seen, to notice one that has just been written.
   const seenPanes = useRef<{ project: string; written: Record<string, number> } | null>(null)
   // Panes written while the reader was in the conversation in the margin. Their tabs are marked, not opened.
@@ -267,7 +275,63 @@ export function App() {
     setQuery('')
   }
 
+  /** What was typed is saved before the page shows something else. A save that failed keeps the page, once. */
+  async function leaveEditor(): Promise<boolean> {
+    const saved = await saving.current
+    saving.current = Promise.resolve(true)
+    if (saved) setTyping(null)
+    return saved
+  }
+
+  /** Begin to type in the draft on the page. */
+  function edit() {
+    if (!view || file === null) return
+    clearComment()
+    based.current = view.text
+    setTyping(view.text)
+  }
+
+  /** Write what was typed into the file. Nothing is written when nothing was typed. */
+  function save(): Promise<boolean> {
+    if (typing === null || !project || file === null || typing === based.current) return saving.current
+    const [inProject, inFile, text] = [project, file, typing]
+    saving.current = window.mate.writeDraft(inProject, inFile, based.current, text).then(
+      (next) => {
+        based.current = next.text
+        setError(null)
+        setView((now) => (now?.project === inProject && now.file === inFile ? next : now))
+        // The file may end with a line break the reader did not type. What they typed since is not touched.
+        setTyping((now) => (now === text ? next.text : now))
+        return true
+      },
+      (caught) => {
+        setError(reason(caught, 'Could not save the draft.'))
+        return false
+      }
+    )
+    return saving.current
+  }
+
+  async function newDraft(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!project || !naming?.trim() || !(await leaveEditor())) return
+    try {
+      const made = await window.mate.createDraft(project, naming)
+      setError(null)
+      setNaming(null)
+      setReading(null)
+      setAgentOnPage(false)
+      setView(made)
+      // A new draft is there to be written.
+      based.current = made.text
+      setTyping(made.text)
+    } catch (caught) {
+      setError(reason(caught, 'Could not start the draft.'))
+    }
+  }
+
   async function openProject(name: string, draft?: string) {
+    if (!(await leaveEditor())) return
     setError(null)
     setActive(null)
     setReading(null)
@@ -287,6 +351,7 @@ export function App() {
 
   /** Put a file on the page to be read, not reviewed. `path` is counted from the context folder. */
   async function read(path: string) {
+    if (!(await leaveEditor())) return
     setAgentOnPage(false)
     setError(null)
     setActive(null)
@@ -481,6 +546,25 @@ export function App() {
                         }
                       />
                     )}
+                    {view && project === name && (
+                      <div className="tree-new">
+                        {naming === null ? (
+                          <button className="row" onClick={() => setNaming('')}>+ New draft</button>
+                        ) : (
+                          <form onSubmit={newDraft}>
+                            <input
+                              autoFocus
+                              value={naming}
+                              placeholder="Name of the draft"
+                              aria-label="Name of the new draft"
+                              onChange={(event) => setNaming(event.target.value)}
+                              onKeyDown={(event) => event.key === 'Escape' && setNaming(null)}
+                              onBlur={() => naming.trim() === '' && setNaming(null)}
+                            />
+                          </form>
+                        )}
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -494,6 +578,18 @@ export function App() {
           {onPage && <span className="meta">/</span>}
           {onPage && <span>Agent</span>}
           {onPage && <button className="quiet move" onClick={toMargin}>Back to the margin</button>}
+          {!onPage && !reading && file !== null && (
+            <span className="acts">
+              {typing === null ? (
+                <button className="quiet" onClick={edit}>Edit</button>
+              ) : (
+                <>
+                  <button className="quiet" title="⌘S" disabled={typing === based.current} onClick={() => void save()}>Save</button>
+                  <button className="quiet" onClick={() => void save().then((saved) => saved && setTyping(null))}>Done</button>
+                </>
+              )}
+            </span>
+          )}
           {!onPage && reading && <span className={`kind ${reading.kind}`}>{KINDS[reading.kind].label}</span>}
           {!onPage && reading && <span>{reading.path}</span>}
           {!onPage && !reading && view && <span className="meta">{view.project}</span>}
@@ -515,6 +611,22 @@ export function App() {
                 ? 'This project has no draft. Its other files are on the left.'
                 : `This project has ${view.drafts.length} drafts. Pick one on the left.`}
             </p>
+          ) : typing !== null ? (
+            // The text of the file, to type in. What is saved is this text, with the comments kept where they are.
+            <textarea
+              className="page editor"
+              aria-label={`The text of ${file}`}
+              value={typing}
+              spellCheck
+              autoFocus
+              onChange={(event) => setTyping(event.target.value)}
+              onBlur={() => void save()}
+              onKeyDown={(event) => {
+                if (event.key !== 's' || !(event.metaKey || event.ctrlKey)) return
+                event.preventDefault()
+                void save()
+              }}
+            />
           ) : (
             <div className="page prose" ref={page} onMouseUp={pickPassage}>
               <Rendered text={view.text} passages={passages} active={active} onPick={setActive} />

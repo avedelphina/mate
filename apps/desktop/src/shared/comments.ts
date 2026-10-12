@@ -1,3 +1,5 @@
+import { diffLines } from './diff'
+
 export type Reply = { text: string; author: string }
 
 export type ReviewComment = {
@@ -278,4 +280,62 @@ export function anchorComment(markdown: string, id: string, anchor: string, from
   const index = indexOfComment(markers, id)
   const without = markdown.slice(0, spans[index].start) + markdown.slice(spans[index].end)
   return place(without, { ...markers[index].value, anchor: trimmedAnchor }, from)
+}
+
+/**
+ * Give the document a new text, as the reader typed it.
+ *
+ * A line the reader did not touch keeps its bytes, and the markers under it stay under it. A marker
+ * whose line is gone is kept, on a line of its own after what took that line's place. Its comment is
+ * then found by its quote, or shown as unanchored. No comment is lost by typing.
+ */
+export function retype(markdown: string, next: string): string {
+  const { markers, text, raw } = strip(markdown)
+  const eol = eolOf(markdown)
+  const wanted = next.replace(/\r\n/g, '\n')
+  // Where each visible line starts in the visible text. The last entry is where the text ends.
+  const starts = [0]
+  for (const line of text === '' ? [] : text.replace(/\n$/, '').split('\n')) {
+    starts.push(Math.min(text.length, starts[starts.length - 1] + line.length + 1))
+  }
+  // What comes before the first visible character: markers only, when there is anything.
+  let out = markdown.slice(0, raw[0])
+  const onNewLine = () => {
+    if (out && !out.endsWith('\n')) out += eol
+  }
+  // Markers of lines that are gone, until the lines that took their place have been written.
+  const orphans: string[] = []
+  const settle = () => {
+    for (const marker of orphans.splice(0)) {
+      onNewLine()
+      out += marker + eol
+    }
+  }
+  let k = 0
+  let typedLast = false
+  for (const line of diffLines(text, wanted)) {
+    typedLast = line.kind === '+'
+    if (line.kind === '+') {
+      onNewLine()
+      out += line.text + eol
+      continue
+    }
+    // A visible line in the file: its own bytes, its line ending, and the markers that follow it.
+    const from = raw[starts[k]]
+    const to = raw[starts[k + 1]]
+    k += 1
+    if (line.kind === ' ') {
+      // Nothing is put between what came before and a line that was kept: the bytes stay as they were.
+      settle()
+      out += markdown.slice(from, to)
+    } else {
+      orphans.push(...markers.filter((marker) => marker.start >= from && marker.end <= to).map((marker) => markdown.slice(marker.start, marker.end)))
+    }
+  }
+  const typedEnd = typedLast && orphans.length === 0
+  settle()
+  // The file ends with a line break when the reader's text does. It does not lose the one it had.
+  if (wanted.endsWith('\n') && !text.endsWith('\n')) onNewLine()
+  if (!wanted.endsWith('\n') && !text.endsWith('\n') && typedEnd && out.endsWith(eol)) out = out.slice(0, -eol.length)
+  return out
 }

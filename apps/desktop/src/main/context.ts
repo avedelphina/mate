@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { readdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { insertComment, readDocument, type Thread } from '../shared/comments'
+import { insertComment, readDocument, retype, type Thread } from '../shared/comments'
 import { placeOf, type Place } from './contextIndex'
 import { mateWrote } from './guard'
 
@@ -164,4 +164,37 @@ export function addComment(
   return editDraft(contextDir, project, file, (markdown) =>
     insertComment(markdown, anchor, text, author, from, suggestion)
   )
+}
+
+/**
+ * Give a draft the text the reader typed. `base` is the text the reader began from: when the file
+ * holds another text by now, someone else has written it, and nothing is saved over that.
+ */
+export function writeDraft(contextDir: string, project: string, file: string, base: string, text: string): Promise<DocumentView> {
+  return editDraft(contextDir, project, file, (markdown) => {
+    if (readDocument(markdown).text !== base) {
+      throw new Error('The file has changed since you began to edit it. Nothing was saved. Copy what you typed, then open the draft again.')
+    }
+    return retype(markdown, text)
+  })
+}
+
+/** Start a new draft in a project: a file with its title and nothing else. An existing file is never written over. */
+export async function createDraft(contextDir: string, project: string, name: string): Promise<DocumentView> {
+  const title = String(name).trim().replace(/\.md$/i, '')
+  if (!/^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,80}$/u.test(title)) {
+    throw new Error('Name the draft with letters and numbers. Spaces, dots, dashes and underscores may follow.')
+  }
+  const projectDir = resolveInside(contextDir, 'projects', project)
+  if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
+  const file = `${title}.md`
+  const text = `# ${title}\n`
+  await mkdir(path.join(projectDir, 'draft'), { recursive: true })
+  try {
+    await writeFile(path.join(projectDir, 'draft', file), text, { flag: 'wx' })
+  } catch {
+    throw new Error('A draft of that name is already there.')
+  }
+  mateWrote(contextDir, `projects/${project}/draft/${file}`, Buffer.from(text))
+  return readProject(contextDir, project, file)
 }

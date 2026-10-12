@@ -137,6 +137,11 @@ comes in, the draft is written in the window, a passage is marked up, and
 publishing is a decision rather than a file copied by hand. The test is
 whether you stay in the window to change a paragraph.
 
+Built: the first of the three. A new draft is started from the rail, and
+the open draft is typed in on the page. Comments stay with their lines,
+and a save does not write over what an agent wrote meanwhile. Not built:
+publishing, and the exits of the dropbox.
+
 Not this step: mail, calendar, issues, or an installer. Those are later
 steps.
 
