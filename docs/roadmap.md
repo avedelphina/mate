@@ -91,7 +91,8 @@ Built: inviting Claude Code, Codex, or Hermes on this machine into a
 project, Hermes on another machine over SSH, and a door over MCP for an
 agent the reader runs themselves. The plan first, the approval as a
 message, the copy before an edit, Revert, and the hold on any file outside
-the project. A session goes on after the app is closed and opened again.
+the project. A change can be looked at as lines before it is reverted or
+approved. A session goes on after the app is closed and opened again.
 
 A message sent while the agent is mid-turn waits behind the turn and goes
 when it ends. It does not stop the turn, and it does not steer it. The
@@ -136,10 +137,8 @@ comes in, the draft is written in the window, a passage is marked up, and
 publishing is a decision rather than a file copied by hand. The test is
 whether you stay in the window to change a paragraph.
 
-Not this step: a diff of an agent's edit, steering a turn that is already
-running, mail, calendar, issues, or an installer. The first two are gaps
-around an agent that already works, and they do not give a new kind of
-work. The rest are later steps.
+Not this step: mail, calendar, issues, or an installer. Those are later
+steps.
 
 ## 7. The other sources
 

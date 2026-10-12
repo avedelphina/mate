@@ -57,6 +57,12 @@ export type AgentInfo = { kind: AgentKind; label: string; found: boolean; host: 
 /** `waiting`: sent while the agent was working, and not yet given to it. */
 export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[]; waiting?: boolean }
 
+/** One line of a comparison: kept, put in, or taken out. */
+export type DiffLine = { kind: ' ' | '+' | '-'; text: string }
+
+/** What a change did or would do, as lines. A `note` when there are no lines to show. */
+export type Compared = { lines?: DiffLine[]; note?: string }
+
 /** Something an agent will not do until the reader says yes or no. `detail` is the command or the file. */
 export type Ask = { id: string; title: string; detail: string }
 
@@ -112,6 +118,8 @@ export type MateApi = {
   answerAsk: (id: string, ask: string, allow: boolean) => Promise<void>
   revertChange: (project: string, id: string, index: number) => Promise<Session>
   settleHeld: (project: string, id: string, index: number, approve: boolean) => Promise<Session>
+  /** A kept change against the copy from before it, or a held change against the file as it is. */
+  compare: (project: string, id: string, which: 'kept' | 'held', index: number) => Promise<Compared>
   onSession: (listener: (session: Session) => void) => () => void
   /** Whether the reader trusts the open context. In a trusted one Hermes runs as it does in a terminal. */
   isTrusted: () => Promise<boolean>

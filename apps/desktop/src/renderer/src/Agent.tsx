@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { AgentInfo, AgentKind, Session } from './env'
+import type { AgentInfo, AgentKind, Compared, Session } from './env'
 import { Rendered } from './Rendered'
 
 function reason(caught: unknown): string {
@@ -27,6 +27,8 @@ export function Agent({ project, onChanged, into }: { project: string; onChanged
   // Where the reader's own agent connects, while a session for it is open.
   const [door, setDoor] = useState<{ url: string; token: string } | null>(null)
   const end = useRef<HTMLDivElement>(null)
+  // The change the reader is looking at, as lines. One at a time.
+  const [compared, setCompared] = useState<({ key: string } & Compared) | null>(null)
   // Whether the reader trusts this context. It decides what an invited Hermes may use.
   const [trusted, setTrusted] = useState(false)
 
@@ -82,6 +84,29 @@ export function Agent({ project, onChanged, into }: { project: string; onChanged
       setOpen(started.id)
       return started
     })
+
+  /** Show what a change is, or put it away again. */
+  const look = (which: 'kept' | 'held', index: number) => {
+    const key = `${open}:${which}:${index}`
+    if (compared?.key === key || !open) return setCompared(null)
+    window.mate.compare(project, open, which, index).then(
+      (found) => setCompared({ key, ...found }),
+      (caught) => setCompared({ key, note: reason(caught) })
+    )
+  }
+  const lines = (which: 'kept' | 'held', index: number) =>
+    compared?.key === `${open}:${which}:${index}` &&
+    (compared.lines ? (
+      <pre className="diff">
+        {compared.lines.map((line, at) => (
+          <span key={at} className={line.kind === '+' ? 'in' : line.kind === '-' ? 'out' : undefined}>
+            {line.kind} {line.text}
+          </span>
+        ))}
+      </pre>
+    ) : (
+      <p className="meta diff-note">{compared.note}</p>
+    ))
 
   const send = (approve: boolean) => {
     if (!session) return
@@ -198,19 +223,27 @@ export function Agent({ project, onChanged, into }: { project: string; onChanged
                 <button className="quiet" onClick={() => act(() => window.mate.settleHeld(project, session.id, index, false))}>
                   Discard
                 </button>
+                <button className="quiet" onClick={() => look('held', index)}>See the change</button>
               </p>
+              {lines('held', index)}
             </div>
           )
       )}
       {session.changes.map(
         (change, index) =>
           !change.reverted && (
-            <p key={index} className="changed">
-              <span>Changed <code>{change.path}</code></span>
-              <button className="quiet" onClick={() => act(() => window.mate.revertChange(project, session.id, index), onChanged)}>
-                Revert
-              </button>
-            </p>
+            <div key={index}>
+              <p className="changed">
+                <span>Changed <code>{change.path}</code></span>
+                <span className="acts">
+                  <button className="quiet" onClick={() => look('kept', index)}>Diff</button>
+                  <button className="quiet" onClick={() => act(() => window.mate.revertChange(project, session.id, index), onChanged)}>
+                    Revert
+                  </button>
+                </span>
+              </p>
+              {lines('kept', index)}
+            </div>
           )
       )}
       {error && <p className="error" role="alert">{error}</p>}

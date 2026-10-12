@@ -9,6 +9,7 @@ import { AGENTS, SSH, agentEnvironment, isHost, sshArgs, type AgentKind } from '
 import { resolveInside } from './context'
 import { placeOf } from './contextIndex'
 import { changesSince, insidePath, mateWrote, put, takeSnapshot, watching, type Change, type Snapshot } from './guard'
+import { changedParts, diffLines, type DiffLine } from '../shared/diff'
 import { isTrusted } from './trust'
 
 /** `waiting`: sent while the agent was working, and not yet given to it. */
@@ -600,6 +601,43 @@ async function begin(
 
 export function stopTurn(id: string): void {
   running.get(id)?.kill()
+}
+
+/** What a change did, or would do: the lines taken out and put in. A `note` when there is nothing to show as lines. */
+export type Compared = { lines: DiffLine[] } | { note: string }
+
+// ponytail: a file over this size, or one that is not text, is not compared. Nor are more lines than this shown.
+const MAX_COMPARED = 1024 * 1024
+const MAX_LINES = 600
+const textOf = (bytes: Buffer | null) =>
+  bytes === null ? '' : bytes.length > MAX_COMPARED || bytes.subarray(0, 8000).includes(0) ? null : bytes.toString('utf8')
+
+/**
+ * A change the agent made and Mate kept, against the copy from before it. Or a change Mate holds,
+ * against the file as it is. The reader looks at this before Revert, or before approving the file.
+ */
+export async function compare(contextDir: string, project: string, id: string, which: 'kept' | 'held', index: number): Promise<Compared> {
+  const session = await loadSession(contextDir, project, id)
+  const dir = folder(contextDir, project, id)
+  const now = (relative: string) => readFile(insidePath(contextDir, relative)).catch(() => null)
+  let before: Buffer | null
+  let after: Buffer | null
+  if (which === 'held') {
+    const held = session.held[index]
+    if (!held) throw new Error('That change is not there.')
+    before = await now(held.path)
+    after = held.file === null ? null : await readFile(path.join(dir, 'held', copyName(held.file)))
+  } else {
+    const change = session.changes[index]
+    if (!change) throw new Error('That change is not there.')
+    before = change.backup === null ? null : await readFile(path.join(dir, 'backups', copyName(change.backup)))
+    after = await now(change.path)
+  }
+  const was = textOf(before)
+  const is = textOf(after)
+  if (was === null || is === null) return { note: 'Not a text file, or too large. It cannot be compared here.' }
+  const lines = changedParts(diffLines(was, is), 3)
+  return lines.length === 0 ? { note: 'The file is as it was.' } : { lines: lines.slice(0, MAX_LINES) }
 }
 
 /** The reader's yes or no to what an agent asked. It counts only while the agent still waits for it. */

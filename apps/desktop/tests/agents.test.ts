@@ -6,7 +6,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { AGENTS, SSH, listAgents, sshArgs } from '../src/main/agents.ts'
 import { changesSince, put, takeSnapshot } from '../src/main/guard.ts'
-import { listSessions, loadSession, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
+import { compare, listSessions, loadSession, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
 import { isTrusted, keepTrustIn, setTrusted } from '../src/main/trust.ts'
 
 async function context(): Promise<string> {
@@ -371,5 +371,43 @@ test('trust is kept outside the context, by the real path of the folder, and a d
     assert.equal(isTrusted(mine), false)
   } finally {
     await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a change can be looked at as lines, while it is held and after it is kept', async () => {
+  const root = await context()
+  const command = AGENTS.hermes.command
+  const stub = path.join(root, '..', `${path.basename(root)}-differ.mjs`)
+  try {
+    // A stand-in that adds a line to the draft and makes a file that is not text.
+    await writeFile(
+      stub,
+      `#!/usr/bin/env node
+import { appendFileSync, writeFileSync } from 'node:fs'
+appendFileSync('draft/document.md', 'Agent line.\\n')
+writeFileSync('draft/sheet.bin', Buffer.from([80, 75, 0, 1, 2]))
+console.log(JSON.stringify({ type: 'text', text: 'Done.' }))
+`
+    )
+    await chmod(stub, 0o755)
+    AGENTS.hermes.command = stub
+    const added = { lines: [{ kind: ' ', text: 'Draft text.' }, { kind: '+', text: 'Agent line.' }] }
+    const session = await startSession(root, 'review', 'hermes')
+
+    // Held: the file is as it was, and the reader sees what the agent wants to make of it.
+    const planned = await (await sendMessage(root, 'review', session.id, 'Go.', false, () => {})).finished
+    const held = planned.held.findIndex((each) => each.path.endsWith('document.md'))
+    assert.deepEqual(await compare(root, 'review', session.id, 'held', held), added)
+
+    // Kept: what the file holds now, against the copy from before the change.
+    const kept = await (await sendMessage(root, 'review', session.id, '', true, () => {})).finished
+    const index = (name: string) => kept.changes.findIndex((each) => each.path.endsWith(name))
+    assert.deepEqual(await compare(root, 'review', session.id, 'kept', index('document.md')), added)
+    assert.match(((await compare(root, 'review', session.id, 'kept', index('sheet.bin'))) as { note: string }).note, /Not a text file/)
+    await assert.rejects(compare(root, 'review', session.id, 'kept', 99), /not there/)
+  } finally {
+    AGENTS.hermes.command = command
+    await rm(root, { recursive: true, force: true })
+    await rm(stub, { force: true })
   }
 })

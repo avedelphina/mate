@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('mate', {
   stopTurn: (id: string) => ipcRenderer.invoke('session:stop', id),
   answerAsk: (id: string, ask: string, allow: boolean) => ipcRenderer.invoke('session:answer', id, ask, allow),
   revertChange: (project: string, id: string, index: number) => ipcRenderer.invoke('session:revert', project, id, index),
+  compare: (project: string, id: string, which: 'kept' | 'held', index: number) =>
+    ipcRenderer.invoke('session:compare', project, id, which, index),
   settleHeld: (project: string, id: string, index: number, approve: boolean) =>
     ipcRenderer.invoke('session:settle', project, id, index, approve),
   /** Returns the function that stops listening. */

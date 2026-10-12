@@ -223,5 +223,13 @@ details .prose h2, details .prose h3, .pane h2, .pane h3 { font-size: 1em; }
 .decide p:last-child { display: flex; gap: 6px; margin: 0; }
 .decide pre { max-height: 12em; margin: 0 0 8px; padding: 8px 10px; border-radius: 8px; background: var(--hover); font: 11.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow: auto; overflow-wrap: anywhere; }
 .changed { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 6px; color: var(--soft); font-size: 12px; }
+/* What a change is: the lines taken out and the lines put in. */
+.changed .acts { flex: none; }
+.diff { max-height: 24em; margin: 0 0 10px; padding: 8px 0; border-radius: 8px; background: var(--hover); font: 11.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow: auto; overflow-wrap: anywhere; }
+.diff span { display: block; padding: 0 10px; }
+.diff .in { background: var(--ok-bg); }
+.diff .out { background: var(--warn-bg); }
+.decide .diff { margin: 8px 0 0; }
+.diff-note { margin: 0 0 10px; }
 .margin code, .talk-page code { font: 0.92em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
 .talk { position: sticky; bottom: 0; margin-top: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }

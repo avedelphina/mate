@@ -349,6 +349,12 @@ turn it compares.
   when the reader approves that one file. The approval is for that file,
   once.
 
+The reader can look at a change before they decide. A kept change is
+compared with the copy from before it, and a held change with the file
+as it is. The conversation shows the lines taken out and the lines put
+in, with a few lines around them. A file that is not text, such as a
+spreadsheet, is not compared.
+
 This is the same for every agent, because it does not depend on what the
 agent says it did. `.git/hooks` is watched too. A file Mate writes itself
 during a turn, such as a comment, is told to the guard and is not taken

@@ -10,7 +10,7 @@ import { refreshIndex, searchIndex } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
 import { approve, describe, instructionFiles, keepPinsIn, unapproved } from './pins'
 import { isTrusted, keepTrustIn, setTrusted } from './trust'
-import { answerAsk, gate, listSessions, revertChange, sendMessage, settleHeld, startSession, stopTurn, type Invited, type Session } from './sessions'
+import { answerAsk, compare, gate, listSessions, revertChange, sendMessage, settleHeld, startSession, stopTurn, type Invited, type Session } from './sessions'
 
 // The name in the menu bar. Without this it is the package name.
 app.setName('Mate')
@@ -259,6 +259,11 @@ app.whenReady().then(() => {
     setTrusted(contextDir, yes === true)
     return isTrusted(contextDir)
   })
+
+  // What a kept or a held change is, as lines. It reads and writes nothing else.
+  ipcMain.handle('session:compare', (event, project: string, id: string, which: string, index: number) =>
+    compare(requireContext(event), project, id, which === 'held' ? 'held' : 'kept', Number(index))
+  )
 
   ipcMain.handle('assist:check', () => checkAssist(assistHelper))
 
