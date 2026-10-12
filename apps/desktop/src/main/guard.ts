@@ -1,4 +1,5 @@
-import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 /**
@@ -67,10 +68,29 @@ export async function changesSince(contextDir: string, before: Snapshot): Promis
   return changes.sort((a, b) => a.path.localeCompare(b.path))
 }
 
+/**
+ * A path from a session file gets no trust: anyone can write one. Nothing absolute, no
+ * backslashes, no empty or climbing parts, and where it lands must stay inside the context.
+ */
+export function insidePath(contextDir: string, relative: string): string {
+  const parts = relative.split('/')
+  if (path.isAbsolute(relative) || relative.includes('\\') || parts.some((part) => part === '' || part === '.' || part === '..')) {
+    throw new Error(`That is not a file of this context: ${relative}`)
+  }
+  const file = path.resolve(contextDir, ...parts)
+  const out = path.relative(contextDir, file)
+  if (out === '' || out.startsWith('..') || path.isAbsolute(out)) throw new Error(`That path leaves the context: ${relative}`)
+  return file
+}
+
 /** Make a file hold these bytes, or not exist. */
 export async function put(contextDir: string, relative: string, bytes: Buffer | null): Promise<void> {
-  const file = path.join(contextDir, ...relative.split('/'))
+  const file = insidePath(contextDir, relative)
   if (bytes === null) return rm(file, { force: true })
-  await mkdir(path.dirname(file), { recursive: true })
-  await writeFile(file, bytes)
+  const dir = path.dirname(file)
+  await mkdir(dir, { recursive: true })
+  // Written beside the file and renamed over it, so a crash mid-restore never leaves half a file.
+  const temporary = path.join(dir, `.${path.basename(file)}.${randomUUID()}.tmp`)
+  await writeFile(temporary, bytes)
+  await rename(temporary, file)
 }

@@ -7,7 +7,7 @@ import readline from 'node:readline'
 import { AGENTS, SSH, agentEnvironment, isHost, sshArgs, type AgentKind } from './agents'
 import { resolveInside } from './context'
 import { placeOf } from './contextIndex'
-import { changesSince, mateWrote, put, takeSnapshot, watching, type Change, type Snapshot } from './guard'
+import { changesSince, insidePath, mateWrote, put, takeSnapshot, watching, type Change, type Snapshot } from './guard'
 
 /** `waiting`: sent while the agent was working, and not yet given to it. */
 export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[]; waiting?: boolean }
@@ -223,6 +223,8 @@ async function firstWords(contextDir: string, project: string, remote: boolean):
  * `done` says the change is already in the folder, because an agent on this machine made it.
  */
 export async function judge(contextDir: string, session: Session, change: Change, done: boolean): Promise<'kept' | 'held'> {
+  // Defensive: every caller checks its paths, but judge is the last word on what may be written.
+  insidePath(contextDir, change.path)
   const dir = folder(contextDir, session.project, session.id)
   if (session.planApproved && change.path.startsWith(`projects/${session.project}/`)) {
     const backup = change.before ? `${session.changes.length}` : null
@@ -485,16 +487,25 @@ export function stopTurn(id: string): void {
   running.get(id)?.kill()
 }
 
+/** A copy kept for Revert is named by its number alone, so a session file cannot point it elsewhere. */
+function copyName(name: string): string {
+  if (!/^\d+$/.test(name)) throw new Error(`That session names no copy Mate kept: ${name}`)
+  return name
+}
+
 /** Put a file back as it was before the agent changed it. What is there now is kept beside the backup. */
 export async function revertChange(contextDir: string, project: string, id: string, index: number): Promise<Session> {
   const session = await loadSession(contextDir, project, id)
   const change = session.changes[index]
   if (!change || change.reverted) throw new Error('That change is not there to revert.')
+  // Checked before anything is written: a poisoned entry must fail, not write.
+  const file = insidePath(contextDir, change.path)
+  const backup = change.backup === null ? null : copyName(change.backup)
   const dir = path.join(folder(contextDir, project, id), 'backups')
-  const now = await readFile(path.join(contextDir, ...change.path.split('/'))).catch(() => null)
+  const now = await readFile(file).catch(() => null)
   await mkdir(dir, { recursive: true })
   if (now) await writeFile(path.join(dir, `${index}.reverted`), now)
-  const before = change.backup === null ? null : await readFile(path.join(dir, change.backup))
+  const before = backup === null ? null : await readFile(path.join(dir, backup))
   await put(contextDir, change.path, before)
   mateWrote(contextDir, change.path, before)
   change.reverted = true
@@ -514,14 +525,17 @@ export async function settleHeld(
   const held = session.held[index]
   if (!held || held.state !== 'waiting') throw new Error('That change is not waiting for an answer.')
   if (approve) {
+    // Checked before anything is written: a poisoned entry must fail, not write.
+    const file = insidePath(contextDir, held.path)
+    const kept = held.file === null ? null : copyName(held.file)
     const dir = folder(contextDir, project, id)
-    const now = await readFile(path.join(contextDir, ...held.path.split('/'))).catch(() => null)
+    const now = await readFile(file).catch(() => null)
     const backup = now ? `${session.changes.length}` : null
     if (now) {
       await mkdir(path.join(dir, 'backups'), { recursive: true })
       await writeFile(path.join(dir, 'backups', backup!), now)
     }
-    const after = held.file === null ? null : await readFile(path.join(dir, 'held', held.file))
+    const after = kept === null ? null : await readFile(path.join(dir, 'held', kept))
     await put(contextDir, held.path, after)
     mateWrote(contextDir, held.path, after)
     session.changes.push({ path: held.path, backup, reverted: false })

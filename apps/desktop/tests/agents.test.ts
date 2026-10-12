@@ -82,6 +82,47 @@ test('the guard sees what changed in the folder, and can put it back', async () 
   }
 })
 
+test('a poisoned session file cannot make Revert or Approve write outside the context', async () => {
+  const root = await context()
+  try {
+    const session = await startSession(root, 'review', 'hermes')
+    const file = path.join(root, '.sessions/review', session.id, 'session.json')
+    const dir = path.dirname(file)
+    const outside = path.join(root, '..', `${path.basename(root)}-outside.md`)
+    await mkdir(path.join(dir, 'backups'), { recursive: true })
+    await writeFile(path.join(dir, 'backups/0'), 'As it was.\n')
+    await mkdir(path.join(dir, 'held'), { recursive: true })
+    await writeFile(path.join(dir, 'held/0'), 'From the agent.\n')
+
+    // Written by hand: a change and a held file that climb out, and a backup that points away.
+    const poisoned = JSON.parse(await readFile(file, 'utf8'))
+    poisoned.changes = [
+      { path: `../${path.basename(root)}-outside.md`, backup: '0', reverted: false },
+      { path: 'shelf/classification.md', backup: '../session.json', reverted: false }
+    ]
+    poisoned.held = [{ path: `../${path.basename(root)}-outside.md`, file: '0', state: 'waiting' }]
+    await writeFile(file, JSON.stringify(poisoned))
+
+    await assert.rejects(revertChange(root, 'review', session.id, 0), /not a file of this context/)
+    await assert.rejects(revertChange(root, 'review', session.id, 1), /no copy Mate kept/)
+    await assert.rejects(settleHeld(root, 'review', session.id, 0, true), /not a file of this context/)
+    assert.equal(existsSync(outside), false)
+
+    // A sound change still reverts: the file is as it was, and what was there is kept beside the backup.
+    const sound = JSON.parse(await readFile(file, 'utf8'))
+    sound.changes = [{ path: 'shelf/classification.md', backup: '0', reverted: false }]
+    sound.held = []
+    await writeFile(file, JSON.stringify(sound))
+    await writeFile(path.join(root, 'shelf/classification.md'), 'Changed.\n')
+    const reverted = await revertChange(root, 'review', session.id, 0)
+    assert.equal(reverted.changes[0].reverted, true)
+    assert.equal(await readFile(path.join(root, 'shelf/classification.md'), 'utf8'), 'As it was.\n')
+    assert.equal(await readFile(path.join(dir, 'backups/0.reverted'), 'utf8'), 'Changed.\n')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('an agent may not write before its plan is approved, nor outside the project after', { skip: process.platform === 'win32' }, async () => {
   const root = await context()
   const command = AGENTS.hermes.command
