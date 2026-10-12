@@ -46,6 +46,8 @@ src/
     sessions.ts     conversations, turns, the rule for each change (judge)
     mcp.ts          the local MCP endpoint and its tools
     assist.ts       questions for the on-device helper
+    trust.ts        the contexts the reader trusts
+    acp.ts          an agent that stays: asks, and takes a message mid-turn
   preload/
     index.ts        window.mate: the only bridge from the window to main
   renderer/src/

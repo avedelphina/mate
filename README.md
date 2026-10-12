@@ -126,7 +126,7 @@ that file.
 |---|---|---|
 | Claude Code | `claude -p` in the project folder, with file tools only | `claude` on your `PATH` and signed in |
 | Codex | `codex exec` in the project folder | `codex` on your `PATH` and `codex login` done |
-| Hermes | `hermes chat` in the project folder, with the `file` toolset only. In a context you trust, with all its tools | `hermes` on your `PATH` |
+| Hermes | `hermes chat` in the project folder, with the `file` toolset only. In a context you trust, `hermes acp` with all its tools | `hermes` on your `PATH` |
 | Hermes on another host | `ssh <host> hermes chat -Q …` with the `todo` toolset only | a host in `~/.ssh/config` with key login and Hermes installed there |
 | Your own agent | an MCP endpoint at `http://127.0.0.1:41757/mcp` | any MCP client; see below |
 
@@ -160,11 +160,12 @@ Tools: `mate_project`, `mate_read`, `mate_search`, `mate_comments`,
 - Agents are given file tools and no shell or web access. Claude Code is
   started without the settings and hooks of the context folder or of your
   account, so a context from someone else cannot run code through them.
-- The exception is a context you mark as trusted. There Hermes runs as it
-  does in your terminal, with commands and your connections. Mate asks
-  for each folder in a system dialog and keeps the answer outside the
-  folder. It still checks what changes inside the context, and it does
-  not see what the agent does outside it.
+- The exception is a context you mark as trusted. There Hermes runs with
+  the tools it has in your terminal, commands and your connections
+  included, and asks you in the conversation before a risky command.
+  Mate asks for each folder in a system dialog and keeps the answer
+  outside the folder. It still checks what changes inside the context,
+  and it does not see what the agent does outside it.
 - The renderer is sandboxed (`sandbox`, `contextIsolation`, no
   `nodeIntegration`). It reaches the file system only through the typed
   handlers in `apps/desktop/src/main/`.

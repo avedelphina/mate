@@ -23,17 +23,15 @@ async function context(): Promise<string> {
 }
 
 test('each agent is asked to plan first, and its output is read as the same events', () => {
-  const turn = { cwd: '/c/projects/p', contextDir: '/c', resume: null, mayWrite: false, trusted: false }
+  const turn = { cwd: '/c/projects/p', contextDir: '/c', resume: null, mayWrite: false }
   assert.deepEqual(AGENTS.claude.args(turn).slice(4, 6), ['--permission-mode', 'plan'])
   assert.ok(AGENTS.claude.args({ ...turn, mayWrite: true, resume: 'abc' }).join(' ').includes('acceptEdits'))
   assert.deepEqual(AGENTS.claude.args({ ...turn, resume: 'abc' }).slice(-2), ['--resume', 'abc'])
   assert.ok(AGENTS.codex.args(turn).includes('read-only'))
   assert.deepEqual(AGENTS.codex.args({ ...turn, mayWrite: true, resume: 'abc' }).slice(-3), ['resume', 'abc', '-'])
   assert.deepEqual(AGENTS.hermes.args(turn).slice(-2), ['-t', 'file'])
-  // In a context the reader trusts, Hermes is not cut down to file tools. The others are not changed by it.
-  assert.equal(AGENTS.hermes.args({ ...turn, trusted: true }).includes('-t'), false)
-  assert.deepEqual(AGENTS.claude.args({ ...turn, trusted: true }), AGENTS.claude.args(turn))
-  assert.deepEqual(AGENTS.codex.args({ ...turn, trusted: true }), AGENTS.codex.args(turn))
+  // Only Hermes has a way to stay between turns with all its tools. It is used in a trusted context only.
+  assert.deepEqual([AGENTS.hermes.acp, AGENTS.claude.acp, AGENTS.codex.acp], [['acp'], undefined, undefined])
 
   // Lines as the three tools print them.
   assert.deepEqual(AGENTS.claude.read('{"type":"system","subtype":"init","session_id":"151100d5"}'), [{ type: 'session', id: '151100d5' }])

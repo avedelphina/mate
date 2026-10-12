@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import readline from 'node:readline'
+import { Acp, type Ask } from './acp'
 import { AGENTS, SSH, agentEnvironment, isHost, sshArgs, type AgentKind } from './agents'
 import { resolveInside } from './context'
 import { placeOf } from './contextIndex'
@@ -41,6 +42,8 @@ export type Session = {
   changes: Kept[]
   held: Held[]
   running: boolean
+  /** What the agent will not do until the reader says yes or no. Only while a turn runs. */
+  asks?: Ask[]
 }
 
 const RULES = `You have been invited into a project on a Mate desk. Mate is a tool for reviewing documents.
@@ -160,7 +163,7 @@ export async function loadSession(contextDir: string, project: string, id: strin
   if (live) return live
   const session = JSON.parse(await readFile(path.join(folder(contextDir, project, id), 'session.json'), 'utf8')) as Session
   // A session written before agents could be on another machine has neither field.
-  return { ...session, host: session.host ?? null, sent: session.sent ?? {}, queue: session.queue ?? [], running: false }
+  return { ...session, host: session.host ?? null, sent: session.sent ?? {}, queue: session.queue ?? [], running: false, asks: [] }
 }
 
 /** The sessions of a project, the newest first. */
@@ -258,8 +261,13 @@ export async function judge(contextDir: string, session: Session, change: Change
   return 'held'
 }
 
-/** The turns in progress, by session: the session as it is in memory, and when the turn will have ended. */
-const turns = new Map<string, { session: Session; finished: Promise<Session> }>()
+/**
+ * The turns in progress, by session: the session as it is in memory, and when the turn will have ended.
+ * `steer` is there when the agent can be told something while it works.
+ */
+const turns = new Map<string, { session: Session; finished: Promise<Session>; steer?: (text: string) => Promise<void> }>()
+/** The agents that stay between turns, by session. See acp.ts. They end with the app. */
+const live = new Map<string, Acp>()
 /** The contexts in which an agent is working, or is about to. */
 const busy = new Set<string>()
 /** The last message of each session to come in. The next one waits until that one has been taken in. */
@@ -309,6 +317,16 @@ export async function sendMessage(
     }
 
     const turn = turns.get(id)
+    if (turn?.steer && !approve) {
+      // Mid-turn, with an agent that listens while it works: it takes the message into the turn.
+      try {
+        await turn.steer(message)
+        emit(session)
+        return { started: session, finished: turn.finished }
+      } catch {
+        // It could not be told. The message waits behind the turn, like any other.
+      }
+    }
     if (turn) {
       // Mid-turn. An approval that waits does not count for what the agent is doing now.
       session.messages.push({ role: 'you', text: message, tools: [], waiting: true })
@@ -353,13 +371,19 @@ async function begin(
   }
 
   const mayWrite = session.planApproved
-  const answer: Message = { role: 'agent', text: '', tools: [] }
+  let answer: Message = { role: 'agent', text: '', tools: [] }
+  // More than one when the reader says something mid-turn: what follows is the answer to that.
+  const answers = [answer]
   session.messages.push(answer)
   session.running = true
 
   let child: ChildProcess
   let snapshot: Snapshot
+  let prompt = ''
+  let conn: Acp | undefined
   const adapter = AGENTS[session.agent as AgentKind]
+  // In a context the reader trusts, an agent that can stay between turns does, with all its tools.
+  const acp = !session.host && isTrusted(contextDir) ? adapter.acp : undefined
   try {
     const state = mayWrite
       ? '[The plan is approved. You may edit files inside this project.]'
@@ -370,7 +394,8 @@ async function begin(
     const files = session.host ? pack(snapshot, session.sent) : ''
     // An agent that can pick its conversation up again is told only what is new.
     // One that cannot is given the conversation so far.
-    const prompt = session.agentSession
+    const known = acp ? live.get(id)?.alive === true : Boolean(session.agentSession)
+    prompt = known
       ? [files && `These files are new or have changed:\n\n${files}`, state, message].filter(Boolean).join('\n\n')
       : [
           await firstWords(contextDir, project, session.host !== null),
@@ -383,16 +408,31 @@ async function begin(
           .join('\n\n')
 
     watching.set(contextDir, snapshot)
-    const turn = { cwd: projectDir, contextDir, resume: session.agentSession, mayWrite, trusted: isTrusted(contextDir) }
-    child = session.host
-      ? spawn(SSH.command, sshArgs(session.host, adapter.command, adapter.remoteArgs!(session.agentSession)), {
-          env: agentEnvironment()
-        })
-      : spawn(adapter.command, adapter.args(turn), { cwd: projectDir, env: agentEnvironment() })
-    running.set(id, child)
-    child.stdin?.on('error', () => {})
-    child.stdin?.end(prompt)
+    if (acp) {
+      // It takes a few seconds to start. The turn is under way meanwhile, and can be stopped.
+      conn = live.get(id)?.alive ? live.get(id)! : Acp.start(adapter.command, acp, projectDir, agentEnvironment())
+      live.set(id, conn)
+      child = conn.child
+      running.set(id, child)
+    } else {
+      // The context is trusted no more, or never was: an agent that stayed is sent away.
+      live.get(id)?.close()
+      live.delete(id)
+      const turn = { cwd: projectDir, contextDir, resume: session.agentSession, mayWrite }
+      child = session.host
+        ? spawn(SSH.command, sshArgs(session.host, adapter.command, adapter.remoteArgs!(session.agentSession)), {
+            env: agentEnvironment()
+          })
+        : spawn(adapter.command, adapter.args(turn), { cwd: projectDir, env: agentEnvironment() })
+      running.set(id, child)
+      child.stdin?.on('error', () => {})
+      child.stdin?.end(prompt)
+    }
   } catch (caught) {
+    if (conn) {
+      conn.close()
+      live.delete(id)
+    }
     session.messages.splice(session.messages.indexOf(answer), 1)
     release()
     settle(session)
@@ -409,30 +449,36 @@ async function begin(
 
   const errors: string[] = []
   let complaint = ''
-  child.stderr?.on('data', (chunk: Buffer) => {
-    complaint = (complaint + chunk.toString()).slice(-600)
-    // Some agents say on stderr which conversation this is.
-    const named = /^session_id:\s*(\S+)/m.exec(chunk.toString())
-    if (named) session.agentSession = named[1]
-  })
-  const read = (session.host && adapter.remoteRead) || adapter.read
-  readline.createInterface({ input: child.stdout! }).on('line', (line) => {
-    for (const event of read(line)) {
-      if (event.type === 'session') session.agentSession = event.id
-      if (event.type === 'text') answer.text += event.text
-      if (event.type === 'tool') answer.tools.push(`${event.name} ${event.detail}`.trim())
-      if (event.type === 'error') errors.push(event.message)
-    }
-    update()
-  })
+  // An agent that stays is read by its own connection. One started for this turn is read here.
+  if (!conn) {
+    child.stderr?.on('data', (chunk: Buffer) => {
+      complaint = (complaint + chunk.toString()).slice(-600)
+      // Some agents say on stderr which conversation this is.
+      const named = /^session_id:\s*(\S+)/m.exec(chunk.toString())
+      if (named) session.agentSession = named[1]
+    })
+    const read = (session.host && adapter.remoteRead) || adapter.read
+    readline.createInterface({ input: child.stdout! }).on('line', (line) => {
+      for (const event of read(line)) {
+        if (event.type === 'session') session.agentSession = event.id
+        if (event.type === 'text') answer.text += event.text
+        if (event.type === 'tool') answer.tools.push(`${event.name} ${event.detail}`.trim())
+        if (event.type === 'error') errors.push(event.message)
+      }
+      update()
+    })
+  }
 
   let ended = false
   const end = async (failure?: string) => {
     if (ended) return
     ended = true
     clearTimeout(timer)
-    answer.text = answer.text.trim()
-    if (!answer.text && answer.tools.length === 0) session.messages.splice(session.messages.indexOf(answer), 1)
+    session.asks = []
+    for (const each of answers) {
+      each.text = each.text.trim()
+      if (!each.text && each.tools.length === 0) session.messages.splice(session.messages.indexOf(each), 1)
+    }
     if (failure) session.messages.push({ role: 'mate', text: failure, tools: [] })
 
     // An agent on this machine has changed the folder. One on another machine has said what it wants changed.
@@ -476,17 +522,69 @@ async function begin(
       settle(session)
     }
   }
-  child.on('error', () => void end(`${adapter.label} is not on this computer, or could not be started.`))
-  child.on('close', (code, signal) => {
-    if (signal) return void end('Stopped.')
-    const error = errors[errors.length - 1]
-    if (error && /401|unauthori[sz]ed|not logged in/i.test(error)) {
-      return void end(`${error}\n\n${adapter.label} is not signed in. Sign in to it in a terminal, then send the message again.`)
+  if (conn) {
+    const agent = conn
+    turns.get(id)!.steer = async (text) => {
+      // What the agent says from here on is its answer to this, so it gets a message of its own.
+      const said: Message = { role: 'you', text, tools: [] }
+      const before = answer
+      answer = { role: 'agent', text: '', tools: [] }
+      answers.push(answer)
+      session.messages.push(said, answer)
+      try {
+        await agent.steer(text)
+      } catch (caught) {
+        session.messages.splice(session.messages.indexOf(said), 2)
+        answers.pop()
+        answer = before
+        throw caught
+      }
     }
-    if (error) return void end(error)
-    if (code !== 0) return void end(`${adapter.label} stopped with an error.${complaint ? `\n\n${complaint.trim()}` : ''}`)
-    void end()
-  })
+    agent.ready
+      // Until the plan is approved the agent asks before every edit. After it, the guard is enough.
+      .then(() => agent.mode(mayWrite ? 'accept_edits' : 'default'))
+      .then(() =>
+        agent.turn(prompt, {
+          text: (text) => {
+            answer.text = agent.withoutEcho(answer.text + text)
+            update()
+          },
+          step: (step) => {
+            answer.tools.push(step)
+            update()
+          },
+          ask: (ask) => {
+            session.asks = [...(session.asks ?? []), ask]
+            update()
+          },
+          asked: (askId) => {
+            session.asks = (session.asks ?? []).filter((each) => each.id !== askId)
+            update()
+          }
+        })
+      )
+      .then(
+        () => void end(),
+        (caught: Error) => {
+          // It stopped or was stopped. The next turn starts it again, with the conversation so far.
+          agent.close()
+          live.delete(id)
+          void end(caught.message)
+        }
+      )
+  } else {
+    child.on('error', () => void end(`${adapter.label} is not on this computer, or could not be started.`))
+    child.on('close', (code, signal) => {
+      if (signal) return void end('Stopped.')
+      const error = errors[errors.length - 1]
+      if (error && /401|unauthori[sz]ed|not logged in/i.test(error)) {
+        return void end(`${error}\n\n${adapter.label} is not signed in. Sign in to it in a terminal, then send the message again.`)
+      }
+      if (error) return void end(error)
+      if (code !== 0) return void end(`${adapter.label} stopped with an error.${complaint ? `\n\n${complaint.trim()}` : ''}`)
+      void end()
+    })
+  }
 
   await saveSession(contextDir, session)
   return { started: session, finished }
@@ -494,6 +592,11 @@ async function begin(
 
 export function stopTurn(id: string): void {
   running.get(id)?.kill()
+}
+
+/** The reader's yes or no to what an agent asked. It counts only while the agent still waits for it. */
+export function answerAsk(id: string, ask: string, allow: boolean): void {
+  live.get(id)?.answer(ask, allow === true)
 }
 
 /** A copy kept for Revert is named by its number alone, so a session file cannot point it elsewhere. */

@@ -19,8 +19,6 @@ export type Turn = {
   resume: string | null
   /** False until the reviewer has approved the plan. */
   mayWrite: boolean
-  /** The reader trusts this context. See trust.ts. */
-  trusted: boolean
 }
 
 type Adapter = {
@@ -28,6 +26,11 @@ type Adapter = {
   command: string
   /** The message goes in on stdin, never on the command line. */
   args(turn: Turn): string[]
+  /**
+   * The arguments that start the agent speaking the Agent Client Protocol, with all its own tools.
+   * It is started this way only in a context the reader trusts. See acp.ts and trust.ts.
+   */
+  acp?: string[]
   /**
    * The arguments on another machine, where the agent has no folder and is given no file tools.
    * Only an agent that has this can be invited over SSH.
@@ -47,11 +50,12 @@ const short = (value: unknown) => (typeof value === 'string' ? value : JSON.stri
  * Each agent is run without a terminal, with tools for reading and editing files and nothing else:
  * no shell, no web. What it may write is not left to the agent. The guard in guard.ts decides.
  *
- * In a context the reader trusts, Hermes is not held to that: it runs as it does in the reader's
- * own terminal. The guard still rules on the context folder, and sees nothing outside it.
+ * In a context the reader trusts, Hermes is not held to that: it runs with the tools it has in the
+ * reader's own terminal, and asks the reader before what it would ask there. The guard still rules
+ * on the context folder, and sees nothing outside it.
  */
 // ponytail: trust changes Hermes only. Claude and Codex keep their limits in every context.
-// Give each its own unlimited arguments when someone works with them that way.
+// Give each its own `acp` when someone works with them that way.
 export const AGENTS: Record<AgentKind, Adapter> = {
   claude: {
     label: 'Claude',
@@ -135,10 +139,11 @@ export const AGENTS: Record<AgentKind, Adapter> = {
       turn.cwd,
       '--source',
       'tool',
-      // With no `-t`, Hermes has the toolsets the reader gave it: commands, skills, connections.
-      ...(turn.trusted ? [] : ['-t', 'file']),
+      '-t',
+      'file',
       ...(turn.resume ? ['--resume', turn.resume] : [])
     ],
+    acp: ['acp'],
     // `todo` is a toolset that touches nothing. Hermes must not read or write the other machine's files.
     // Quiet text, not the event stream: an older Hermes on the other machine does not have the stream.
     // In quiet mode the answer is all that is printed, and the session id goes to stderr.

@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('mate', {
   sendMessage: (project: string, id: string, text: string, approve: boolean) =>
     ipcRenderer.invoke('session:send', project, id, text, approve),
   stopTurn: (id: string) => ipcRenderer.invoke('session:stop', id),
+  answerAsk: (id: string, ask: string, allow: boolean) => ipcRenderer.invoke('session:answer', id, ask, allow),
   revertChange: (project: string, id: string, index: number) => ipcRenderer.invoke('session:revert', project, id, index),
   settleHeld: (project: string, id: string, index: number, approve: boolean) =>
     ipcRenderer.invoke('session:settle', project, id, index, approve),

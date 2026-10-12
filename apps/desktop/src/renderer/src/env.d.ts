@@ -57,6 +57,9 @@ export type AgentInfo = { kind: AgentKind; label: string; found: boolean; host: 
 /** `waiting`: sent while the agent was working, and not yet given to it. */
 export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[]; waiting?: boolean }
 
+/** Something an agent will not do until the reader says yes or no. `detail` is the command or the file. */
+export type Ask = { id: string; title: string; detail: string }
+
 /** A conversation with one agent inside one project. See src/main/sessions.ts. */
 export type Session = {
   id: string
@@ -73,6 +76,8 @@ export type Session = {
   /** Changes Mate put back, waiting for the reader to approve that one file. */
   held: { path: string; state: 'waiting' | 'approved' | 'discarded' }[]
   running: boolean
+  /** What the agent is asking right now. Only while a turn runs, and only from an agent that stays. */
+  asks?: Ask[]
 }
 
 /** `present`: the helper is on this machine. `available`: the model behind it can answer now. */
@@ -103,6 +108,8 @@ export type MateApi = {
   startSession: (project: string, agent: AgentKind, host?: string) => Promise<Session>
   sendMessage: (project: string, id: string, text: string, approve: boolean) => Promise<Session>
   stopTurn: (id: string) => Promise<void>
+  /** Yes or no to what the agent asked. Yes is for that one thing, once. */
+  answerAsk: (id: string, ask: string, allow: boolean) => Promise<void>
   revertChange: (project: string, id: string, index: number) => Promise<Session>
   settleHeld: (project: string, id: string, index: number, approve: boolean) => Promise<Session>
   onSession: (listener: (session: Session) => void) => () => void

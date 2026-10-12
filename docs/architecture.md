@@ -50,7 +50,8 @@ preload as CommonJS. Leave that as it is.
 | What a pane is, and how it is read | `readProject` in `src/main/context.ts`, then `App.tsx` |
 | The tree of a project's files | `listFiles` in `src/main/context.ts`, then `Tree.tsx` |
 | How an agent is started and its output read | `src/main/agents.ts` |
-| Which contexts are trusted, and what trust changes | `src/main/trust.ts`, then the arguments in `src/main/agents.ts` |
+| Which contexts are trusted, and what trust changes | `src/main/trust.ts`, then `acp` in `src/main/agents.ts` |
+| How an agent that stays is spoken to, and what it may ask | `src/main/acp.ts` |
 | What an agent may change | `src/main/guard.ts`, then `src/main/sessions.ts` |
 | What an agent is told at the start | `RULES` in `src/main/sessions.ts` |
 | What an agent of the reader's own can do | `src/main/mcp.ts` |
@@ -270,11 +271,34 @@ folder. Nothing inside a context can make that context trusted.
 `trust.ts` is the whole of it.
 
 In a trusted context, Hermes on this computer is started without the
-limit. It runs as it does in the reader's terminal: its own tools, its
-skills, the reader's connections, commands. So the reader can ask for
+limit. It has the tools it has in the reader's terminal: its own tools,
+its skills, the reader's connections, commands. So the reader can ask for
 work Mate has no feature for, such as next month's spreadsheet made from
 the ones already in the folder. Trust does not change Claude, Codex, or
 an agent on another machine.
+
+Such an agent is not started once for each turn. It is started as
+`hermes acp` and stays, and Mate speaks the Agent Client Protocol with
+it: one JSON message a line on its stdin and stdout. `acp.ts` is the
+whole of that. Three things follow.
+
+- **The agent can ask.** Before a command it judges risky, or an edit
+  while no plan is approved, it asks and waits. The conversation shows
+  the question with the command or the file, and Allow once or Deny. Yes
+  is only ever for that one thing: if the agent offers no such answer,
+  Mate answers no. An ask that is still open when the turn ends is over.
+- **The agent can be told something while it works.** A message sent
+  mid-turn goes to it at once, and it takes it into the turn. An approval
+  still waits behind the turn, as before.
+- **The plan gate is in the agent too.** Until the plan is approved the
+  agent is in the mode that asks before every edit. After it, edits go
+  through, and the guard rules on them as on any other.
+
+The agent stays until the app is quit, the turn is stopped, or the
+context is trusted no more. A new one is then given the conversation so
+far, as an agent that cannot pick its conversation up is. Hermes can
+load an earlier conversation, but in 0.21.5 a loaded one cannot reach a
+custom provider, so Mate does not use that yet.
 
 The guard still looks at the context folder after every turn, and the
 same rule decides. A change in the open project after the plan is kept.
@@ -359,9 +383,10 @@ A message sent while the agent is working does not stop the turn. It is
 taken in at once, shown as waiting, and goes to the agent as soon as the
 turn has ended. Several that waited go as one. An approval that waits
 does not count for the turn that is running: what the agent changes in
-that turn is still held. None of these agents can be spoken to in the
-middle of a turn, so a message waits behind the turn and does not steer
-it.
+that turn is still held. An agent started once for each turn cannot be
+spoken to in the middle of it, so a message waits behind the turn and
+does not steer it. Hermes in a trusted context stays and listens: see
+"A trusted context".
 
 While a turn runs, the session in memory is the one that counts. Anything
 that changes the session then, such as Revert, changes that one.

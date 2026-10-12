@@ -1,0 +1,189 @@
+import { spawn, type ChildProcess } from 'node:child_process'
+import readline from 'node:readline'
+
+/**
+ * A live conversation with an agent over the Agent Client Protocol: JSON-RPC, one message a
+ * line, on the agent's stdin and stdout. Unlike an agent started once for each turn, this one
+ * stays, so it can ask the reader before it does something, and be told something while it works.
+ *
+ * The frames are as Hermes Agent 0.21.5 sends them. Mate asks for no capability of its own: the
+ * agent reads and writes with its own tools, and the guard looks at the folder afterwards.
+ */
+
+type Json = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
+
+/** Something the agent will not do until the reader has said yes or no. */
+export type Ask = { id: string; title: string; detail: string }
+
+/** What a turn tells whoever started it. */
+export type Hooks = {
+  text(text: string): void
+  /** One step the agent takes, as it names it. */
+  step(step: string): void
+  ask(ask: Ask): void
+  /** An ask is over: answered, or the turn ended first. */
+  asked(id: string): void
+}
+
+type Option = { kind?: string; optionId?: string }
+
+/**
+ * The reader's yes or no, as the agent wants it. Yes is only ever "this once": if the agent does
+ * not offer that, the answer is no, so that nothing is allowed for good on the reader's behalf.
+ */
+export function outcome(options: Option[], allow: boolean): Json {
+  const of = (kind: string) => options.find((each) => each?.kind === kind && typeof each.optionId === 'string')
+  const pick = (allow ? of('allow_once') : undefined) ?? of('reject_once')
+  return pick ? { outcome: { outcome: 'selected', optionId: pick.optionId } } : { outcome: { outcome: 'cancelled' } }
+}
+
+const short = (value: unknown, length: number) => (typeof value === 'string' ? value : JSON.stringify(value ?? '')).slice(0, length)
+
+export class Acp {
+  readonly child: ChildProcess
+  private next = 0
+  private readonly waiting = new Map<number, { resolve: (result: Json) => void; reject: (error: Error) => void }>()
+  private readonly asks = new Map<string, { request: number | string; options: Option[] }>()
+  private hooks: Hooks | null = null
+  private sessionId = ''
+  private complaint = ''
+  private gone: Error | null = null
+  /** What the agent echoes when it is steered. It is the reader's own words, so it is not shown twice. */
+  private echo = ''
+
+  /** Settles when the agent has answered and a conversation is open. Until then nothing else is sent. */
+  readonly ready: Promise<void>
+
+  private constructor(child: ChildProcess, cwd: string) {
+    this.child = child
+    child.stdin?.on('error', () => {})
+    child.stderr?.on('data', (chunk: Buffer) => (this.complaint = (this.complaint + chunk.toString()).slice(-600)))
+    readline.createInterface({ input: child.stdout! }).on('line', (line) => this.take(line))
+    const end = (why: string) => {
+      this.gone ??= new Error(why)
+      for (const each of this.waiting.values()) each.reject(this.gone)
+      this.waiting.clear()
+    }
+    child.on('error', () => end('The agent is not on this computer, or could not be started.'))
+    child.on('close', (_code, signal) => end(signal ? 'Stopped.' : `The agent stopped.${this.complaint ? `\n\n${this.complaint.trim()}` : ''}`))
+    this.ready = this.open(cwd)
+    // Whoever starts a turn hears of a failure there. Nobody else has to.
+    this.ready.catch(() => {})
+  }
+
+  /** Start the agent in a folder. It is there at once, to be stopped, and `ready` when it can be spoken to. */
+  static start(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv): Acp {
+    return new Acp(spawn(command, args, { cwd, env }), cwd)
+  }
+
+  private async open(cwd: string): Promise<void> {
+    await this.request('initialize', {
+      protocolVersion: 1,
+      clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
+      clientInfo: { name: 'mate', version: '0' }
+    })
+    // ponytail: always a new conversation. `session/load` brings one back, but on Hermes 0.21.5 a
+    // loaded session cannot reach a custom provider (401). Load it when that works.
+    const made = await this.request('session/new', { cwd, mcpServers: [] })
+    if (typeof made.sessionId !== 'string') throw new Error('The agent opened no conversation.')
+    this.sessionId = made.sessionId
+  }
+
+  get alive(): boolean {
+    return this.gone === null
+  }
+
+  private send(message: Json): void {
+    this.child.stdin?.write(JSON.stringify({ jsonrpc: '2.0', ...message }) + '\n')
+  }
+
+  private request(method: string, params: Json): Promise<Json> {
+    if (this.gone) return Promise.reject(this.gone)
+    return new Promise((resolve, reject) => {
+      const id = ++this.next
+      this.waiting.set(id, { resolve, reject })
+      this.send({ id, method, params })
+    })
+  }
+
+  /** One line from the agent: an answer to something Mate asked, news of the turn, or a question. */
+  private take(line: string): void {
+    let message: Json
+    try {
+      message = JSON.parse(line)
+    } catch {
+      return
+    }
+    if (!message || typeof message !== 'object') return
+    if (typeof message.method !== 'string') {
+      const pending = this.waiting.get(message.id)
+      this.waiting.delete(message.id)
+      if (message.error) pending?.reject(new Error(short(message.error.message ?? message.error, 300)))
+      else pending?.resolve(message.result ?? {})
+      return
+    }
+    const params: Json = message.params ?? {}
+    // The agent tells every client about every conversation it has. Only this one is ours.
+    if (params.sessionId !== this.sessionId) return
+    if (message.method === 'session/update') return this.news(params.update ?? {})
+    if (message.method === 'session/request_permission') {
+      const call: Json = params.toolCall ?? {}
+      const id = String(call.toolCallId ?? message.id)
+      const input: Json = call.rawInput?.arguments ?? call.rawInput ?? {}
+      this.asks.set(id, { request: message.id, options: Array.isArray(params.options) ? params.options : [] })
+      // With nobody to ask, the answer is no.
+      if (!this.hooks) return this.answer(id, false)
+      return this.hooks.ask({ id, title: short(call.title ?? 'The agent asks to go on', 200), detail: short(input.command ?? input.path ?? '', 600) })
+    }
+    // Mate offers the agent nothing else, and says so if it is asked.
+    if (message.id !== undefined) this.send({ id: message.id, error: { code: -32601, message: 'Mate does not do that.' } })
+  }
+
+  private news(update: Json): void {
+    if (!this.hooks) return
+    if (update.sessionUpdate === 'agent_message_chunk' && update.content?.type === 'text') this.hooks.text(String(update.content.text ?? ''))
+    if (update.sessionUpdate === 'tool_call' && typeof update.title === 'string') this.hooks.step(short(update.title, 200))
+  }
+
+  /** Whether edits need the reader's yes each time (`default`) or go through (`accept_edits`). The guard rules either way. */
+  async mode(id: 'default' | 'accept_edits'): Promise<void> {
+    await this.request('session/set_mode', { sessionId: this.sessionId, modeId: id })
+  }
+
+  /** One turn. It ends when the agent stops. What is still asked then is over. */
+  async turn(text: string, hooks: Hooks): Promise<void> {
+    this.hooks = hooks
+    try {
+      await this.request('session/prompt', { sessionId: this.sessionId, prompt: [{ type: 'text', text }] })
+    } finally {
+      for (const id of [...this.asks.keys()]) this.answer(id, false)
+      this.hooks = null
+      this.echo = ''
+    }
+  }
+
+  /** Say something to the agent while it works. It takes it into the turn it is in. */
+  async steer(text: string): Promise<void> {
+    this.echo = `⏩ Steer queued for the active turn: ${text}`
+    await this.request('session/prompt', { sessionId: this.sessionId, prompt: [{ type: 'text', text: `/steer ${text}` }] })
+  }
+
+  /** The agent's own note that it was steered, when `text` holds it. */
+  withoutEcho(text: string): string {
+    return this.echo ? text.replace(this.echo, '') : text
+  }
+
+  answer(id: string, allow: boolean): void {
+    const ask = this.asks.get(id)
+    if (!ask) return
+    this.asks.delete(id)
+    this.send({ id: ask.request, result: outcome(ask.options, allow) })
+    this.hooks?.asked(id)
+  }
+
+  close(): void {
+    this.gone ??= new Error('Stopped.')
+    this.child.stdin?.end()
+    this.child.kill()
+  }
+}

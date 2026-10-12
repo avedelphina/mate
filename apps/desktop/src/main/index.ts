@@ -9,7 +9,7 @@ import { addComment, editDraft, listProjects, readContextFile, readProject } fro
 import { refreshIndex, searchIndex } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
 import { isTrusted, keepTrustIn, setTrusted } from './trust'
-import { listSessions, revertChange, sendMessage, settleHeld, startSession, stopTurn, type Invited, type Session } from './sessions'
+import { answerAsk, listSessions, revertChange, sendMessage, settleHeld, startSession, stopTurn, type Invited, type Session } from './sessions'
 
 // The name in the menu bar. Without this it is the package name.
 app.setName('Mate')
@@ -198,6 +198,9 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('session:stop', (_event, id: string) => stopTurn(id))
+
+  // The reader's yes or no to what an agent asked before it goes on. Yes is for that one thing, once.
+  ipcMain.handle('session:answer', (_event, id: string, ask: string, allow: boolean) => answerAsk(String(id), String(ask), allow === true))
 
   ipcMain.handle('session:revert', (event, project: string, id: string, index: number) =>
     revertChange(requireContext(event), project, id, index)

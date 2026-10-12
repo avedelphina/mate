@@ -138,6 +138,8 @@ export function Agent({ project, onChanged, into }: { project: string; onChanged
   const answers = session.messages.filter((message) => message.role === 'agent').length - (session.running ? 1 : 0)
   const planned = answers > 0
   const approving = session.queue.some((each) => each.approve)
+  // In a trusted context Hermes on this computer stays between turns, and can be told something while it works.
+  const listens = trusted && session.agent === 'hermes' && !session.host
 
   return createPortal(
     <>
@@ -145,7 +147,7 @@ export function Agent({ project, onChanged, into }: { project: string; onChanged
         <button className="quiet" onClick={() => setOpen(null)}>‹ Sessions</button>
         <span>
           {label(session)} · {session.planApproved ? 'may edit this project' : 'plan not approved'}
-          {trusted && session.agent === 'hermes' && !session.host && ' · trusted'}
+          {listens && ' · trusted'}
         </span>
       </p>
       {door && (
@@ -171,6 +173,18 @@ export function Agent({ project, onChanged, into }: { project: string; onChanged
         </div>
       ))}
       {session.running && <p className="meta working">Working…</p>}
+
+      {/* The agent waits here for a yes or a no. Yes is for this one thing, once. */}
+      {(session.asks ?? []).map((ask) => (
+        <div key={ask.id} className="decide" role="alert">
+          <p>{label(session)} asks: {ask.title}</p>
+          {ask.detail && <pre>{ask.detail}</pre>}
+          <p>
+            <button className="primary" onClick={() => void window.mate.answerAsk(session.id, ask.id, true)}>Allow once</button>
+            <button className="quiet" onClick={() => void window.mate.answerAsk(session.id, ask.id, false)}>Deny</button>
+          </p>
+        </div>
+      ))}
 
       {session.held.map(
         (held, index) =>
@@ -208,7 +222,9 @@ export function Agent({ project, onChanged, into }: { project: string; onChanged
           value={text}
           placeholder={
             session.running
-              ? 'Add something. It goes to the agent when this turn has ended.'
+              ? listens
+                ? 'Add something. The agent takes it into what it is doing.'
+                : 'Add something. It goes to the agent when this turn has ended.'
               : !planned
                 ? 'Say what you want done'
                 : session.planApproved
