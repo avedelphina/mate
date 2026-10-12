@@ -1,10 +1,17 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { readdir, readFile, realpath, rename, writeFile } from 'node:fs/promises'
+import { readdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { insertComment, readDocument, type Thread } from '../shared/comments'
 import { placeOf, type Place } from './contextIndex'
 import { mateWrote } from './guard'
+
+/**
+ * A file in a project's `panes/` folder. An agent writes it to show the reader something beside
+ * the draft: tasks, deadlines, mail. `written` is when the file last changed, so the reader can
+ * tell how old it is.
+ */
+export type Pane = { name: string; text: string; written: number }
 
 export type DocumentView = {
   project: string
@@ -15,6 +22,7 @@ export type DocumentView = {
   comments: Thread[]
   intents: string
   principles: string
+  panes: Pane[]
 }
 
 /** A file of the context that is not under review here: the shelf, a project's intents. Shown, never written. */
@@ -83,7 +91,16 @@ export async function readProject(contextDir: string, project: string, file?: st
   const principles = existsSync(path.join(projectDir, 'principles.md'))
     ? await readFile(path.join(projectDir, 'principles.md'), 'utf8')
     : ''
-  return { project, drafts, file: chosen, ...document, intents, principles }
+  // A pane is read like any file that is not reviewed, so it passes the same path check.
+  const names = (await listMarkdown(path.join(projectDir, 'panes'))).filter((name) => !name.startsWith('.'))
+  const panes = await Promise.all(
+    names.map(async (name) => ({
+      name,
+      text: (await readContextFile(contextDir, `projects/${project}/panes/${name}`)).text,
+      written: (await stat(path.join(projectDir, 'panes', name))).mtimeMs
+    }))
+  )
+  return { project, drafts, file: chosen, ...document, intents, principles, panes }
 }
 
 /** Read the draft, change it, and put it back whole. */

@@ -13,6 +13,9 @@ export type ReviewComment = {
 /** `start` is where the quote sits in the document text. Null when the quote is no longer there. */
 export type Thread = ReviewComment & { start: number | null }
 
+/** A file in a project's `panes/` folder, written by an agent to be shown beside the draft. `written` is when. */
+export type Pane = { name: string; text: string; written: number }
+
 export type DocumentView = {
   project: string
   drafts: string[]
@@ -21,10 +24,11 @@ export type DocumentView = {
   comments: Thread[]
   intents: string
   principles: string
+  panes: Pane[]
 }
 
-/** Where a file stands in the context. The shelf is what is true now. A draft is a proposal. */
-export type Kind = 'shelf' | 'draft' | 'project' | 'context'
+/** Where a file stands in the context. The shelf is what is true now. A draft is a proposal. A pane is neither. */
+export type Kind = 'shelf' | 'draft' | 'project' | 'context' | 'pane'
 
 /** A file that is read here and not reviewed: the shelf, a project's intents. */
 export type FileView = { path: string; kind: Kind; project: string | null; text: string }

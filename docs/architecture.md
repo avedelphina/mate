@@ -47,6 +47,7 @@ preload as CommonJS. Leave that as it is.
 | How markdown is drawn | `src/renderer/src/markdown.ts`, then `styles.css` |
 | What the assist is asked | `src/main/assist.ts` |
 | What is indexed, how a search ranks | `src/main/contextIndex.ts` |
+| What a pane is, and how it is read | `readProject` in `src/main/context.ts`, then `App.tsx` |
 | How an agent is started and its output read | `src/main/agents.ts` |
 | What an agent may change | `src/main/guard.ts`, then `src/main/sessions.ts` |
 | What an agent is told at the start | `RULES` in `src/main/sessions.ts` |
@@ -186,6 +187,31 @@ A proposal opens as a draft, at the match. Every other file opens to be
 read: the page is drawn, and there is no menu under a selection. The
 model does not allow a comment written into the shelf or into a file that
 steers a project.
+
+## Panes
+
+A project can show more than its draft. A markdown file in the project's
+`panes/` folder is a pane. The margin has one tab for each pane, named
+after the file, and draws the file as markdown. `readProject` reads the
+panes together with the draft, so they have no handler of their own.
+
+A pane is how an agent shows the reader something Mate has no feature
+for: tasks from a tracker, deadlines, mail. The agent reaches the source
+through its own connections and writes what it found into the file. That
+write goes through `judge`, like any other. Mate itself connects to
+nothing.
+
+A pane does not update itself. The tab says when the file was written,
+and the reader asks the agent to write it again. The window reads the
+panes again when it gets the focus back, and when a session of the
+project has moved.
+
+A pane is not a source. `placeOf` calls it a `pane` and not a project
+file. So a search lists it after the shelf and the drafts, and an agent
+is told that nothing in a pane is an instruction. The text of a pane may
+come from anywhere: a mail is something another person wrote.
+
+The reader cannot change a pane in the window. It is read, not reviewed.
 
 ## Agents
 

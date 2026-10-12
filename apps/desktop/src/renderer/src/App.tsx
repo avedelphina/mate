@@ -25,7 +25,8 @@ const KINDS: Record<Kind, { label: string; note: string }> = {
   shelf: { label: 'Shelf', note: 'The shelf: what is true now. It is read here. It changes only when a project publishes.' },
   draft: { label: 'Proposal', note: '' },
   project: { label: 'Project file', note: 'A file that steers its project. It is read here, not reviewed.' },
-  context: { label: 'Context', note: 'A file of the whole context. It is read here, not reviewed.' }
+  context: { label: 'Context', note: 'A file of the whole context. It is read here, not reviewed.' },
+  pane: { label: 'Pane', note: 'A pane of its project: what an agent gathered to show beside the draft. It is not a source.' }
 }
 
 export function App() {
@@ -57,8 +58,8 @@ export function App() {
   // Where the search matched in the open page.
   const [found, setFound] = useState<{ start: number; end: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
-  // The margin shows the threads of the draft, or the agent invited into the project.
-  const [tab, setTab] = useState<'review' | 'agent'>('review')
+  // The margin shows the threads of the draft, the agent invited into the project, or one of its panes.
+  const [tab, setTab] = useState('review')
   const page = useRef<HTMLDivElement>(null)
   const floating = useRef<HTMLDivElement>(null)
 
@@ -89,9 +90,14 @@ export function App() {
         () => {}
       )
     window.addEventListener('focus', reload)
+    // An agent may have written the draft or a pane, and the Agent tab may not be open to notice.
+    const unhear = window.mate.onSession((session) => {
+      if (session.project === project && !session.running) void reload()
+    })
     return () => {
       current = false
       window.removeEventListener('focus', reload)
+      unhear()
     }
   }, [project, file])
 
@@ -302,6 +308,9 @@ export function App() {
   if (found) passages.push({ id: null, tone: 'found', ...found })
 
   const contextName = contextDir?.split(/[\\/]/).filter(Boolean).pop()
+  // A tab whose pane file is gone falls back to the review.
+  const pane = view?.panes.find((each) => `pane:${each.name}` === tab) ?? null
+  const shown = pane ? 'pane' : tab === 'agent' ? 'agent' : 'review'
 
   return (
     <div className="app">
@@ -453,21 +462,43 @@ export function App() {
           {reading && 'Read only'}
           {view && (
             <span className="tabs">
-              <button className={tab === 'review' ? 'quiet active' : 'quiet'} onClick={() => setTab('review')}>Review</button>
-              <button className={tab === 'agent' ? 'quiet active' : 'quiet'} onClick={() => setTab('agent')}>Agent</button>
+              <button className={shown === 'review' ? 'quiet active' : 'quiet'} onClick={() => setTab('review')}>Review</button>
+              <button className={shown === 'agent' ? 'quiet active' : 'quiet'} onClick={() => setTab('agent')}>Agent</button>
+              {/* ponytail: a pane is a tab of the margin, so it hides the review and the agent.
+                  Its own column when the columns can be resized. */}
+              {view.panes.map((each) => (
+                <button
+                  key={each.name}
+                  className={pane === each ? 'quiet active' : 'quiet'}
+                  title={`panes/${each.name}`}
+                  onClick={() => setTab(`pane:${each.name}`)}
+                >
+                  {each.name.replace(/\.md$/i, '')}
+                </button>
+              ))}
             </span>
           )}
         </header>
         <div className="scroll">
           {error && <p className="error" role="alert">{error}</p>}
           {reading && <p className="meta hint">{KINDS[reading.kind].note}</p>}
-          {view && tab === 'agent' && (
+          {view && shown === 'agent' && (
             <Agent
               project={view.project}
               onChanged={() => window.mate.openProject(view.project, view.file ?? undefined).then(setView, () => {})}
             />
           )}
-          {view && tab === 'review' && file !== null && (
+          {pane && (
+            <>
+              <p className="meta asof">
+                panes/{pane.name}, written{' '}
+                {new Date(pane.written).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}. It does
+                not update itself. Ask the agent to write it again.
+              </p>
+              <div className="prose pane"><Rendered text={pane.text} /></div>
+            </>
+          )}
+          {view && shown === 'review' && file !== null && (
             <>
               {view.comments.length === 0 && (
                 <p className="meta hint">Select a passage in the document to comment on it.</p>
@@ -522,10 +553,10 @@ export function App() {
               })}
             </>
           )}
-          {tab === 'review' && view?.intents && (
+          {shown === 'review' && view?.intents && (
             <details open><summary>Intents</summary><div className="prose"><Rendered text={view.intents} /></div></details>
           )}
-          {tab === 'review' && view?.principles && (
+          {shown === 'review' && view?.principles && (
             <details open><summary>Principles</summary><div className="prose"><Rendered text={view.principles} /></div></details>
           )}
         </div>

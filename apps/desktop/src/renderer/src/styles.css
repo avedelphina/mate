@@ -158,13 +158,16 @@ ins { background: var(--ok-bg); text-decoration: none; }
 
 details { margin-top: 18px; padding-top: 10px; border-top: 1px solid var(--line); }
 summary { color: var(--soft); font-size: 12px; font-weight: 600; cursor: pointer; }
-details .prose { margin-top: 8px; font: 13.5px/1.6 var(--read); }
-details .prose h1 { font-size: 1.15em; }
-details .prose h2, details .prose h3 { font-size: 1em; }
+details .prose, .pane { margin-top: 8px; font: 13.5px/1.6 var(--read); }
+details .prose h1, .pane h1 { font-size: 1.15em; }
+details .prose h2, details .prose h3, .pane h2, .pane h3 { font-size: 1em; }
+.asof { margin: 4px 0 12px; }
+/* A pane is as wide as the margin. A table that is wider scrolls on its own. */
+.pane .table { display: block; overflow-x: auto; }
 
 /* The agent's side of the margin */
-.tabs { display: flex; gap: 2px; -webkit-app-region: no-drag; }
-.tabs button { padding: 3px 10px; font-weight: 500; }
+.tabs { display: flex; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; -webkit-app-region: no-drag; }
+.tabs button { flex: none; padding: 3px 10px; font-weight: 500; }
 .tabs button.active { background: var(--hover); color: var(--ink); }
 .invite { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 10px 0; }
 .margin h3 { margin: 18px 10px 4px; font-size: 11px; font-weight: 500; color: var(--soft); }

@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { readProject } from '../src/main/context.ts'
 import { placeOf, refreshIndex, searchIndex } from '../src/main/contextIndex.ts'
 import { insertComment } from '../src/shared/comments.ts'
 
@@ -81,6 +82,27 @@ test('the index is rebuilt from the files, and deleting it loses nothing', async
     assert.equal(searchIndex(index, 'building').length, 1)
     assert.equal(index.files.some((entry) => entry.path.includes('sibling')), false)
     assert.equal(JSON.parse(await readFile(file, 'utf8')).files.length, index.files.length)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a pane is a file of the project: read with it, called a pane, and found after the sources', async () => {
+  const root = await context()
+  try {
+    // A project with no panes folder opens as before.
+    assert.deepEqual((await readProject(root, 'review')).panes, [])
+
+    await mkdir(path.join(root, 'projects/review/panes'))
+    await writeFile(path.join(root, 'projects/review/panes/tasks.md'), '# Tasks\n\n- [ ] Label the public data\n')
+    await writeFile(path.join(root, 'projects/review/panes/notes.txt'), 'Not markdown, so not a pane.')
+    const panes = (await readProject(root, 'review')).panes
+    assert.deepEqual(panes.map((pane) => [pane.name, pane.text]), [['tasks.md', '# Tasks\n\n- [ ] Label the public data\n']])
+    assert.ok(panes[0].written > 0)
+
+    // An agent gathered it. It is not what is true, and it does not steer the project.
+    assert.deepEqual(placeOf('projects/review/panes/tasks.md'), { kind: 'pane', project: 'review' })
+    assert.deepEqual(searchIndex(await refreshIndex(root), 'public data').map((hit) => hit.kind), ['shelf', 'draft', 'pane'])
   } finally {
     await rm(root, { recursive: true, force: true })
   }
