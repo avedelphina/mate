@@ -28,6 +28,7 @@ export type AssistState = { present: boolean; available: boolean; reason: string
 
 export type MateApi = {
   openContext: () => Promise<{ dir: string; projects: string[] } | null>
+  currentContext: () => Promise<{ dir: string; projects: string[] } | null>
   openProject: (project: string, file?: string) => Promise<DocumentView>
   addComment: (
     project: string,

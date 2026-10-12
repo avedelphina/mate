@@ -10,6 +10,7 @@ the work is the markdown.
 renderer (React)                preload                     main (Node)
 App.tsx                         window.mate                 index.ts
   openContext()      ---------> ipc 'context:open'   -----> folder dialog, list projects
+  currentContext()   ---------> ipc 'context:current' ----> what this window already has open
   openProject()      ---------> ipc 'project:open'   -----> readProject()
   addComment()       ---------> ipc 'comment:add'    -----> insertComment()
   addReply()         ---------> ipc 'comment:reply'  -----> addReply()
@@ -151,9 +152,21 @@ The window reads the draft again when it gets the focus back, because the
 file may have been edited or pulled in the meantime. There is no file
 watcher.
 
+## Windows
+
+File > New Window opens another window. Each window has its own document
+and its own open context. The main process keeps them in a map, by the id
+of the window's page, and every handler looks up the context of the window
+that called it. A handler never reads another window's context.
+
+A new window starts in the context of the window it was opened from, with
+no project open. It can open any other context after that, and the first
+window does not follow.
+
+Two windows on the same draft do not overwrite each other, because every
+change starts from the file on disk. A window shows what the other one did
+when it gets the focus back. Nothing tells it sooner.
+
 ## What is deliberately absent
 
-No agent, no index, no second window, no mail, no issues, no git operations.
-The main process holds one `contextDir` for the whole app. That is enough
-for one window and wrong for two. A second window needs the open context
-stored somewhere other than one module-level variable.
+No agent, no index, no mail, no issues, no git operations.

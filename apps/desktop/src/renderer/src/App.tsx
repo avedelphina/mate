@@ -99,6 +99,20 @@ export function App() {
   const project = view?.project
   const file = view?.file ?? null
 
+  // A window opened from another starts in that window's context.
+  useEffect(() => {
+    void window.mate.currentContext().then((opened) => {
+      if (!opened) return
+      setContextDir(opened.dir)
+      setProjects(opened.projects)
+    })
+  }, [])
+
+  // With two windows open, the Window menu and the task switcher need to tell them apart.
+  useEffect(() => {
+    document.title = project ? `${file ?? project} · ${project}` : 'Mate'
+  }, [project, file])
+
   // The file is the document. It may have been edited or pulled while the window was in the background.
   useEffect(() => {
     if (!project) return

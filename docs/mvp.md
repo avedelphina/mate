@@ -105,6 +105,5 @@ not followed. HTML and entities such as `&amp;` are shown as written.
 
 ## Do not build yet
 
-A second OS window, an agent, an index, mail, issues, or a way to publish
-to the shelf. The model for those is settled in [model.md](model.md). The
+An agent, an index, mail, issues, or a way to publish to the shelf. The model for those is settled in [model.md](model.md). The
 implementation is not this slice.

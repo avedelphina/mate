@@ -55,6 +55,9 @@ Two documents side by side, including across displays. Each window has its
 own document. This is where the open context stops being one variable in
 the main process. Sessions still share the project and not a transcript.
 
+Built: File > New Window, and a context per window. A window on a draft
+that another window changed shows the change when it gets the focus back.
+
 ## 4. The index
 
 A context gets an index rebuilt from its files, shelf and projects both.
