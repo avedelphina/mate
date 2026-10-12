@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { createElement, Fragment, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import type { DocumentView } from './env'
+import { renderMarkdown, type Piece } from './markdown'
 import './styles.css'
 
 /** Electron wraps what a handler throws. The reader gets the sentence the handler wrote. */
@@ -11,11 +12,17 @@ function reason(caught: unknown, fallback: string): string {
 /** A stretch of the document that a thread quotes. `id` is null for the passage being commented now. */
 type Passage = { id: string | null; start: number; end: number }
 
-/** The document text, cut wherever a passage starts or ends, so passages that overlap each keep their mark. */
-function marked(text: string, passages: Passage[], active: string | null, onPick: (id: string) => void) {
-  const cuts = [...new Set([0, text.length, ...passages.flatMap((passage) => [passage.start, passage.end])])].sort(
-    (a, b) => a - b
-  )
+/** One stretch of the text, cut wherever a passage starts or ends, so passages that overlap each keep their mark. */
+function marked(
+  text: string,
+  from: number,
+  to: number,
+  passages: Passage[],
+  active: string | null,
+  onPick?: (id: string) => void
+) {
+  const inner = passages.flatMap((passage) => [passage.start, passage.end]).filter((cut) => cut > from && cut < to)
+  const cuts = [...new Set([from, ...inner, to])].sort((a, b) => a - b)
   return cuts.slice(0, -1).map((start, index) => {
     const end = cuts[index + 1]
     const piece = text.slice(start, end)
@@ -28,12 +35,30 @@ function marked(text: string, passages: Passage[], active: string | null, onPick
         key={start}
         className={classes.filter(Boolean).join(' ')}
         data-threads={ids.join(' ')}
-        onClick={() => ids.length > 0 && onPick(ids[0])}
+        onClick={() => ids.length > 0 && onPick?.(ids[0])}
       >
         {piece}
       </mark>
     )
   })
+}
+
+/**
+ * Markdown, drawn. Its markup is hidden and still in the page, so the text of the page is the
+ * text of the file, character for character. pickPassage depends on that.
+ */
+function Rendered(props: { text: string; passages?: Passage[]; active?: string | null; onPick?: (id: string) => void }) {
+  const { text, passages = [], active = null, onPick } = props
+  const pieces = useMemo(() => renderMarkdown(text), [text])
+  const draw = (piece: Piece, index: number): ReactNode => {
+    if ('tag' in piece) {
+      const { tag, children, ...rest } = piece
+      return createElement(tag, { key: index, ...rest }, children.map(draw))
+    }
+    if (piece.hidden) return <span key={index} className="syntax">{text.slice(piece.from, piece.to)}</span>
+    return <Fragment key={index}>{marked(text, piece.from, piece.to, passages, active, onPick)}</Fragment>
+  }
+  return <>{pieces.map(draw)}</>
 }
 
 export function App() {
@@ -226,10 +251,8 @@ export function App() {
           ) : file === null ? (
             <p className="empty">This project has {drafts.length} drafts. Pick one on the left.</p>
           ) : (
-            // ponytail: the page is the markdown source, so a selection is exactly the text in the file.
-            // Rendered markdown needs a map from the rendered text back to the source.
-            <div className="doc page" ref={page} onMouseUp={pickPassage}>
-              {marked(view.text, passages, active, setActive)}
+            <div className="page prose" ref={page} onMouseUp={pickPassage}>
+              <Rendered text={view.text} passages={passages} active={active} onPick={setActive} />
             </div>
           )}
         </div>
@@ -327,8 +350,12 @@ export function App() {
               })}
             </>
           )}
-          {view?.intents && <details open><summary>Intents</summary><div className="doc">{view.intents}</div></details>}
-          {view?.principles && <details open><summary>Principles</summary><div className="doc">{view.principles}</div></details>}
+          {view?.intents && (
+            <details open><summary>Intents</summary><div className="prose"><Rendered text={view.intents} /></div></details>
+          )}
+          {view?.principles && (
+            <details open><summary>Principles</summary><div className="prose"><Rendered text={view.principles} /></div></details>
+          )}
         </div>
       </aside>
     </div>

@@ -34,6 +34,7 @@ preload as CommonJS. Leave that as it is.
 | Reading a project, writing the draft, path check | `apps/desktop/src/main/context.ts` |
 | A new capability the window can call | `src/main/index.ts`, then `src/preload/index.ts`, then `src/renderer/src/env.d.ts` |
 | Layout | `src/renderer/src/App.tsx` and `styles.css` |
+| How markdown is drawn | `src/renderer/src/markdown.ts`, then `styles.css` |
 
 Add the preload and the type in `env.d.ts` in the same change as the
 handler. A handler the renderer cannot name does not exist.
@@ -86,6 +87,27 @@ which runs when the reader selects a passage and presses the button.
 when the reader presses Apply. It replaces the passage, sets `status` to
 `"resolved"`, and keeps any other comment's marker that was inside the
 passage.
+
+## Drawing the markdown
+
+The page draws the draft as markdown: headings, lists, tables, code. It
+does this without changing the text. `renderMarkdown` in `markdown.ts`
+turns the text into a tree in which every character is in exactly one
+leaf, in order. Markup such as `**` or `](address)` is a hidden leaf. It
+is in the page and not shown.
+
+So the text of the page is the text of the file, character for character,
+and what the reader selects is a passage of the file. `pickPassage` in
+`App.tsx` depends on this, and `tests/markdown.test.ts` checks it. Do not
+draw anything that drops or rewrites a character. If the two texts differ,
+comments land in the wrong place.
+
+The parser is `@lezer/markdown`, because it reports where every piece of
+markup is. HTML in a draft is shown as written and never run. Images are
+not loaded, and a link is not followed.
+
+The quote in a thread card is the passage as it is in the file, markup
+included.
 
 ## Writing a file
 

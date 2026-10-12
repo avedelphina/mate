@@ -65,18 +65,49 @@ button.quiet { border-color: transparent; background: none; color: var(--soft); 
 button.wide { width: 100%; }
 
 /* The rail */
-h2 { margin: 18px 10px 4px; font-size: 11px; font-weight: 500; color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-ul { list-style: none; margin: 0; padding: 0; }
-li { margin: 1px 0; }
-.drafts { margin-left: 12px; }
+.rail h2 { margin: 18px 10px 4px; font-size: 11px; font-weight: 500; color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail ul { list-style: none; margin: 0; padding: 0; }
+.rail li { margin: 1px 0; }
+.rail .drafts { margin-left: 12px; }
 .row { display: block; width: 100%; padding: 6px 10px; border: 0; background: none; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row.active { background: var(--hover); font-weight: 500; }
 .meta { color: var(--soft); font-size: 12px; }
 .hint { margin: 4px 10px; }
 
 /* The page */
-.doc { white-space: pre-wrap; overflow-wrap: break-word; }
 .page { max-width: 720px; margin: 0 auto; padding: 20px 32px 96px; font: 17px/1.7 var(--read); }
+
+/* Markdown, drawn. The markup stays in the page and is only hidden: see markdown.ts. */
+.syntax { display: none; }
+.prose { overflow-wrap: break-word; }
+.prose > :first-child { margin-top: 0; }
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 { margin: 1.4em 0 0.5em; font-weight: 600; line-height: 1.25; }
+.prose h1 { font-size: 1.7em; }
+.prose h2 { font-size: 1.35em; }
+.prose h3 { font-size: 1.15em; }
+.prose h4, .prose h5, .prose h6 { font-size: 1em; }
+.prose p, .prose ul, .prose ol, .prose blockquote, .prose pre, .prose .table, .prose div.raw { margin: 0 0 1em; }
+.prose ul, .prose ol { padding-left: 1.5em; }
+.prose li { margin: 0.25em 0; }
+.prose li > p, .prose li > ul, .prose li > ol { margin-bottom: 0; }
+.prose li:has(> .box) { margin-left: -1.4em; list-style: none; }
+.box::before { content: '☐'; margin-right: 0.45em; color: var(--soft); }
+.box.checked::before { content: '☑'; color: var(--accent); }
+.prose blockquote { padding-left: 1em; border-left: 3px solid var(--line); color: var(--soft); }
+.prose blockquote > :last-child { margin-bottom: 0; }
+.prose code, .prose pre, .raw { font: 0.86em/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.prose code { padding: 0.1em 0.35em; border-radius: 4px; background: var(--hover); }
+.prose pre { padding: 12px 14px; border-radius: 8px; background: var(--hover); overflow-x: auto; white-space: pre; }
+.prose pre.meta, .raw, .prose s { color: var(--soft); }
+.prose div.raw { white-space: pre-wrap; }
+.rule { margin: 1.8em 0; border-top: 1px solid var(--line); }
+.link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.image::before { content: 'image: '; color: var(--soft); }
+.break { white-space: pre; }
+.table { display: table; border-collapse: collapse; font: 0.85em/1.5 var(--ui); }
+.tr { display: table-row; }
+.td { display: table-cell; padding: 5px 12px; border: 1px solid var(--line); }
+.th .td { background: var(--rail); font-weight: 600; }
 .empty { margin: 0; padding: 22vh 32px 0; text-align: center; color: var(--soft); font: 17px/1.7 var(--read); }
 mark { padding: 2px 0; border-radius: 3px; background: var(--mark); color: inherit; cursor: pointer; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 mark.active { background: var(--mark-active); }
@@ -112,4 +143,6 @@ ins { background: var(--ok-bg); text-decoration: none; }
 
 details { margin-top: 18px; padding-top: 10px; border-top: 1px solid var(--line); }
 summary { color: var(--soft); font-size: 12px; font-weight: 600; cursor: pointer; }
-details .doc { margin-top: 8px; font: 13.5px/1.6 var(--read); }
+details .prose { margin-top: 8px; font: 13.5px/1.6 var(--read); }
+details .prose h1 { font-size: 1.15em; }
+details .prose h2, details .prose h3 { font-size: 1em; }

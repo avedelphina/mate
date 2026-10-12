@@ -47,7 +47,8 @@ If `pnpm dev` stops with `The requested module 'electron' does not provide
 an export named 'BrowserWindow'`, the shell has `ELECTRON_RUN_AS_NODE` set.
 A process started by VS Code inherits it. Unset it and run again.
 
-If `node_modules/electron/dist` is missing after install, run
+If `node_modules/electron/dist` is missing after install, or after
+`pnpm add`, run
 `node node_modules/electron/install.js` with `ELECTRON_SKIP_BINARY_DOWNLOAD`
 unset. On macOS, extract the cached zip with `ditto -xk`, not a generic
 unzip. A generic unzip drops the framework metadata and the binary dies
@@ -87,6 +88,15 @@ words occur more than once on that line. Select a little more." The marker
 sits under a line and says nothing finer than that. Two such passages could
 not be told apart later, and Apply could replace the wrong one. Select
 enough around the words to make the passage the only one on its line.
+
+**A marker inside a block, in other tools.** The marker is a line of its own
+under the passage. Mate cuts markers out before it draws the page, so its
+own page is whole. Another tool draws the file as it is: there, a marker
+under one row of a table ends the table, and a marker inside a paragraph
+splits it in two. The text is still all there.
+
+**What the page does not draw.** Images are named, not loaded. Links are
+not followed. HTML and entities such as `&amp;` are shown as written.
 
 ## Do not build yet
 
