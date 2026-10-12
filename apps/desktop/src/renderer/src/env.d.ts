@@ -48,7 +48,8 @@ export type AgentKind = 'claude' | 'codex' | 'hermes' | 'mcp'
 /** `host` is set for an agent on another machine, reached over SSH. */
 export type AgentInfo = { kind: AgentKind; label: string; found: boolean; host: string | null }
 
-export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[] }
+/** `waiting`: sent while the agent was working, and not yet given to it. */
+export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[]; waiting?: boolean }
 
 /** A conversation with one agent inside one project. See src/main/sessions.ts. */
 export type Session = {
@@ -59,6 +60,8 @@ export type Session = {
   created: string
   planApproved: boolean
   messages: Message[]
+  /** What was sent while the agent was working. It goes to the agent when the turn has ended. */
+  queue: { text: string; approve: boolean }[]
   /** Files the agent changed and Mate let through. */
   changes: { path: string; reverted: boolean }[]
   /** Changes Mate put back, waiting for the reader to approve that one file. */

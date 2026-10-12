@@ -118,7 +118,10 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
     )
   }
 
-  const planned = session.messages.some((message) => message.role === 'agent')
+  // The answer being written does not count: there is no plan to approve until one has been given.
+  const answers = session.messages.filter((message) => message.role === 'agent').length - (session.running ? 1 : 0)
+  const planned = answers > 0
+  const approving = session.queue.some((each) => each.approve)
 
   return (
     <>
@@ -137,7 +140,7 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
         </details>
       )}
       {session.messages.map((message, index) => (
-        <div key={index} className={`said ${message.role}`}>
+        <div key={index} className={`said ${message.role}${message.waiting ? ' waiting' : ''}`}>
           {message.tools.length > 0 && (
             <details className="steps">
               <summary>{message.tools.length === 1 ? '1 step' : `${message.tools.length} steps`}</summary>
@@ -145,6 +148,7 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
             </details>
           )}
           {message.role === 'agent' ? <div className="prose"><Rendered text={message.text} /></div> : <p>{message.text}</p>}
+          {message.waiting && <p className="meta">Waits until the agent has finished this turn.</p>}
         </div>
       ))}
       {session.running && <p className="meta working">Working…</p>}
@@ -183,7 +187,15 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
           aria-label="Message to the agent"
           rows={2}
           value={text}
-          placeholder={!planned ? 'Say what you want done' : session.planApproved ? 'Say what comes next' : 'Answer, or ask for a change to the plan'}
+          placeholder={
+            session.running
+              ? 'Add something. It goes to the agent when this turn has ended.'
+              : !planned
+                ? 'Say what you want done'
+                : session.planApproved
+                  ? 'Say what comes next'
+                  : 'Answer, or ask for a change to the plan'
+          }
           onChange={(event) => setText(event.target.value)}
         />
         <footer>
@@ -192,10 +204,10 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
           ) : (
             <span />
           )}
-          {!session.planApproved && planned && !session.running && (
+          {!session.planApproved && planned && !approving && (
             <button onClick={() => send(true)}>Approve the plan</button>
           )}
-          <button className="primary" title="⌘↵" disabled={session.running || !text.trim()} onClick={() => send(false)}>
+          <button className="primary" title="⌘↵" disabled={!text.trim()} onClick={() => send(false)}>
             Send
           </button>
         </footer>

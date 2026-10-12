@@ -273,6 +273,17 @@ that cannot pick its conversation up is given the conversation so far.
 The plan comes first. Until the reader approves it, every turn is read
 only. The approval is sent to the agent as a message, like any other.
 
+A message sent while the agent is working does not stop the turn. It is
+taken in at once, shown as waiting, and goes to the agent as soon as the
+turn has ended. Several that waited go as one. An approval that waits
+does not count for the turn that is running: what the agent changes in
+that turn is still held. None of these agents can be spoken to in the
+middle of a turn, so a message waits behind the turn and does not steer
+it.
+
+While a turn runs, the session in memory is the one that counts. Anything
+that changes the session then, such as Revert, changes that one.
+
 The agent's tool keeps its own record of the conversation on this
 computer, outside the context. Mate does not manage that record.
 

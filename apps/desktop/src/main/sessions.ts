@@ -9,7 +9,8 @@ import { resolveInside } from './context'
 import { placeOf } from './contextIndex'
 import { changesSince, mateWrote, put, takeSnapshot, watching, type Change, type Snapshot } from './guard'
 
-export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[] }
+/** `waiting`: sent while the agent was working, and not yet given to it. */
+export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[]; waiting?: boolean }
 
 /** A file the agent changed and Mate let through. `backup` names the bytes from before. Null: there was no file. */
 export type Kept = { path: string; backup: string | null; reverted: boolean }
@@ -34,6 +35,8 @@ export type Session = {
   agentSession: string | null
   planApproved: boolean
   messages: Message[]
+  /** What the reader sent while the agent was working. It goes to the agent when the turn has ended. */
+  queue: { text: string; approve: boolean }[]
   changes: Kept[]
   held: Held[]
   running: boolean
@@ -142,9 +145,13 @@ export async function saveSession(contextDir: string, session: Session): Promise
 }
 
 export async function loadSession(contextDir: string, project: string, id: string): Promise<Session> {
+  // While the agent is working the session in memory is the one that counts. A second copy read
+  // from the file would be written over when the turn ends.
+  const live = turns.get(id)?.session
+  if (live) return live
   const session = JSON.parse(await readFile(path.join(folder(contextDir, project, id), 'session.json'), 'utf8')) as Session
   // A session written before agents could be on another machine has neither field.
-  return { ...session, host: session.host ?? null, sent: session.sent ?? {}, running: running.has(id) }
+  return { ...session, host: session.host ?? null, sent: session.sent ?? {}, queue: session.queue ?? [], running: false }
 }
 
 /** The sessions of a project, the newest first. */
@@ -174,6 +181,7 @@ export async function startSession(
     agentSession: null,
     planApproved: false,
     messages: [],
+    queue: [],
     changes: [],
     held: [],
     running: false
@@ -239,10 +247,27 @@ export async function judge(contextDir: string, session: Session, change: Change
   return 'held'
 }
 
+/** The turns in progress, by session: the session as it is in memory, and when the turn will have ended. */
+const turns = new Map<string, { session: Session; finished: Promise<Session> }>()
+/** The contexts in which an agent is working, or is about to. */
+const busy = new Set<string>()
+/** The last message of each session to come in. The next one waits until that one has been taken in. */
+const entering = new Map<string, Promise<void>>()
+
+const conversation = (session: Session) =>
+  session.messages
+    .filter((each) => each.role !== 'mate' && !each.waiting)
+    .map((each) => `${each.role === 'you' ? 'Reviewer' : 'You'}: ${each.text}`)
+    .join('\n\n')
+
 /**
  * Send one message and let the agent answer. An approval is a message too.
- * `started` is the session as the turn begins. `finished` settles when the agent has stopped
- * and the guard has been through the folder.
+ *
+ * A message sent while the agent is working does not stop the turn. It waits behind it, and goes
+ * to the agent as soon as the turn has ended.
+ *
+ * `started` is the session as the message is taken in. `finished` settles when the agent has
+ * stopped, the guard has been through the folder, and nothing is waiting any more.
  */
 export async function sendMessage(
   contextDir: string,
@@ -252,59 +277,116 @@ export async function sendMessage(
   approve: boolean,
   emit: (session: Session) => void
 ): Promise<{ started: Session; finished: Promise<Session> }> {
-  const session = await loadSession(contextDir, project, id)
-  const said = text.trim()
-  if (running.has(id)) throw new Error('The agent is still answering.')
-  if (watching.has(contextDir)) throw new Error('Another agent is working in this context. Wait for it to finish.')
-  if (!said && !approve) throw new Error('The message is empty.')
+  // Two messages sent at the same moment are taken in one after the other, so the second finds the first one's turn.
+  const before = entering.get(id) ?? Promise.resolve()
+  let taken!: () => void
+  entering.set(id, new Promise((resolve) => (taken = resolve)))
+  await before
+  try {
+    const session = await loadSession(contextDir, project, id)
+    const said = text.trim()
+    if (!said && !approve) throw new Error('The message is empty.')
+    const message = approve ? ['The plan is approved. Go ahead.', said].filter(Boolean).join('\n\n') : said
 
-  const earlier = session.messages.filter((message) => message.role !== 'mate')
-  if (approve) session.planApproved = true
-  const mayWrite = session.planApproved
-  const message = approve ? ['The plan is approved. Go ahead.', said].filter(Boolean).join('\n\n') : said
+    // An agent the reader runs themselves is not started from here. It reads the message when it next asks.
+    if (session.agent === 'mcp') {
+      if (approve) session.planApproved = true
+      session.messages.push({ role: 'you', text: message, tools: [] })
+      await saveSession(contextDir, session)
+      emit(session)
+      return { started: session, finished: Promise.resolve(session) }
+    }
 
-  // An agent the reader runs themselves is not started from here. It reads the message when it next asks.
-  if (session.agent === 'mcp') {
+    const turn = turns.get(id)
+    if (turn) {
+      // Mid-turn. An approval that waits does not count for what the agent is doing now.
+      session.messages.push({ role: 'you', text: message, tools: [], waiting: true })
+      session.queue.push({ text: message, approve })
+      await saveSession(contextDir, session)
+      emit(session)
+      return { started: session, finished: turn.finished }
+    }
+    if (busy.has(contextDir)) throw new Error('Another agent is working in this context. Wait for it to finish.')
+
+    // What was left waiting when the app was last closed goes first.
+    const left = session.queue.splice(0)
+    const soFar = conversation(session)
+    for (const each of session.messages) delete each.waiting
+    if (approve || left.some((each) => each.approve)) session.planApproved = true
     session.messages.push({ role: 'you', text: message, tools: [] })
-    await saveSession(contextDir, session)
-    emit(session)
-    return { started: session, finished: Promise.resolve(session) }
+    return await begin(contextDir, session, [...left.map((each) => each.text), message].join('\n\n'), soFar, emit)
+  } finally {
+    taken()
   }
+}
+
+/** One turn of the agent. The reader's message is already in the session. */
+async function begin(
+  contextDir: string,
+  session: Session,
+  message: string,
+  soFar: string,
+  emit: (session: Session) => void
+): Promise<{ started: Session; finished: Promise<Session> }> {
+  const { id, project } = session
+  let settle!: (session: Session) => void
+  const finished = new Promise<Session>((resolve) => (settle = resolve))
+  turns.set(id, { session, finished })
+  busy.add(contextDir)
+  const release = () => {
+    turns.delete(id)
+    busy.delete(contextDir)
+    watching.delete(contextDir)
+    running.delete(id)
+    session.running = false
+  }
+
+  const mayWrite = session.planApproved
   const answer: Message = { role: 'agent', text: '', tools: [] }
-  session.messages.push({ role: 'you', text: message, tools: [] }, answer)
+  session.messages.push(answer)
   session.running = true
 
-  const state = mayWrite
-    ? '[The plan is approved. You may edit files inside this project.]'
-    : '[The plan is not approved yet. Read and propose. Do not edit any file.]'
-  // An agent that can pick its conversation up again is told only what is new.
-  // One that cannot is given the conversation so far.
-  const soFar = earlier.map((each) => `${each.role === 'you' ? 'Reviewer' : 'You'}: ${each.text}`).join('\n\n')
-  const adapter = AGENTS[session.agent]
-  const projectDir = resolveInside(contextDir, 'projects', project)
-  const snapshot = await takeSnapshot(contextDir)
-  // An agent on another machine is sent the files. One on this machine reads them itself.
-  const files = session.host ? pack(snapshot, session.sent) : ''
-  const prompt = session.agentSession
-    ? [files && `These files are new or have changed:\n\n${files}`, state, message].filter(Boolean).join('\n\n')
-    : [
-        await firstWords(contextDir, project, session.host !== null),
-        files && `The files of the context:\n\n${files}`,
-        soFar && `The conversation so far:\n\n${soFar}`,
-        state,
-        message
-      ]
-        .filter(Boolean)
-        .join('\n\n')
+  let child: ChildProcess
+  let snapshot: Snapshot
+  const adapter = AGENTS[session.agent as AgentKind]
+  try {
+    const state = mayWrite
+      ? '[The plan is approved. You may edit files inside this project.]'
+      : '[The plan is not approved yet. Read and propose. Do not edit any file.]'
+    const projectDir = resolveInside(contextDir, 'projects', project)
+    snapshot = await takeSnapshot(contextDir)
+    // An agent on another machine is sent the files. One on this machine reads them itself.
+    const files = session.host ? pack(snapshot, session.sent) : ''
+    // An agent that can pick its conversation up again is told only what is new.
+    // One that cannot is given the conversation so far.
+    const prompt = session.agentSession
+      ? [files && `These files are new or have changed:\n\n${files}`, state, message].filter(Boolean).join('\n\n')
+      : [
+          await firstWords(contextDir, project, session.host !== null),
+          files && `The files of the context:\n\n${files}`,
+          soFar && `The conversation so far:\n\n${soFar}`,
+          state,
+          message
+        ]
+          .filter(Boolean)
+          .join('\n\n')
 
-  watching.set(contextDir, snapshot)
-  const turn = { cwd: projectDir, contextDir, resume: session.agentSession, mayWrite }
-  const child = session.host
-    ? spawn(SSH.command, sshArgs(session.host, adapter.command, adapter.remoteArgs!(session.agentSession)), {
-        env: agentEnvironment()
-      })
-    : spawn(adapter.command, adapter.args(turn), { cwd: projectDir, env: agentEnvironment() })
-  running.set(id, child)
+    watching.set(contextDir, snapshot)
+    const turn = { cwd: projectDir, contextDir, resume: session.agentSession, mayWrite }
+    child = session.host
+      ? spawn(SSH.command, sshArgs(session.host, adapter.command, adapter.remoteArgs!(session.agentSession)), {
+          env: agentEnvironment()
+        })
+      : spawn(adapter.command, adapter.args(turn), { cwd: projectDir, env: agentEnvironment() })
+    running.set(id, child)
+    child.stdin?.on('error', () => {})
+    child.stdin?.end(prompt)
+  } catch (caught) {
+    session.messages.splice(session.messages.indexOf(answer), 1)
+    release()
+    settle(session)
+    throw caught
+  }
 
   let timer: NodeJS.Timeout | undefined
   const update = () => {
@@ -316,14 +398,14 @@ export async function sendMessage(
 
   const errors: string[] = []
   let complaint = ''
-  child.stderr.on('data', (chunk: Buffer) => {
+  child.stderr?.on('data', (chunk: Buffer) => {
     complaint = (complaint + chunk.toString()).slice(-600)
     // Some agents say on stderr which conversation this is.
     const named = /^session_id:\s*(\S+)/m.exec(chunk.toString())
     if (named) session.agentSession = named[1]
   })
   const read = (session.host && adapter.remoteRead) || adapter.read
-  readline.createInterface({ input: child.stdout }).on('line', (line) => {
+  readline.createInterface({ input: child.stdout! }).on('line', (line) => {
     for (const event of read(line)) {
       if (event.type === 'session') session.agentSession = event.id
       if (event.type === 'text') answer.text += event.text
@@ -332,55 +414,67 @@ export async function sendMessage(
     }
     update()
   })
-  child.stdin.on('error', () => {})
-  child.stdin.end(prompt)
 
-  const finished = new Promise<Session>((resolve) => {
-    let ended = false
-    const end = async (failure?: string) => {
-      if (ended) return
-      ended = true
-      clearTimeout(timer)
-      answer.text = answer.text.trim()
-      if (!answer.text && answer.tools.length === 0) session.messages.splice(session.messages.indexOf(answer), 1)
-      if (failure) session.messages.push({ role: 'mate', text: failure, tools: [] })
+  let ended = false
+  const end = async (failure?: string) => {
+    if (ended) return
+    ended = true
+    clearTimeout(timer)
+    answer.text = answer.text.trim()
+    if (!answer.text && answer.tools.length === 0) session.messages.splice(session.messages.indexOf(answer), 1)
+    if (failure) session.messages.push({ role: 'mate', text: failure, tools: [] })
 
-      // An agent on this machine has changed the folder. One on another machine has said what it wants changed.
-      const remote = session.host !== null
-      const asked = remote ? await proposed(contextDir, answer.text) : { changes: await changesSince(contextDir, snapshot), refused: [] }
-      if (remote) answer.text = answer.text.replace(FILE, (_, named: string) => `*(new text for \`${named.trim()}\`)*`)
+    // An agent on this machine has changed the folder. One on another machine has said what it wants changed.
+    const remote = session.host !== null
+    const asked = remote ? await proposed(contextDir, answer.text) : { changes: await changesSince(contextDir, snapshot), refused: [] }
+    if (remote) answer.text = answer.text.replace(FILE, (_, named: string) => `*(new text for \`${named.trim()}\`)*`)
 
-      const putBack: string[] = []
-      for (const change of asked.changes) {
-        if ((await judge(contextDir, session, change, !remote)) === 'held') putBack.push(change.path)
-      }
-      if (putBack.length > 0) {
-        const why = mayWrite ? 'outside this project' : 'before the plan was approved'
-        const what = remote ? `asked to change ${putBack.join(', ')} ${why}.` : `changed ${putBack.join(', ')} ${why}. Mate put it back.`
-        session.messages.push({ role: 'mate', text: `The agent ${what} The change is held: approve the file to let it through.`, tools: [] })
-      }
-      if (asked.refused.length > 0) {
-        session.messages.push({ role: 'mate', text: `The agent named a file Mate will not write: ${asked.refused.join(', ')}.`, tools: [] })
-      }
+    const putBack: string[] = []
+    for (const change of asked.changes) {
+      if ((await judge(contextDir, session, change, !remote)) === 'held') putBack.push(change.path)
+    }
+    if (putBack.length > 0) {
+      const why = mayWrite ? 'outside this project' : 'before the plan was approved'
+      const what = remote ? `asked to change ${putBack.join(', ')} ${why}.` : `changed ${putBack.join(', ')} ${why}. Mate put it back.`
+      session.messages.push({ role: 'mate', text: `The agent ${what} The change is held: approve the file to let it through.`, tools: [] })
+    }
+    if (asked.refused.length > 0) {
+      session.messages.push({ role: 'mate', text: `The agent named a file Mate will not write: ${asked.refused.join(', ')}.`, tools: [] })
+    }
 
-      watching.delete(contextDir)
-      running.delete(id)
-      session.running = false
+    // What waited behind this turn goes now, as one message. An approval in it counts from here.
+    const waited = session.queue.splice(0)
+    const earlier = conversation(session)
+    for (const each of session.messages) delete each.waiting
+    if (waited.some((each) => each.approve)) session.planApproved = true
+    if (waited.length === 0) {
+      release()
       await saveSession(contextDir, session).catch(() => {})
       emit(session)
-      resolve(session)
+      return settle(session)
     }
-    child.on('error', () => void end(`${adapter.label} is not on this computer, or could not be started.`))
-    child.on('close', (code, signal) => {
-      if (signal) return void end('Stopped.')
-      const error = errors[errors.length - 1]
-      if (error && /401|unauthori[sz]ed|not logged in/i.test(error)) {
-        return void end(`${error}\n\n${adapter.label} is not signed in. Sign in to it in a terminal, then send the message again.`)
-      }
-      if (error) return void end(error)
-      if (code !== 0) return void end(`${adapter.label} stopped with an error.${complaint ? `\n\n${complaint.trim()}` : ''}`)
-      void end()
-    })
+    // The session stays taken between the two turns, so a message sent just now waits too.
+    try {
+      const next = await begin(contextDir, session, waited.map((each) => each.text).join('\n\n'), earlier, emit)
+      emit(session)
+      settle(await next.finished)
+    } catch (caught) {
+      session.messages.push({ role: 'mate', text: (caught as Error).message, tools: [] })
+      await saveSession(contextDir, session).catch(() => {})
+      emit(session)
+      settle(session)
+    }
+  }
+  child.on('error', () => void end(`${adapter.label} is not on this computer, or could not be started.`))
+  child.on('close', (code, signal) => {
+    if (signal) return void end('Stopped.')
+    const error = errors[errors.length - 1]
+    if (error && /401|unauthori[sz]ed|not logged in/i.test(error)) {
+      return void end(`${error}\n\n${adapter.label} is not signed in. Sign in to it in a terminal, then send the message again.`)
+    }
+    if (error) return void end(error)
+    if (code !== 0) return void end(`${adapter.label} stopped with an error.${complaint ? `\n\n${complaint.trim()}` : ''}`)
+    void end()
   })
 
   await saveSession(contextDir, session)

@@ -177,6 +177,8 @@ details .prose h2, details .prose h3 { font-size: 1em; }
 .said { margin: 0 0 12px; }
 .said p { margin: 0; white-space: pre-wrap; overflow-wrap: break-word; }
 .said.you { margin-left: 28px; padding: 8px 12px; border-radius: 12px; background: var(--hover); }
+.said.you.waiting { background: none; border: 1px dashed var(--line); }
+.said.you.waiting .meta { margin-top: 4px; }
 .said.mate { padding: 8px 12px; border-radius: 10px; background: var(--warn-bg); color: var(--warn); font-size: 12px; }
 .said .prose { font: 14.5px/1.6 var(--read); }
 .said .prose h1, .said .prose h2, .said .prose h3 { font-size: 1.05em; margin-top: 1em; }

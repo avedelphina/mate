@@ -6,7 +6,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { AGENTS, SSH, listAgents, sshArgs } from '../src/main/agents.ts'
 import { changesSince, put, takeSnapshot } from '../src/main/guard.ts'
-import { listSessions, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
+import { listSessions, loadSession, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
 
 async function context(): Promise<string> {
   const root = await mkdtemp(path.join(tmpdir(), 'mate-agents-'))
@@ -113,7 +113,6 @@ console.log('session_id: s1')
     const session = await startSession(root, 'review', 'hermes')
     const seen: boolean[] = []
     const first = await sendMessage(root, 'review', session.id, 'Tighten the draft.', false, (now) => seen.push(now.running))
-    await assert.rejects(sendMessage(root, 'review', session.id, 'Again.', false, () => {}), /still answering/)
     const planned = await first.finished
 
     // The plan was not approved: both files are as they were, and both changes wait.
@@ -223,6 +222,70 @@ console.log('<mate-file path="shelf/classification.md">\\nShelf, rewritten.\\n</
     assert.equal(await draft(), 'Draft text.\n')
   } finally {
     SSH.command = command
+    await rm(root, { recursive: true, force: true })
+    await rm(stub, { force: true })
+    await rm(log, { force: true })
+  }
+})
+
+test('a message sent while the agent works waits behind the turn, and an approval in it counts only after', { skip: process.platform === 'win32' }, async () => {
+  const root = await context()
+  const command = AGENTS.hermes.command
+  const stub = path.join(root, '..', `${path.basename(root)}-slow.mjs`)
+  const log = path.join(root, '..', `${path.basename(root)}-slow.txt`)
+  try {
+    // A stand-in that takes its time, and edits the draft every turn.
+    await writeFile(
+      stub,
+      `#!/usr/bin/env node
+import { appendFileSync, readFileSync } from 'node:fs'
+appendFileSync(${JSON.stringify(log)}, JSON.stringify({ prompt: readFileSync(0, 'utf8') }) + '\\n')
+await new Promise((resolve) => setTimeout(resolve, 400))
+appendFileSync('draft/document.md', 'Agent line.\\n')
+console.log(JSON.stringify({ type: 'system', subtype: 'init', session_id: 's1' }))
+console.log(JSON.stringify({ type: 'text', text: 'Done.' }))
+`
+    )
+    await chmod(stub, 0o755)
+    AGENTS.hermes.command = stub
+    const draft = () => readFile(path.join(root, 'projects/review/draft/document.md'), 'utf8')
+
+    const session = await startSession(root, 'review', 'hermes')
+    const other = await startSession(root, 'sibling', 'hermes')
+    const first = await sendMessage(root, 'review', session.id, 'Plan it.', false, () => {})
+
+    // Two more while it works: an approval, and a remark. Neither stops the turn.
+    const approval = await sendMessage(root, 'review', session.id, '', true, () => {})
+    const remark = await sendMessage(root, 'review', session.id, 'And keep it short.', false, () => {})
+    assert.equal(approval.started.planApproved, false)
+    assert.deepEqual(remark.started.messages.slice(-2).map((message) => [message.text, message.waiting]), [
+      ['The plan is approved. Go ahead.', true],
+      ['And keep it short.', true]
+    ])
+    assert.equal(remark.started.running, true)
+    await assert.rejects(sendMessage(root, 'sibling', other.id, 'Me too.', false, () => {}), /Another agent is working/)
+
+    const done = await first.finished
+    const asked = (await readFile(log, 'utf8')).trim().split('\n').map((line) => JSON.parse(line))
+    assert.equal(asked.length, 2)
+    assert.match(asked[0].prompt, /not approved yet[\s\S]*Plan it\.$/)
+    assert.match(asked[1].prompt, /^\[The plan is approved\.[^\]]*\]\n\nThe plan is approved\. Go ahead\.\n\nAnd keep it short\.$/)
+
+    // The first turn ran before the approval: its edit was put back and is held. The second one's is kept.
+    assert.equal(await draft(), 'Draft text.\nAgent line.\n')
+    assert.deepEqual(done.held.map((held) => held.path), ['projects/review/draft/document.md'])
+    assert.deepEqual(done.changes.map((change) => change.path), ['projects/review/draft/document.md'])
+    assert.equal(done.planApproved, true)
+    assert.equal(done.running, false)
+    assert.deepEqual(done.queue, [])
+    assert.equal(done.messages.some((message) => message.waiting), false)
+    assert.deepEqual(done.messages.map((message) => message.role), ['you', 'agent', 'you', 'you', 'mate', 'agent'])
+
+    // Nothing is left taken: the other project's agent can work now, and this session reads the same from the file.
+    assert.equal((await (await sendMessage(root, 'sibling', other.id, 'Now me.', false, () => {})).finished).messages[1].text, 'Done.')
+    assert.deepEqual((await loadSession(root, 'review', session.id)).messages.length, 6)
+  } finally {
+    AGENTS.hermes.command = command
     await rm(root, { recursive: true, force: true })
     await rm(stub, { force: true })
     await rm(log, { force: true })

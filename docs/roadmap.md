@@ -93,8 +93,12 @@ agent the reader runs themselves. The plan first, the approval as a
 message, the copy before an edit, Revert, and the hold on any file outside
 the project. A session goes on after the app is closed and opened again.
 
-Not built yet: a message sent while the agent is mid-turn. A turn that is
-running when the app quits is lost, though its session goes on.
+A message sent while the agent is mid-turn waits behind the turn and goes
+when it ends. It does not stop the turn, and it does not steer it.
+
+Not built yet: steering a turn that is running. A turn that is running
+when the app quits is lost, though its session goes on, and what was
+waiting goes with the next message.
 
 ## 6. The other sources
 
