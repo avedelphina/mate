@@ -173,10 +173,10 @@ test('an agent on another machine is sent the files, and what it asks to change 
   const stub = path.join(root, '..', `${path.basename(root)}-ssh.mjs`)
   const log = path.join(root, '..', `${path.basename(root)}-ssh.txt`)
   try {
-    assert.deepEqual(sshArgs('hermes.ocean', 'hermes', ["it's"]).slice(-4), ['hermes.ocean', '--', "'hermes'", `'it'\\''s'`])
+    assert.deepEqual(sshArgs('agent-host.example', 'hermes', ["it's"]).slice(-4), ['agent-host.example', '--', "'hermes'", `'it'\\''s'`])
     assert.throws(() => sshArgs('-oProxyCommand=evil', 'hermes', []), /not a host/)
     assert.equal(listAgents().filter((agent) => agent.host !== null).every((agent) => agent.kind === 'hermes'), true)
-    await assert.rejects(startSession(root, 'review', 'claude', 'hermes.ocean'), /another machine/)
+    await assert.rejects(startSession(root, 'review', 'claude', 'agent-host.example'), /another machine/)
 
     // A stand-in for ssh. It never touches the folder: it only says what it wants changed.
     await writeFile(
@@ -195,7 +195,7 @@ console.log('<mate-file path="shelf/classification.md">\\nShelf, rewritten.\\n</
     const draft = () => readFile(path.join(root, 'projects/review/draft/document.md'), 'utf8')
     const shelf = () => readFile(path.join(root, 'shelf/classification.md'), 'utf8')
 
-    const session = await startSession(root, 'review', 'hermes', 'hermes.ocean')
+    const session = await startSession(root, 'review', 'hermes', 'agent-host.example')
     const planned = await (await sendMessage(root, 'review', session.id, 'Tighten the draft.', false, () => {})).finished
     // Not approved: nothing is written. Both changes wait, and the one outside the context is refused.
     assert.equal(await draft(), 'Draft text.\n')
@@ -205,7 +205,7 @@ console.log('<mate-file path="shelf/classification.md">\\nShelf, rewritten.\\n</
     assert.match(planned.messages.at(-1)!.text, /will not write: \.\.\/outside\.md/)
 
     const [first] = await asked()
-    assert.deepEqual(first.args.slice(4, 6), ['hermes.ocean', '--'])
+    assert.deepEqual(first.args.slice(4, 6), ['agent-host.example', '--'])
     assert.ok(first.args.includes("'todo'") && first.args.includes("'-Q'"))
     assert.match(first.prompt, /You cannot open files[\s\S]*kind="proposal of project review">\nDraft text\.\n<\/file>[\s\S]*<file path="shelf\/classification\.md" kind="shelf">\nShelf text\.\n<\/file>/)
 
