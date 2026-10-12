@@ -87,6 +87,15 @@ commit is not a revert.
 
 The desk still works with no agent connected.
 
+Built: inviting Claude Code, Codex, or Hermes on this machine into a
+project. The plan first, the approval as a message, the copy before an
+edit, Revert, and the hold on any file outside the project. A session
+goes on after the app is closed and opened again.
+
+Not built yet: an agent on another machine over SSH, and the MCP door for
+an agent the reader runs themselves. A turn that is running when the app
+quits is lost, though its session goes on.
+
 ## 6. The other sources
 
 Mail, calendar, and issues appear through the connections the project

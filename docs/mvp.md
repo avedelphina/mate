@@ -105,5 +105,5 @@ not followed. HTML and entities such as `&amp;` are shown as written.
 
 ## Do not build yet
 
-An agent, mail, issues, or a way to publish to the shelf. The model for those is settled in [model.md](model.md). The
+Mail, issues, or a way to publish to the shelf. The model for those is settled in [model.md](model.md). The
 implementation is not this slice.

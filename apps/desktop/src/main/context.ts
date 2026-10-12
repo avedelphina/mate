@@ -4,6 +4,7 @@ import { readdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { insertComment, readDocument, type Thread } from '../shared/comments'
 import { placeOf, type Place } from './contextIndex'
+import { mateWrote } from './guard'
 
 export type DocumentView = {
   project: string
@@ -88,6 +89,7 @@ export async function editDraft(
   const temporary = path.join(draftDir, `.${file}.${randomUUID()}.tmp`)
   await writeFile(temporary, next)
   await rename(temporary, documentPath)
+  mateWrote(contextDir, `projects/${project}/draft/${file}`, Buffer.from(next))
   return readProject(contextDir, project, file)
 }
 

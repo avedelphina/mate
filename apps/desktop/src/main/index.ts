@@ -1,9 +1,11 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, type IpcMainInvokeEvent } from 'electron'
 import path from 'node:path'
 import { addReply, anchorComment, applySuggestion } from '../shared/comments'
+import { listAgents, type AgentKind } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
 import { addComment, editDraft, listProjects, readContextFile, readProject } from './context'
 import { refreshIndex, searchIndex } from './contextIndex'
+import { listSessions, revertChange, sendMessage, settleHeld, startSession, stopTurn, type Session } from './sessions'
 
 // The name in the menu bar. Without this it is the package name.
 app.setName('Mate')
@@ -47,6 +49,13 @@ function createWindow(from?: BrowserWindow | null): void {
     void window.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
     void window.loadFile(path.join(__dirname, '../renderer/index.html'))
+  }
+}
+
+/** Show a session's progress in every window that has its context open, and in no other. */
+function tell(contextDir: string, session: Session): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (contexts.get(window.webContents.id) === contextDir) window.webContents.send('session:update', session)
   }
 }
 
@@ -137,6 +146,31 @@ app.whenReady().then(() => {
 
   ipcMain.handle('comment:anchor', (event, project: string, file: string, id: string, anchor: string, from?: number) =>
     editDraft(requireContext(event), project, file, (markdown) => anchorComment(markdown, id, anchor, from))
+  )
+
+  ipcMain.handle('agents:list', () => listAgents())
+
+  ipcMain.handle('session:list', (event, project: string) => listSessions(requireContext(event), project))
+
+  ipcMain.handle('session:start', (event, project: string, agent: AgentKind) =>
+    startSession(requireContext(event), project, agent)
+  )
+
+  // An approval is a message like any other. The answer arrives as 'session:update' events.
+  ipcMain.handle('session:send', async (event, project: string, id: string, text: string, approve: boolean) => {
+    const contextDir = requireContext(event)
+    const turn = await sendMessage(contextDir, project, id, text, approve, (session) => tell(contextDir, session))
+    return turn.started
+  })
+
+  ipcMain.handle('session:stop', (_event, id: string) => stopTurn(id))
+
+  ipcMain.handle('session:revert', (event, project: string, id: string, index: number) =>
+    revertChange(requireContext(event), project, id, index)
+  )
+
+  ipcMain.handle('session:settle', (event, project: string, id: string, index: number, approve: boolean) =>
+    settleHeld(requireContext(event), project, id, index, approve)
   )
 
   ipcMain.handle('assist:check', () => checkAssist(assistHelper))

@@ -13,6 +13,11 @@ App.tsx                         window.mate                 index.ts
   currentContext()   ---------> ipc 'context:current' ----> what this window already has open
   searchContext()    ---------> ipc 'context:search' -----> bring the index up to date, search it
   readFile()         ---------> ipc 'file:read'      -----> a file that is read, not reviewed
+  startSession()     ---------> ipc 'session:start'  -----> a new conversation with one agent
+  sendMessage()      ---------> ipc 'session:send'   -----> one turn of the agent, then the guard
+  settleHeld()       ---------> ipc 'session:settle' -----> approve one held file, or drop it
+  revertChange()     ---------> ipc 'session:revert' -----> put a file back as it was
+  onSession()        <--------- ipc 'session:update' <----- the session as the agent goes on
   openProject()      ---------> ipc 'project:open'   -----> readProject()
   addComment()       ---------> ipc 'comment:add'    -----> insertComment()
   addReply()         ---------> ipc 'comment:reply'  -----> addReply()
@@ -42,6 +47,9 @@ preload as CommonJS. Leave that as it is.
 | How markdown is drawn | `src/renderer/src/markdown.ts`, then `styles.css` |
 | What the assist is asked | `src/main/assist.ts` |
 | What is indexed, how a search ranks | `src/main/contextIndex.ts` |
+| How an agent is started and its output read | `src/main/agents.ts` |
+| What an agent may change | `src/main/guard.ts`, then `src/main/sessions.ts` |
+| What an agent is told at the start | `RULES` in `src/main/sessions.ts` |
 | How the on-device model is called | `assist/main.swift` |
 
 Add the preload and the type in `env.d.ts` in the same change as the
@@ -178,6 +186,55 @@ read: the page is drawn, and there is no menu under a selection. The
 model does not allow a comment written into the shelf or into a file that
 steers a project.
 
+## Agents
+
+An agent is invited into a project from the Agent tab of the margin. Mate
+starts the agent's own command line tool, with the project folder as its
+working folder: Claude Code, Codex, or Hermes. `agents.ts` holds, for each,
+the arguments to run it without a terminal and how to read its output as
+the same few events. The message goes in on stdin.
+
+Each agent gets tools for reading and editing files and nothing else. It
+has no shell and no web. Claude is started without the settings and hooks
+of the context folder or of the reader, because a context may come from
+someone else's repository and a hook is a program.
+
+### The guard
+
+What an agent may change is not left to the agent. `guard.ts` looks at
+the folder. Before a turn it takes every file of the context. After the
+turn it compares.
+
+- A change inside the open project, once the plan is approved, is the
+  agent's work. The bytes from before are kept, and Revert puts them back.
+- Any other change is put back at once and held: a change outside the
+  project, or any change before the plan is approved. It goes through only
+  when the reader approves that one file. The approval is for that file,
+  once.
+
+This is the same for every agent, because it does not depend on what the
+agent says it did. `.git/hooks` is watched too. A file Mate writes itself
+during a turn, such as a comment, is told to the guard and is not taken
+for the agent's.
+
+One agent works in a context at a time. Two at once could not be told
+apart by looking at the folder.
+
+### Sessions
+
+A session is one conversation with one agent in one project. It is kept in
+`.sessions/<project>/<id>/` inside the context: the messages, the files
+changed, the changes held, and the copies for Revert. That folder ignores
+itself in git. A session goes on after the window is closed and opened
+again, because the agent's own id for the conversation is kept. An agent
+that cannot pick its conversation up is given the conversation so far.
+
+The plan comes first. Until the reader approves it, every turn is read
+only. The approval is sent to the agent as a message, like any other.
+
+The agent's tool keeps its own record of the conversation on this
+computer, outside the context. Mate does not manage that record.
+
 ## Windows
 
 File > New Window opens another window. Each window has its own document
@@ -195,4 +252,4 @@ when it gets the focus back. Nothing tells it sooner.
 
 ## What is deliberately absent
 
-No agent, no mail, no issues, no git operations.
+No mail, no issues, no git operations.

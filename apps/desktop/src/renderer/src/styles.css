@@ -134,7 +134,7 @@ mark.pending, mark.found { background: var(--mark-pending); }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .chips button { padding: 1px 9px; border-radius: 99px; color: var(--soft); font-size: 12px; }
 .composer footer { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
-.composer footer button:first-child { margin-right: auto; }
+.composer footer > :first-child { margin-right: auto; }
 .thread blockquote, .swap { padding-left: 10px; border-left: 2px solid var(--mark-active); color: var(--soft); font: italic 14px/1.5 var(--read); }
 
 .thread:first-child, .hint + .thread { margin-top: 0; }
@@ -161,3 +161,29 @@ summary { color: var(--soft); font-size: 12px; font-weight: 600; cursor: pointer
 details .prose { margin-top: 8px; font: 13.5px/1.6 var(--read); }
 details .prose h1 { font-size: 1.15em; }
 details .prose h2, details .prose h3 { font-size: 1em; }
+
+/* The agent's side of the margin */
+.tabs { display: flex; gap: 2px; -webkit-app-region: no-drag; }
+.tabs button { padding: 3px 10px; font-weight: 500; }
+.tabs button.active { background: var(--hover); color: var(--ink); }
+.invite { display: flex; gap: 6px; margin: 10px 10px 0; }
+.margin h3 { margin: 18px 10px 4px; font-size: 11px; font-weight: 500; color: var(--soft); }
+.talk-head { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; }
+.talk-head button { padding: 2px 6px; }
+.said { margin: 0 0 12px; }
+.said p { margin: 0; white-space: pre-wrap; overflow-wrap: break-word; }
+.said.you { margin-left: 28px; padding: 8px 12px; border-radius: 12px; background: var(--hover); }
+.said.mate { padding: 8px 12px; border-radius: 10px; background: var(--warn-bg); color: var(--warn); font-size: 12px; }
+.said .prose { font: 14.5px/1.6 var(--read); }
+.said .prose h1, .said .prose h2, .said .prose h3 { font-size: 1.05em; margin-top: 1em; }
+.said .prose > :last-child { margin-bottom: 0; }
+.steps { margin-bottom: 4px; color: var(--soft); font-size: 12px; }
+.steps summary { cursor: pointer; }
+.steps p { margin: 2px 0 0 12px; font: 11.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+.working { margin: 0 0 12px; }
+.decide { margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--warn); border-radius: 12px; background: var(--card); }
+.decide p { margin: 0 0 8px; }
+.decide p:last-child { display: flex; gap: 6px; margin: 0; }
+.changed { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 6px; color: var(--soft); font-size: 12px; }
+.margin code { font: 0.92em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+.talk { position: sticky; bottom: 0; margin-top: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }

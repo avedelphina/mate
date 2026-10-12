@@ -21,6 +21,21 @@ contextBridge.exposeInMainWorld('mate', {
     ipcRenderer.invoke('comment:apply', project, file, id),
   anchorComment: (project: string, file: string, id: string, anchor: string, from?: number) =>
     ipcRenderer.invoke('comment:anchor', project, file, id, anchor, from),
+  listAgents: () => ipcRenderer.invoke('agents:list'),
+  listSessions: (project: string) => ipcRenderer.invoke('session:list', project),
+  startSession: (project: string, agent: string) => ipcRenderer.invoke('session:start', project, agent),
+  sendMessage: (project: string, id: string, text: string, approve: boolean) =>
+    ipcRenderer.invoke('session:send', project, id, text, approve),
+  stopTurn: (id: string) => ipcRenderer.invoke('session:stop', id),
+  revertChange: (project: string, id: string, index: number) => ipcRenderer.invoke('session:revert', project, id, index),
+  settleHeld: (project: string, id: string, index: number, approve: boolean) =>
+    ipcRenderer.invoke('session:settle', project, id, index, approve),
+  /** Returns the function that stops listening. */
+  onSession: (listener: (session: unknown) => void) => {
+    const heard = (_event: unknown, session: unknown) => listener(session)
+    ipcRenderer.on('session:update', heard)
+    return () => ipcRenderer.removeListener('session:update', heard)
+  },
   checkAssist: () => ipcRenderer.invoke('assist:check'),
   runAssist: (task: 'rewrite' | 'note', passage: string, note: string) =>
     ipcRenderer.invoke('assist:run', task, passage, note)

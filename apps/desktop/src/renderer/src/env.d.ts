@@ -43,6 +43,26 @@ export type Hit = {
   thread: string | null
 }
 
+export type AgentKind = 'claude' | 'codex' | 'hermes'
+export type AgentInfo = { kind: AgentKind; label: string; found: boolean }
+
+export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[] }
+
+/** A conversation with one agent inside one project. See src/main/sessions.ts. */
+export type Session = {
+  id: string
+  project: string
+  agent: AgentKind
+  created: string
+  planApproved: boolean
+  messages: Message[]
+  /** Files the agent changed and Mate let through. */
+  changes: { path: string; reverted: boolean }[]
+  /** Changes Mate put back, waiting for the reader to approve that one file. */
+  held: { path: string; state: 'waiting' | 'approved' | 'discarded' }[]
+  running: boolean
+}
+
 /** `present`: the helper is on this machine. `available`: the model behind it can answer now. */
 export type AssistState = { present: boolean; available: boolean; reason: string }
 
@@ -64,6 +84,14 @@ export type MateApi = {
   addReply: (project: string, file: string, id: string, text: string, author: string) => Promise<DocumentView>
   applySuggestion: (project: string, file: string, id: string) => Promise<DocumentView>
   anchorComment: (project: string, file: string, id: string, anchor: string, from?: number) => Promise<DocumentView>
+  listAgents: () => Promise<AgentInfo[]>
+  listSessions: (project: string) => Promise<Session[]>
+  startSession: (project: string, agent: AgentKind) => Promise<Session>
+  sendMessage: (project: string, id: string, text: string, approve: boolean) => Promise<Session>
+  stopTurn: (id: string) => Promise<void>
+  revertChange: (project: string, id: string, index: number) => Promise<Session>
+  settleHeld: (project: string, id: string, index: number, approve: boolean) => Promise<Session>
+  onSession: (listener: (session: Session) => void) => () => void
   checkAssist: () => Promise<AssistState>
   runAssist: (task: 'rewrite' | 'note', passage: string, note: string) => Promise<string>
 }
