@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -103,6 +103,28 @@ test('a pane is a file of the project: read with it, called a pane, and found af
     // An agent gathered it. It is not what is true, and it does not steer the project.
     assert.deepEqual(placeOf('projects/review/panes/tasks.md'), { kind: 'pane', project: 'review' })
     assert.deepEqual(searchIndex(await refreshIndex(root), 'public data').map((hit) => hit.kind), ['shelf', 'draft', 'pane'])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a project lists the files in its folder, and opens with no draft', async () => {
+  const root = await context()
+  try {
+    const write = async (relative: string) => {
+      await mkdir(path.dirname(path.join(root, relative)), { recursive: true })
+      await writeFile(path.join(root, relative), 'x')
+    }
+    await write('projects/review/dropbox/scans/letter.pdf')
+    await write('projects/review/.cache/hidden.md')
+    // A link is not followed: what it points at is not in the folder.
+    await symlink(path.join(root, 'shelf'), path.join(root, 'projects/review/linked'))
+    assert.deepEqual((await readProject(root, 'review')).files, ['draft/document.md', 'dropbox/scans/letter.pdf', 'intents.md'])
+
+    await write('projects/empty/README.md')
+    const empty = await readProject(root, 'empty')
+    assert.deepEqual([empty.drafts, empty.file, empty.text, empty.files], [[], null, '', ['README.md']])
+    await assert.rejects(readProject(root, 'nowhere'), /not in this context/)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

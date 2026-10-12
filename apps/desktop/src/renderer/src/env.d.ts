@@ -25,6 +25,8 @@ export type DocumentView = {
   intents: string
   principles: string
   panes: Pane[]
+  /** Every file of the project, by its path from the project folder. */
+  files: string[]
 }
 
 /** Where a file stands in the context. The shelf is what is true now. A draft is a proposal. A pane is neither. */

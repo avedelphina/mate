@@ -23,6 +23,8 @@ export type DocumentView = {
   intents: string
   principles: string
   panes: Pane[]
+  /** Every file of the project, by its path from the project folder. The window draws them as a tree. */
+  files: string[]
 }
 
 /** A file of the context that is not under review here: the shelf, a project's intents. Shown, never written. */
@@ -56,6 +58,23 @@ async function listMarkdown(dir: string): Promise<string[]> {
     .sort()
 }
 
+/**
+ * Every file under a folder, by its path from that folder. Hidden names are left out, and a link
+ * is not followed, so nothing is listed that is not in the folder itself.
+ */
+// ponytail: every name is sent each time the project is read. Past some thousands of files,
+// send a folder when the reader unfolds it.
+async function listFiles(dir: string, base = ''): Promise<string[]> {
+  const found: string[] = []
+  for (const entry of await readdir(path.join(dir, base), { withFileTypes: true })) {
+    if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
+    const relative = base ? `${base}/${entry.name}` : entry.name
+    if (entry.isDirectory()) found.push(...(await listFiles(dir, relative)))
+    else if (entry.isFile()) found.push(relative)
+  }
+  return found.sort()
+}
+
 /** A path that stays inside root. Rejects absolute paths and anything that climbs out. */
 export function resolveInside(root: string, ...parts: string[]): string {
   const target = path.resolve(root, ...parts)
@@ -78,8 +97,9 @@ export async function realInside(contextDir: string, ...parts: string[]): Promis
 export async function readProject(contextDir: string, project: string, file?: string): Promise<DocumentView> {
   const projectDir = resolveInside(contextDir, 'projects', project)
   const draftDir = path.join(projectDir, 'draft')
+  // A project with no draft still opens: its other files are there to be read.
+  if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
   const drafts = await listMarkdown(draftDir)
-  if (drafts.length === 0) throw new Error('This project has no markdown draft.')
   if (file !== undefined && !drafts.includes(file)) throw new Error('That draft is not in this project.')
   // With several drafts the reader picks. Opening the first sorted name would be a guess.
   const chosen = file ?? (drafts.length === 1 ? drafts[0] : null)
@@ -100,7 +120,7 @@ export async function readProject(contextDir: string, project: string, file?: st
       written: (await stat(path.join(projectDir, 'panes', name))).mtimeMs
     }))
   )
-  return { project, drafts, file: chosen, ...document, intents, principles, panes }
+  return { project, drafts, file: chosen, ...document, intents, principles, panes, files: await listFiles(projectDir) }
 }
 
 /** Read the draft, change it, and put it back whole. */

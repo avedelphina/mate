@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Agent } from './Agent'
 import type { AssistState, DocumentView, FileView, Hit, Kind } from './env'
 import { Rendered, type Passage } from './Rendered'
+import { Tree } from './Tree'
 import './styles.css'
 
 /** Electron wraps what a handler throws. The reader gets the sentence the handler wrote. */
@@ -24,7 +25,7 @@ const POPOVER_WIDTH = 360
 const KINDS: Record<Kind, { label: string; note: string }> = {
   shelf: { label: 'Shelf', note: 'The shelf: what is true now. It is read here. It changes only when a project publishes.' },
   draft: { label: 'Proposal', note: '' },
-  project: { label: 'Project file', note: 'A file that steers its project. It is read here, not reviewed.' },
+  project: { label: 'Project file', note: 'A file of its project that is not a draft. It is read here, not reviewed.' },
   context: { label: 'Context', note: 'A file of the whole context. It is read here, not reviewed.' },
   pane: { label: 'Pane', note: 'A pane of its project: what an agent gathered to show beside the draft. It is not a source.' }
 }
@@ -53,7 +54,8 @@ export function App() {
   const [query, setQuery] = useState('')
   // Null while nothing is being searched for, and the rail lists the projects.
   const [hits, setHits] = useState<Hit[] | null>(null)
-  // A file opened from a search that is not a draft. It takes the page, and cannot be commented.
+  // A file that is not a draft, opened from the tree or from a search. It takes the page, and cannot
+  // be commented. The project that is open stays open beside it.
   const [reading, setReading] = useState<FileView | null>(null)
   // Where the search matched in the open page.
   const [found, setFound] = useState<{ start: number; end: number } | null>(null)
@@ -65,6 +67,7 @@ export function App() {
 
   const project = view?.project
   const file = view?.file ?? null
+  const readingPath = reading?.path
 
   // A window opened from another starts in that window's context.
   useEffect(() => {
@@ -77,29 +80,29 @@ export function App() {
 
   // With two windows open, the Window menu and the task switcher need to tell them apart.
   useEffect(() => {
-    document.title = project ? `${file ?? project} · ${project}` : 'Mate'
-  }, [project, file])
+    const page = readingPath?.split('/').pop() ?? file
+    document.title = page ? `${page} · ${project ?? 'Mate'}` : (project ?? 'Mate')
+  }, [project, file, readingPath])
 
   // The file is the document. It may have been edited or pulled while the window was in the background.
   useEffect(() => {
-    if (!project) return
+    if (!project && !readingPath) return
     let current = true
-    const reload = () =>
-      window.mate.openProject(project, file ?? undefined).then(
-        (next) => current && setView(next),
-        () => {}
-      )
+    const reload = () => {
+      if (project) window.mate.openProject(project, file ?? undefined).then((next) => current && setView(next), () => {})
+      if (readingPath) window.mate.readFile(readingPath).then((next) => current && setReading(next), () => {})
+    }
     window.addEventListener('focus', reload)
     // An agent may have written the draft or a pane, and the Agent tab may not be open to notice.
     const unhear = window.mate.onSession((session) => {
-      if (session.project === project && !session.running) void reload()
+      if (session.project === project && !session.running) reload()
     })
     return () => {
       current = false
       window.removeEventListener('focus', reload)
       unhear()
     }
-  }, [project, file])
+  }, [project, file, readingPath])
 
   useEffect(() => {
     if (!contextDir || !query.trim()) return setHits(null)
@@ -199,22 +202,35 @@ export function App() {
     }
   }
 
+  /** Put a file on the page to be read, not reviewed. `path` is counted from the context folder. */
+  async function read(path: string) {
+    setError(null)
+    setActive(null)
+    setFound(null)
+    clearComment()
+    try {
+      setReading(await window.mate.readFile(path))
+    } catch (caught) {
+      setReading(null)
+      setError(reason(caught, 'Could not open that file.'))
+    }
+  }
+
+  /** A file picked in the tree of the open project. A draft opens for review. Anything else is read. */
+  function openFile(path: string) {
+    if (!view) return
+    const [folder, name, ...deeper] = path.split('/')
+    if (folder === 'draft' && deeper.length === 0 && view.drafts.includes(name)) void openProject(view.project, name)
+    else void read(`projects/${view.project}/${path}`)
+  }
+
   /** A draft opens as a draft, at the match. Anything else is opened to be read. */
   async function openHit(hit: Hit) {
     if (hit.kind === 'draft' && hit.project) {
       await openProject(hit.project, hit.path.split('/').pop())
       setActive(hit.thread)
     } else {
-      setError(null)
-      setActive(null)
-      clearComment()
-      setView(null)
-      try {
-        setReading(await window.mate.readFile(hit.path))
-      } catch (caught) {
-        setReading(null)
-        setError(reason(caught, 'Could not open that file.'))
-      }
+      await read(hit.path)
     }
     setFound(hit.start === null ? null : { start: hit.start, end: hit.start + hit.length })
   }
@@ -295,9 +311,9 @@ export function App() {
     if (anchored) clearComment()
   }
 
-  const drafts = view && view.drafts.length > 1 ? view.drafts : []
   const passages: Passage[] = []
-  if (view) {
+  // The threads belong to the draft. A file that is only read has none.
+  if (view && !reading) {
     for (const thread of view.comments) {
       if (thread.start !== null) passages.push({ id: thread.id, start: thread.start, end: thread.start + thread.anchor.length })
     }
@@ -311,6 +327,8 @@ export function App() {
   // A tab whose pane file is gone falls back to the review.
   const pane = view?.panes.find((each) => `pane:${each.name}` === tab) ?? null
   const shown = pane ? 'pane' : tab === 'agent' ? 'agent' : 'review'
+  // Where the page is in the tree of the open project, when it is in it at all.
+  const inTree = reading ? (reading.project === project ? reading.path.split('/').slice(2).join('/') : null) : file && `draft/${file}`
 
   return (
     <div className="app">
@@ -355,20 +373,7 @@ export function App() {
                     <button className={project === name ? 'row active' : 'row'} onClick={() => openProject(name)}>
                       {name}
                     </button>
-                    {project === name && drafts.length > 0 && (
-                      <ul className="drafts">
-                        {drafts.map((draft) => (
-                          <li key={draft}>
-                            <button
-                              className={file === draft ? 'row active' : 'row'}
-                              onClick={() => openProject(name, draft)}
-                            >
-                              {draft}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                    {view && project === name && <Tree paths={view.files} current={inTree} onOpen={openFile} />}
                   </li>
                 ))}
               </ul>
@@ -380,9 +385,9 @@ export function App() {
         <header className="bar">
           {reading && <span className={`kind ${reading.kind}`}>{KINDS[reading.kind].label}</span>}
           {reading && <span>{reading.path}</span>}
-          {view && <span className="meta">{view.project}</span>}
-          {file !== null && <span className="meta">/</span>}
-          {file !== null && <span>{file}</span>}
+          {!reading && view && <span className="meta">{view.project}</span>}
+          {!reading && file !== null && <span className="meta">/</span>}
+          {!reading && file !== null && <span>{file}</span>}
         </header>
         <div className="scroll">
           {reading ? (
@@ -392,7 +397,11 @@ export function App() {
           ) : !view ? (
             <p className="empty">Open a context, then a project. The draft is the page.</p>
           ) : file === null ? (
-            <p className="empty">This project has {drafts.length} drafts. Pick one on the left.</p>
+            <p className="empty">
+              {view.drafts.length === 0
+                ? 'This project has no draft. Its other files are on the left.'
+                : `This project has ${view.drafts.length} drafts. Pick one on the left.`}
+            </p>
           ) : (
             <div className="page prose" ref={page} onMouseUp={pickPassage}>
               <Rendered text={view.text} passages={passages} active={active} onPick={setActive} />
@@ -459,7 +468,7 @@ export function App() {
       </main>
       <aside className="margin">
         <header className="bar">
-          {reading && 'Read only'}
+          {reading && !view && 'Read only'}
           {view && (
             <span className="tabs">
               <button className={shown === 'review' ? 'quiet active' : 'quiet'} onClick={() => setTab('review')}>Review</button>
@@ -481,7 +490,7 @@ export function App() {
         </header>
         <div className="scroll">
           {error && <p className="error" role="alert">{error}</p>}
-          {reading && <p className="meta hint">{KINDS[reading.kind].note}</p>}
+          {reading && (!view || shown === 'review') && <p className="meta hint">{KINDS[reading.kind].note}</p>}
           {view && shown === 'agent' && (
             <Agent
               project={view.project}
@@ -498,7 +507,7 @@ export function App() {
               <div className="prose pane"><Rendered text={pane.text} /></div>
             </>
           )}
-          {view && shown === 'review' && file !== null && (
+          {view && shown === 'review' && file !== null && !reading && (
             <>
               {view.comments.length === 0 && (
                 <p className="meta hint">Select a passage in the document to comment on it.</p>

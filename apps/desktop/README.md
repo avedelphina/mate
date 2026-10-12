@@ -52,6 +52,7 @@ src/
     App.tsx         the window: rail, page, margin
     Rendered.tsx    draws the markdown and the highlights
     Agent.tsx       the Agent tab of the margin
+    Tree.tsx        the files of the open project, in the rail
     markdown.ts     the markdown tree; every character appears once, in order
     env.d.ts        the types of window.mate, shared by both sides
   shared/
