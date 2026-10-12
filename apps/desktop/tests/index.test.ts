@@ -30,7 +30,12 @@ test('a file is labelled by where it stands in the context', () => {
   assert.deepEqual(placeOf('shelf/a/b.md'), { kind: 'shelf', project: null })
   assert.deepEqual(placeOf('projects/review/draft/document.md'), { kind: 'draft', project: 'review' })
   assert.deepEqual(placeOf('projects/review/intents.md'), { kind: 'project', project: 'review' })
-  assert.deepEqual(placeOf('projects/review/draft/deep/x.md'), { kind: 'project', project: 'review' })
+  // Only the intents and the principles steer. What came in, and what is deeper in a folder, is material.
+  assert.deepEqual(placeOf('projects/review/principles.md'), { kind: 'project', project: 'review' })
+  assert.deepEqual(placeOf('projects/review/draft/deep/x.md'), { kind: 'material', project: 'review' })
+  assert.deepEqual(placeOf('projects/review/dropbox/letter.md'), { kind: 'material', project: 'review' })
+  assert.deepEqual(placeOf('projects/review/intents/AGENTS.md'), { kind: 'material', project: 'review' })
+  assert.deepEqual(placeOf('projects/review/README.md'), { kind: 'material', project: 'review' })
   assert.deepEqual(placeOf('README.md'), { kind: 'context', project: null })
 })
 

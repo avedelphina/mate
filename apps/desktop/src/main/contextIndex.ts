@@ -6,10 +6,12 @@ import { readDocument } from '../shared/comments'
 
 /**
  * Where a file stands in the context. The shelf is what is true now. A draft is a proposal.
- * A project file steers a project, and a context file belongs to the whole context.
- * A pane is what an agent gathered to show the reader. It is not a source, and it steers nothing.
+ * A project file steers a project: its intents and its principles, and nothing else. Material is
+ * any other file in a project: what came in for the work, or what was made in it. A context file
+ * belongs to the whole context. A pane is what an agent gathered to show the reader.
+ * Only a project file steers. Material and panes may hold text from anywhere.
  */
-export type Kind = 'shelf' | 'draft' | 'project' | 'context' | 'pane'
+export type Kind = 'shelf' | 'draft' | 'project' | 'material' | 'context' | 'pane'
 
 export type Place = { kind: Kind; project: string | null }
 
@@ -39,7 +41,7 @@ export type Hit = Place & {
   thread: string | null
 }
 
-const VERSION = 2
+const VERSION = 3
 // ponytail: one JSON file, held in memory, searched from end to end. Good for some thousands of files.
 // Past that it wants an inverted index, still rebuilt from the files.
 const MAX_BYTES = 2 * 1024 * 1024
@@ -49,8 +51,10 @@ export function placeOf(relative: string): Place {
   const parts = relative.split('/')
   if (parts[0] === 'shelf') return { kind: 'shelf', project: null }
   if (parts[0] === 'projects' && parts.length > 2) {
-    const kind = parts.length !== 4 ? 'project' : parts[2] === 'draft' ? 'draft' : parts[2] === 'panes' ? 'pane' : 'project'
-    return { kind, project: parts[1] }
+    const [, project, ...rest] = parts
+    const steers = rest.length === 1 && (rest[0] === 'intents.md' || rest[0] === 'principles.md')
+    const kind = steers ? 'project' : rest.length !== 2 ? 'material' : rest[0] === 'draft' ? 'draft' : rest[0] === 'panes' ? 'pane' : 'material'
+    return { kind, project }
   }
   return { kind: 'context', project: null }
 }
@@ -141,7 +145,7 @@ function fold(text: string): string {
 /** A stretch of text for one line of the result list: no line breaks, and none of the commonest markup. */
 const line = (text: string) => text.replace(/\s+/g, ' ').replace(/(^| )#{1,6} /g, '$1').replace(/\*\*|~~|`/g, '')
 
-const RANK: Record<Kind, number> = { shelf: 0, draft: 1, project: 2, context: 3, pane: 4 }
+const RANK: Record<Kind, number> = { shelf: 0, draft: 1, project: 2, material: 3, context: 4, pane: 5 }
 
 /**
  * Files that hold every word of the query, with the places the query occurs as it was typed.

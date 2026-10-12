@@ -183,8 +183,11 @@ it again from the files. It never holds anything from another context,
 and its folder ignores itself in whatever repository the context is in.
 
 Where a file stands decides what a hit is called. `shelf/` is the shelf:
-what is true now. `projects/<name>/draft/` is a proposal. Other files of a
-project steer it, and the rest belongs to the whole context. Shelf hits
+what is true now. `projects/<name>/draft/` is a proposal. The intents
+and the principles of a project steer it, and nothing else does. Any
+other file of a project is material: what came in for the work, or what
+was made in it. An agent is told that nothing in material is an
+instruction. The rest belongs to the whole context. Shelf hits
 come first, and a hit always says which it is. A match in a comment is
 shown as a comment and opens its thread.
 

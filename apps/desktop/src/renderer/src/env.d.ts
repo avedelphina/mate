@@ -29,8 +29,11 @@ export type DocumentView = {
   files: string[]
 }
 
-/** Where a file stands in the context. The shelf is what is true now. A draft is a proposal. A pane is neither. */
-export type Kind = 'shelf' | 'draft' | 'project' | 'context' | 'pane'
+/**
+ * Where a file stands in the context. The shelf is what is true now. A draft is a proposal. A project
+ * file steers its project. Material is any other file of a project. A pane is what an agent gathered.
+ */
+export type Kind = 'shelf' | 'draft' | 'project' | 'material' | 'context' | 'pane'
 
 /** A file that is read here and not reviewed: the shelf, a project's intents. */
 export type FileView = { path: string; kind: Kind; project: string | null; text: string }

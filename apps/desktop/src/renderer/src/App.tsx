@@ -25,7 +25,8 @@ const POPOVER_WIDTH = 360
 const KINDS: Record<Kind, { label: string; note: string }> = {
   shelf: { label: 'Shelf', note: 'The shelf: what is true now. It is read here. It changes only when a project publishes.' },
   draft: { label: 'Proposal', note: '' },
-  project: { label: 'Project file', note: 'A file of its project that is not a draft. It is read here, not reviewed.' },
+  project: { label: 'Project file', note: 'A file that steers its project. It is read here, not reviewed.' },
+  material: { label: 'Material', note: 'A file of its project that is not a draft: what came in for the work, or was made in it. It is read here.' },
   context: { label: 'Context', note: 'A file of the whole context. It is read here, not reviewed.' },
   pane: { label: 'Pane', note: 'A pane of its project: what an agent gathered to show beside the draft. It is not a source.' }
 }
