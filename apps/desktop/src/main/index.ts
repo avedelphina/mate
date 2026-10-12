@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron'
 import path from 'node:path'
 import { addReply, anchorComment, applySuggestion } from '../shared/comments'
 import { addComment, editDraft, listProjects, readProject } from './context'
@@ -7,9 +7,16 @@ let contextDir: string | null = null
 
 function createWindow(): void {
   const window = new BrowserWindow({
-    width: 1100,
-    height: 800,
+    width: 1280,
+    height: 860,
+    minWidth: 900,
+    minHeight: 560,
     title: 'Mate',
+    // On the Mac the window buttons sit in the rail's top bar. styles.css leaves room for them.
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    trafficLightPosition: { x: 16, y: 16 },
+    // The page colour from styles.css, so the window does not flash white before it loads.
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1f1e1b' : '#fbfaf7',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,

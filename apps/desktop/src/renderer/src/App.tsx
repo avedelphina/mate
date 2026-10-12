@@ -175,129 +175,161 @@ export function App() {
     if (picked >= 0) passages.push({ id: null, start: picked, end: picked + anchor.length })
   }
 
+  const contextName = contextDir?.split(/[\\/]/).filter(Boolean).pop()
+
   return (
     <div className="app">
       <aside className="rail">
-        <h1>Mate</h1>
-        <button onClick={openContext}>Open context</button>
-        {contextDir && <p className="meta">{contextDir}</p>}
-        <ul className="projects">
-          {projects.map((name) => (
-            <li key={name}>
-              <button className={project === name ? 'row active' : 'row'} onClick={() => openProject(name)}>
-                {name}
-              </button>
-              {project === name && drafts.length > 0 && (
-                <ul className="drafts">
-                  {drafts.map((draft) => (
-                    <li key={draft}>
-                      <button className={file === draft ? 'row active' : 'row'} onClick={() => openProject(name, draft)}>
-                        {draft}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          ))}
-        </ul>
+        <header className="bar">Mate</header>
+        <div className="scroll">
+          <button className="wide" onClick={openContext}>Open context</button>
+          {contextDir && (
+            <>
+              <h2 title={contextDir}>{contextName}</h2>
+              {projects.length === 0 && <p className="meta hint">No projects in this folder.</p>}
+              <ul>
+                {projects.map((name) => (
+                  <li key={name}>
+                    <button className={project === name ? 'row active' : 'row'} onClick={() => openProject(name)}>
+                      {name}
+                    </button>
+                    {project === name && drafts.length > 0 && (
+                      <ul className="drafts">
+                        {drafts.map((draft) => (
+                          <li key={draft}>
+                            <button
+                              className={file === draft ? 'row active' : 'row'}
+                              onClick={() => openProject(name, draft)}
+                            >
+                              {draft}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
       </aside>
       <main className="center">
-        {!view ? (
-          <p>Open a context, then a project. The draft is the page.</p>
-        ) : file === null ? (
-          <p>This project has {drafts.length} drafts. Pick one on the left.</p>
-        ) : (
-          <>
-            <h1>{view.project} / {file}</h1>
-            {/* ponytail: the page is the markdown source, so a selection is exactly the text in the file.
-                Rendered markdown needs a map from the rendered text back to the source. */}
-            <div className="doc" ref={page} onMouseUp={pickPassage}>
+        <header className="bar">
+          {view && <span className="meta">{view.project}</span>}
+          {file !== null && <span className="meta">/</span>}
+          {file !== null && <span>{file}</span>}
+        </header>
+        <div className="scroll">
+          {!view ? (
+            <p className="empty">Open a context, then a project. The draft is the page.</p>
+          ) : file === null ? (
+            <p className="empty">This project has {drafts.length} drafts. Pick one on the left.</p>
+          ) : (
+            // ponytail: the page is the markdown source, so a selection is exactly the text in the file.
+            // Rendered markdown needs a map from the rendered text back to the source.
+            <div className="doc page" ref={page} onMouseUp={pickPassage}>
               {marked(view.text, passages, active, setActive)}
             </div>
-          </>
-        )}
+          )}
+        </div>
       </main>
-      <aside className="notes">
-        {error && <p className="error" role="alert">{error}</p>}
-        {view && (
-          <>
-            {file !== null && (
-              <>
-                <h1>Comment</h1>
-                <label>
-                  Passage
+      <aside className="margin">
+        <header className="bar">{file !== null && 'Review'}</header>
+        <div className="scroll">
+          {error && <p className="error" role="alert">{error}</p>}
+          {view && file !== null && (
+            <>
+              <section className="composer">
+                <textarea
+                  className="quote"
+                  aria-label="Passage"
+                  rows={1}
+                  value={anchor}
+                  placeholder="Select a passage in the document"
+                  onChange={(event) => setAnchor(event.target.value)}
+                />
+                <textarea
+                  aria-label="Note"
+                  rows={2}
+                  value={text}
+                  placeholder="Add a note"
+                  onChange={(event) => setText(event.target.value)}
+                />
+                {suggestion !== null && (
                   <textarea
-                    rows={3}
-                    value={anchor}
-                    placeholder="Select it in the document"
-                    onChange={(event) => setAnchor(event.target.value)}
+                    className="replacement"
+                    aria-label="Replacement"
+                    rows={2}
+                    value={suggestion}
+                    placeholder="Replacement. Leave it empty to remove the passage."
+                    onChange={(event) => setSuggestion(event.target.value)}
                   />
-                </label>
-                <label>
-                  Note
-                  <textarea rows={3} value={text} onChange={(event) => setText(event.target.value)} />
-                </label>
-                {suggestion === null ? (
-                  <p><button disabled={!anchor} onClick={() => setSuggestion(anchor)}>Suggest a replacement</button></p>
-                ) : (
-                  <label>
-                    Replacement
-                    <textarea rows={3} value={suggestion} onChange={(event) => setSuggestion(event.target.value)} />
-                  </label>
                 )}
-                <p><button onClick={addComment}>Add to the file</button></p>
-                {view.comments.map((thread, index) => {
-                  const unanchored = !thread.resolved && thread.start === null
-                  const classes = ['thread', active === thread.id && 'active', unanchored && 'unanchored', thread.resolved && 'resolved']
-                  return (
-                    <article
-                      key={`${index}:${thread.id}`}
-                      className={classes.filter(Boolean).join(' ')}
-                      data-threads={thread.id}
-                      onClick={() => setActive(thread.id)}
-                    >
-                      {thread.suggestion === undefined ? (
-                        <blockquote>{thread.anchor}</blockquote>
-                      ) : (
-                        <p className="swap">
-                          <del>{thread.anchor}</del>{' '}
-                          {thread.suggestion ? <ins>{thread.suggestion}</ins> : <span className="meta">(remove)</span>}
-                        </p>
-                      )}
-                      {unanchored && (
-                        <p className="flag">
-                          Unanchored. The quoted text is no longer in the file.{' '}
-                          <button disabled={!anchor} onClick={() => anchorComment(thread.id)}>Anchor to selection</button>
-                        </p>
-                      )}
-                      {thread.text && <p>{thread.text}</p>}
-                      <p className="meta">
-                        {thread.author}
-                        {thread.resolved && (thread.suggestion === undefined ? ' · resolved' : ' · applied')}
+                <footer>
+                  {suggestion === null ? (
+                    <button className="quiet" disabled={!anchor} onClick={() => setSuggestion(anchor)}>
+                      Suggest a replacement
+                    </button>
+                  ) : (
+                    <button className="quiet" onClick={() => setSuggestion(null)}>No replacement</button>
+                  )}
+                  <button className="primary" disabled={!anchor.trim()} onClick={addComment}>Add to the file</button>
+                </footer>
+              </section>
+              {view.comments.map((thread, index) => {
+                const unanchored = !thread.resolved && thread.start === null
+                const classes = ['thread', active === thread.id && 'active', unanchored && 'unanchored', thread.resolved && 'resolved']
+                return (
+                  <article
+                    key={`${index}:${thread.id}`}
+                    className={classes.filter(Boolean).join(' ')}
+                    data-threads={thread.id}
+                    onClick={() => setActive(thread.id)}
+                  >
+                    {thread.suggestion === undefined ? (
+                      <blockquote>{thread.anchor}</blockquote>
+                    ) : (
+                      <p className="swap">
+                        <del>{thread.anchor}</del>{' '}
+                        {thread.suggestion ? <ins>{thread.suggestion}</ins> : <span className="meta">(remove)</span>}
                       </p>
-                      {thread.suggestion !== undefined && !thread.resolved && (
-                        <p><button disabled={unanchored} onClick={() => applySuggestion(thread.id)}>Apply</button></p>
+                    )}
+                    {thread.text && <p className="note">{thread.text}</p>}
+                    <p className="meta">
+                      {thread.author}
+                      {unanchored && <span className="pill warn">Unanchored</span>}
+                      {thread.resolved && (
+                        <span className="pill">{thread.suggestion === undefined ? 'Resolved' : 'Applied'}</span>
                       )}
-                      {thread.replies.map((reply, replyIndex) => (
-                        <div className="reply" key={replyIndex}>
-                          <p>{reply.text}</p>
-                          <p className="meta">{reply.author}</p>
-                        </div>
-                      ))}
-                      <form onSubmit={(event) => addReply(event, thread.id)}>
-                        <input name="reply" placeholder="Reply" aria-label="Reply" />
-                        <button>Reply</button>
-                      </form>
-                    </article>
-                  )
-                })}
-              </>
-            )}
-            {view.intents && <section><h1>Intents</h1><div className="doc">{view.intents}</div></section>}
-            {view.principles && <section><h1>Principles</h1><div className="doc">{view.principles}</div></section>}
-          </>
-        )}
+                    </p>
+                    {unanchored && (
+                      <p className="flag">
+                        The quoted text is no longer in the file.{' '}
+                        <button disabled={!anchor} onClick={() => anchorComment(thread.id)}>Anchor to selection</button>
+                      </p>
+                    )}
+                    {thread.suggestion !== undefined && !thread.resolved && (
+                      <p><button className="primary" disabled={unanchored} onClick={() => applySuggestion(thread.id)}>Apply</button></p>
+                    )}
+                    {thread.replies.map((reply, replyIndex) => (
+                      <div className="reply" key={replyIndex}>
+                        <p className="note">{reply.text}</p>
+                        <p className="meta">{reply.author}</p>
+                      </div>
+                    ))}
+                    <form onSubmit={(event) => addReply(event, thread.id)}>
+                      <input name="reply" placeholder="Reply" aria-label="Reply" />
+                      <button className="quiet">Reply</button>
+                    </form>
+                  </article>
+                )
+              })}
+            </>
+          )}
+          {view?.intents && <details open><summary>Intents</summary><div className="doc">{view.intents}</div></details>}
+          {view?.principles && <details open><summary>Principles</summary><div className="doc">{view.principles}</div></details>}
+        </div>
       </aside>
     </div>
   )
