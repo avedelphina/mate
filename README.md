@@ -166,6 +166,9 @@ Tools: `mate_project`, `mate_read`, `mate_search`, `mate_comments`,
   Mate asks for each folder in a system dialog and keeps the answer
   outside the folder. It still checks what changes inside the context,
   and it does not see what the agent does outside it.
+- Files that an agent reads as its instructions, such as `AGENTS.md`, are
+  shown to you before an agent starts, when they are new or have changed
+  since you last approved them.
 - The renderer is sandboxed (`sandbox`, `contextIsolation`, no
   `nodeIntegration`). It reaches the file system only through the typed
   handlers in `apps/desktop/src/main/`.

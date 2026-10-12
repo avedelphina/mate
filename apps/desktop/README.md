@@ -48,6 +48,7 @@ src/
     assist.ts       questions for the on-device helper
     trust.ts        the contexts the reader trusts
     acp.ts          an agent that stays: asks, and takes a message mid-turn
+    pins.ts         the instruction files the reader approved
   preload/
     index.ts        window.mate: the only bridge from the window to main
   renderer/src/

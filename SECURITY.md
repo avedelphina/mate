@@ -44,7 +44,9 @@ they show that the model is broken, for example:
   sandbox;
 - a way to pass an unchecked value to `ssh` or to a shell;
 - a way for a context to become trusted without the reader's answer in the
-  system dialog.
+  system dialog;
+- a way for an agent on this computer to start with instruction files the
+  reader has not approved.
 
 ## What is not in scope
 

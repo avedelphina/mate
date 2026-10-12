@@ -262,6 +262,12 @@ export async function judge(contextDir: string, session: Session, change: Change
 }
 
 /**
+ * Asked before every turn of an agent on this computer. It throws when the turn must not start.
+ * The app sets it to the check of the instruction files, which needs the reader. See pins.ts.
+ */
+export const gate = { before: async (_contextDir: string): Promise<void> => {} }
+
+/**
  * The turns in progress, by session: the session as it is in memory, and when the turn will have ended.
  * `steer` is there when the agent can be told something while it works.
  */
@@ -385,6 +391,8 @@ async function begin(
   // In a context the reader trusts, an agent that can stay between turns does, with all its tools.
   const acp = !session.host && isTrusted(contextDir) ? adapter.acp : undefined
   try {
+    // An agent on this computer reads the instruction files of the folder itself. The reader sees them first.
+    if (!session.host) await gate.before(contextDir)
     const state = mayWrite
       ? '[The plan is approved. You may edit files inside this project.]'
       : '[The plan is not approved yet. Read and propose. Do not edit any file.]'

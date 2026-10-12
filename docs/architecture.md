@@ -52,6 +52,8 @@ preload as CommonJS. Leave that as it is.
 | How an agent is started and its output read | `src/main/agents.ts` |
 | Which contexts are trusted, and what trust changes | `src/main/trust.ts`, then `acp` in `src/main/agents.ts` |
 | How an agent that stays is spoken to, and what it may ask | `src/main/acp.ts` |
+| Which files count as instructions, and what the reader approved | `src/main/pins.ts` |
+| Comparing two texts line by line | `src/shared/diff.ts` |
 | What an agent may change | `src/main/guard.ts`, then `src/main/sessions.ts` |
 | What an agent is told at the start | `RULES` in `src/main/sessions.ts` |
 | What an agent of the reader's own can do | `src/main/mcp.ts` |
@@ -305,6 +307,28 @@ same rule decides. A change in the open project after the plan is kept.
 Any other change is put back and held. What a trusted agent does outside
 the context folder, Mate does not see. Trust is for a folder whose files
 the reader knows, because a file in it can ask the agent for anything.
+
+### Instruction files
+
+Hermes, Codex and Claude Code each read some files of the folder they
+work in as their instructions: `AGENTS.md`, `CLAUDE.md`, `.hermes.md`,
+`.cursorrules` and a few more. Mate does not put them into a prompt. The
+agent loads them itself. So whoever can change such a file steers the
+agent: a pulled commit, a cloned repository, or the agent itself, leaving
+a note for its next turn.
+
+Before every turn of an agent on this computer, Mate looks for these
+files in the whole context and compares them with what the reader last
+approved. If one is new, changed, or gone, the reader is shown which, and
+the lines that differ, in a dialog of the system. Approve keeps what the
+files say now. Cancel does not start the agent. What was approved is kept
+in the app's own data folder, in `pins.json`, by the real path of the
+context. `pins.ts` is the whole of it.
+
+Limits. The check is before a turn, not during it. Other files can carry
+instructions too: an agent may do what a README says. An approval makes
+no context trusted, and the plan and the guard are as they were. An agent
+on another machine is not covered: it reads the files of that machine.
 
 ### The guard
 

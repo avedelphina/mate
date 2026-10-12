@@ -8,8 +8,9 @@ import { checkAssist, runAssist, type AssistTask } from './assist'
 import { addComment, editDraft, listProjects, readContextFile, readProject } from './context'
 import { refreshIndex, searchIndex } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
+import { approve, describe, instructionFiles, keepPinsIn, unapproved } from './pins'
 import { isTrusted, keepTrustIn, setTrusted } from './trust'
-import { answerAsk, listSessions, revertChange, sendMessage, settleHeld, startSession, stopTurn, type Invited, type Session } from './sessions'
+import { answerAsk, gate, listSessions, revertChange, sendMessage, settleHeld, startSession, stopTurn, type Invited, type Session } from './sessions'
 
 // The name in the menu bar. Without this it is the package name.
 app.setName('Mate')
@@ -123,6 +124,29 @@ function setMenu(): void {
 
 app.whenReady().then(() => {
   keepTrustIn(path.join(app.getPath('userData'), 'trusted.json'))
+  keepPinsIn(path.join(app.getPath('userData'), 'pins.json'))
+
+  // Before an agent starts: has what the context tells it changed since the reader last saw it?
+  // The reader answers in a dialog of the system, which the page cannot press.
+  gate.before = async (contextDir) => {
+    const now = await instructionFiles(contextDir)
+    const changes = unapproved(contextDir, now)
+    if (changes.length === 0) return
+    const window = BrowserWindow.getAllWindows().find((each) => contexts.get(each.webContents.id) === contextDir)
+    const options = {
+      type: 'warning' as const,
+      buttons: ['Cancel', 'Approve'],
+      defaultId: 0,
+      cancelId: 0,
+      message: 'This context tells the agent what to do',
+      detail:
+        'An agent reads these files as its instructions. They are new or have changed since you last approved them.\n\n' +
+        `${describe(changes)}\n\nApprove them only if you know what they say.`
+    }
+    const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+    if (response !== 1) throw new Error('The instruction files of this context are not approved. The agent was not started.')
+    approve(contextDir, now)
+  }
 
   ipcMain.handle('context:open', async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
