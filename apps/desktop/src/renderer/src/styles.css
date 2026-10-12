@@ -45,9 +45,17 @@ body { font: 13px/1.5 var(--ui); color: var(--ink); background: var(--page); -we
 ::selection { background: color-mix(in srgb, var(--accent) 28%, transparent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-/* Three columns, each with a bar the window can be dragged by and a part that scrolls. */
-.app { display: grid; grid-template-columns: 240px minmax(0, 1fr) 360px; height: 100%; }
-.rail, .center, .margin { display: flex; flex-direction: column; min-height: 0; }
+/* Three columns, each with a bar the window can be dragged by and a part that scrolls.
+   The reader sets the width of the outer two. In a narrow window they give way before the page does. */
+.app { display: grid; grid-template-columns: minmax(180px, var(--rail-w, 240px)) minmax(320px, 1fr) minmax(280px, var(--margin-w, 360px)); height: 100%; }
+.rail, .center, .margin { position: relative; display: flex; flex-direction: column; min-height: 0; }
+/* The edge of a column, to drag. Wider than the line it sits on, so it is easy to catch. */
+.divider { position: absolute; top: 0; bottom: 0; z-index: 2; width: 9px; cursor: col-resize; touch-action: none; -webkit-app-region: no-drag; }
+.rail .divider { right: -5px; }
+.margin .divider { left: -5px; }
+.divider::after { content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 3px; transition: background 0.15s; }
+.divider:hover::after, .divider:active::after, .divider:focus-visible::after { background: var(--accent); }
+.divider:focus-visible { outline: none; }
 .rail { background: var(--rail); border-right: 1px solid var(--line); }
 .margin { border-left: 1px solid var(--line); }
 .bar { flex: none; display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 16px; font-weight: 600; -webkit-app-region: drag; user-select: none; }

@@ -367,6 +367,13 @@ A new window starts in the context of the window it was opened from, with
 no project open. It can open any other context after that, and the first
 window does not follow.
 
+The reader sets the width of the rail and of the margin by dragging the
+edge between two columns, or with the arrow keys when the edge has the
+focus. A double click puts a column back. The widths are kept in the
+window's own storage on this computer. They are not part of a context:
+nothing in a folder says how wide a column is. In a narrow window the two
+outer columns give way before the page does.
+
 Two windows on the same draft do not overwrite each other, because every
 change starts from the file on disk. A window shows what the other one did
 when it gets the focus back. Nothing tells it sooner.

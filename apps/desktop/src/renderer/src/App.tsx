@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { Agent } from './Agent'
 import type { AssistState, DocumentView, FileView, Hit, Kind } from './env'
 import { Rendered, type Passage } from './Rendered'
@@ -30,7 +30,61 @@ const KINDS: Record<Kind, { label: string; note: string }> = {
   pane: { label: 'Pane', note: 'A pane of its project: what an agent gathered to show beside the draft. It is not a source.' }
 }
 
+// How wide the rail and the margin may be. styles.css keeps the page at 320px or more, whatever these say.
+const COLUMNS = {
+  rail: { key: 'mate.rail', start: 240, min: 180, max: 480 },
+  margin: { key: 'mate.margin', start: 360, min: 280, max: 760 }
+}
+
+/**
+ * The width of one column, as the reader left it. It is kept on this computer and belongs to the
+ * window, not to a context: nothing in a folder says how wide a column is.
+ */
+function useColumn(which: keyof typeof COLUMNS) {
+  const { key, start, min, max } = COLUMNS[which]
+  const [width, setWidth] = useState(() => {
+    const kept = Number(localStorage.getItem(key))
+    return kept >= min && kept <= max ? kept : start
+  })
+  const set = (next: number) => {
+    const fitted = Math.round(Math.min(max, Math.max(min, next)))
+    setWidth(fitted)
+    localStorage.setItem(key, String(fitted))
+  }
+  return [width, set] as const
+}
+
+/** The edge of a column. Drag it, or move it with the arrow keys. A double click puts the column back. */
+function Divider(props: { which: keyof typeof COLUMNS; width: number; set: (width: number) => void }) {
+  const { which, width, set } = props
+  // The rail grows to the right, the margin to the left.
+  const grow = which === 'rail' ? 1 : -1
+  return (
+    <div
+      className="divider"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={which === 'rail' ? 'Width of the list on the left' : 'Width of the margin on the right'}
+      aria-valuenow={width}
+      aria-valuemin={COLUMNS[which].min}
+      aria-valuemax={COLUMNS[which].max}
+      tabIndex={0}
+      onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
+      onPointerMove={(event) => {
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) set(which === 'rail' ? event.clientX : window.innerWidth - event.clientX)
+      }}
+      onDoubleClick={() => set(COLUMNS[which].start)}
+      onKeyDown={(event) => {
+        if (event.key === 'ArrowRight') set(width + 16 * grow)
+        if (event.key === 'ArrowLeft') set(width - 16 * grow)
+      }}
+    />
+  )
+}
+
 export function App() {
+  const [rail, setRail] = useColumn('rail')
+  const [margin, setMargin] = useColumn('margin')
   const [contextDir, setContextDir] = useState<string | null>(null)
   const [projects, setProjects] = useState<string[]>([])
   const [view, setView] = useState<DocumentView | null>(null)
@@ -331,8 +385,9 @@ export function App() {
   const inTree = reading ? (reading.project === project ? reading.path.split('/').slice(2).join('/') : null) : file && `draft/${file}`
 
   return (
-    <div className="app">
+    <div className="app" style={{ '--rail-w': `${rail}px`, '--margin-w': `${margin}px` } as CSSProperties}>
       <aside className="rail">
+        <Divider which="rail" width={rail} set={setRail} />
         <header className="bar">Mate</header>
         <div className="scroll">
           <button className="wide" onClick={openContext}>Open context</button>
@@ -467,6 +522,7 @@ export function App() {
         </div>
       </main>
       <aside className="margin">
+        <Divider which="margin" width={margin} set={setMargin} />
         <header className="bar">
           {reading && !view && 'Read only'}
           {view && (
@@ -474,7 +530,7 @@ export function App() {
               <button className={shown === 'review' ? 'quiet active' : 'quiet'} onClick={() => setTab('review')}>Review</button>
               <button className={shown === 'agent' ? 'quiet active' : 'quiet'} onClick={() => setTab('agent')}>Agent</button>
               {/* ponytail: a pane is a tab of the margin, so it hides the review and the agent.
-                  Its own column when the columns can be resized. */}
+                  Give it a column of its own when that gets in the way. */}
               {view.panes.map((each) => (
                 <button
                   key={each.name}
