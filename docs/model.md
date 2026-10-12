@@ -47,9 +47,10 @@ each other, they are two contexts.
 
 ## What this repository does not contain
 
-No agent, no index, no window, no tracker, no mail. Those can sit on top
-of this tree later. The index, when it exists, is rebuilt from the files
-and is safe to delete.
+`apps/desktop` is one window onto this tree. It opens a context, opens a
+project, and writes a review comment back into the draft. No agent, no
+index, no tracker, no mail. Those can sit on top of this tree later. The
+index, when it exists, is rebuilt from the files and is safe to delete.
 
 Review comments use the marker format of
 [md-redline](https://github.com/dejuknow/md-redline), stored in the

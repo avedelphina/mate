@@ -13,7 +13,11 @@ An agent can be invited into a project later. It may read the whole
 context and it may not treat a draft as the reference. The desk is useful
 before any agent is connected.
 
-This repository is the shape of that desk. There is no application here yet.
+This repository is the shape of that desk. `apps/desktop` is a window
+onto it: open a context, open a project, read the draft, write a comment
+back into the file. See [docs/mvp.md](docs/mvp.md) for what that slice
+includes and [docs/architecture.md](docs/architecture.md) for how the
+window is built.
 
 ```
 contexts/_example/
@@ -24,7 +28,8 @@ contexts/_example/
     sibling/            another project in the same world, read from the first
 ```
 
-See [docs/model.md](docs/model.md) for the rules.
+See [docs/model.md](docs/model.md) for the rules and
+[docs/roadmap.md](docs/roadmap.md) for the order it gets built in.
 
 The example is empty on purpose. Copy `contexts/_example` and put your own
 world in the copy. Do not commit private material to a public fork of this
