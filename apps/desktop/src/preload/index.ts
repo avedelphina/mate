@@ -3,6 +3,8 @@ import { contextBridge, ipcRenderer } from 'electron'
 contextBridge.exposeInMainWorld('mate', {
   openContext: (): Promise<{ dir: string; projects: string[] } | null> => ipcRenderer.invoke('context:open'),
   currentContext: (): Promise<{ dir: string; projects: string[] } | null> => ipcRenderer.invoke('context:current'),
+  searchContext: (query: string) => ipcRenderer.invoke('context:search', query),
+  readFile: (path: string) => ipcRenderer.invoke('file:read', path),
   openProject: (project: string, file?: string) => ipcRenderer.invoke('project:open', project, file),
   addComment: (
     project: string,

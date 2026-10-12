@@ -2,7 +2,8 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, type IpcMainInv
 import path from 'node:path'
 import { addReply, anchorComment, applySuggestion } from '../shared/comments'
 import { checkAssist, runAssist, type AssistTask } from './assist'
-import { addComment, editDraft, listProjects, readProject } from './context'
+import { addComment, editDraft, listProjects, readContextFile, readProject } from './context'
+import { refreshIndex, searchIndex } from './contextIndex'
 
 // The name in the menu bar. Without this it is the package name.
 app.setName('Mate')
@@ -90,6 +91,8 @@ app.whenReady().then(() => {
     const chosen = result.filePaths[0]
     if (!chosen) return null
     contexts.set(event.sender.id, chosen)
+    // Built now so that it is there for whatever reads it next. A search brings it up to date again.
+    void refreshIndex(chosen).catch(() => {})
     return { dir: chosen, projects: await listProjects(chosen) }
   })
 
@@ -98,6 +101,12 @@ app.whenReady().then(() => {
     const dir = contexts.get(event.sender.id)
     return dir ? { dir, projects: await listProjects(dir) } : null
   })
+
+  ipcMain.handle('context:search', async (event, query: string) =>
+    searchIndex(await refreshIndex(requireContext(event)), query)
+  )
+
+  ipcMain.handle('file:read', (event, relative: string) => readContextFile(requireContext(event), relative))
 
   ipcMain.handle('project:open', (event, project: string, file?: string) =>
     readProject(requireContext(event), project, file)

@@ -23,12 +23,34 @@ export type DocumentView = {
   principles: string
 }
 
+/** Where a file stands in the context. The shelf is what is true now. A draft is a proposal. */
+export type Kind = 'shelf' | 'draft' | 'project' | 'context'
+
+/** A file that is read here and not reviewed: the shelf, a project's intents. */
+export type FileView = { path: string; kind: Kind; project: string | null; text: string }
+
+/** One place a search matched. `start` is where in the text of the file, or null. `thread` when it is in a comment. */
+export type Hit = {
+  path: string
+  kind: Kind
+  project: string | null
+  title: string
+  before: string
+  match: string
+  after: string
+  start: number | null
+  length: number
+  thread: string | null
+}
+
 /** `present`: the helper is on this machine. `available`: the model behind it can answer now. */
 export type AssistState = { present: boolean; available: boolean; reason: string }
 
 export type MateApi = {
   openContext: () => Promise<{ dir: string; projects: string[] } | null>
   currentContext: () => Promise<{ dir: string; projects: string[] } | null>
+  searchContext: (query: string) => Promise<Hit[]>
+  readFile: (path: string) => Promise<FileView>
   openProject: (project: string, file?: string) => Promise<DocumentView>
   addComment: (
     project: string,

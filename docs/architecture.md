@@ -11,6 +11,8 @@ renderer (React)                preload                     main (Node)
 App.tsx                         window.mate                 index.ts
   openContext()      ---------> ipc 'context:open'   -----> folder dialog, list projects
   currentContext()   ---------> ipc 'context:current' ----> what this window already has open
+  searchContext()    ---------> ipc 'context:search' -----> bring the index up to date, search it
+  readFile()         ---------> ipc 'file:read'      -----> a file that is read, not reviewed
   openProject()      ---------> ipc 'project:open'   -----> readProject()
   addComment()       ---------> ipc 'comment:add'    -----> insertComment()
   addReply()         ---------> ipc 'comment:reply'  -----> addReply()
@@ -39,6 +41,7 @@ preload as CommonJS. Leave that as it is.
 | Layout | `src/renderer/src/App.tsx` and `styles.css` |
 | How markdown is drawn | `src/renderer/src/markdown.ts`, then `styles.css` |
 | What the assist is asked | `src/main/assist.ts` |
+| What is indexed, how a search ranks | `src/main/contextIndex.ts` |
 | How the on-device model is called | `assist/main.swift` |
 
 Add the preload and the type in `env.d.ts` in the same change as the
@@ -152,6 +155,29 @@ The window reads the draft again when it gets the focus back, because the
 file may have been edited or pulled in the meantime. There is no file
 watcher.
 
+## The index and the search
+
+A context has an index: `.indexes/context.json` inside the context folder.
+It holds, for every markdown file in the context, where the file stands,
+its title, its text as the page shows it, and the text of its comments.
+`refreshIndex` brings it up to date before every search. It reads a file
+again only when the file's size or time has changed.
+
+The index is a helper. Deleting it loses nothing: the next search builds
+it again from the files. It never holds anything from another context,
+and its folder ignores itself in whatever repository the context is in.
+
+Where a file stands decides what a hit is called. `shelf/` is the shelf:
+what is true now. `projects/<name>/draft/` is a proposal. Other files of a
+project steer it, and the rest belongs to the whole context. Shelf hits
+come first, and a hit always says which it is. A match in a comment is
+shown as a comment and opens its thread.
+
+A proposal opens as a draft, at the match. Every other file opens to be
+read: the page is drawn, and there is no menu under a selection. The
+model does not allow a comment written into the shelf or into a file that
+steers a project.
+
 ## Windows
 
 File > New Window opens another window. Each window has its own document
@@ -169,4 +195,4 @@ when it gets the focus back. Nothing tells it sooner.
 
 ## What is deliberately absent
 
-No agent, no index, no mail, no issues, no git operations.
+No agent, no mail, no issues, no git operations.

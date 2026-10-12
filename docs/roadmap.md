@@ -64,6 +64,10 @@ A context gets an index rebuilt from its files, shelf and projects both.
 It is a helper for later search and for the agent. Deleting it loses
 nothing, because the files remain the source.
 
+Built: the index in `.indexes/` inside the context, and a search box over
+it. A hit says whether it is the shelf or a proposal. A file that is not a
+draft opens to be read, not reviewed.
+
 ## 5. An invited agent
 
 An agent joins a project, reads the whole context, and writes in the open

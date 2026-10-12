@@ -1,5 +1,5 @@
 import { createElement, Fragment, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import type { AssistState, DocumentView } from './env'
+import type { AssistState, DocumentView, FileView, Hit, Kind } from './env'
 import { renderMarkdown, type Piece } from './markdown'
 import './styles.css'
 
@@ -10,7 +10,7 @@ function reason(caught: unknown, fallback: string): string {
 }
 
 /** A stretch of the document that a thread quotes. `id` is null for the passage being commented now. */
-type Passage = { id: string | null; start: number; end: number }
+type Passage = { id: string | null; tone?: 'pending' | 'found'; start: number; end: number }
 
 /** One stretch of the text, cut wherever a passage starts or ends, so passages that overlap each keep their mark. */
 function marked(
@@ -29,7 +29,7 @@ function marked(
     const over = passages.filter((passage) => passage.start <= start && passage.end >= end)
     if (over.length === 0) return piece
     const ids = over.flatMap((passage) => (passage.id === null ? [] : [passage.id]))
-    const classes = [ids.length < over.length && 'pending', active !== null && ids.includes(active) && 'active']
+    const classes = [...new Set(over.map((passage) => passage.tone)), active !== null && ids.includes(active) && 'active']
     return (
       <mark
         key={start}
@@ -71,6 +71,14 @@ const QUICK_NOTES = [
 
 const POPOVER_WIDTH = 360
 
+/** What a search hit is called, and what the margin says of a file that is only read. */
+const KINDS: Record<Kind, { label: string; note: string }> = {
+  shelf: { label: 'Shelf', note: 'The shelf: what is true now. It is read here. It changes only when a project publishes.' },
+  draft: { label: 'Proposal', note: '' },
+  project: { label: 'Project file', note: 'A file that steers its project. It is read here, not reviewed.' },
+  context: { label: 'Context', note: 'A file of the whole context. It is read here, not reviewed.' }
+}
+
 export function App() {
   const [contextDir, setContextDir] = useState<string | null>(null)
   const [projects, setProjects] = useState<string[]>([])
@@ -92,6 +100,13 @@ export function App() {
   // Counts the forms opened so far, so text the model wrote for a form that has closed is dropped.
   const form = useRef(0)
   const [active, setActive] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  // Null while nothing is being searched for, and the rail lists the projects.
+  const [hits, setHits] = useState<Hit[] | null>(null)
+  // A file opened from a search that is not a draft. It takes the page, and cannot be commented.
+  const [reading, setReading] = useState<FileView | null>(null)
+  // Where the search matched in the open page.
+  const [found, setFound] = useState<{ start: number; end: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const page = useRef<HTMLDivElement>(null)
   const floating = useRef<HTMLDivElement>(null)
@@ -128,6 +143,25 @@ export function App() {
       window.removeEventListener('focus', reload)
     }
   }, [project, file])
+
+  useEffect(() => {
+    if (!contextDir || !query.trim()) return setHits(null)
+    let current = true
+    const timer = setTimeout(() => {
+      window.mate.searchContext(query).then(
+        (next) => current && setHits(next),
+        () => current && setHits([])
+      )
+    }, 150)
+    return () => {
+      current = false
+      clearTimeout(timer)
+    }
+  }, [contextDir, query])
+
+  useEffect(() => {
+    if (found) document.querySelector('mark.found')?.scrollIntoView({ block: 'center' })
+  }, [found, view, reading])
 
   // The passage and its thread are shown together, whichever one was clicked.
   useEffect(() => {
@@ -189,11 +223,15 @@ export function App() {
     setContextDir(opened.dir)
     setProjects(opened.projects)
     setView(null)
+    setReading(null)
+    setQuery('')
   }
 
   async function openProject(name: string, draft?: string) {
     setError(null)
     setActive(null)
+    setReading(null)
+    setFound(null)
     clearComment()
     try {
       setView(await window.mate.openProject(name, draft))
@@ -202,6 +240,26 @@ export function App() {
       setView(null)
       setError(reason(caught, 'Could not open the project.'))
     }
+  }
+
+  /** A draft opens as a draft, at the match. Anything else is opened to be read. */
+  async function openHit(hit: Hit) {
+    if (hit.kind === 'draft' && hit.project) {
+      await openProject(hit.project, hit.path.split('/').pop())
+      setActive(hit.thread)
+    } else {
+      setError(null)
+      setActive(null)
+      clearComment()
+      setView(null)
+      try {
+        setReading(await window.mate.readFile(hit.path))
+      } catch (caught) {
+        setReading(null)
+        setError(reason(caught, 'Could not open that file.'))
+      }
+    }
+    setFound(hit.start === null ? null : { start: hit.start, end: hit.start + hit.length })
   }
 
   /** Run one change to the file, then show what the file holds. */
@@ -220,6 +278,7 @@ export function App() {
     const selection = window.getSelection()
     const scroll = page.current?.parentElement
     if (!page.current || !scroll || !selection) return
+    setFound(null)
     if (selection.isCollapsed) {
       // A plain click puts the menu away. It does not throw away a note that is being written.
       if (!composing) clearComment()
@@ -287,8 +346,9 @@ export function App() {
     }
     // The passage being commented stays marked after the selection has moved to the note.
     const picked = anchor ? Math.max(view.text.indexOf(anchor, from), view.text.indexOf(anchor)) : -1
-    if (picked >= 0) passages.push({ id: null, start: picked, end: picked + anchor.length })
+    if (picked >= 0) passages.push({ id: null, tone: 'pending', start: picked, end: picked + anchor.length })
   }
+  if (found) passages.push({ id: null, tone: 'found', ...found })
 
   const contextName = contextDir?.split(/[\\/]/).filter(Boolean).pop()
 
@@ -299,6 +359,33 @@ export function App() {
         <div className="scroll">
           <button className="wide" onClick={openContext}>Open context</button>
           {contextDir && (
+            <input
+              className="search"
+              type="search"
+              value={query}
+              placeholder="Search this context"
+              aria-label="Search this context"
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => event.key === 'Escape' && setQuery('')}
+            />
+          )}
+          {contextDir && hits && (
+            <>
+              <h2>{hits.length === 0 ? 'No matches' : hits.length === 1 ? '1 match' : `${hits.length} matches`}</h2>
+              <ul>
+                {hits.map((hit, index) => (
+                  <li key={index}>
+                    <button className="row hit" onClick={() => openHit(hit)}>
+                      <span className={`kind ${hit.kind}`}>{hit.thread ? 'Comment' : KINDS[hit.kind].label}</span>
+                      <span className="where">{hit.title}{hit.project && ` · ${hit.project}`}</span>
+                      <span className="snippet">{hit.before}<b>{hit.match}</b>{hit.after}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {contextDir && !hits && (
             <>
               <h2 title={contextDir}>{contextName}</h2>
               {projects.length === 0 && <p className="meta hint">No projects in this folder.</p>}
@@ -331,12 +418,18 @@ export function App() {
       </aside>
       <main className="center">
         <header className="bar">
+          {reading && <span className={`kind ${reading.kind}`}>{KINDS[reading.kind].label}</span>}
+          {reading && <span>{reading.path}</span>}
           {view && <span className="meta">{view.project}</span>}
           {file !== null && <span className="meta">/</span>}
           {file !== null && <span>{file}</span>}
         </header>
         <div className="scroll">
-          {!view ? (
+          {reading ? (
+            <div className="page prose">
+              <Rendered text={reading.text} passages={passages} />
+            </div>
+          ) : !view ? (
             <p className="empty">Open a context, then a project. The draft is the page.</p>
           ) : file === null ? (
             <p className="empty">This project has {drafts.length} drafts. Pick one on the left.</p>
@@ -405,9 +498,10 @@ export function App() {
         </div>
       </main>
       <aside className="margin">
-        <header className="bar">{file !== null && 'Review'}</header>
+        <header className="bar">{reading ? 'Read only' : file !== null && 'Review'}</header>
         <div className="scroll">
           {error && <p className="error" role="alert">{error}</p>}
+          {reading && <p className="meta hint">{KINDS[reading.kind].note}</p>}
           {view && file !== null && (
             <>
               {view.comments.length === 0 && (

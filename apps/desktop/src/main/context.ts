@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { readdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { insertComment, readDocument, type Thread } from '../shared/comments'
+import { placeOf, type Place } from './contextIndex'
 
 export type DocumentView = {
   project: string
@@ -13,6 +14,18 @@ export type DocumentView = {
   comments: Thread[]
   intents: string
   principles: string
+}
+
+/** A file of the context that is not under review here: the shelf, a project's intents. Shown, never written. */
+export type FileView = Place & { path: string; text: string }
+
+export async function readContextFile(contextDir: string, relative: string): Promise<FileView> {
+  const parts = relative.split('/')
+  if (!relative.toLowerCase().endsWith('.md') || parts.some((part) => part.startsWith('.'))) {
+    throw new Error('That is not a document of this context.')
+  }
+  const raw = await readFile(resolveInside(contextDir, ...parts), 'utf8')
+  return { path: relative, ...placeOf(relative), text: readDocument(raw).text }
 }
 
 async function listDirs(dir: string): Promise<string[]> {
