@@ -23,7 +23,8 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
   changed.current = onChanged
 
   const session = sessions.find((each) => each.id === open) ?? null
-  const label = (kind: AgentKind) => agents.find((agent) => agent.kind === kind)?.label ?? kind
+  const label = (each: { agent: AgentKind; host: string | null }) =>
+    agents.find((agent) => agent.kind === each.agent && agent.host === each.host)?.label ?? each.agent
   const keep = (next: Session) =>
     setSessions((all) => (all.some((each) => each.id === next.id) ? all.map((each) => (each.id === next.id ? next : each)) : [next, ...all]))
 
@@ -62,9 +63,9 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
     }
   }
 
-  const invite = (kind: AgentKind) =>
+  const invite = (agent: AgentInfo) =>
     act(async () => {
-      const started = await window.mate.startSession(project, kind)
+      const started = await window.mate.startSession(project, agent.kind, agent.host ?? undefined)
       setOpen(started.id)
       return started
     })
@@ -84,10 +85,16 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
         <p className="invite">
           {agents.map((agent) => (
             <button
-              key={agent.kind}
+              key={agent.label}
               disabled={!agent.found}
-              title={agent.found ? undefined : `${agent.label} was not found on this computer.`}
-              onClick={() => invite(agent.kind)}
+              title={
+                agent.host
+                  ? 'On another machine. It has no folder there: Mate sends it the text of the files.'
+                  : agent.found
+                    ? undefined
+                    : `${agent.label} was not found on this computer.`
+              }
+              onClick={() => invite(agent)}
             >
               {agent.label}
             </button>
@@ -96,7 +103,7 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
         {sessions.length > 0 && <h3>Earlier sessions</h3>}
         {sessions.map((each) => (
           <button key={each.id} className="row" onClick={() => setOpen(each.id)}>
-            {label(each.agent)} · {each.messages.find((message) => message.role === 'you')?.text ?? 'Nothing said yet'}
+            {label(each)} · {each.messages.find((message) => message.role === 'you')?.text ?? 'Nothing said yet'}
           </button>
         ))}
       </>
@@ -109,7 +116,7 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
     <>
       <p className="meta talk-head">
         <button className="quiet" onClick={() => setOpen(null)}>‹ Sessions</button>
-        <span>{label(session.agent)} · {session.planApproved ? 'may edit this project' : 'plan not approved'}</span>
+        <span>{label(session)} · {session.planApproved ? 'may edit this project' : 'plan not approved'}</span>
       </p>
       {session.messages.map((message, index) => (
         <div key={index} className={`said ${message.role}`}>
@@ -128,7 +135,7 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
         (held, index) =>
           held.state === 'waiting' && (
             <div key={index} className="decide">
-              <p>The agent wants to change <code>{held.path}</code>. Mate put the file back.</p>
+              <p>The agent wants to change <code>{held.path}</code>. The file is as it was.</p>
               <p>
                 <button onClick={() => act(() => window.mate.settleHeld(project, session.id, index, true), onChanged)}>
                   Approve this file

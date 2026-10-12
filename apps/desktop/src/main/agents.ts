@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -26,6 +26,13 @@ type Adapter = {
   command: string
   /** The message goes in on stdin, never on the command line. */
   args(turn: Turn): string[]
+  /**
+   * The arguments on another machine, where the agent has no folder and is given no file tools.
+   * Only an agent that has this can be invited over SSH.
+   */
+  remoteArgs?(resume: string | null): string[]
+  /** One line of what the agent prints on another machine, when that is not what it prints here. */
+  remoteRead?(line: string): AgentEvent[]
   /** One line of the agent's output. A line that is not an event gives nothing. */
   read(line: string): AgentEvent[]
 }
@@ -125,6 +132,21 @@ export const AGENTS: Record<AgentKind, Adapter> = {
       'file',
       ...(turn.resume ? ['--resume', turn.resume] : [])
     ],
+    // `todo` is a toolset that touches nothing. Hermes must not read or write the other machine's files.
+    // Quiet text, not the event stream: an older Hermes on the other machine does not have the stream.
+    // In quiet mode the answer is all that is printed, and the session id goes to stderr.
+    remoteArgs: (resume) => [
+      'chat',
+      '-Q',
+      '--query-file',
+      '-',
+      '--source',
+      'tool',
+      '-t',
+      'todo',
+      ...(resume ? ['--resume', resume] : [])
+    ],
+    remoteRead: (line) => [{ type: 'text', text: line + '\n' }],
     read(line) {
       const event = parse(line)
       switch (event.type) {
@@ -167,12 +189,44 @@ export function agentEnvironment(): NodeJS.ProcessEnv {
   return env
 }
 
-/** Which agents are on this computer. */
-export function listAgents(): { kind: AgentKind; label: string; found: boolean }[] {
+/** A test puts a stand-in here. */
+export const SSH = { command: 'ssh' }
+
+/** A host name as ssh takes it. Nothing that ssh could read as an option. */
+export const isHost = (host: string) => /^[A-Za-z0-9][A-Za-z0-9._@-]*$/.test(host)
+
+/** Run a command on another machine. ssh hands the words to a shell there, so each one is quoted. */
+export function sshArgs(host: string, command: string, args: string[]): string[] {
+  if (!isHost(host)) throw new Error('That is not a host name.')
+  const quoted = [command, ...args].map((word) => `'${word.replace(/'/g, `'\\''`)}'`)
+  return ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', host, '--', ...quoted]
+}
+
+/** The hosts named in the reader's ssh config. A pattern such as `*` is not a host. */
+function listHosts(): string[] {
+  try {
+    const config = readFileSync(path.join(os.homedir(), '.ssh', 'config'), 'utf8')
+    const names = [...config.matchAll(/^[ \t]*Host[ \t]+(.+)$/gim)].flatMap((match) => match[1].trim().split(/\s+/))
+    return [...new Set(names)].filter(isHost)
+  } catch {
+    return []
+  }
+}
+
+export type AgentInfo = { kind: AgentKind; label: string; found: boolean; host: string | null }
+
+/** Which agents can be invited: the ones on this computer, and the ones reached over SSH. */
+export function listAgents(): AgentInfo[] {
   const folders = (agentEnvironment().PATH ?? '').split(path.delimiter)
-  return (Object.keys(AGENTS) as AgentKind[]).map((kind) => ({
+  const kinds = Object.keys(AGENTS) as AgentKind[]
+  const here = kinds.map((kind) => ({
     kind,
     label: AGENTS[kind].label,
-    found: folders.some((folder) => existsSync(path.join(folder, AGENTS[kind].command)))
+    found: folders.some((folder) => existsSync(path.join(folder, AGENTS[kind].command))),
+    host: null
   }))
+  const away = listHosts().flatMap((host) =>
+    kinds.filter((kind) => AGENTS[kind].remoteArgs).map((kind) => ({ kind, label: `${AGENTS[kind].label} on ${host}`, found: true, host }))
+  )
+  return [...here, ...away]
 }

@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { AGENTS } from '../src/main/agents.ts'
+import { AGENTS, SSH, listAgents, sshArgs } from '../src/main/agents.ts'
 import { changesSince, put, takeSnapshot } from '../src/main/guard.ts'
 import { listSessions, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
 
@@ -165,5 +165,66 @@ console.log('session_id: s1')
     await rm(root, { recursive: true, force: true })
     await rm(path.join(root, '..', `${path.basename(root)}-agent.mjs`), { force: true })
     await rm(path.join(root, '..', `${path.basename(root)}-asked.txt`), { force: true })
+  }
+})
+
+test('an agent on another machine is sent the files, and what it asks to change keeps the same rules', { skip: process.platform === 'win32' }, async () => {
+  const root = await context()
+  const command = SSH.command
+  const stub = path.join(root, '..', `${path.basename(root)}-ssh.mjs`)
+  const log = path.join(root, '..', `${path.basename(root)}-ssh.txt`)
+  try {
+    assert.deepEqual(sshArgs('hermes.ocean', 'hermes', ["it's"]).slice(-4), ['hermes.ocean', '--', "'hermes'", `'it'\\''s'`])
+    assert.throws(() => sshArgs('-oProxyCommand=evil', 'hermes', []), /not a host/)
+    assert.equal(listAgents().filter((agent) => agent.host !== null).every((agent) => agent.kind === 'hermes'), true)
+    await assert.rejects(startSession(root, 'review', 'claude', 'hermes.ocean'), /another machine/)
+
+    // A stand-in for ssh. It never touches the folder: it only says what it wants changed.
+    await writeFile(
+      stub,
+      `#!/usr/bin/env node
+import { appendFileSync, readFileSync } from 'node:fs'
+appendFileSync(${JSON.stringify(log)}, JSON.stringify({ args: process.argv.slice(2), prompt: readFileSync(0, 'utf8') }) + '\\n')
+console.error('\\nsession_id: r1')
+console.log('I would change two files.\\n<mate-file path="projects/review/draft/document.md">\\nDraft text, tightened.\\n</mate-file>')
+console.log('<mate-file path="shelf/classification.md">\\nShelf, rewritten.\\n</mate-file>\\n<mate-file path="../outside.md">\\nNo.\\n</mate-file>')
+`
+    )
+    await chmod(stub, 0o755)
+    SSH.command = stub
+    const asked = async () => (await readFile(log, 'utf8')).trim().split('\n').map((line) => JSON.parse(line))
+    const draft = () => readFile(path.join(root, 'projects/review/draft/document.md'), 'utf8')
+    const shelf = () => readFile(path.join(root, 'shelf/classification.md'), 'utf8')
+
+    const session = await startSession(root, 'review', 'hermes', 'hermes.ocean')
+    const planned = await (await sendMessage(root, 'review', session.id, 'Tighten the draft.', false, () => {})).finished
+    // Not approved: nothing is written. Both changes wait, and the one outside the context is refused.
+    assert.equal(await draft(), 'Draft text.\n')
+    assert.equal(await shelf(), 'Shelf text.\n')
+    assert.deepEqual(planned.held.map((held) => held.path), ['projects/review/draft/document.md', 'shelf/classification.md'])
+    assert.match(planned.messages[1].text, /^I would change two files\.\n\*\(new text for `projects\/review\/draft\/document\.md`\)\*/)
+    assert.match(planned.messages.at(-1)!.text, /will not write: \.\.\/outside\.md/)
+
+    const [first] = await asked()
+    assert.deepEqual(first.args.slice(4, 6), ['hermes.ocean', '--'])
+    assert.ok(first.args.includes("'todo'") && first.args.includes("'-Q'"))
+    assert.match(first.prompt, /You cannot open files[\s\S]*kind="proposal of project review">\nDraft text\.\n<\/file>[\s\S]*<file path="shelf\/classification\.md" kind="shelf">\nShelf text\.\n<\/file>/)
+
+    // Approved: the project file is written here, with a copy for Revert. The shelf still waits.
+    const approved = await (await sendMessage(root, 'review', session.id, '', true, () => {})).finished
+    assert.equal(await draft(), 'Draft text, tightened.\n')
+    assert.equal(await shelf(), 'Shelf text.\n')
+    assert.deepEqual(approved.changes, [{ path: 'projects/review/draft/document.md', backup: '0', reverted: false }])
+    const second = (await asked())[1]
+    assert.ok(second.args.includes("'r1'"))
+    // Only what changed is sent again, and nothing had.
+    assert.doesNotMatch(second.prompt, /<file path=/)
+    assert.equal((await revertChange(root, 'review', session.id, 0)).changes[0].reverted, true)
+    assert.equal(await draft(), 'Draft text.\n')
+  } finally {
+    SSH.command = command
+    await rm(root, { recursive: true, force: true })
+    await rm(stub, { force: true })
+    await rm(log, { force: true })
   }
 })

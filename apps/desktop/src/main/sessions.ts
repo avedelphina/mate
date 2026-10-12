@@ -1,12 +1,13 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import readline from 'node:readline'
-import { AGENTS, agentEnvironment, type AgentKind } from './agents'
+import { AGENTS, SSH, agentEnvironment, isHost, sshArgs, type AgentKind } from './agents'
 import { resolveInside } from './context'
-import { changesSince, mateWrote, put, takeSnapshot, watching } from './guard'
+import { placeOf } from './contextIndex'
+import { changesSince, mateWrote, put, takeSnapshot, watching, type Change, type Snapshot } from './guard'
 
 export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[] }
 
@@ -21,6 +22,10 @@ export type Session = {
   id: string
   project: string
   agent: AgentKind
+  /** Set when the agent is on another machine, reached over SSH. It has no folder there. */
+  host: string | null
+  /** What each file looked like when it was last sent to an agent on another machine. */
+  sent: Record<string, string>
   created: string
   /** The agent's own id for the conversation. With it the agent picks up where it stopped. */
   agentSession: string | null
@@ -49,6 +54,76 @@ Rules:
    they are, unless you are asked to answer one.
 5. Do not invent evidence that the sources do not contain.`
 
+/** For an agent on another machine. The context folder stays here, and the agent keeps no copy of it. */
+const REMOTE_RULES = `You have been invited into a project on a Mate desk. Mate is a tool for reviewing documents.
+The project is part of a context: a folder of related work. That folder is on the reviewer's computer,
+not on yours. You cannot open files. Mate sends you the text of the files, and sends a file again when it changes.
+
+Each file comes with what it is:
+- "shelf" is the current reference for the whole context. What is true now is there.
+- "proposal" is a draft under review in a project. It is not the reference.
+- "project file" steers a project: its intents and its principles. Follow those of your project.
+
+Rules:
+1. When you rely on a file, say whether it is the shelf or a proposal.
+2. You may change files of your own project only. If another file would have to change, say which and why.
+3. Propose a plan first, then stop. Change files only after the reviewer has approved the plan.
+4. To change a file, give its whole new text like this, with the path exactly as Mate gave it:
+   <mate-file path="projects/NAME/draft/FILE.md">
+   the whole new text of the file
+   </mate-file>
+   Mate writes it if the rules allow it, and holds it for the reviewer if they do not.
+5. A line of the form <!-- @comment{...} --> in a draft is a review comment. Keep such lines exactly as
+   they are, unless you are asked to answer one.
+6. Do not invent evidence that the sources do not contain.`
+
+const KINDS = { shelf: 'shelf', draft: 'proposal', project: 'project file', context: 'context file' }
+const FILE = /<mate-file path="([^"\n]+)">\n?([\s\S]*?)\n?<\/mate-file>/g
+// ponytail: every markdown file is sent whole, up to this much in one message. A context is documents.
+// Past this, send what the agent asks for.
+const MAX_SENT = 300_000
+
+const hash = (bytes: Buffer) => createHash('sha1').update(bytes).digest('hex')
+
+/** The files an agent on another machine has not seen in their present state, as text to send. */
+function pack(snapshot: Snapshot, sent: Record<string, string>): string {
+  const parts: string[] = []
+  let size = 0
+  for (const [relative, bytes] of snapshot) {
+    if (!relative.toLowerCase().endsWith('.md') || relative.startsWith('.') || sent[relative] === hash(bytes)) continue
+    if (size + bytes.length > MAX_SENT) {
+      parts.push(`<file path="${relative}" not-sent="too much to send at once" />`)
+      continue
+    }
+    size += bytes.length
+    sent[relative] = hash(bytes)
+    const place = placeOf(relative)
+    const kind = KINDS[place.kind] + (place.project ? ` of project ${place.project}` : '')
+    parts.push(`<file path="${relative}" kind="${kind}">\n${bytes.toString('utf8').replace(/\r?\n$/, '')}\n</file>`)
+  }
+  return parts.join('\n\n')
+}
+
+/** The files an agent on another machine asks to change, read out of what it said. */
+async function proposed(contextDir: string, text: string): Promise<{ changes: Change[]; refused: string[] }> {
+  const changes: Change[] = []
+  const refused: string[] = []
+  for (const [, named, body] of text.matchAll(FILE)) {
+    const relative = named.trim().replace(/^\.\//, '')
+    const parts = relative.split('/')
+    if (path.isAbsolute(relative) || parts.some((part) => part === '' || part.startsWith('.'))) {
+      refused.push(named)
+      continue
+    }
+    const before = await readFile(path.join(contextDir, ...parts)).catch(() => null)
+    // The file keeps the line endings it had.
+    const windows = before?.includes('\r\n') ?? false
+    const after = Buffer.from(windows ? body.replace(/\r?\n/g, '\r\n') + '\r\n' : body + '\n')
+    if (!before?.equals(after)) changes.push({ path: relative, before, after })
+  }
+  return { changes, refused }
+}
+
 const folder = (contextDir: string, project: string, id = '') =>
   resolveInside(path.join(contextDir, '.sessions'), project, id)
 
@@ -65,7 +140,8 @@ async function save(contextDir: string, session: Session): Promise<void> {
 
 export async function loadSession(contextDir: string, project: string, id: string): Promise<Session> {
   const session = JSON.parse(await readFile(path.join(folder(contextDir, project, id), 'session.json'), 'utf8')) as Session
-  return { ...session, running: running.has(id) }
+  // A session written before agents could be on another machine has neither field.
+  return { ...session, host: session.host ?? null, sent: session.sent ?? {}, running: running.has(id) }
 }
 
 /** The sessions of a project, the newest first. */
@@ -75,12 +151,22 @@ export async function listSessions(contextDir: string, project: string): Promise
   return sessions.filter((session) => session !== null).sort((a, b) => b.created.localeCompare(a.created))
 }
 
-export async function startSession(contextDir: string, project: string, agent: AgentKind): Promise<Session> {
+export async function startSession(
+  contextDir: string,
+  project: string,
+  agent: AgentKind,
+  host: string | null = null
+): Promise<Session> {
   if (!AGENTS[agent]) throw new Error('That agent is not one Mate knows.')
+  if (host !== null && (!isHost(host) || !AGENTS[agent].remoteArgs)) {
+    throw new Error('That agent cannot be invited from another machine.')
+  }
   const session: Session = {
     id: randomUUID(),
     project,
     agent,
+    host,
+    sent: {},
     created: new Date().toISOString(),
     agentSession: null,
     planApproved: false,
@@ -94,7 +180,8 @@ export async function startSession(contextDir: string, project: string, agent: A
 }
 
 const running = new Map<string, ChildProcess>()
-async function firstWords(contextDir: string, project: string): Promise<string> {
+async function firstWords(contextDir: string, project: string, remote: boolean): Promise<string> {
+  if (remote) return `${REMOTE_RULES}\n\nYour project is "${project}". Its files are under projects/${project}/.`
   const read = (name: string) => readFile(resolveInside(contextDir, 'projects', project, name), 'utf8').catch(() => '')
   const names = (dir: string) => readdir(path.join(contextDir, dir)).then((all) => all.filter((name) => !name.startsWith('.')), () => [])
   const [intents, principles, shelf, projects] = await Promise.all([
@@ -150,18 +237,30 @@ export async function sendMessage(
   // An agent that can pick its conversation up again is told only what is new.
   // One that cannot is given the conversation so far.
   const soFar = earlier.map((each) => `${each.role === 'you' ? 'Reviewer' : 'You'}: ${each.text}`).join('\n\n')
-  const prompt = session.agentSession
-    ? `${state}\n\n${message}`
-    : [await firstWords(contextDir, project), soFar && `The conversation so far:\n\n${soFar}`, state, message]
-        .filter(Boolean)
-        .join('\n\n')
-
   const adapter = AGENTS[session.agent]
   const projectDir = resolveInside(contextDir, 'projects', project)
   const snapshot = await takeSnapshot(contextDir)
+  // An agent on another machine is sent the files. One on this machine reads them itself.
+  const files = session.host ? pack(snapshot, session.sent) : ''
+  const prompt = session.agentSession
+    ? [files && `These files are new or have changed:\n\n${files}`, state, message].filter(Boolean).join('\n\n')
+    : [
+        await firstWords(contextDir, project, session.host !== null),
+        files && `The files of the context:\n\n${files}`,
+        soFar && `The conversation so far:\n\n${soFar}`,
+        state,
+        message
+      ]
+        .filter(Boolean)
+        .join('\n\n')
+
   watching.set(contextDir, snapshot)
   const turn = { cwd: projectDir, contextDir, resume: session.agentSession, mayWrite }
-  const child = spawn(adapter.command, adapter.args(turn), { cwd: projectDir, env: agentEnvironment() })
+  const child = session.host
+    ? spawn(SSH.command, sshArgs(session.host, adapter.command, adapter.remoteArgs!(session.agentSession)), {
+        env: agentEnvironment()
+      })
+    : spawn(adapter.command, adapter.args(turn), { cwd: projectDir, env: agentEnvironment() })
   running.set(id, child)
 
   let timer: NodeJS.Timeout | undefined
@@ -174,9 +273,15 @@ export async function sendMessage(
 
   const errors: string[] = []
   let complaint = ''
-  child.stderr.on('data', (chunk: Buffer) => (complaint = (complaint + chunk.toString()).slice(-600)))
+  child.stderr.on('data', (chunk: Buffer) => {
+    complaint = (complaint + chunk.toString()).slice(-600)
+    // Some agents say on stderr which conversation this is.
+    const named = /^session_id:\s*(\S+)/m.exec(chunk.toString())
+    if (named) session.agentSession = named[1]
+  })
+  const read = (session.host && adapter.remoteRead) || adapter.read
   readline.createInterface({ input: child.stdout }).on('line', (line) => {
-    for (const event of adapter.read(line)) {
+    for (const event of read(line)) {
       if (event.type === 'session') session.agentSession = event.id
       if (event.type === 'text') answer.text += event.text
       if (event.type === 'tool') answer.tools.push(`${event.name} ${event.detail}`.trim())
@@ -197,8 +302,13 @@ export async function sendMessage(
       if (!answer.text && answer.tools.length === 0) session.messages.splice(session.messages.indexOf(answer), 1)
       if (failure) session.messages.push({ role: 'mate', text: failure, tools: [] })
 
+      // An agent on this machine has changed the folder. One on another machine has said what it wants changed.
+      const remote = session.host !== null
+      const asked = remote ? await proposed(contextDir, answer.text) : { changes: await changesSince(contextDir, snapshot), refused: [] }
+      if (remote) answer.text = answer.text.replace(FILE, (_, named: string) => `*(new text for \`${named.trim()}\`)*`)
+
       const putBack: string[] = []
-      for (const change of await changesSince(contextDir, snapshot)) {
+      for (const change of asked.changes) {
         const dir = folder(contextDir, project, id)
         if (mayWrite && change.path.startsWith(`projects/${project}/`)) {
           // The agent's work. The bytes from before are kept, so Revert can put them back.
@@ -207,26 +317,27 @@ export async function sendMessage(
             await mkdir(path.join(dir, 'backups'), { recursive: true })
             await writeFile(path.join(dir, 'backups', backup!), change.before)
           }
+          if (remote) await put(contextDir, change.path, change.after)
           session.changes.push({ path: change.path, backup, reverted: false })
         } else {
-          // Not the agent's to change, or not yet. The file goes back, and the change waits for the reader.
+          // Not the agent's to change, or not yet. The file is as it was, and the change waits for the reader.
           const file = change.after ? `${session.held.length}` : null
           if (change.after) {
             await mkdir(path.join(dir, 'held'), { recursive: true })
             await writeFile(path.join(dir, 'held', file!), change.after)
           }
-          await put(contextDir, change.path, change.before)
+          if (!remote) await put(contextDir, change.path, change.before)
           session.held.push({ path: change.path, file, state: 'waiting' })
           putBack.push(change.path)
         }
       }
       if (putBack.length > 0) {
         const why = mayWrite ? 'outside this project' : 'before the plan was approved'
-        session.messages.push({
-          role: 'mate',
-          text: `The agent changed ${putBack.join(', ')} ${why}. Mate put it back. The change is held: approve the file to let it through.`,
-          tools: []
-        })
+        const what = remote ? `asked to change ${putBack.join(', ')} ${why}.` : `changed ${putBack.join(', ')} ${why}. Mate put it back.`
+        session.messages.push({ role: 'mate', text: `The agent ${what} The change is held: approve the file to let it through.`, tools: [] })
+      }
+      if (asked.refused.length > 0) {
+        session.messages.push({ role: 'mate', text: `The agent named a file Mate will not write: ${asked.refused.join(', ')}.`, tools: [] })
       }
 
       watching.delete(contextDir)

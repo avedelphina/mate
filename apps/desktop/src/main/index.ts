@@ -152,8 +152,8 @@ app.whenReady().then(() => {
 
   ipcMain.handle('session:list', (event, project: string) => listSessions(requireContext(event), project))
 
-  ipcMain.handle('session:start', (event, project: string, agent: AgentKind) =>
-    startSession(requireContext(event), project, agent)
+  ipcMain.handle('session:start', (event, project: string, agent: AgentKind, host?: string) =>
+    startSession(requireContext(event), project, agent, host ?? null)
   )
 
   // An approval is a message like any other. The answer arrives as 'session:update' events.

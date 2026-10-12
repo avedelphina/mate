@@ -166,7 +166,7 @@ details .prose h2, details .prose h3 { font-size: 1em; }
 .tabs { display: flex; gap: 2px; -webkit-app-region: no-drag; }
 .tabs button { padding: 3px 10px; font-weight: 500; }
 .tabs button.active { background: var(--hover); color: var(--ink); }
-.invite { display: flex; gap: 6px; margin: 10px 10px 0; }
+.invite { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 10px 0; }
 .margin h3 { margin: 18px 10px 4px; font-size: 11px; font-weight: 500; color: var(--soft); }
 .talk-head { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; }
 .talk-head button { padding: 2px 6px; }

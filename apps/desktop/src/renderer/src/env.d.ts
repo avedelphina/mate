@@ -44,7 +44,8 @@ export type Hit = {
 }
 
 export type AgentKind = 'claude' | 'codex' | 'hermes'
-export type AgentInfo = { kind: AgentKind; label: string; found: boolean }
+/** `host` is set for an agent on another machine, reached over SSH. */
+export type AgentInfo = { kind: AgentKind; label: string; found: boolean; host: string | null }
 
 export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[] }
 
@@ -53,6 +54,7 @@ export type Session = {
   id: string
   project: string
   agent: AgentKind
+  host: string | null
   created: string
   planApproved: boolean
   messages: Message[]
@@ -86,7 +88,7 @@ export type MateApi = {
   anchorComment: (project: string, file: string, id: string, anchor: string, from?: number) => Promise<DocumentView>
   listAgents: () => Promise<AgentInfo[]>
   listSessions: (project: string) => Promise<Session[]>
-  startSession: (project: string, agent: AgentKind) => Promise<Session>
+  startSession: (project: string, agent: AgentKind, host?: string) => Promise<Session>
   sendMessage: (project: string, id: string, text: string, approve: boolean) => Promise<Session>
   stopTurn: (id: string) => Promise<void>
   revertChange: (project: string, id: string, index: number) => Promise<Session>

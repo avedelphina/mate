@@ -23,7 +23,8 @@ contextBridge.exposeInMainWorld('mate', {
     ipcRenderer.invoke('comment:anchor', project, file, id, anchor, from),
   listAgents: () => ipcRenderer.invoke('agents:list'),
   listSessions: (project: string) => ipcRenderer.invoke('session:list', project),
-  startSession: (project: string, agent: string) => ipcRenderer.invoke('session:start', project, agent),
+  startSession: (project: string, agent: string, host?: string) =>
+    ipcRenderer.invoke('session:start', project, agent, host),
   sendMessage: (project: string, id: string, text: string, approve: boolean) =>
     ipcRenderer.invoke('session:send', project, id, text, approve),
   stopTurn: (id: string) => ipcRenderer.invoke('session:stop', id),

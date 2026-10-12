@@ -220,6 +220,22 @@ for the agent's.
 One agent works in a context at a time. Two at once could not be told
 apart by looking at the folder.
 
+### An agent on another machine
+
+Hermes can also be invited from a host in the reader's ssh config. The
+context folder stays on this computer, and the agent keeps no copy of it.
+So over SSH the agent is given no file tools at all. Mate sends it the
+text of the markdown files, each marked as shelf, proposal, or project
+file, and sends a file again only when it has changed.
+
+To change a file the agent answers with the whole new text of it, in a
+`<mate-file path="...">` block. That is a request, not a write. It goes
+through the same rule as a change found in the folder: written here with
+a copy for Revert if it is in the project and the plan is approved, held
+for the reader otherwise. Nothing is installed or configured on the other
+machine. The host name is checked before it reaches ssh, so it cannot be
+read as an option.
+
 ### Sessions
 
 A session is one conversation with one agent in one project. It is kept in
