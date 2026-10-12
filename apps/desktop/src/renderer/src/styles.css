@@ -185,6 +185,8 @@ details .prose h2, details .prose h3, .pane h2, .pane h3 { font-size: 1em; }
 .tabs { display: flex; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; -webkit-app-region: no-drag; }
 .tabs button { flex: none; padding: 3px 10px; font-weight: 500; }
 .tabs button.active { background: var(--hover); color: var(--ink); }
+/* A pane written while the reader was in the conversation: marked, not opened. */
+.tabs button.fresh::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: var(--accent); vertical-align: middle; }
 .invite { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 10px 0; }
 .trust { margin-top: 14px; }
 .trust button { display: block; margin-top: 6px; color: var(--ink); }

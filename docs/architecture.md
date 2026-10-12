@@ -225,6 +225,12 @@ through its own connections and writes what it found into the file. That
 write goes through `judge`, like any other. Mate itself connects to
 nothing.
 
+A pane that has just been written is put on show, since it was made for
+the reader to see. The one exception is when the conversation with the
+agent is in the margin: the pane would take its place, so its tab gets a
+mark instead. With the conversation on the page, the pane appears beside
+it.
+
 A pane does not update itself. The tab says when the file was written,
 and the reader asks the agent to write it again. The window reads the
 panes again when it gets the focus back, and when a session of the

@@ -122,6 +122,10 @@ export function App() {
   // Where the agent is drawn. Each is there only while its place is on show.
   const [pageSlot, setPageSlot] = useState<HTMLElement | null>(null)
   const [marginSlot, setMarginSlot] = useState<HTMLElement | null>(null)
+  // The panes of the open project as last seen, to notice one that has just been written.
+  const seenPanes = useRef<{ project: string; written: Record<string, number> } | null>(null)
+  // Panes written while the reader was in the conversation in the margin. Their tabs are marked, not opened.
+  const [fresh, setFresh] = useState<string[]>([])
   const page = useRef<HTMLDivElement>(null)
   const floating = useRef<HTMLDivElement>(null)
 
@@ -178,6 +182,21 @@ export function App() {
       clearTimeout(timer)
     }
   }, [contextDir, query])
+
+  // A pane that has just been written is put on show: the agent made it for the reader to see.
+  useEffect(() => {
+    if (!view) return
+    const written = Object.fromEntries(view.panes.map((each) => [each.name, each.written]))
+    const before = seenPanes.current?.project === view.project ? seenPanes.current.written : null
+    seenPanes.current = { project: view.project, written }
+    // The project has just been opened: nothing in it is news.
+    if (!before) return setFresh([])
+    const news = view.panes.filter((each) => before[each.name] !== each.written).map((each) => each.name)
+    if (news.length === 0) return
+    // Not when that would take the conversation away from the reader. Then the tab is marked instead.
+    if (tab === 'agent' && !agentOnPage) setFresh((marked) => [...new Set([...marked, ...news])])
+    else setTab(`pane:${news[news.length - 1]}`)
+  }, [view])
 
   useEffect(() => {
     if (found) document.querySelector('mark.found')?.scrollIntoView({ block: 'center' })
@@ -565,9 +584,12 @@ export function App() {
               {view.panes.map((each) => (
                 <button
                   key={each.name}
-                  className={pane === each ? 'quiet active' : 'quiet'}
+                  className={pane === each ? 'quiet active' : fresh.includes(each.name) ? 'quiet fresh' : 'quiet'}
                   title={`panes/${each.name}`}
-                  onClick={() => setTab(`pane:${each.name}`)}
+                  onClick={() => {
+                    setTab(`pane:${each.name}`)
+                    setFresh((marked) => marked.filter((name) => name !== each.name))
+                  }}
                 >
                   {each.name.replace(/\.md$/i, '')}
                 </button>
