@@ -21,6 +21,8 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
   // Where the reader's own agent connects, while a session for it is open.
   const [door, setDoor] = useState<{ url: string; token: string } | null>(null)
   const end = useRef<HTMLDivElement>(null)
+  // Whether the reader trusts this context. It decides what an invited Hermes may use.
+  const [trusted, setTrusted] = useState(false)
   const changed = useRef(onChanged)
   changed.current = onChanged
 
@@ -37,6 +39,7 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
   useEffect(() => {
     setOpen(null)
     window.mate.listSessions(project).then(setSessions, () => setSessions([]))
+    window.mate.isTrusted().then(setTrusted, () => setTrusted(false))
   }, [project])
 
   useEffect(
@@ -108,6 +111,14 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
             </button>
           ))}
         </p>
+        <p className="meta hint trust">
+          {trusted
+            ? 'This context is trusted. Hermes on this computer runs here as it does in your terminal: its own tools, your connections, commands. Mate still rules on what changes in this folder, and does not see the rest. Other agents get tools for files only.'
+            : 'This context is not trusted. An agent gets tools for files and nothing else.'}
+          <button onClick={() => window.mate.setTrusted(!trusted).then(setTrusted, (caught) => setError(reason(caught)))}>
+            {trusted ? 'Stop trusting' : 'Trust this context…'}
+          </button>
+        </p>
         {sessions.length > 0 && <h3>Earlier sessions</h3>}
         {sessions.map((each) => (
           <button key={each.id} className="row" onClick={() => setOpen(each.id)}>
@@ -127,7 +138,10 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
     <>
       <p className="meta talk-head">
         <button className="quiet" onClick={() => setOpen(null)}>‹ Sessions</button>
-        <span>{label(session)} · {session.planApproved ? 'may edit this project' : 'plan not approved'}</span>
+        <span>
+          {label(session)} · {session.planApproved ? 'may edit this project' : 'plan not approved'}
+          {trusted && session.agent === 'hermes' && !session.host && ' · trusted'}
+        </span>
       </p>
       {door && (
         <details className="door" open={session.messages.length === 0}>

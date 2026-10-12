@@ -106,6 +106,10 @@ export type MateApi = {
   revertChange: (project: string, id: string, index: number) => Promise<Session>
   settleHeld: (project: string, id: string, index: number, approve: boolean) => Promise<Session>
   onSession: (listener: (session: Session) => void) => () => void
+  /** Whether the reader trusts the open context. In a trusted one Hermes runs as it does in a terminal. */
+  isTrusted: () => Promise<boolean>
+  /** Asks the reader in a system dialog before it gives trust. Returns what holds afterwards. */
+  setTrusted: (yes: boolean) => Promise<boolean>
   checkAssist: () => Promise<AssistState>
   runAssist: (task: 'rewrite' | 'note', passage: string, note: string) => Promise<string>
 }

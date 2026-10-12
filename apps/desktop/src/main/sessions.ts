@@ -8,6 +8,7 @@ import { AGENTS, SSH, agentEnvironment, isHost, sshArgs, type AgentKind } from '
 import { resolveInside } from './context'
 import { placeOf } from './contextIndex'
 import { changesSince, insidePath, mateWrote, put, takeSnapshot, watching, type Change, type Snapshot } from './guard'
+import { isTrusted } from './trust'
 
 /** `waiting`: sent while the agent was working, and not yet given to it. */
 export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[]; waiting?: boolean }
@@ -382,7 +383,7 @@ async function begin(
           .join('\n\n')
 
     watching.set(contextDir, snapshot)
-    const turn = { cwd: projectDir, contextDir, resume: session.agentSession, mayWrite }
+    const turn = { cwd: projectDir, contextDir, resume: session.agentSession, mayWrite, trusted: isTrusted(contextDir) }
     child = session.host
       ? spawn(SSH.command, sshArgs(session.host, adapter.command, adapter.remoteArgs!(session.agentSession)), {
           env: agentEnvironment()

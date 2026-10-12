@@ -50,6 +50,7 @@ preload as CommonJS. Leave that as it is.
 | What a pane is, and how it is read | `readProject` in `src/main/context.ts`, then `App.tsx` |
 | The tree of a project's files | `listFiles` in `src/main/context.ts`, then `Tree.tsx` |
 | How an agent is started and its output read | `src/main/agents.ts` |
+| Which contexts are trusted, and what trust changes | `src/main/trust.ts`, then the arguments in `src/main/agents.ts` |
 | What an agent may change | `src/main/guard.ts`, then `src/main/sessions.ts` |
 | What an agent is told at the start | `RULES` in `src/main/sessions.ts` |
 | What an agent of the reader's own can do | `src/main/mcp.ts` |
@@ -245,6 +246,28 @@ Each agent gets tools for reading and editing files and nothing else. It
 has no shell and no web. Claude is started without the settings and hooks
 of the context folder or of the reader, because a context may come from
 someone else's repository and a hook is a program.
+
+### A trusted context
+
+That limit holds in every context the reader has not said they trust.
+The reader gives trust to one folder at a time. The answer is given in a
+dialog of the system, which the window cannot press. It is kept in the
+app's own data folder, in `trusted.json`, by the real path of the
+folder. Nothing inside a context can make that context trusted.
+`trust.ts` is the whole of it.
+
+In a trusted context, Hermes on this computer is started without the
+limit. It runs as it does in the reader's terminal: its own tools, its
+skills, the reader's connections, commands. So the reader can ask for
+work Mate has no feature for, such as next month's spreadsheet made from
+the ones already in the folder. Trust does not change Claude, Codex, or
+an agent on another machine.
+
+The guard still looks at the context folder after every turn, and the
+same rule decides. A change in the open project after the plan is kept.
+Any other change is put back and held. What a trusted agent does outside
+the context folder, Mate does not see. Trust is for a folder whose files
+the reader knows, because a file in it can ask the agent for anything.
 
 ### The guard
 

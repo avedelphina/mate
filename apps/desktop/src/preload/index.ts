@@ -38,6 +38,8 @@ contextBridge.exposeInMainWorld('mate', {
     ipcRenderer.on('session:update', heard)
     return () => ipcRenderer.removeListener('session:update', heard)
   },
+  isTrusted: (): Promise<boolean> => ipcRenderer.invoke('trust:get'),
+  setTrusted: (yes: boolean): Promise<boolean> => ipcRenderer.invoke('trust:set', yes),
   checkAssist: () => ipcRenderer.invoke('assist:check'),
   runAssist: (task: 'rewrite' | 'note', passage: string, note: string) =>
     ipcRenderer.invoke('assist:run', task, passage, note)

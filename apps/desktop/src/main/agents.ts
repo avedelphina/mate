@@ -19,6 +19,8 @@ export type Turn = {
   resume: string | null
   /** False until the reviewer has approved the plan. */
   mayWrite: boolean
+  /** The reader trusts this context. See trust.ts. */
+  trusted: boolean
 }
 
 type Adapter = {
@@ -44,7 +46,12 @@ const short = (value: unknown) => (typeof value === 'string' ? value : JSON.stri
 /**
  * Each agent is run without a terminal, with tools for reading and editing files and nothing else:
  * no shell, no web. What it may write is not left to the agent. The guard in guard.ts decides.
+ *
+ * In a context the reader trusts, Hermes is not held to that: it runs as it does in the reader's
+ * own terminal. The guard still rules on the context folder, and sees nothing outside it.
  */
+// ponytail: trust changes Hermes only. Claude and Codex keep their limits in every context.
+// Give each its own unlimited arguments when someone works with them that way.
 export const AGENTS: Record<AgentKind, Adapter> = {
   claude: {
     label: 'Claude',
@@ -128,8 +135,8 @@ export const AGENTS: Record<AgentKind, Adapter> = {
       turn.cwd,
       '--source',
       'tool',
-      '-t',
-      'file',
+      // With no `-t`, Hermes has the toolsets the reader gave it: commands, skills, connections.
+      ...(turn.trusted ? [] : ['-t', 'file']),
       ...(turn.resume ? ['--resume', turn.resume] : [])
     ],
     // `todo` is a toolset that touches nothing. Hermes must not read or write the other machine's files.

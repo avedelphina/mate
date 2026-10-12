@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -7,6 +7,7 @@ import test from 'node:test'
 import { AGENTS, SSH, listAgents, sshArgs } from '../src/main/agents.ts'
 import { changesSince, put, takeSnapshot } from '../src/main/guard.ts'
 import { listSessions, loadSession, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
+import { isTrusted, keepTrustIn, setTrusted } from '../src/main/trust.ts'
 
 async function context(): Promise<string> {
   const root = await mkdtemp(path.join(tmpdir(), 'mate-agents-'))
@@ -22,13 +23,17 @@ async function context(): Promise<string> {
 }
 
 test('each agent is asked to plan first, and its output is read as the same events', () => {
-  const turn = { cwd: '/c/projects/p', contextDir: '/c', resume: null, mayWrite: false }
+  const turn = { cwd: '/c/projects/p', contextDir: '/c', resume: null, mayWrite: false, trusted: false }
   assert.deepEqual(AGENTS.claude.args(turn).slice(4, 6), ['--permission-mode', 'plan'])
   assert.ok(AGENTS.claude.args({ ...turn, mayWrite: true, resume: 'abc' }).join(' ').includes('acceptEdits'))
   assert.deepEqual(AGENTS.claude.args({ ...turn, resume: 'abc' }).slice(-2), ['--resume', 'abc'])
   assert.ok(AGENTS.codex.args(turn).includes('read-only'))
   assert.deepEqual(AGENTS.codex.args({ ...turn, mayWrite: true, resume: 'abc' }).slice(-3), ['resume', 'abc', '-'])
   assert.deepEqual(AGENTS.hermes.args(turn).slice(-2), ['-t', 'file'])
+  // In a context the reader trusts, Hermes is not cut down to file tools. The others are not changed by it.
+  assert.equal(AGENTS.hermes.args({ ...turn, trusted: true }).includes('-t'), false)
+  assert.deepEqual(AGENTS.claude.args({ ...turn, trusted: true }), AGENTS.claude.args(turn))
+  assert.deepEqual(AGENTS.codex.args({ ...turn, trusted: true }), AGENTS.codex.args(turn))
 
   // Lines as the three tools print them.
   assert.deepEqual(AGENTS.claude.read('{"type":"system","subtype":"init","session_id":"151100d5"}'), [{ type: 'session', id: '151100d5' }])
@@ -336,5 +341,37 @@ console.log(JSON.stringify({ type: 'text', text: 'Done.' }))
     await rm(root, { recursive: true, force: true })
     await rm(stub, { force: true })
     await rm(log, { force: true })
+  }
+})
+
+test('trust is kept outside the context, by the real path of the folder, and a damaged list trusts nothing', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-trust-'))
+  try {
+    const list = path.join(root, 'trusted.json')
+    const mine = path.join(root, 'mine')
+    const other = path.join(root, 'other')
+    await mkdir(mine)
+    await mkdir(other)
+    await symlink(mine, path.join(root, 'link'))
+
+    keepTrustIn(list)
+    assert.equal(isTrusted(mine), false)
+    setTrusted(mine, true)
+    assert.deepEqual([isTrusted(mine), isTrusted(path.join(root, 'link')), isTrusted(other)], [true, true, false])
+    // Nothing in the trusted folder says so. The list is the only place.
+    assert.deepEqual(await readdir(mine), [])
+
+    // It is still trusted when the app starts again, and not once the reader takes the trust away.
+    keepTrustIn(list)
+    assert.equal(isTrusted(mine), true)
+    setTrusted(mine, false)
+    keepTrustIn(list)
+    assert.equal(isTrusted(mine), false)
+
+    await writeFile(list, '{"not": "a list"')
+    keepTrustIn(list)
+    assert.equal(isTrusted(mine), false)
+  } finally {
+    await rm(root, { recursive: true, force: true })
   }
 })

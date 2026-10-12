@@ -178,6 +178,8 @@ details .prose h2, details .prose h3, .pane h2, .pane h3 { font-size: 1em; }
 .tabs button { flex: none; padding: 3px 10px; font-weight: 500; }
 .tabs button.active { background: var(--hover); color: var(--ink); }
 .invite { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 10px 0; }
+.trust { margin-top: 14px; }
+.trust button { display: block; margin-top: 6px; color: var(--ink); }
 .margin h3 { margin: 18px 10px 4px; font-size: 11px; font-weight: 500; color: var(--soft); }
 .door { margin: 0 0 12px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); font-size: 12px; }
 .door summary { cursor: pointer; font-weight: 500; }

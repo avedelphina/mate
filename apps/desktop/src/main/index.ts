@@ -8,6 +8,7 @@ import { checkAssist, runAssist, type AssistTask } from './assist'
 import { addComment, editDraft, listProjects, readContextFile, readProject } from './context'
 import { refreshIndex, searchIndex } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
+import { isTrusted, keepTrustIn, setTrusted } from './trust'
 import { listSessions, revertChange, sendMessage, settleHeld, startSession, stopTurn, type Invited, type Session } from './sessions'
 
 // The name in the menu bar. Without this it is the package name.
@@ -121,6 +122,8 @@ function setMenu(): void {
 }
 
 app.whenReady().then(() => {
+  keepTrustIn(path.join(app.getPath('userData'), 'trusted.json'))
+
   ipcMain.handle('context:open', async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     const options = { properties: ['openDirectory' as const] }
@@ -203,6 +206,32 @@ app.whenReady().then(() => {
   ipcMain.handle('session:settle', (event, project: string, id: string, index: number, approve: boolean) =>
     settleHeld(requireContext(event), project, id, index, approve)
   )
+
+  ipcMain.handle('trust:get', (event) => isTrusted(requireContext(event)))
+
+  // Trust is given in a dialog of the system, which the page cannot press. Taking it away asks nothing.
+  ipcMain.handle('trust:set', async (event, yes: boolean) => {
+    const contextDir = requireContext(event)
+    if (yes === true) {
+      const window = BrowserWindow.fromWebContents(event.sender)
+      const options = {
+        type: 'warning' as const,
+        buttons: ['Cancel', 'Trust This Context'],
+        defaultId: 0,
+        cancelId: 0,
+        message: 'Trust this context?',
+        detail:
+          `${contextDir}\n\n` +
+          'Hermes will run here as it does in your own terminal. It can run commands, use your connections, ' +
+          'and change files outside this folder. Mate does not see what it does outside this folder.\n\n' +
+          'Trust only a folder whose files you know.'
+      }
+      const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+      if (response !== 1) return false
+    }
+    setTrusted(contextDir, yes === true)
+    return isTrusted(contextDir)
+  })
 
   ipcMain.handle('assist:check', () => checkAssist(assistHelper))
 

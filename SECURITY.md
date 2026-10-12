@@ -42,7 +42,9 @@ they show that the model is broken, for example:
   local MCP endpoint without its token;
 - a way to make the renderer reach the file system or Node APIs despite the
   sandbox;
-- a way to pass an unchecked value to `ssh` or to a shell.
+- a way to pass an unchecked value to `ssh` or to a shell;
+- a way for a context to become trusted without the reader's answer in the
+  system dialog.
 
 ## What is not in scope
 
@@ -52,6 +54,9 @@ they show that the model is broken, for example:
 - A context that you chose to trust. A context folder can contain hooks and
   scripts, and Mate does not run them, but opening a context you do not
   trust is a decision you make.
+- What an agent does in a context you marked as trusted in Mate. There
+  Hermes runs as it does in your own terminal, and Mate limits nothing
+  outside the context folder.
 - Issues that need a machine that is already compromised.
 
 ## Known limits, stated plainly
