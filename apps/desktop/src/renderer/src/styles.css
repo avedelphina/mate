@@ -14,8 +14,9 @@ li { margin: 4px 0; }
 .doc { white-space: pre-wrap; }
 .comment { margin: 0 0 12px; }
 .comment p { margin: 4px 0; }
-.meta { color: #6d6a64; font-size: 12px; }
+.meta { color: #6d6a64; font-size: 12px; overflow-wrap: anywhere; }
 label { display: block; margin-top: 12px; }
 textarea, input { width: 100%; box-sizing: border-box; }
 .error { color: #8d2a2a; }
 .projects { margin-top: 16px; }
+.drafts { margin: 0 0 0 12px; }

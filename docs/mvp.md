@@ -21,8 +21,11 @@ between projects, publish to the shelf.
 8. Adding a comment changes `draft/document.md` on disk, and the comment
    is still there after quitting and reopening.
 
-Steps 1 to 4 are verified. Steps 5 to 8 have not been done by hand yet.
-The app binary launches and stays running; nobody has clicked through it.
+Steps 1 to 4 are verified. Steps 5 to 8 were driven in the real window on
+2026-10-12, with scripted mouse and keyboard input against
+`contexts/_example`. One part was not exercised: the native folder picker
+in step 6. The script answered it with the folder. A person has still not
+clicked that dialog.
 
 ## Run it
 
@@ -38,25 +41,34 @@ Node 22 or newer. pnpm 10 or newer. The root `pnpm-workspace.yaml` allows
 build scripts for `electron` and `esbuild`. Without that, install succeeds
 and the app has no binary.
 
+If `pnpm dev` stops with `The requested module 'electron' does not provide
+an export named 'BrowserWindow'`, the shell has `ELECTRON_RUN_AS_NODE` set.
+A process started by VS Code inherits it. Unset it and run again.
+
 If `node_modules/electron/dist` is missing after install, run
 `node node_modules/electron/install.js` with `ELECTRON_SKIP_BINARY_DOWNLOAD`
 unset. On macOS, extract the cached zip with `ditto -xk`, not a generic
 unzip. A generic unzip drops the framework metadata and the binary dies
 on launch. Confirm with the binary's `--version`.
 
-## Left to do
+## What the click-through found
 
-In order. Each one is usable on its own.
+All four items that were left are done.
 
-1. **Click through the window.** Do steps 5 to 8 above and fix what breaks.
-   The preload is loaded as `../preload/index.mjs` because that is what the
-   build emits. If the window opens blank, that path is the first place to look.
-2. **Line endings.** `insertComment` splits on `\n`. Preserve the line ending
-   the file already uses, so a Windows file does not come back mixed.
-3. **Pick the draft.** A project with two markdown files in `draft/` silently
-   opens the first sorted name. Show the list.
-4. **Select to comment.** The comment box asks you to type the sentence.
-   Selecting it in the document should fill the anchor.
+1. **Click through the window.** The preload was built as an ES module, and
+   a sandboxed window cannot load one. `window.mate` was missing and every
+   button failed. The preload is now built as CommonJS and loaded as
+   `../preload/index.cjs`. If the window opens and nothing responds, that
+   path is still the first place to look. A project that fails to open no
+   longer leaves the previous draft on the page, and the message is the
+   sentence the handler wrote, without the wrapper Electron adds.
+2. **Line endings.** A new marker takes the line ending the file already
+   uses. No existing line is rewritten.
+3. **Pick the draft.** A project with several markdown files in `draft/`
+   lists them and opens none until you pick.
+4. **Select to comment.** Selecting a passage in the document fills the
+   anchor. The passage may run over several lines. When the same words occur
+   twice, the comment goes under the place you selected.
 
 ## Do not build yet
 

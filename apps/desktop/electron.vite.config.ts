@@ -7,7 +7,9 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   preload: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    // The window is sandboxed, and a sandboxed preload cannot be an ES module.
+    build: { rollupOptions: { output: { format: 'cjs' } } }
   },
   renderer: {
     resolve: {

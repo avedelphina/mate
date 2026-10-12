@@ -10,7 +10,7 @@ function createWindow(): void {
     height: 800,
     title: 'Mate',
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.mjs'),
+      preload: path.join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true
@@ -44,8 +44,8 @@ app.whenReady().then(() => {
 
   ipcMain.handle(
     'comment:add',
-    (_event, project: string, file: string, anchor: string, text: string, author: string) =>
-      addComment(requireContext(), project, file, anchor, text, author)
+    (_event, project: string, file: string, anchor: string, text: string, author: string, from?: number) =>
+      addComment(requireContext(), project, file, anchor, text, author, from)
   )
 
   createWindow()
