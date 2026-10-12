@@ -18,10 +18,13 @@ export type Kept = { path: string; backup: string | null; reverted: boolean }
 export type Held = { path: string; file: string | null; state: 'waiting' | 'approved' | 'discarded' }
 
 /** A conversation with one agent, inside one project. It is a file in the context, so it outlives the window. */
+/** `mcp` is an agent the reader runs themselves. Mate starts nothing: the agent comes in through src/main/mcp.ts. */
+export type Invited = AgentKind | 'mcp'
+
 export type Session = {
   id: string
   project: string
-  agent: AgentKind
+  agent: Invited
   /** Set when the agent is on another machine, reached over SSH. It has no folder there. */
   host: string | null
   /** What each file looked like when it was last sent to an agent on another machine. */
@@ -127,7 +130,7 @@ async function proposed(contextDir: string, text: string): Promise<{ changes: Ch
 const folder = (contextDir: string, project: string, id = '') =>
   resolveInside(path.join(contextDir, '.sessions'), project, id)
 
-async function save(contextDir: string, session: Session): Promise<void> {
+export async function saveSession(contextDir: string, session: Session): Promise<void> {
   const dir = folder(contextDir, session.project, session.id)
   await mkdir(dir, { recursive: true })
   // Transcripts and the copies kept for Revert stay out of whatever repository the context is in.
@@ -154,11 +157,11 @@ export async function listSessions(contextDir: string, project: string): Promise
 export async function startSession(
   contextDir: string,
   project: string,
-  agent: AgentKind,
+  agent: Invited,
   host: string | null = null
 ): Promise<Session> {
-  if (!AGENTS[agent]) throw new Error('That agent is not one Mate knows.')
-  if (host !== null && (!isHost(host) || !AGENTS[agent].remoteArgs)) {
+  if (agent !== 'mcp' && !AGENTS[agent]) throw new Error('That agent is not one Mate knows.')
+  if (host !== null && (agent === 'mcp' || !isHost(host) || !AGENTS[agent].remoteArgs)) {
     throw new Error('That agent cannot be invited from another machine.')
   }
   const session: Session = {
@@ -175,7 +178,7 @@ export async function startSession(
     held: [],
     running: false
   }
-  await save(contextDir, session)
+  await saveSession(contextDir, session)
   return session
 }
 
@@ -205,6 +208,38 @@ async function firstWords(contextDir: string, project: string, remote: boolean):
 }
 
 /**
+ * One change, by the rule. Inside the open project, once the plan is approved, it is the agent's work:
+ * the bytes from before are kept, so Revert can put them back. Anything else is held for the reader,
+ * and the file is as it was.
+ *
+ * `done` says the change is already in the folder, because an agent on this machine made it.
+ */
+export async function judge(contextDir: string, session: Session, change: Change, done: boolean): Promise<'kept' | 'held'> {
+  const dir = folder(contextDir, session.project, session.id)
+  if (session.planApproved && change.path.startsWith(`projects/${session.project}/`)) {
+    const backup = change.before ? `${session.changes.length}` : null
+    if (change.before) {
+      await mkdir(path.join(dir, 'backups'), { recursive: true })
+      await writeFile(path.join(dir, 'backups', backup!), change.before)
+    }
+    if (!done) {
+      await put(contextDir, change.path, change.after)
+      mateWrote(contextDir, change.path, change.after)
+    }
+    session.changes.push({ path: change.path, backup, reverted: false })
+    return 'kept'
+  }
+  const file = change.after ? `${session.held.length}` : null
+  if (change.after) {
+    await mkdir(path.join(dir, 'held'), { recursive: true })
+    await writeFile(path.join(dir, 'held', file!), change.after)
+  }
+  if (done) await put(contextDir, change.path, change.before)
+  session.held.push({ path: change.path, file, state: 'waiting' })
+  return 'held'
+}
+
+/**
  * Send one message and let the agent answer. An approval is a message too.
  * `started` is the session as the turn begins. `finished` settles when the agent has stopped
  * and the guard has been through the folder.
@@ -227,6 +262,14 @@ export async function sendMessage(
   if (approve) session.planApproved = true
   const mayWrite = session.planApproved
   const message = approve ? ['The plan is approved. Go ahead.', said].filter(Boolean).join('\n\n') : said
+
+  // An agent the reader runs themselves is not started from here. It reads the message when it next asks.
+  if (session.agent === 'mcp') {
+    session.messages.push({ role: 'you', text: message, tools: [] })
+    await saveSession(contextDir, session)
+    emit(session)
+    return { started: session, finished: Promise.resolve(session) }
+  }
   const answer: Message = { role: 'agent', text: '', tools: [] }
   session.messages.push({ role: 'you', text: message, tools: [] }, answer)
   session.running = true
@@ -309,27 +352,7 @@ export async function sendMessage(
 
       const putBack: string[] = []
       for (const change of asked.changes) {
-        const dir = folder(contextDir, project, id)
-        if (mayWrite && change.path.startsWith(`projects/${project}/`)) {
-          // The agent's work. The bytes from before are kept, so Revert can put them back.
-          const backup = change.before ? `${session.changes.length}` : null
-          if (change.before) {
-            await mkdir(path.join(dir, 'backups'), { recursive: true })
-            await writeFile(path.join(dir, 'backups', backup!), change.before)
-          }
-          if (remote) await put(contextDir, change.path, change.after)
-          session.changes.push({ path: change.path, backup, reverted: false })
-        } else {
-          // Not the agent's to change, or not yet. The file is as it was, and the change waits for the reader.
-          const file = change.after ? `${session.held.length}` : null
-          if (change.after) {
-            await mkdir(path.join(dir, 'held'), { recursive: true })
-            await writeFile(path.join(dir, 'held', file!), change.after)
-          }
-          if (!remote) await put(contextDir, change.path, change.before)
-          session.held.push({ path: change.path, file, state: 'waiting' })
-          putBack.push(change.path)
-        }
+        if ((await judge(contextDir, session, change, !remote)) === 'held') putBack.push(change.path)
       }
       if (putBack.length > 0) {
         const why = mayWrite ? 'outside this project' : 'before the plan was approved'
@@ -343,7 +366,7 @@ export async function sendMessage(
       watching.delete(contextDir)
       running.delete(id)
       session.running = false
-      await save(contextDir, session).catch(() => {})
+      await saveSession(contextDir, session).catch(() => {})
       emit(session)
       resolve(session)
     }
@@ -360,7 +383,7 @@ export async function sendMessage(
     })
   })
 
-  await save(contextDir, session)
+  await saveSession(contextDir, session)
   return { started: session, finished }
 }
 
@@ -381,7 +404,7 @@ export async function revertChange(contextDir: string, project: string, id: stri
   await put(contextDir, change.path, before)
   mateWrote(contextDir, change.path, before)
   change.reverted = true
-  await save(contextDir, session)
+  await saveSession(contextDir, session)
   return session
 }
 
@@ -410,6 +433,6 @@ export async function settleHeld(
     session.changes.push({ path: held.path, backup, reverted: false })
   }
   held.state = approve ? 'approved' : 'discarded'
-  await save(contextDir, session)
+  await saveSession(contextDir, session)
   return session
 }

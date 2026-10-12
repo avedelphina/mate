@@ -50,6 +50,7 @@ preload as CommonJS. Leave that as it is.
 | How an agent is started and its output read | `src/main/agents.ts` |
 | What an agent may change | `src/main/guard.ts`, then `src/main/sessions.ts` |
 | What an agent is told at the start | `RULES` in `src/main/sessions.ts` |
+| What an agent of the reader's own can do | `src/main/mcp.ts` |
 | How the on-device model is called | `assist/main.swift` |
 
 Add the preload and the type in `env.d.ts` in the same change as the
@@ -235,6 +236,30 @@ a copy for Revert if it is in the project and the plan is approved, held
 for the reader otherwise. Nothing is installed or configured on the other
 machine. The host name is checked before it reaches ssh, so it cannot be
 read as an option.
+
+### An agent the reader runs themselves
+
+"Your own agent" opens a session and starts nothing. It opens a door: a
+Model Context Protocol endpoint, on this computer only, at
+`http://127.0.0.1:41757/mcp`. `mcp.ts` is the whole of it. The reader gives
+their agent the address and the token once. The token is kept in the app's
+own data folder. The door is not opened until the reader asks for it.
+
+A request needs the token, and one that carries an `Origin` is refused,
+because a web page sends one and an agent does not. The door leads to one
+session: the one the reader last opened for their own agent.
+
+The tools are `mate_project`, `mate_read`, `mate_search`, `mate_comments`,
+`mate_comment`, `mate_reply`, `mate_plan`, `mate_status`, and `mate_write`.
+Reading and searching say whether a file is the shelf or a proposal.
+`mate_comment` and `mate_reply` work on a draft of the session's own
+project only. `mate_write` goes through `judge`, the same function that
+rules on an invited agent's edits. Every call is noted in the session, so
+the reader sees each step.
+
+The usual way for such an agent to change a draft is a comment with a
+replacement. The reader applies it with one click, as they would a
+person's.
 
 ### Sessions
 

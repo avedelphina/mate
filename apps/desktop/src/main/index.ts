@@ -1,11 +1,14 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, type IpcMainInvokeEvent } from 'electron'
+import { randomBytes } from 'node:crypto'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { addReply, anchorComment, applySuggestion } from '../shared/comments'
-import { listAgents, type AgentKind } from './agents'
+import { listAgents } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
 import { addComment, editDraft, listProjects, readContextFile, readProject } from './context'
 import { refreshIndex, searchIndex } from './contextIndex'
-import { listSessions, revertChange, sendMessage, settleHeld, startSession, stopTurn, type Session } from './sessions'
+import { startMcp, type Binding } from './mcp'
+import { listSessions, revertChange, sendMessage, settleHeld, startSession, stopTurn, type Invited, type Session } from './sessions'
 
 // The name in the menu bar. Without this it is the package name.
 app.setName('Mate')
@@ -57,6 +60,32 @@ function tell(contextDir: string, session: Session): void {
   for (const window of BrowserWindow.getAllWindows()) {
     if (contexts.get(window.webContents.id) === contextDir) window.webContents.send('session:update', session)
   }
+}
+
+/**
+ * The door for an agent the reader runs themselves. It is opened the first time the reader asks
+ * for it, not before, and it leads to the one session the reader last opened for such an agent.
+ */
+let door: Promise<{ port: number }> | null = null
+let bound: Binding | null = null
+
+function doorToken(): string {
+  const file = path.join(app.getPath('userData'), 'mcp-token')
+  // Kept from one run to the next, so the reader sets their agent up once.
+  if (!existsSync(file)) writeFileSync(file, randomBytes(24).toString('hex'), { mode: 0o600 })
+  return readFileSync(file, 'utf8').trim()
+}
+
+async function openDoor(binding: Binding): Promise<{ url: string; token: string }> {
+  bound = binding
+  const token = doorToken()
+  door ??= startMcp({
+    port: Number(process.env.MATE_MCP_PORT) || 41757,
+    token,
+    binding: () => bound,
+    changed: (at, session) => tell(at.contextDir, session)
+  })
+  return { url: `http://127.0.0.1:${(await door).port}/mcp`, token }
 }
 
 function requireContext(event: IpcMainInvokeEvent): string {
@@ -148,11 +177,13 @@ app.whenReady().then(() => {
     editDraft(requireContext(event), project, file, (markdown) => anchorComment(markdown, id, anchor, from))
   )
 
-  ipcMain.handle('agents:list', () => listAgents())
+  ipcMain.handle('agents:list', () => [...listAgents(), { kind: 'mcp', label: 'Your own agent', found: true, host: null }])
+
+  ipcMain.handle('mcp:bind', (event, project: string, id: string) => openDoor({ contextDir: requireContext(event), project, id }))
 
   ipcMain.handle('session:list', (event, project: string) => listSessions(requireContext(event), project))
 
-  ipcMain.handle('session:start', (event, project: string, agent: AgentKind, host?: string) =>
+  ipcMain.handle('session:start', (event, project: string, agent: Invited, host?: string) =>
     startSession(requireContext(event), project, agent, host ?? null)
   )
 

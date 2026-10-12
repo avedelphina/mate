@@ -43,7 +43,8 @@ export type Hit = {
   thread: string | null
 }
 
-export type AgentKind = 'claude' | 'codex' | 'hermes'
+/** `mcp` is an agent the reader runs themselves. It comes in over MCP. */
+export type AgentKind = 'claude' | 'codex' | 'hermes' | 'mcp'
 /** `host` is set for an agent on another machine, reached over SSH. */
 export type AgentInfo = { kind: AgentKind; label: string; found: boolean; host: string | null }
 
@@ -87,6 +88,8 @@ export type MateApi = {
   applySuggestion: (project: string, file: string, id: string) => Promise<DocumentView>
   anchorComment: (project: string, file: string, id: string, anchor: string, from?: number) => Promise<DocumentView>
   listAgents: () => Promise<AgentInfo[]>
+  /** Point the MCP door at this session. Returns where the reader's own agent connects. */
+  bindMcp: (project: string, id: string) => Promise<{ url: string; token: string }>
   listSessions: (project: string) => Promise<Session[]>
   startSession: (project: string, agent: AgentKind, host?: string) => Promise<Session>
   sendMessage: (project: string, id: string, text: string, approve: boolean) => Promise<Session>

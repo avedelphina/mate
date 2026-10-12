@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('mate', {
   anchorComment: (project: string, file: string, id: string, anchor: string, from?: number) =>
     ipcRenderer.invoke('comment:anchor', project, file, id, anchor, from),
   listAgents: () => ipcRenderer.invoke('agents:list'),
+  bindMcp: (project: string, id: string) => ipcRenderer.invoke('mcp:bind', project, id),
   listSessions: (project: string) => ipcRenderer.invoke('session:list', project),
   startSession: (project: string, agent: string, host?: string) =>
     ipcRenderer.invoke('session:start', project, agent, host),

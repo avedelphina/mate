@@ -18,6 +18,8 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
   const [open, setOpen] = useState<string | null>(null)
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // Where the reader's own agent connects, while a session for it is open.
+  const [door, setDoor] = useState<{ url: string; token: string } | null>(null)
   const end = useRef<HTMLDivElement>(null)
   const changed = useRef(onChanged)
   changed.current = onChanged
@@ -47,6 +49,12 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
       }),
     [project]
   )
+
+  const own = session?.agent === 'mcp' ? session.id : null
+  useEffect(() => {
+    setDoor(null)
+    if (own) window.mate.bindMcp(project, own).then(setDoor, (caught) => setError(reason(caught)))
+  }, [project, own])
 
   const last = session?.messages[session.messages.length - 1]
   useEffect(() => {
@@ -118,6 +126,16 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
         <button className="quiet" onClick={() => setOpen(null)}>‹ Sessions</button>
         <span>{label(session)} · {session.planApproved ? 'may edit this project' : 'plan not approved'}</span>
       </p>
+      {door && (
+        <details className="door" open={session.messages.length === 0}>
+          <summary>How your agent connects</summary>
+          <p>Over MCP, on this computer only. Give your agent this address and header:</p>
+          <pre>{door.url}{'\n'}Authorization: Bearer {door.token}</pre>
+          <p>In Claude Code, for example:</p>
+          <pre>claude mcp add --transport http mate {door.url} --header "Authorization: Bearer {door.token}"</pre>
+          <p>It works in this session while it is the one open here. It follows the same rules as an invited agent.</p>
+        </details>
+      )}
       {session.messages.map((message, index) => (
         <div key={index} className={`said ${message.role}`}>
           {message.tools.length > 0 && (
