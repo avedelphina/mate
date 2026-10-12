@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('mate', {
   currentContext: (): Promise<{ dir: string; projects: string[] } | null> => ipcRenderer.invoke('context:current'),
   searchContext: (query: string) => ipcRenderer.invoke('context:search', query),
   readFile: (path: string) => ipcRenderer.invoke('file:read', path),
+  revealFile: (path: string) => ipcRenderer.invoke('file:reveal', path),
   openProject: (project: string, file?: string) => ipcRenderer.invoke('project:open', project, file),
   addComment: (
     project: string,

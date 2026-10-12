@@ -470,7 +470,16 @@ export function App() {
                     <button className={project === name ? 'row active' : 'row'} onClick={() => openProject(name)}>
                       {name}
                     </button>
-                    {view && project === name && <Tree paths={view.files} current={inTree} onOpen={openFile} />}
+                    {view && project === name && (
+                      <Tree
+                        paths={view.files}
+                        current={inTree}
+                        onOpen={openFile}
+                        onReveal={(path) =>
+                          window.mate.revealFile(`projects/${view.project}/${path}`).catch((caught) => setError(reason(caught, 'Could not show that file.')))
+                        }
+                      />
+                    )}
                   </li>
                 ))}
               </ul>

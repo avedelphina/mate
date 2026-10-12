@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { addComment, readProject, resolveInside } from '../src/main/context.ts'
+import { addComment, placeOnDisk, readProject, resolveInside } from '../src/main/context.ts'
 import {
   addReply,
   anchorComment,
@@ -133,5 +133,26 @@ test('a project draft round-trips through the folder and cannot climb out', asyn
     await assert.rejects(readProject(root, 'review', '../intents.md'), /not in this project/)
   } finally {
     await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('any file of the context can be shown where it lies, and nothing hidden or outside it', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-'))
+  try {
+    await mkdir(path.join(root, 'projects/review/timesheets'), { recursive: true })
+    await mkdir(path.join(root, '.sessions'))
+    await writeFile(path.join(root, 'projects/review/timesheets/october.xlsx'), 'not markdown')
+    await writeFile(path.join(root, '.sessions/secret'), 'hidden')
+    await writeFile(`${root}-outside.txt`, 'outside')
+    await symlink(`${root}-outside.txt`, path.join(root, 'projects/review/leak.txt'))
+
+    assert.equal(await placeOnDisk(root, 'projects/review/timesheets/october.xlsx'), path.join(await realpath(root), 'projects/review/timesheets/october.xlsx'))
+    await assert.rejects(placeOnDisk(root, '.sessions/secret'), /not a file of this context/)
+    await assert.rejects(placeOnDisk(root, '../outside.txt'), /not a file of this context/)
+    await assert.rejects(placeOnDisk(root, 'projects/review/leak.txt'), /leaves the context/)
+    await assert.rejects(placeOnDisk(root, 'projects/review/missing.pdf'))
+  } finally {
+    await rm(root, { recursive: true, force: true })
+    await rm(`${root}-outside.txt`, { force: true })
   }
 })

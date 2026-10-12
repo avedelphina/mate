@@ -94,6 +94,16 @@ export async function realInside(contextDir: string, ...parts: string[]): Promis
   throw new Error('That path leaves the context.')
 }
 
+/**
+ * Where a file of the context really is, for the system's file manager to show. Any kind of file,
+ * since this is how the reader gets to one Mate cannot draw. Nothing hidden, and nothing outside.
+ */
+export async function placeOnDisk(contextDir: string, relative: string): Promise<string> {
+  const parts = String(relative).split('/')
+  if (parts.some((part) => part === '' || part.startsWith('.'))) throw new Error('That is not a file of this context.')
+  return realInside(contextDir, ...parts)
+}
+
 export async function readProject(contextDir: string, project: string, file?: string): Promise<DocumentView> {
   const projectDir = resolveInside(contextDir, 'projects', project)
   const draftDir = path.join(projectDir, 'draft')

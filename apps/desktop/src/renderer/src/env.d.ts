@@ -94,6 +94,8 @@ export type MateApi = {
   currentContext: () => Promise<{ dir: string; projects: string[] } | null>
   searchContext: (query: string) => Promise<Hit[]>
   readFile: (path: string) => Promise<FileView>
+  /** Show a file of the context in the system's file manager. It is not opened. */
+  revealFile: (path: string) => Promise<void>
   openProject: (project: string, file?: string) => Promise<DocumentView>
   addComment: (
     project: string,

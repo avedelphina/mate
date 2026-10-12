@@ -204,8 +204,10 @@ unfolded.
 A draft opens for review. Any other markdown file opens to be read, as
 it does from a search. The project stays open while the file is read:
 the margin keeps its tabs, and the agent keeps its session. A file that
-is not markdown is named in the tree and cannot be opened. Mate draws
-markdown and nothing else.
+is not markdown is named in the tree, and a click shows it in the file
+manager of the system, for the reader to open with what they have. Mate
+draws markdown and nothing else, and it opens no file itself: opening a
+file that came with a context could run it.
 
 A project with no draft opens too. Its page is empty, and its other
 files are in the tree.

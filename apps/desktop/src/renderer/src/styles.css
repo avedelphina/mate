@@ -85,6 +85,8 @@ button.wide { width: 100%; }
 /* A file name starts where a folder name does, past the folder's marker. */
 .tree .row { padding-left: 21px; }
 .tree .row.active { font-weight: 500; }
+/* A file Mate does not draw. It is still there to be found. */
+.tree .row.other { color: var(--soft); }
 .row { display: block; width: 100%; padding: 6px 10px; border: 0; background: none; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row.active { background: var(--hover); font-weight: 500; }
 .meta { color: var(--soft); font-size: 12px; }

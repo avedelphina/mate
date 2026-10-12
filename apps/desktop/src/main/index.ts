@@ -1,11 +1,11 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type IpcMainInvokeEvent } from 'electron'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { addReply, anchorComment, applySuggestion } from '../shared/comments'
 import { listAgents } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
-import { addComment, editDraft, listProjects, readContextFile, readProject } from './context'
+import { addComment, editDraft, listProjects, placeOnDisk, readContextFile, readProject } from './context'
 import { refreshIndex, searchIndex } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
 import { approve, describe, instructionFiles, keepPinsIn, unapproved } from './pins'
@@ -172,6 +172,10 @@ app.whenReady().then(() => {
   )
 
   ipcMain.handle('file:read', (event, relative: string) => readContextFile(requireContext(event), relative))
+
+  // A file Mate cannot draw is shown where it lies, for the reader to open with what they have.
+  // It is shown, never opened: opening a file from a context could run it.
+  ipcMain.handle('file:reveal', async (event, relative: string) => shell.showItemInFolder(await placeOnDisk(requireContext(event), relative)))
 
   ipcMain.handle('project:open', (event, project: string, file?: string) =>
     readProject(requireContext(event), project, file)
