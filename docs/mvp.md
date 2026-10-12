@@ -24,9 +24,10 @@ between projects, publish to the shelf.
 Steps 1 to 4 are verified. Steps 5 to 8 were driven in the real window on
 2026-10-12, with scripted mouse and keyboard input against
 `contexts/_example`, and again after the review slice in
-[roadmap.md](roadmap.md) step 2 was built. One part was not exercised: the
-native folder picker in step 6. The script answered it with the folder.
-A person has still not clicked that dialog.
+[roadmap.md](roadmap.md) step 2 was built. The script cannot reach the
+native folder picker in step 6, so it answered that dialog with the folder.
+The dialog itself was clicked by hand on 2026-10-12, and it listed both
+projects.
 
 ## Run it
 
@@ -73,10 +74,10 @@ All four items that were left are done.
 
 ## Left to do
 
-- [ ] **Click the folder picker.** Press Open context, pick
+- [x] **Click the folder picker.** Press Open context, pick
   `contexts/_example` in the native dialog, and see `document-review` and
   `sibling` listed. This is the one part of step 6 the script did not
-  exercise. Tick it when a person has done it.
+  exercise. Done by hand on 2026-10-12.
 
 ## Known limits
 
