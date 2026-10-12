@@ -100,13 +100,51 @@ Not built yet: steering a turn that is running. A turn that is running
 when the app quits is lost, though its session goes on, and what was
 waiting goes with the next message.
 
-## 6. The other sources
+## 6. Write the draft, then publish it
+
+Review marks a document. It does not make one. Today a project with nothing
+in `draft/` cannot be opened, and the page cannot change the prose: the
+only write into a draft splices a comment marker. Both dropboxes are
+folders with no exits. Publishing is a rule in the model and, until this
+step, had nowhere to happen. The draft is worth publishing now, because
+reviewing one works.
+
+Do these in this order. The first is usable before the other two.
+
+**Write the open project's draft.** Make a new draft, and type in the one
+that is open. The file on disk is what gets written. Line endings stay as
+the file had them, and a crash mid-write does not leave half a document,
+the same as a comment. The shelf, intents, and principles stay read-only.
+The agent gets no private way to edit: it already proposes a replacement,
+and you apply it.
+
+**Publish, as its own act.** It replaces the named file on the shelf and
+keeps the previous copy as history that is no longer current. Saving is
+not publishing. The agent cannot publish. After it, asking what is current
+cites the shelf, and the project draft is a proposal again.
+
+**The project dropbox.** Three exits, and no fourth. Leave a file outside
+and index the path, pull it into `draft/`, or extract its text into
+`draft/`. Pulling a shelf document down is an owned copy. The shelf
+original stays. There is no exit where something is just remembered.
+
+Done when, on one real project rather than `contexts/_example`, a source
+comes in, the draft is written in the window, a passage is marked up, and
+publishing is a decision rather than a file copied by hand. The test is
+whether you stay in the window to change a paragraph.
+
+Not this step: a diff of an agent's edit, steering a turn that is already
+running, mail, calendar, issues, or an installer. The first two are gaps
+around an agent that already works, and they do not give a new kind of
+work. The rest are later steps.
+
+## 7. The other sources
 
 Mail, calendar, and issues appear through the connections the project
 already has. Mate renders them. It does not become the tracker, the inbox,
 or the calendar.
 
-## 7. The phone joins the session
+## 8. The phone joins the session
 
 This waits on step 5. The phone joins a session the desktop owns, so there
 is nothing to build here until an agent is actually running in a project.
@@ -136,7 +174,7 @@ polish.
 A gateway in front of the laptop, so the phone works from plain cellular
 without the tailnet, is a later part. The direct connection comes first.
 
-## 8. The same project on your other computers
+## 9. The same project on your other computers
 
 The native app is worth building when it does one of two things.
 
@@ -144,7 +182,7 @@ The native app is worth building when it does one of two things.
 nothing else has a copy. This needs no Hub and no sync.
 
 **Shared.** Several people work in the project, and they do it through git,
-as in step 9. The iPad has its own clone, commits, and pushes. Git is the
+as in step 10. The iPad has its own clone, commits, and pushes. Git is the
 sync. Mate does not write another one.
 
 What the app is not worth building for is the case in the middle: the same
@@ -170,7 +208,7 @@ and sync afterwards disagree, and a comment is a line in the file, so the
 disagreement is the work itself. Git is the sync that already exists.
 Anything Mate builds on top of it has to be better than committing.
 
-## 9. A project other people can work in
+## 10. A project other people can work in
 
 Someone who does not run Mate can still work in the project, because the
 project is a git folder. Their commit is the same as yours. Mate reads it
@@ -180,7 +218,7 @@ Mate keeps no lock and no account for them. Two people editing the same
 draft produce a git conflict, and Mate does not invent a smarter merge.
 The comment marker is plain text, so their editor leaves it alone.
 
-## 10. The Hub
+## 11. The Hub
 
 The Hub is a Mate you run on a machine that stays on. A project runs in one
 of two places, and you pick which when you open it.
@@ -208,6 +246,4 @@ one place the work happens, not a live sync between the Hub and the laptop.
 ## Not planned
 
 A task database of our own. A chat that exists without a project. Reading
-or writing across two contexts. Publishing to the shelf is described in
-the model and has no step here yet, because the draft has to be worth
-publishing first.
+or writing across two contexts.
