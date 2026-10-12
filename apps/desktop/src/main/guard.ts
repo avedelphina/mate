@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 /**
@@ -31,7 +31,7 @@ export function mateWrote(contextDir: string, relative: string, bytes: Buffer | 
 // size is not watched. A context is documents. Hash the files and copy on change if that stops being true.
 const MAX_BYTES = 5 * 1024 * 1024
 
-/** Mate's own folders, and the bulk of git. `.git/hooks` is watched: a hook written there would run later. */
+/** Mate's own folders, and the bulk of git. `.git/hooks` and `.git/config` are watched: a hook written or pointed at would run later. */
 const SKIPPED = new Set(['.sessions', '.indexes', '.git', 'node_modules', '.DS_Store'])
 
 async function walk(contextDir: string, base: string, found: string[]): Promise<string[]> {
@@ -49,6 +49,8 @@ export async function takeSnapshot(contextDir: string): Promise<Snapshot> {
   const snapshot: Snapshot = new Map()
   const files = await walk(contextDir, '', [])
   await walk(contextDir, '.git/hooks', files)
+  // `core.hooksPath` here would send git to hooks the walk never sees. Only a real file counts.
+  if ((await lstat(path.join(contextDir, '.git/config')).catch(() => null))?.isFile()) files.push('.git/config')
   for (const relative of files) {
     const file = path.join(contextDir, relative)
     if ((await stat(file)).size <= MAX_BYTES) snapshot.set(relative, await readFile(file))

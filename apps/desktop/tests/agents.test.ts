@@ -58,17 +58,22 @@ test('each agent is asked to plan first, and its output is read as the same even
 test('the guard sees what changed in the folder, and can put it back', async () => {
   const root = await context()
   try {
+    await mkdir(path.join(root, '.git'), { recursive: true })
+    await writeFile(path.join(root, '.git/config'), '[core]\n\trepositoryformatversion = 0\n')
     const before = await takeSnapshot(root)
     await writeFile(path.join(root, 'shelf/classification.md'), 'Changed.\n')
     await writeFile(path.join(root, 'projects/review/new.md'), 'New.\n')
     await rm(path.join(root, 'projects/sibling/draft/notes.md'))
     await mkdir(path.join(root, '.git/hooks'), { recursive: true })
     await writeFile(path.join(root, '.git/hooks/pre-commit'), 'echo run later\n')
+    // Pointing git at hooks elsewhere is a change like any other.
+    await writeFile(path.join(root, '.git/config'), '[core]\n\thooksPath = elsewhere\n')
     await mkdir(path.join(root, '.sessions/x'), { recursive: true })
     await writeFile(path.join(root, '.sessions/x/session.json'), '{}')
 
     const changes = await changesSince(root, before)
     assert.deepEqual(changes.map((change) => [change.path, change.before === null, change.after === null]), [
+      ['.git/config', false, false],
       ['.git/hooks/pre-commit', true, false],
       ['projects/review/new.md', true, false],
       ['projects/sibling/draft/notes.md', false, true],
@@ -77,6 +82,7 @@ test('the guard sees what changed in the folder, and can put it back', async () 
     for (const change of changes) await put(root, change.path, change.before)
     assert.deepEqual(await changesSince(root, before), [])
     assert.equal(existsSync(path.join(root, '.git/hooks/pre-commit')), false)
+    assert.equal(await readFile(path.join(root, '.git/config'), 'utf8'), '[core]\n\trepositoryformatversion = 0\n')
   } finally {
     await rm(root, { recursive: true, force: true })
   }
