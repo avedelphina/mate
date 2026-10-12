@@ -125,7 +125,8 @@ mark.pending { background: var(--mark-pending); }
 .composer .replacement { margin-bottom: 6px; padding-bottom: 8px; border-bottom: 1px dashed var(--line); font: 15px/1.5 var(--read); }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .chips button { padding: 1px 9px; border-radius: 99px; color: var(--soft); font-size: 12px; }
-.composer footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.composer footer { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+.composer footer button:first-child { margin-right: auto; }
 .thread blockquote, .swap { padding-left: 10px; border-left: 2px solid var(--mark-active); color: var(--soft); font: italic 14px/1.5 var(--read); }
 
 .thread:first-child, .hint + .thread { margin-top: 0; }

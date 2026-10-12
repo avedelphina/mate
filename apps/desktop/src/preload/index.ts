@@ -17,5 +17,8 @@ contextBridge.exposeInMainWorld('mate', {
   applySuggestion: (project: string, file: string, id: string) =>
     ipcRenderer.invoke('comment:apply', project, file, id),
   anchorComment: (project: string, file: string, id: string, anchor: string, from?: number) =>
-    ipcRenderer.invoke('comment:anchor', project, file, id, anchor, from)
+    ipcRenderer.invoke('comment:anchor', project, file, id, anchor, from),
+  checkAssist: () => ipcRenderer.invoke('assist:check'),
+  runAssist: (task: 'rewrite' | 'note', passage: string, note: string) =>
+    ipcRenderer.invoke('assist:run', task, passage, note)
 })

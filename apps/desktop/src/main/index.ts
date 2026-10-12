@@ -1,9 +1,14 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron'
 import path from 'node:path'
 import { addReply, anchorComment, applySuggestion } from '../shared/comments'
+import { checkAssist, runAssist, type AssistTask } from './assist'
 import { addComment, editDraft, listProjects, readProject } from './context'
 
 let contextDir: string | null = null
+
+// ponytail: the helper is looked for beside the app in this checkout, where `pnpm build:assist` puts it.
+// A packaged app will carry it in its resources. MATE_ASSIST names another one.
+const assistHelper = process.env.MATE_ASSIST ?? path.join(__dirname, '../../assist/mate-assist')
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -75,6 +80,13 @@ app.whenReady().then(() => {
 
   ipcMain.handle('comment:anchor', (_event, project: string, file: string, id: string, anchor: string, from?: number) =>
     editDraft(requireContext(), project, file, (markdown) => anchorComment(markdown, id, anchor, from))
+  )
+
+  ipcMain.handle('assist:check', () => checkAssist(assistHelper))
+
+  // The text goes back to the window for the reader to accept. This handler writes nothing.
+  ipcMain.handle('assist:run', (_event, task: AssistTask, passage: string, note: string) =>
+    runAssist(assistHelper, task, passage, note)
   )
 
   createWindow()

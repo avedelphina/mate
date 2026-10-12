@@ -35,9 +35,9 @@ A comment whose quote no longer appears in the file is kept and shown as
 unanchored, not deleted. Re-anchoring it is a manual act.
 
 Built so far: selecting a passage, the thread with its replies, the
-suggested replacement with its Apply button, the unanchored state, and
-anchoring by hand. Not built: the assist below, and reading the comments
-back through MCP.
+suggested replacement with its Apply button, the unanchored state,
+anchoring by hand, and the assist below on the Mac. Not built: reading the
+comments back through MCP. That waits for the agent in step 5.
 
 A small assist sits next to the comment, on the machines that have one.
 Rewriting the sentence you selected, or drafting the note, can be done by

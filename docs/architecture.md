@@ -15,6 +15,8 @@ App.tsx                         window.mate                 index.ts
   addReply()         ---------> ipc 'comment:reply'  -----> addReply()
   applySuggestion()  ---------> ipc 'comment:apply'  -----> applySuggestion()
   anchorComment()    ---------> ipc 'comment:anchor' -----> anchorComment()
+  checkAssist()      ---------> ipc 'assist:check'   -----> is the helper here, can the model answer
+  runAssist()        ---------> ipc 'assist:run'     -----> the helper, once per question
 ```
 
 The renderer never imports `fs` and never sees a path it chose itself.
@@ -35,6 +37,8 @@ preload as CommonJS. Leave that as it is.
 | A new capability the window can call | `src/main/index.ts`, then `src/preload/index.ts`, then `src/renderer/src/env.d.ts` |
 | Layout | `src/renderer/src/App.tsx` and `styles.css` |
 | How markdown is drawn | `src/renderer/src/markdown.ts`, then `styles.css` |
+| What the assist is asked | `src/main/assist.ts` |
+| How the on-device model is called | `assist/main.swift` |
 
 Add the preload and the type in `env.d.ts` in the same change as the
 handler. A handler the renderer cannot name does not exist.
@@ -113,6 +117,25 @@ Selecting a passage opens a small menu under it: Comment, Rewrite, Remove.
 The form then opens in the same place. Both are drawn beside the page
 element, never inside it. Anything put inside the page becomes part of
 the text a selection is measured against.
+
+## The assist
+
+On a Mac with Apple's on-device model, the form under a selection has one
+more button: Draft the rewrite, or Draft the note. Electron cannot call the
+Foundation Models framework, so a small native helper does.
+
+`assist/main.swift` is the whole helper. It takes one question on stdin,
+gives one answer on stdout, and keeps no state. It knows nothing about
+Mate. `src/main/assist.ts` decides what to ask, so the wording of a
+question is in one place and has a test. `pnpm build:assist` compiles the
+helper to `assist/mate-assist`, which is not committed.
+
+The button is there only where the helper is. Where the helper is and the
+model cannot answer, the button is off and says why. Linux and Windows
+have no helper, and nothing else about the review changes there.
+
+The model's text goes into the form. It reaches the file only when the
+reader presses Add, as any comment does. Nothing leaves the computer.
 
 ## Writing a file
 

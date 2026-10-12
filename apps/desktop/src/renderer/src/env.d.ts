@@ -23,6 +23,9 @@ export type DocumentView = {
   principles: string
 }
 
+/** `present`: the helper is on this machine. `available`: the model behind it can answer now. */
+export type AssistState = { present: boolean; available: boolean; reason: string }
+
 export type MateApi = {
   openContext: () => Promise<{ dir: string; projects: string[] } | null>
   openProject: (project: string, file?: string) => Promise<DocumentView>
@@ -38,6 +41,8 @@ export type MateApi = {
   addReply: (project: string, file: string, id: string, text: string, author: string) => Promise<DocumentView>
   applySuggestion: (project: string, file: string, id: string) => Promise<DocumentView>
   anchorComment: (project: string, file: string, id: string, anchor: string, from?: number) => Promise<DocumentView>
+  checkAssist: () => Promise<AssistState>
+  runAssist: (task: 'rewrite' | 'note', passage: string, note: string) => Promise<string>
 }
 
 declare global {

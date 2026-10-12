@@ -3,4 +3,5 @@ node_modules/
 dist/
 out/
 *.local
+apps/desktop/assist/mate-assist
 .indexes/

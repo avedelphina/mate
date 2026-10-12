@@ -1,5 +1,5 @@
 import { createElement, Fragment, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import type { DocumentView } from './env'
+import type { AssistState, DocumentView } from './env'
 import { renderMarkdown, type Piece } from './markdown'
 import './styles.css'
 
@@ -69,7 +69,7 @@ const QUICK_NOTES = [
   { label: 'Why?', text: 'Why this, and not the alternative?' }
 ]
 
-const POPOVER_WIDTH = 320
+const POPOVER_WIDTH = 360
 
 export function App() {
   const [contextDir, setContextDir] = useState<string | null>(null)
@@ -83,8 +83,14 @@ export function App() {
   const [suggestion, setSuggestion] = useState<string | null>(null)
   // Where the menu sits, just under the selection, counted inside the scrolling page. Null when closed.
   const [popover, setPopover] = useState<{ left: number; top: number } | null>(null)
-  // The menu first. The form once the reader has picked what to do.
-  const [composing, setComposing] = useState(false)
+  // Null while the menu shows. Then what the reader picked from it, and the form is open.
+  const [mode, setMode] = useState<'comment' | 'rewrite' | 'remove' | null>(null)
+  const composing = mode !== null
+  // The on-device model, on the machines that have one. See docs/architecture.md.
+  const [assist, setAssist] = useState<AssistState | null>(null)
+  const [drafting, setDrafting] = useState(false)
+  // Counts the forms opened so far, so text the model wrote for a form that has closed is dropped.
+  const form = useRef(0)
   const [active, setActive] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const page = useRef<HTMLDivElement>(null)
@@ -134,12 +140,32 @@ export function App() {
     setText('')
     setSuggestion(null)
     setPopover(null)
-    setComposing(false)
+    setMode(null)
+    form.current += 1
   }
 
-  function compose(replacement: string | null) {
-    setSuggestion(replacement)
-    setComposing(true)
+  function compose(next: 'comment' | 'rewrite' | 'remove') {
+    setSuggestion(next === 'comment' ? null : next === 'rewrite' ? anchor : '')
+    setMode(next)
+    // Asked each time: the model may have become ready since the window opened.
+    window.mate.checkAssist().then(setAssist, () => setAssist(null))
+  }
+
+  /** Let the on-device model write the replacement or the note. The reader still has to add it. */
+  async function draft() {
+    const asked = form.current
+    setError(null)
+    setDrafting(true)
+    try {
+      const written = await window.mate.runAssist(mode === 'rewrite' ? 'rewrite' : 'note', anchor, text)
+      if (form.current !== asked) return
+      if (mode === 'rewrite') setSuggestion(written)
+      else setText(written)
+    } catch (caught) {
+      setError(reason(caught, 'The assist could not write that.'))
+    } finally {
+      setDrafting(false)
+    }
   }
 
   async function openContext() {
@@ -308,9 +334,9 @@ export function App() {
           {/* Beside the page, not in it: the page holds the text of the file and nothing else. */}
           {popover && !composing && (
             <div className="popover menu" ref={floating} style={popover} role="toolbar" aria-label="Selected passage">
-              <button className="quiet" onClick={() => compose(null)}>Comment</button>
-              <button className="quiet" onClick={() => compose(anchor)}>Rewrite</button>
-              <button className="quiet" onClick={() => compose('')}>Remove</button>
+              <button className="quiet" onClick={() => compose('comment')}>Comment</button>
+              <button className="quiet" onClick={() => compose('rewrite')}>Rewrite</button>
+              <button className="quiet" onClick={() => compose('remove')}>Remove</button>
             </div>
           )}
           {popover && composing && (
@@ -348,6 +374,16 @@ export function App() {
               </div>
               <footer>
                 <button className="quiet" onClick={clearComment}>Cancel</button>
+                {assist?.present && (
+                  <button
+                    className="quiet"
+                    disabled={!assist.available || drafting}
+                    title={assist.available ? 'Written by the model on this computer. Nothing leaves it.' : assist.reason}
+                    onClick={draft}
+                  >
+                    {drafting ? 'Writing…' : mode === 'rewrite' ? 'Draft the rewrite' : 'Draft the note'}
+                  </button>
+                )}
                 <button className="primary" title="⌘↵" onClick={addComment}>Add to the file</button>
               </footer>
             </div>

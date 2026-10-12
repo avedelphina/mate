@@ -39,6 +39,10 @@ pnpm build
 pnpm dev
 ```
 
+On a Mac with Apple silicon and macOS 26 or newer, `pnpm build:assist`
+also builds the helper for the on-device assist. It needs the Xcode
+command line tools. Nothing else depends on it.
+
 Node 22 or newer. pnpm 10 or newer. The root `pnpm-workspace.yaml` allows
 build scripts for `electron` and `esbuild`. Without that, install succeeds
 and the app has no binary.
