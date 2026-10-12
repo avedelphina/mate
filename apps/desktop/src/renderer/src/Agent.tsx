@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { AgentInfo, AgentKind, Session } from './env'
 import { Rendered } from './Rendered'
 
@@ -12,7 +13,12 @@ function reason(caught: unknown): string {
  * and decide about every file it touched. What the agent may write is decided in the main
  * process, by the guard. Nothing here can let a change through on its own.
  */
-export function Agent({ project, onChanged }: { project: string; onChanged: () => void }) {
+/**
+ * The agent's side of a project. It is there for as long as the project is open, and is drawn
+ * into whichever place the window gives it: the margin, or the page for a session that is not
+ * about a draft. With no place it draws nothing, and still keeps up with its sessions.
+ */
+export function Agent({ project, onChanged, into }: { project: string; onChanged: () => void; into: HTMLElement | null }) {
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [open, setOpen] = useState<string | null>(null)
@@ -23,8 +29,6 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
   const end = useRef<HTMLDivElement>(null)
   // Whether the reader trusts this context. It decides what an invited Hermes may use.
   const [trusted, setTrusted] = useState(false)
-  const changed = useRef(onChanged)
-  changed.current = onChanged
 
   const session = sessions.find((each) => each.id === open) ?? null
   const label = (each: { agent: AgentKind; host: string | null }) =>
@@ -47,8 +51,6 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
       window.mate.onSession((next) => {
         if (next.project !== project) return
         keep(next)
-        // The agent may have changed the draft that is on the page.
-        if (!next.running) changed.current()
       }),
     [project]
   )
@@ -62,7 +64,7 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
   const last = session?.messages[session.messages.length - 1]
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'end' })
-  }, [open, session?.messages.length, last?.text, session?.running])
+  }, [open, session?.messages.length, last?.text, session?.running, into])
 
   async function act(action: () => Promise<Session>, after?: () => void) {
     setError(null)
@@ -86,8 +88,10 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
     void act(() => window.mate.sendMessage(project, session.id, text, approve), () => setText(''))
   }
 
+  if (!into) return null
+
   if (!session) {
-    return (
+    return createPortal(
       <>
         {error && <p className="error" role="alert">{error}</p>}
         <p className="meta hint">
@@ -125,7 +129,8 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
             {label(each)} · {each.messages.find((message) => message.role === 'you')?.text ?? 'Nothing said yet'}
           </button>
         ))}
-      </>
+      </>,
+      into
     )
   }
 
@@ -134,7 +139,7 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
   const planned = answers > 0
   const approving = session.queue.some((each) => each.approve)
 
-  return (
+  return createPortal(
     <>
       <p className="meta talk-head">
         <button className="quiet" onClick={() => setOpen(null)}>‹ Sessions</button>
@@ -227,6 +232,7 @@ export function Agent({ project, onChanged }: { project: string; onChanged: () =
         </footer>
       </div>
       <div ref={end} />
-    </>
+    </>,
+    into
   )
 }

@@ -116,6 +116,12 @@ export function App() {
   const [error, setError] = useState<string | null>(null)
   // The margin shows the threads of the draft, the agent invited into the project, or one of its panes.
   const [tab, setTab] = useState('review')
+  // A session that is not about a draft is a conversation, and the conversation may have the page.
+  // Then the margin is free for a pane beside it.
+  const [agentOnPage, setAgentOnPage] = useState(false)
+  // Where the agent is drawn. Each is there only while its place is on show.
+  const [pageSlot, setPageSlot] = useState<HTMLElement | null>(null)
+  const [marginSlot, setMarginSlot] = useState<HTMLElement | null>(null)
   const page = useRef<HTMLDivElement>(null)
   const floating = useRef<HTMLDivElement>(null)
 
@@ -147,7 +153,7 @@ export function App() {
       if (readingPath) window.mate.readFile(readingPath).then((next) => current && setReading(next), () => {})
     }
     window.addEventListener('focus', reload)
-    // An agent may have written the draft or a pane, and the Agent tab may not be open to notice.
+    // An agent may have written the draft or a pane. Show what the files hold now.
     const unhear = window.mate.onSession((session) => {
       if (session.project === project && !session.running) reload()
     })
@@ -248,7 +254,10 @@ export function App() {
     setFound(null)
     clearComment()
     try {
-      setView(await window.mate.openProject(name, draft))
+      const next = await window.mate.openProject(name, draft)
+      setView(next)
+      // A project with no draft has nothing to review, so its page goes to the conversation.
+      setAgentOnPage(next.drafts.length === 0)
     } catch (caught) {
       // The page must not keep showing another project's draft under this one's name.
       setView(null)
@@ -258,6 +267,7 @@ export function App() {
 
   /** Put a file on the page to be read, not reviewed. `path` is counted from the context folder. */
   async function read(path: string) {
+    setAgentOnPage(false)
     setError(null)
     setActive(null)
     setFound(null)
@@ -380,7 +390,20 @@ export function App() {
   const contextName = contextDir?.split(/[\\/]/).filter(Boolean).pop()
   // A tab whose pane file is gone falls back to the review.
   const pane = view?.panes.find((each) => `pane:${each.name}` === tab) ?? null
-  const shown = pane ? 'pane' : tab === 'agent' ? 'agent' : 'review'
+  const shown = pane ? 'pane' : tab === 'agent' && !agentOnPage ? 'agent' : 'review'
+  const onPage = agentOnPage && view !== null
+
+  /** Give the page to the conversation. The margin then shows a pane, when the project has one. */
+  function toPage() {
+    clearComment()
+    setAgentOnPage(true)
+    if (tab === 'agent') setTab(view?.panes[0] ? `pane:${view.panes[0].name}` : 'review')
+  }
+
+  function toMargin() {
+    setAgentOnPage(false)
+    setTab('agent')
+  }
   // Where the page is in the tree of the open project, when it is in it at all.
   const inTree = reading ? (reading.project === project ? reading.path.split('/').slice(2).join('/') : null) : file && `draft/${file}`
 
@@ -438,14 +461,20 @@ export function App() {
       </aside>
       <main className="center">
         <header className="bar">
-          {reading && <span className={`kind ${reading.kind}`}>{KINDS[reading.kind].label}</span>}
-          {reading && <span>{reading.path}</span>}
-          {!reading && view && <span className="meta">{view.project}</span>}
-          {!reading && file !== null && <span className="meta">/</span>}
-          {!reading && file !== null && <span>{file}</span>}
+          {onPage && <span className="meta">{view.project}</span>}
+          {onPage && <span className="meta">/</span>}
+          {onPage && <span>Agent</span>}
+          {onPage && <button className="quiet move" onClick={toMargin}>Back to the margin</button>}
+          {!onPage && reading && <span className={`kind ${reading.kind}`}>{KINDS[reading.kind].label}</span>}
+          {!onPage && reading && <span>{reading.path}</span>}
+          {!onPage && !reading && view && <span className="meta">{view.project}</span>}
+          {!onPage && !reading && file !== null && <span className="meta">/</span>}
+          {!onPage && !reading && file !== null && <span>{file}</span>}
         </header>
         <div className="scroll">
-          {reading ? (
+          {onPage ? (
+            <div className="page talk-page" ref={setPageSlot} />
+          ) : reading ? (
             <div className="page prose">
               <Rendered text={reading.text} passages={passages} />
             </div>
@@ -528,7 +557,9 @@ export function App() {
           {view && (
             <span className="tabs">
               <button className={shown === 'review' ? 'quiet active' : 'quiet'} onClick={() => setTab('review')}>Review</button>
-              <button className={shown === 'agent' ? 'quiet active' : 'quiet'} onClick={() => setTab('agent')}>Agent</button>
+              {!agentOnPage && (
+                <button className={shown === 'agent' ? 'quiet active' : 'quiet'} onClick={() => setTab('agent')}>Agent</button>
+              )}
               {/* ponytail: a pane is a tab of the margin, so it hides the review and the agent.
                   Give it a column of its own when that gets in the way. */}
               {view.panes.map((each) => (
@@ -548,10 +579,10 @@ export function App() {
           {error && <p className="error" role="alert">{error}</p>}
           {reading && (!view || shown === 'review') && <p className="meta hint">{KINDS[reading.kind].note}</p>}
           {view && shown === 'agent' && (
-            <Agent
-              project={view.project}
-              onChanged={() => window.mate.openProject(view.project, view.file ?? undefined).then(setView, () => {})}
-            />
+            <>
+              <p className="meta talk-move"><button className="quiet" onClick={toPage}>Open in the page</button></p>
+              <div ref={setMarginSlot} />
+            </>
           )}
           {pane && (
             <>
@@ -626,6 +657,14 @@ export function App() {
           )}
         </div>
       </aside>
+      {/* One agent for the open project, drawn into the margin or the page. It is not started again when it moves. */}
+      {view && (
+        <Agent
+          project={view.project}
+          onChanged={() => window.mate.openProject(view.project, view.file ?? undefined).then(setView, () => {})}
+          into={onPage ? pageSlot : shown === 'agent' ? marginSlot : null}
+        />
+      )}
     </div>
   )
 }

@@ -247,6 +247,19 @@ has no shell and no web. Claude is started without the settings and hooks
 of the context folder or of the reader, because a context may come from
 someone else's repository and a hook is a program.
 
+### Where the conversation is drawn
+
+The agent's side of a project is a tab of the margin, beside the draft.
+A session that is not about a draft is a conversation, and the reader
+can give it the page: Open in the page, and Back to the margin. With the
+conversation on the page, the margin is free for a pane beside it. A
+project with no draft opens with the conversation on the page. Picking a
+file puts that file on the page and the conversation back in the margin.
+
+There is one `Agent` for the open project. `App.tsx` gives it the place
+to draw into. It is the same component when it moves, so the open
+session and a message half written move with it.
+
 ### A trusted context
 
 That limit holds in every context the reader has not said they trust.

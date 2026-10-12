@@ -188,7 +188,15 @@ details .prose h2, details .prose h3, .pane h2, .pane h3 { font-size: 1em; }
 .invite { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 10px 0; }
 .trust { margin-top: 14px; }
 .trust button { display: block; margin-top: 6px; color: var(--ink); }
-.margin h3 { margin: 18px 10px 4px; font-size: 11px; font-weight: 500; color: var(--soft); }
+/* The conversation, when it has the page: the same parts with room to read. */
+.bar .move { flex: none; margin-left: auto; -webkit-app-region: no-drag; }
+.talk-move { margin: 0 0 4px; text-align: right; }
+.talk-move button { padding: 2px 6px; }
+.talk-page { padding-top: 12px; padding-bottom: 24px; font: 13px/1.5 var(--ui); }
+.talk-page .said { margin-bottom: 18px; }
+.talk-page .said .prose { font: 16px/1.65 var(--read); }
+.talk-page .said.you { margin-left: 20%; font-size: 14.5px; }
+.margin h3, .talk-page h3 { margin: 18px 10px 4px; font-size: 11px; font-weight: 500; color: var(--soft); }
 .door { margin: 0 0 12px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); font-size: 12px; }
 .door summary { cursor: pointer; font-weight: 500; }
 .door p { margin: 8px 0 4px; color: var(--soft); }
@@ -212,5 +220,5 @@ details .prose h2, details .prose h3, .pane h2, .pane h3 { font-size: 1em; }
 .decide p { margin: 0 0 8px; }
 .decide p:last-child { display: flex; gap: 6px; margin: 0; }
 .changed { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 6px; color: var(--soft); font-size: 12px; }
-.margin code { font: 0.92em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+.margin code, .talk-page code { font: 0.92em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
 .talk { position: sticky; bottom: 0; margin-top: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
