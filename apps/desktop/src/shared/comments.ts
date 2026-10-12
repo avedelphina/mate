@@ -1,9 +1,19 @@
+export type Reply = { text: string; author: string }
+
 export type ReviewComment = {
   id: string
   anchor: string
   text: string
   author: string
+  /** Text proposed in place of the anchor. Empty means the passage should go. */
+  suggestion?: string
+  replies: Reply[]
+  /** md-redline's `status`. Mate sets it when a suggestion is applied. */
+  resolved: boolean
 }
+
+/** A comment and where its quote sits in the visible text. Null when the quote is no longer there. */
+export type Thread = ReviewComment & { start: number | null }
 
 const OPEN = '<!-- @comment'
 const CLOSE = '-->'
@@ -43,12 +53,23 @@ function scan(markdown: string): Marker[] {
 }
 
 function toComment(value: Stored): ReviewComment {
+  const replies: unknown[] = Array.isArray(value.replies) ? value.replies : []
   return {
     id: String(value.id ?? ''),
     anchor: value.anchor,
     text: value.text,
-    author: String(value.author ?? '')
+    author: String(value.author ?? ''),
+    ...(typeof value.suggestion === 'string' ? { suggestion: value.suggestion } : {}),
+    replies: replies
+      .filter((reply): reply is { text: string; author?: unknown } => typeof (reply as Reply | null)?.text === 'string')
+      .map((reply) => ({ text: reply.text, author: String(reply.author ?? '') })),
+    resolved: value.status === 'resolved' || value.resolved === true
   }
+}
+
+/** A "-->" inside a note would end the HTML comment early for every other reader of the file. */
+function write(value: Stored): string {
+  return OPEN + JSON.stringify(value).replace(/--(!?)>/g, '--$1\\u003e') + ' ' + CLOSE
 }
 
 /** Markers md-redline can read. Malformed JSON is ignored. */
@@ -59,23 +80,25 @@ export function parseComments(markdown: string): ReviewComment[] {
 /**
  * The document as the reader sees it: markers cut out, line endings as \n.
  * raw[i] is where visible character i sits in the file.
+ * Each span is what one marker takes out of the file, and `at` is the visible offset it was cut from.
  */
 function strip(markdown: string) {
   const markers = scan(markdown)
-  // A marker alone on its line takes the whole line with it.
   const spans = markers.map(({ start, end }) => {
     const lineStart = markdown.lastIndexOf('\n', start - 1) + 1
     const lineBreak = markdown.indexOf('\n', end)
     const lineEnd = lineBreak < 0 ? markdown.length : lineBreak + 1
+    // A marker alone on its line takes the whole line with it.
     const alone = !markdown.slice(lineStart, start).trim() && !markdown.slice(end, lineEnd).trim()
-    return alone ? [lineStart, lineEnd] : [start, end]
+    return alone ? { start: lineStart, end: lineEnd, alone, at: 0 } : { start, end, alone, at: 0 }
   })
   const raw: number[] = []
   let text = ''
   let next = 0
   for (let i = 0; i < markdown.length; i += 1) {
-    if (next < spans.length && i === spans[next][0]) {
-      i = spans[next][1] - 1
+    if (next < spans.length && i === spans[next].start) {
+      spans[next].at = text.length
+      i = spans[next].end - 1
       next += 1
       continue
     }
@@ -84,18 +107,59 @@ function strip(markdown: string) {
     raw.push(i)
   }
   raw.push(markdown.length)
-  return { markers, text, raw }
+  return { markers, spans, text, raw }
+}
+
+/** Where the passage occurs so that it ends on the visible line that ends at `lineEnd`. */
+function onLine(text: string, anchor: string, lineEnd: number): number[] {
+  const found: number[] = []
+  for (let i = text.indexOf(anchor); i >= 0; i = text.indexOf(anchor, i + 1)) {
+    const lineBreak = text.indexOf('\n', i + anchor.length)
+    const end = lineBreak < 0 ? text.length : lineBreak
+    if (end > lineEnd) break
+    if (end === lineEnd) found.push(i)
+  }
+  return found
+}
+
+/**
+ * Where a comment's quote sits in the visible text, or null when it is gone.
+ * Mate writes the marker on the line under the passage. md-redline writes it just before.
+ * The quote next to the marker wins over the same words elsewhere in the file.
+ */
+function locate(text: string, anchor: string, span: { at: number; alone: boolean }): number | null {
+  if (!anchor) return null
+  const near = span.alone ? onLine(text, anchor, span.at - 1)[0] : text.startsWith(anchor, span.at) ? span.at : undefined
+  if (near !== undefined) return near
+  const anywhere = text.indexOf(anchor)
+  return anywhere < 0 ? null : anywhere
 }
 
 /** The text to show and the comments stored in it. */
-export function readDocument(markdown: string): { text: string; comments: ReviewComment[] } {
-  const { markers, text } = strip(markdown)
-  return { text, comments: markers.map((marker) => toComment(marker.value)) }
+export function readDocument(markdown: string): { text: string; comments: Thread[] } {
+  const { markers, spans, text } = strip(markdown)
+  return {
+    text,
+    comments: markers.map((marker, k) => {
+      const comment = toComment(marker.value)
+      return { ...comment, start: comment.resolved ? null : locate(text, comment.anchor, spans[k]) }
+    })
+  }
 }
 
 /** The line ending the file already uses. */
 function eolOf(markdown: string): string {
   return markdown.includes('\r\n') ? '\r\n' : '\n'
+}
+
+function clean(passage: string): string {
+  return passage.replace(/\r\n/g, '\n').trim()
+}
+
+function indexOfComment(markers: Marker[], id: string): number {
+  const index = markers.findIndex((marker) => String(marker.value.id ?? '') === id)
+  if (index < 0) throw new Error('That comment is no longer in the file.')
+  return index
 }
 
 /**
@@ -104,38 +168,114 @@ function eolOf(markdown: string): string {
  * It picks between two places that read the same.
  */
 function place(markdown: string, value: Stored, from: number): string {
-  const { text, raw } = strip(markdown)
+  const { spans, text, raw } = strip(markdown)
   let start = text.indexOf(value.anchor, from)
   if (start < 0) start = text.indexOf(value.anchor)
   if (start < 0) throw new Error('That text is not in this document.')
+  const end = start + value.anchor.length
 
-  let lineBreak = markdown.indexOf('\n', raw[start + value.anchor.length - 1])
-  while (lineBreak >= 0) {
-    const following = markdown.indexOf('\n', lineBreak + 1)
-    if (!markdown.slice(lineBreak + 1, following < 0 ? undefined : following).includes(OPEN)) break
-    lineBreak = following
+  // The marker names its line, not a place on it. Twice on one line could not be told apart later.
+  const visibleBreak = text.indexOf('\n', end)
+  if (onLine(text, value.anchor, visibleBreak < 0 ? text.length : visibleBreak).length > 1) {
+    throw new Error('Those words occur more than once on that line. Select a little more.')
   }
 
-  const marker = OPEN + JSON.stringify(value) + ' ' + CLOSE
+  const lineBreak = markdown.indexOf('\n', raw[end - 1])
+  let cut = lineBreak < 0 ? markdown.length : lineBreak + 1
+  for (const span of spans) if (span.alone && span.start === cut) cut = span.end
+
+  const head = markdown.slice(0, cut)
   const eol = eolOf(markdown)
-  if (lineBreak < 0) return markdown + eol + marker
-  return markdown.slice(0, lineBreak + 1) + marker + eol + markdown.slice(lineBreak + 1)
+  if (!head.endsWith('\n')) return head + eol + write(value)
+  return head + write(value) + eol + markdown.slice(cut)
+}
+
+/** Change the stored fields of one comment and leave the rest of the file alone. */
+function rewrite(markdown: string, id: string, change: (value: Stored) => Stored): string {
+  const markers = scan(markdown)
+  const marker = markers[indexOfComment(markers, id)]
+  return markdown.slice(0, marker.start) + write(change(marker.value)) + markdown.slice(marker.end)
 }
 
 /**
  * Insert one comment on the line after its anchor.
  * The anchor is a passage of the visible text. It may run over several lines.
+ * A suggestion is the text proposed in its place. Nothing is replaced until it is applied.
  */
-export function insertComment(markdown: string, anchor: string, text: string, author: string, from = 0): string {
-  const trimmedAnchor = anchor.replace(/\r\n/g, '\n').trim()
+export function insertComment(
+  markdown: string,
+  anchor: string,
+  text: string,
+  author: string,
+  from = 0,
+  suggestion?: string
+): string {
+  const trimmedAnchor = clean(anchor)
   const trimmedText = text.trim()
   const trimmedAuthor = author.trim() || 'you'
+  const replacement = suggestion === undefined || clean(suggestion) === trimmedAnchor ? undefined : clean(suggestion)
   if (!trimmedAnchor) throw new Error('Select the sentence the comment is about.')
-  if (!trimmedText) throw new Error('The comment is empty.')
+  if (!trimmedText && replacement === undefined) throw new Error('The comment is empty.')
 
   const used = parseComments(markdown)
     .map((comment) => Number(comment.id))
     .filter((id) => Number.isInteger(id))
   const id = String((used.length > 0 ? Math.max(...used) : 0) + 1)
-  return place(markdown, { id, anchor: trimmedAnchor, text: trimmedText, author: trimmedAuthor }, from)
+  const value: Stored = { id, anchor: trimmedAnchor, text: trimmedText, author: trimmedAuthor }
+  if (replacement !== undefined) value.suggestion = replacement
+  return place(markdown, value, from)
+}
+
+/** Add a reply to a comment's thread. The reply has the shape md-redline reads. */
+export function addReply(markdown: string, id: string, text: string, author: string): string {
+  const trimmedText = text.trim()
+  if (!trimmedText) throw new Error('The reply is empty.')
+  return rewrite(markdown, id, (value) => {
+    const replies: unknown[] = Array.isArray(value.replies) ? value.replies : []
+    const reply = {
+      id: `${id}.${replies.length + 1}`,
+      text: trimmedText,
+      author: author.trim() || 'you',
+      timestamp: new Date().toISOString()
+    }
+    return { ...value, replies: [...replies, reply] }
+  })
+}
+
+/** Replace the quoted passage with the comment's suggestion, and mark the comment resolved. */
+export function applySuggestion(markdown: string, id: string): string {
+  const marked = rewrite(markdown, id, (value) => {
+    if (typeof value.suggestion !== 'string') throw new Error('This comment suggests no replacement.')
+    if (toComment(value).resolved) throw new Error('This suggestion is already applied.')
+    return { ...value, status: 'resolved' }
+  })
+  const { markers, spans, text, raw } = strip(marked)
+  const index = indexOfComment(markers, id)
+  const { anchor, suggestion } = markers[index].value as Stored & { suggestion: string }
+  const start = locate(text, anchor, spans[index])
+  if (start === null) throw new Error('The quoted text is no longer in the file. Anchor the comment to a passage first.')
+
+  const from = raw[start]
+  const to = raw[start + anchor.length - 1] + 1
+  // A marker caught inside the passage is another comment. It is kept, and moves under the new text.
+  const caught = spans
+    .filter((span) => span.start > from && span.start < to)
+    .map((span) => marked.slice(span.start, span.end))
+    .join('')
+  const eol = eolOf(marked)
+  const lineBreak = marked.indexOf('\n', to)
+  const cut = lineBreak < 0 ? marked.length : lineBreak + 1
+  let rest = marked.slice(to, cut)
+  if (caught && !rest.endsWith('\n')) rest += eol
+  return marked.slice(0, from) + suggestion.replace(/\n/g, eol) + rest + caught + marked.slice(cut)
+}
+
+/** Attach a comment to a new passage. The reader does this. Mate never does it on its own. */
+export function anchorComment(markdown: string, id: string, anchor: string, from = 0): string {
+  const trimmedAnchor = clean(anchor)
+  if (!trimmedAnchor) throw new Error('Select the passage the comment belongs to.')
+  const { markers, spans } = strip(markdown)
+  const index = indexOfComment(markers, id)
+  const without = markdown.slice(0, spans[index].start) + markdown.slice(spans[index].end)
+  return place(without, { ...markers[index].value, anchor: trimmedAnchor }, from)
 }

@@ -1,7 +1,7 @@
 html, body, #root { height: 100%; margin: 0; }
 body { font: 14px/1.5 ui-sans-serif, system-ui, sans-serif; color: #1c1c1c; background: #f6f5f3; }
 button, textarea, select { font: inherit; }
-.app { display: grid; grid-template-columns: 220px 1fr 280px; height: 100%; }
+.app { display: grid; grid-template-columns: 220px 1fr 340px; height: 100%; }
 .rail, .notes { padding: 16px; overflow: auto; }
 .rail { background: #eceae6; }
 .center { padding: 24px 32px; overflow: auto; background: #fff; }
@@ -12,8 +12,21 @@ li { margin: 4px 0; }
 .row { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 4px 6px; border-radius: 6px; }
 .row.active, .row:hover { background: #ddd9d1; }
 .doc { white-space: pre-wrap; }
-.comment { margin: 0 0 12px; }
-.comment p { margin: 4px 0; }
+mark { background: #fbe9a8; color: inherit; border-radius: 2px; cursor: pointer; }
+mark.active { background: #f5c842; }
+mark.pending { background: #cfe3ff; }
+.thread { margin: 0 0 12px; padding: 8px 10px; background: #fff; border: 1px solid #e2dfd8; border-left: 3px solid #f5c842; border-radius: 6px; }
+.thread.active { border-color: #b98f00; }
+.thread.unanchored { border-left-color: #8d2a2a; }
+.thread.resolved { border-left-color: #b9b5ac; opacity: 0.65; }
+.thread p { margin: 4px 0; }
+.thread blockquote, .swap { margin: 0 0 6px; color: #6d6a64; font-size: 12px; white-space: pre-wrap; }
+.thread blockquote { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+del { background: #f8dcdc; }
+ins { background: #dff3df; text-decoration: none; }
+.flag { color: #8d2a2a; font-size: 12px; }
+.reply { margin: 6px 0 0 10px; padding-left: 8px; border-left: 2px solid #e2dfd8; }
+.thread form { display: flex; gap: 6px; margin-top: 8px; }
 .meta { color: #6d6a64; font-size: 12px; overflow-wrap: anywhere; }
 label { display: block; margin-top: 12px; }
 textarea, input { width: 100%; box-sizing: border-box; }

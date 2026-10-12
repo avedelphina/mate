@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import path from 'node:path'
-import { addComment, listProjects, readProject } from './context'
+import { addReply, anchorComment, applySuggestion } from '../shared/comments'
+import { addComment, editDraft, listProjects, readProject } from './context'
 
 let contextDir: string | null = null
 
@@ -44,8 +45,29 @@ app.whenReady().then(() => {
 
   ipcMain.handle(
     'comment:add',
-    (_event, project: string, file: string, anchor: string, text: string, author: string, from?: number) =>
-      addComment(requireContext(), project, file, anchor, text, author, from)
+    (
+      _event,
+      project: string,
+      file: string,
+      anchor: string,
+      text: string,
+      author: string,
+      from?: number,
+      suggestion?: string
+    ) => addComment(requireContext(), project, file, anchor, text, author, from, suggestion)
+  )
+
+  ipcMain.handle('comment:reply', (_event, project: string, file: string, id: string, text: string, author: string) =>
+    editDraft(requireContext(), project, file, (markdown) => addReply(markdown, id, text, author))
+  )
+
+  // The only handler that changes the prose. It runs when the reader presses Apply, never otherwise.
+  ipcMain.handle('comment:apply', (_event, project: string, file: string, id: string) =>
+    editDraft(requireContext(), project, file, (markdown) => applySuggestion(markdown, id))
+  )
+
+  ipcMain.handle('comment:anchor', (_event, project: string, file: string, id: string, anchor: string, from?: number) =>
+    editDraft(requireContext(), project, file, (markdown) => anchorComment(markdown, id, anchor, from))
   )
 
   createWindow()

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { readdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { insertComment, readDocument, type ReviewComment } from '../shared/comments'
+import { insertComment, readDocument, type Thread } from '../shared/comments'
 
 export type DocumentView = {
   project: string
@@ -10,7 +10,7 @@ export type DocumentView = {
   /** Null while a project with several drafts waits for the reader to pick one. */
   file: string | null
   text: string
-  comments: ReviewComment[]
+  comments: Thread[]
   intents: string
   principles: string
 }
@@ -62,7 +62,7 @@ export async function readProject(contextDir: string, project: string, file?: st
 }
 
 /** Read the draft, change it, and put it back whole. */
-async function edit(
+export async function editDraft(
   contextDir: string,
   project: string,
   file: string,
@@ -85,7 +85,10 @@ export function addComment(
   anchor: string,
   text: string,
   author: string,
-  from?: number
+  from?: number,
+  suggestion?: string
 ): Promise<DocumentView> {
-  return edit(contextDir, project, file, (markdown) => insertComment(markdown, anchor, text, author, from))
+  return editDraft(contextDir, project, file, (markdown) =>
+    insertComment(markdown, anchor, text, author, from, suggestion)
+  )
 }

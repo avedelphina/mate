@@ -4,7 +4,14 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { addComment, readProject, resolveInside } from '../src/main/context.ts'
-import { insertComment, parseComments, readDocument } from '../src/shared/comments.ts'
+import {
+  addReply,
+  anchorComment,
+  applySuggestion,
+  insertComment,
+  parseComments,
+  readDocument
+} from '../src/shared/comments.ts'
 
 test('a comment is written on the line after the sentence it quotes', () => {
   const next = insertComment('Alpha stays.\nBeta changes.\n', 'Beta changes.', 'Say why.', 'ada')
@@ -47,6 +54,58 @@ test('a passage may run over lines, and is commented where it was selected', () 
   const second = insertComment(first, 'The shelf\nis', 'And this one?', 'ada', 21)
   assert.match(second.split('\r\n')[5], /And this one/)
   assert.deepEqual(parseComments(second).map((comment) => comment.id), ['1', '2'])
+})
+
+test('a thread keeps its replies and what another tool stored in the marker', () => {
+  const redline =
+    'Alpha stays.\n<!-- @comment{"id":"7","anchor":"Alpha stays.","text":"Why?","author":"pm","timestamp":"2026-03-19T10:00:00Z"} -->\n'
+  const next = addReply(redline, '7', 'Because --> it does.', 'ada')
+  assert.deepEqual(parseComments(next)[0].replies, [{ text: 'Because --> it does.', author: 'ada' }])
+  assert.match(next, /"timestamp":"2026-03-19T10:00:00Z"/)
+  // The reply cannot close the HTML comment early.
+  assert.equal(next.match(/-->/g)?.length, 1)
+  assert.throws(() => addReply(next, '8', 'Reply.', 'ada'), /no longer in the file/)
+})
+
+test('a suggestion changes the file only when it is applied', () => {
+  const draft = 'Alpha stays.\r\nBeta is\r\nwrong here.\r\nGamma stays.\r\n'
+  const inner = insertComment(draft, 'Beta is', 'Another comment.', 'ada')
+  const suggested = insertComment(inner, 'Beta is\nwrong here.', '', 'ada', 0, 'Beta holds.')
+  assert.equal(readDocument(suggested).text, readDocument(draft).text)
+
+  const applied = applySuggestion(suggested, '2')
+  assert.equal(readDocument(applied).text, 'Alpha stays.\nBeta holds.\nGamma stays.\n')
+  assert.equal(applied.replace(/\r\n/g, '').includes('\n'), false)
+  // The comment caught inside the replaced passage is kept. Its quote is gone, so it is unanchored.
+  const [caught, done] = readDocument(applied).comments
+  assert.equal(caught.text, 'Another comment.')
+  assert.equal(caught.start, null)
+  assert.equal(done.resolved, true)
+  assert.throws(() => applySuggestion(applied, '2'), /already applied/)
+  assert.throws(() => applySuggestion(applied, '1'), /suggests no replacement/)
+})
+
+test('a comment whose quote is gone is kept, and anchored again only by hand', () => {
+  const draft = insertComment('Alpha stays.\nBeta changes.\n', 'Beta changes.', '', 'ada', 0, 'Beta changed.')
+  const edited = draft.replace('Beta changes.\n', 'Beta was rewritten.\n')
+  assert.equal(readDocument(edited).comments[0].start, null)
+  assert.throws(() => applySuggestion(edited, '1'), /no longer in the file/)
+
+  const anchored = anchorComment(edited, '1', 'Alpha stays.')
+  assert.equal(readDocument(anchored).comments[0].start, 0)
+  assert.match(anchored.split('\n')[1], /@comment/)
+  assert.equal(anchored.split('\n').length, edited.split('\n').length)
+})
+
+test('the quote next to the marker wins over the same words elsewhere', () => {
+  const twice = 'The shelf is current.\nThe shelf is current.\n'
+  const second = insertComment(twice, 'The shelf is current.', 'This one.', 'ada', 5)
+  assert.equal(readDocument(second).comments[0].start, 22)
+  // md-redline writes its marker just before the passage.
+  const inline =
+    'The shelf. <!-- @comment{"id":"a","anchor":"The shelf","text":"Which?","author":"pm"} -->The shelf is current.\n'
+  assert.equal(readDocument(inline).comments[0].start, 11)
+  assert.throws(() => insertComment('the cat and the dog\n', 'the', 'Which?', 'ada'), /more than once on that line/)
 })
 
 test('a project draft round-trips through the folder and cannot climb out', async () => {
