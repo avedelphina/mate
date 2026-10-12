@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { readContextFile } from '../src/main/context.ts'
 import { startMcp, type Binding } from '../src/main/mcp.ts'
 import { loadSession, sendMessage, startSession } from '../src/main/sessions.ts'
 import { parseComments } from '../src/shared/comments.ts'
@@ -56,6 +57,19 @@ test("an agent the reader runs comes in over MCP, and keeps the same rules", asy
     assert.match((await call('mate_search', { query: 'public data' })).text, /^\[shelf: the current reference\] shelf\/classification\.md:/)
     for (const path of ['../outside.md', '.sessions/x', '/etc/passwd']) assert.equal((await call('mate_read', { path })).failed, true)
 
+    // A link in the context is read only while what it points at is in the context too.
+    await writeFile(`${root}-outside.md`, 'Not of this context.\n')
+    await symlink(`${root}-outside.md`, path.join(root, 'shelf/leak.md'))
+    await symlink(path.join(root, 'shelf/classification.md'), path.join(root, 'shelf/also.md'))
+    assert.match((await call('mate_read', { path: 'shelf/leak.md' })).text, /leaves the context/)
+    assert.match((await call('mate_comments', { path: 'shelf/leak.md' })).text, /leaves the context/)
+    await assert.rejects(readContextFile(root, 'shelf/leak.md'), /leaves the context/)
+    assert.match((await call('mate_read', { path: 'shelf/also.md' })).text, /# Classification/)
+    assert.equal((await readContextFile(root, 'shelf/also.md')).text, '# Classification\n\nPublic data may leave.\n')
+    // Only a document is read. The session file beside it is not one.
+    await write('projects/review/notes.txt', 'Not a document.\n')
+    assert.match((await call('mate_read', { path: 'projects/review/notes.txt' })).text, /not a document/)
+
     // Before the plan is approved, a write is held, wherever it is. A comment is a comment.
     assert.match((await call('mate_write', { path: 'projects/review/draft/document.md', text: 'Rewritten.\n' })).text, /Not written/)
     assert.equal(await draft(), '# Working copy\n\nPublic data may leave after review.\n')
@@ -87,5 +101,6 @@ test("an agent the reader runs comes in over MCP, and keeps the same rules", asy
   } finally {
     door.close()
     await rm(root, { recursive: true, force: true })
+    await rm(`${root}-outside.md`, { force: true })
   }
 })

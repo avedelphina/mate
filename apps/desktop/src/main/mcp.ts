@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import http from 'node:http'
 import path from 'node:path'
 import { addReply, readDocument } from '../shared/comments'
-import { addComment, editDraft, resolveInside } from './context'
+import { addComment, editDraft, realInside } from './context'
 import { placeOf, refreshIndex, searchIndex, type Kind } from './contextIndex'
 import { judge, loadSession, saveSession, type Session } from './sessions'
 
@@ -99,8 +99,10 @@ async function run(binding: Binding, session: Session, name: string, input: Json
     }
     case 'mate_read': {
       const parts = partsOf(input.path)
+      // The same rule as readContextFile: a document of the context is markdown.
+      if (!parts.at(-1)!.toLowerCase().endsWith('.md')) throw new Error('That is not a document of this context.')
       const place = placeOf(parts.join('/'))
-      const raw = await readFile(resolveInside(contextDir, ...parts), 'utf8')
+      const raw = await readFile(await realInside(contextDir, ...parts), 'utf8')
       return `[${LABEL[place.kind]}${place.project ? ` of project ${place.project}` : ''}] ${parts.join('/')}\n\n${raw}`
     }
     case 'mate_search': {
@@ -111,7 +113,7 @@ async function run(binding: Binding, session: Session, name: string, input: Json
         .join('\n')
     }
     case 'mate_comments': {
-      const raw = await readFile(resolveInside(contextDir, ...partsOf(input.path)), 'utf8')
+      const raw = await readFile(await realInside(contextDir, ...partsOf(input.path)), 'utf8')
       const comments = readDocument(raw).comments.map((comment) => ({
         id: comment.id,
         passage: comment.anchor,

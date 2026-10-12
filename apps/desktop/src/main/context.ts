@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { readdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { readdir, readFile, realpath, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { insertComment, readDocument, type Thread } from '../shared/comments'
 import { placeOf, type Place } from './contextIndex'
@@ -25,7 +25,7 @@ export async function readContextFile(contextDir: string, relative: string): Pro
   if (!relative.toLowerCase().endsWith('.md') || parts.some((part) => part.startsWith('.'))) {
     throw new Error('That is not a document of this context.')
   }
-  const raw = await readFile(resolveInside(contextDir, ...parts), 'utf8')
+  const raw = await readFile(await realInside(contextDir, ...parts), 'utf8')
   return { path: relative, ...placeOf(relative), text: readDocument(raw).text }
 }
 
@@ -53,6 +53,17 @@ export function resolveInside(root: string, ...parts: string[]): string {
   const target = path.resolve(root, ...parts)
   const relative = path.relative(root, target)
   if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) return target
+  throw new Error('That path leaves the context.')
+}
+
+/**
+ * The real place of a file of the context, every link followed. A link may point anywhere
+ * inside the context and still read; what it points at must never be outside.
+ */
+export async function realInside(contextDir: string, ...parts: string[]): Promise<string> {
+  const target = await realpath(resolveInside(contextDir, ...parts))
+  const out = path.relative(await realpath(contextDir), target)
+  if (out === '' || (!out.startsWith('..') && !path.isAbsolute(out))) return target
   throw new Error('That path leaves the context.')
 }
 
