@@ -578,6 +578,11 @@ export function App() {
           {onPage && <span className="meta">/</span>}
           {onPage && <span>Agent</span>}
           {onPage && <button className="quiet move" onClick={toMargin}>Back to the margin</button>}
+          {!onPage && reading && <span className={`kind ${reading.kind}`}>{KINDS[reading.kind].label}</span>}
+          {!onPage && reading && <span>{reading.path}</span>}
+          {!onPage && !reading && view && <span className="meta">{view.project}</span>}
+          {!onPage && !reading && file !== null && <span className="meta">/</span>}
+          {!onPage && !reading && file !== null && <span>{file}</span>}
           {!onPage && !reading && file !== null && (
             <span className="acts">
               {typing === null ? (
@@ -590,11 +595,6 @@ export function App() {
               )}
             </span>
           )}
-          {!onPage && reading && <span className={`kind ${reading.kind}`}>{KINDS[reading.kind].label}</span>}
-          {!onPage && reading && <span>{reading.path}</span>}
-          {!onPage && !reading && view && <span className="meta">{view.project}</span>}
-          {!onPage && !reading && file !== null && <span className="meta">/</span>}
-          {!onPage && !reading && file !== null && <span>{file}</span>}
         </header>
         <div className="scroll">
           {onPage ? (
