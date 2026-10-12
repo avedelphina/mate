@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type IpcMainInvokeEvent } from 'electron'
 import { randomBytes } from 'node:crypto'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { addReply, anchorComment, applySuggestion } from '../shared/comments'
 import { listAgents } from './agents'
@@ -22,8 +22,15 @@ const contexts = new Map<number, string>()
 // A packaged app will carry it in its resources. MATE_ASSIST names another one.
 const assistHelper = process.env.MATE_ASSIST ?? path.join(__dirname, '../../assist/mate-assist')
 
+/** A folder named on the command line is the context the first window opens: `mate <folder>`. */
+function contextFromArgv(): string | undefined {
+  // Before the folder come the program and, when it is not packaged, the app it runs.
+  const named = process.argv.slice(app.isPackaged ? 1 : 2).find((each) => !each.startsWith('-') && existsSync(each) && statSync(each).isDirectory())
+  return named && path.resolve(named)
+}
+
 /** A new window starts in the context of the window it was opened from, with no project open. */
-function createWindow(from?: BrowserWindow | null): void {
+function createWindow(from?: BrowserWindow | null, open?: string): void {
   const beside = from?.getPosition()
   const window = new BrowserWindow({
     width: 1280,
@@ -46,8 +53,9 @@ function createWindow(from?: BrowserWindow | null): void {
     }
   })
   const id = window.webContents.id
-  const inherited = from ? contexts.get(from.webContents.id) : undefined
+  const inherited = open ?? (from ? contexts.get(from.webContents.id) : undefined)
   if (inherited) contexts.set(id, inherited)
+  if (open) void refreshIndex(open).catch(() => {})
   window.on('closed', () => contexts.delete(id))
 
   if (process.env.ELECTRON_RENDERER_URL) {
@@ -277,7 +285,7 @@ app.whenReady().then(() => {
   )
 
   setMenu()
-  createWindow()
+  createWindow(null, contextFromArgv())
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

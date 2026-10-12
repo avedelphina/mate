@@ -19,6 +19,7 @@
   "scripts": {
     "dev": "pnpm --dir apps/desktop dev",
     "test": "pnpm --dir apps/desktop test",
+    "test:e2e": "pnpm --dir apps/desktop test:e2e",
     "typecheck": "pnpm --dir apps/desktop typecheck",
     "build": "pnpm --dir apps/desktop build",
     "build:assist": "pnpm --dir apps/desktop build:assist"

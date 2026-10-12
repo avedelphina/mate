@@ -12,8 +12,12 @@ pnpm install
 pnpm dev
 ```
 
-Or from this folder: `pnpm dev`, `pnpm test`, `pnpm typecheck`, `pnpm build`,
-`pnpm build:assist`.
+Or from this folder: `pnpm dev`, `pnpm test`, `pnpm test:e2e`,
+`pnpm typecheck`, `pnpm build`, `pnpm build:assist`.
+
+A folder named on the command line is opened as the context, with no
+folder dialog: `electron . path/to/context` in this folder, after
+`pnpm build`.
 
 `pnpm dev` runs `electron-vite dev`, which starts a Vite server for the
 window and launches Electron. If the window opens blank, check that
@@ -67,9 +71,17 @@ tests/              node:test unit tests, run with --experimental-strip-types
 
 ## Testing
 
-`pnpm test` runs every file in `tests/`. The tests use real files in a
-temporary folder, and stand-ins for the agent commands (small scripts that
-print what the real tool prints). They do not start Electron.
+`pnpm test` runs every `tests/*.test.ts` file. The tests use real files in
+a temporary folder, and stand-ins for the agent commands (small scripts
+that print what the real tool prints). They do not start Electron.
+
+`pnpm test:e2e` runs `tests/e2e/*.e2e.ts`. It builds the app, starts it
+on a copy of `contexts/_example` with a data folder of its own, and drives
+the window: a comment into the file, the tree, a pane, the conversation
+on the page. There is no test framework. `tests/e2e/drive.ts` asks
+Electron for a debugging port and speaks to the page over it with what
+Node has. Clicks are made in the page and not with the mouse, so the test
+works while its window is covered. It starts no agent.
 
 ## Building
 

@@ -25,6 +25,7 @@ Requirements: Node.js 22 or newer and pnpm 10 or newer.
 ```sh
 pnpm install
 pnpm test        # unit tests
+pnpm test:e2e    # builds the app and drives its window (a window opens)
 pnpm typecheck   # TypeScript, all three configs
 pnpm build       # electron-vite build into apps/desktop/out/
 pnpm dev         # run the app
@@ -116,8 +117,11 @@ These are not style preferences. Breaking one will get a change sent back.
 
 The unit tests cover the logic: the marker format, the guard, the index,
 the agent adapters, and the MCP endpoint. They do not drive the window.
-When you change anything the reader sees, run `pnpm dev` and open
-`contexts/_example`, and try the path you changed. Say so in the PR.
+`pnpm test:e2e` does: it starts the built app on a copy of the example
+context and goes through the main paths, with no agent. When you change
+anything the reader sees, run it, add a step to it if your path is not
+there, and still run `pnpm dev`, open `contexts/_example`, and try the
+path you changed. Say so in the PR.
 
 Agents are tested against stand-ins in the unit tests. If you change how
 an agent is started or how its output is read, try the real tool once and

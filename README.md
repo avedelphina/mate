@@ -75,6 +75,7 @@ Other commands:
 |---|---|
 | `pnpm dev` | Runs the app with hot reload. |
 | `pnpm test` | Runs the unit tests (Node's test runner). |
+| `pnpm test:e2e` | Builds the app, starts it on a copy of the example context, and drives the window. A window opens for a few seconds. |
 | `pnpm typecheck` | Type-checks the main, preload, and renderer code. |
 | `pnpm build` | Builds the app into `apps/desktop/out/`. There is no installer yet. |
 | `pnpm build:assist` | macOS only. Builds the on-device helper (needs Xcode command line tools and the macOS 26 SDK). |

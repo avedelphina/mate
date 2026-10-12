@@ -434,6 +434,9 @@ computer, outside the context. Mate does not manage that record.
 
 ## Windows
 
+A folder named on the command line is the context of the first window.
+The end-to-end test starts the app that way.
+
 File > New Window opens another window. Each window has its own document
 and its own open context. The main process keeps them in a map, by the id
 of the window's page, and every handler looks up the context of the window
