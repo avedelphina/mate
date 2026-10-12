@@ -61,6 +61,16 @@ function Rendered(props: { text: string; passages?: Passage[]; active?: string |
   return <>{pieces.map(draw)}</>
 }
 
+// ponytail: a fixed list. Make it a setting when someone wants their own.
+const QUICK_NOTES = [
+  { label: 'Unclear', text: 'This is unclear. Say it more plainly.' },
+  { label: 'Source?', text: 'What is the source for this?' },
+  { label: 'Example', text: 'Give an example.' },
+  { label: 'Why?', text: 'Why this, and not the alternative?' }
+]
+
+const POPOVER_WIDTH = 320
+
 export function App() {
   const [contextDir, setContextDir] = useState<string | null>(null)
   const [projects, setProjects] = useState<string[]>([])
@@ -71,9 +81,14 @@ export function App() {
   const [text, setText] = useState('')
   // Null until the reader asks to suggest a replacement. Empty after that means: remove the passage.
   const [suggestion, setSuggestion] = useState<string | null>(null)
+  // Where the menu sits, just under the selection, counted inside the scrolling page. Null when closed.
+  const [popover, setPopover] = useState<{ left: number; top: number } | null>(null)
+  // The menu first. The form once the reader has picked what to do.
+  const [composing, setComposing] = useState(false)
   const [active, setActive] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const page = useRef<HTMLDivElement>(null)
+  const floating = useRef<HTMLDivElement>(null)
 
   const project = view?.project
   const file = view?.file ?? null
@@ -102,10 +117,29 @@ export function App() {
     }
   }, [active])
 
+  // The menu opens under the selection, which may be at the bottom edge of the window.
+  useEffect(() => {
+    if (popover) floating.current?.scrollIntoView({ block: 'nearest' })
+  }, [popover, composing])
+
+  useEffect(() => {
+    if (!popover) return
+    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && clearComment()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [popover])
+
   function clearComment() {
     setAnchor('')
     setText('')
     setSuggestion(null)
+    setPopover(null)
+    setComposing(false)
+  }
+
+  function compose(replacement: string | null) {
+    setSuggestion(replacement)
+    setComposing(true)
   }
 
   async function openContext() {
@@ -144,16 +178,32 @@ export function App() {
 
   function pickPassage() {
     const selection = window.getSelection()
-    if (!page.current || !selection || selection.isCollapsed) return
+    const scroll = page.current?.parentElement
+    if (!page.current || !scroll || !selection) return
+    if (selection.isCollapsed) {
+      // A plain click puts the menu away. It does not throw away a note that is being written.
+      if (!composing) clearComment()
+      return
+    }
     const range = selection.getRangeAt(0)
     if (!page.current.contains(range.commonAncestorContainer)) return
+    const picked = range.toString().trim()
+    if (!picked) return
     const before = range.cloneRange()
     before.selectNodeContents(page.current)
     before.setEnd(range.startContainer, range.startOffset)
-    const picked = range.toString().trim()
     setFrom(before.toString().length)
     setAnchor(picked)
-    setSuggestion((current) => (current === null ? null : picked))
+    setSuggestion((current) => (current ? picked : current))
+
+    const rects = range.getClientRects()
+    const last = rects[rects.length - 1] ?? range.getBoundingClientRect()
+    const box = scroll.getBoundingClientRect()
+    const left = last.left - box.left + scroll.scrollLeft
+    setPopover({
+      left: Math.max(8, Math.min(left, scroll.clientWidth - POPOVER_WIDTH - 8)),
+      top: last.bottom - box.top + scroll.scrollTop + 8
+    })
   }
 
   async function addComment() {
@@ -186,7 +236,7 @@ export function App() {
       () => window.mate.anchorComment(project, file, id, anchor, from),
       'Could not anchor the comment.'
     )
-    if (anchored) setAnchor('')
+    if (anchored) clearComment()
   }
 
   const drafts = view && view.drafts.length > 1 ? view.drafts : []
@@ -255,6 +305,53 @@ export function App() {
               <Rendered text={view.text} passages={passages} active={active} onPick={setActive} />
             </div>
           )}
+          {/* Beside the page, not in it: the page holds the text of the file and nothing else. */}
+          {popover && !composing && (
+            <div className="popover menu" ref={floating} style={popover} role="toolbar" aria-label="Selected passage">
+              <button className="quiet" onClick={() => compose(null)}>Comment</button>
+              <button className="quiet" onClick={() => compose(anchor)}>Rewrite</button>
+              <button className="quiet" onClick={() => compose('')}>Remove</button>
+            </div>
+          )}
+          {popover && composing && (
+            <div
+              className="popover composer"
+              ref={floating}
+              style={{ ...popover, width: POPOVER_WIDTH }}
+              role="dialog"
+              aria-label="Comment on the selected passage"
+              onKeyDown={(event) => event.key === 'Enter' && (event.metaKey || event.ctrlKey) && void addComment()}
+            >
+              {suggestion !== null && (
+                <textarea
+                  className="replacement"
+                  aria-label="Replacement"
+                  rows={1}
+                  autoFocus
+                  value={suggestion}
+                  placeholder="Nothing: the passage is removed"
+                  onChange={(event) => setSuggestion(event.target.value)}
+                />
+              )}
+              <textarea
+                aria-label="Note"
+                rows={2}
+                autoFocus={suggestion === null}
+                value={text}
+                placeholder={suggestion === null ? 'Add a note' : 'Say why (optional)'}
+                onChange={(event) => setText(event.target.value)}
+              />
+              <div className="chips">
+                {QUICK_NOTES.map((quick) => (
+                  <button key={quick.label} onClick={() => setText(quick.text)}>{quick.label}</button>
+                ))}
+              </div>
+              <footer>
+                <button className="quiet" onClick={clearComment}>Cancel</button>
+                <button className="primary" title="⌘↵" onClick={addComment}>Add to the file</button>
+              </footer>
+            </div>
+          )}
         </div>
       </main>
       <aside className="margin">
@@ -263,43 +360,9 @@ export function App() {
           {error && <p className="error" role="alert">{error}</p>}
           {view && file !== null && (
             <>
-              <section className="composer">
-                <textarea
-                  className="quote"
-                  aria-label="Passage"
-                  rows={1}
-                  value={anchor}
-                  placeholder="Select a passage in the document"
-                  onChange={(event) => setAnchor(event.target.value)}
-                />
-                <textarea
-                  aria-label="Note"
-                  rows={2}
-                  value={text}
-                  placeholder="Add a note"
-                  onChange={(event) => setText(event.target.value)}
-                />
-                {suggestion !== null && (
-                  <textarea
-                    className="replacement"
-                    aria-label="Replacement"
-                    rows={2}
-                    value={suggestion}
-                    placeholder="Replacement. Leave it empty to remove the passage."
-                    onChange={(event) => setSuggestion(event.target.value)}
-                  />
-                )}
-                <footer>
-                  {suggestion === null ? (
-                    <button className="quiet" disabled={!anchor} onClick={() => setSuggestion(anchor)}>
-                      Suggest a replacement
-                    </button>
-                  ) : (
-                    <button className="quiet" onClick={() => setSuggestion(null)}>No replacement</button>
-                  )}
-                  <button className="primary" disabled={!anchor.trim()} onClick={addComment}>Add to the file</button>
-                </footer>
-              </section>
+              {view.comments.length === 0 && (
+                <p className="meta hint">Select a passage in the document to comment on it.</p>
+              )}
               {view.comments.map((thread, index) => {
                 const unanchored = !thread.resolved && thread.start === null
                 const classes = ['thread', active === thread.id && 'active', unanchored && 'unanchored', thread.resolved && 'resolved']

@@ -115,14 +115,20 @@ mark.pending { background: var(--mark-pending); }
 
 /* The margin: where a comment is written, then the threads */
 .error { margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; background: var(--warn-bg); color: var(--warn); }
-.composer { padding: 10px 12px 8px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); box-shadow: 0 1px 2px rgb(0 0 0 / 4%), 0 6px 20px rgb(0 0 0 / 5%); }
+.center .scroll { position: relative; }
+.popover { position: absolute; z-index: 1; border: 1px solid var(--line); border-radius: 12px; background: var(--card); box-shadow: 0 2px 6px rgb(0 0 0 / 8%), 0 12px 32px rgb(0 0 0 / 12%); font: 13px/1.5 var(--ui); }
+.popover.menu { display: flex; gap: 2px; padding: 4px; }
+.popover.menu button { color: var(--ink); }
+.composer { box-sizing: border-box; padding: 10px 12px 8px; }
 .composer:focus-within { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
 .composer textarea { display: block; width: 100%; box-sizing: border-box; min-height: 1.5em; max-height: 14em; padding: 4px 0; border: 0; outline: 0; background: none; resize: none; field-sizing: content; }
-.composer .quote, .thread blockquote, .swap { padding-left: 10px; border-left: 2px solid var(--mark-active); color: var(--soft); font: italic 14px/1.5 var(--read); }
-.composer .quote { margin-bottom: 6px; }
-.composer .replacement { margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--line); }
-.composer footer { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+.composer .replacement { margin-bottom: 6px; padding-bottom: 8px; border-bottom: 1px dashed var(--line); font: 15px/1.5 var(--read); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.chips button { padding: 1px 9px; border-radius: 99px; color: var(--soft); font-size: 12px; }
+.composer footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.thread blockquote, .swap { padding-left: 10px; border-left: 2px solid var(--mark-active); color: var(--soft); font: italic 14px/1.5 var(--read); }
 
+.thread:first-child, .hint + .thread { margin-top: 0; }
 .thread { margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
 .thread.active { border-color: var(--mark-active); box-shadow: 0 0 0 3px color-mix(in srgb, var(--mark-active) 28%, transparent); }
 .thread.resolved { opacity: 0.6; }

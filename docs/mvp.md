@@ -69,9 +69,10 @@ All four items that were left are done.
    uses. No existing line is rewritten.
 3. **Pick the draft.** A project with several markdown files in `draft/`
    lists them and opens none until you pick.
-4. **Select to comment.** Selecting a passage in the document fills the
-   anchor. The passage may run over several lines. When the same words occur
-   twice, the comment goes under the place you selected.
+4. **Select to comment.** Selecting a passage in the document is the
+   anchor, and opens a menu under it: Comment, Rewrite, Remove. The passage
+   may run over several lines. When the same words occur twice, the comment
+   goes under the place you selected.
 
 ## Left to do
 

@@ -109,6 +109,11 @@ not loaded, and a link is not followed.
 The quote in a thread card is the passage as it is in the file, markup
 included.
 
+Selecting a passage opens a small menu under it: Comment, Rewrite, Remove.
+The form then opens in the same place. Both are drawn beside the page
+element, never inside it. Anything put inside the page becomes part of
+the text a selection is measured against.
+
 ## Writing a file
 
 `editDraft` reads the draft, changes it, writes a temporary file in the
