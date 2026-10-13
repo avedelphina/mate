@@ -235,6 +235,12 @@ not loaded, and a link is not followed.
 The quote in a thread card is the passage as it is in the file, markup
 included.
 
+A page, a pane, an answer of an agent, the intents and the principles are
+each drawn inside a `Boundary`. If one of them cannot be drawn, the
+reader sees which one and why, and the rest of the window goes on
+working. It is tried again when its text changes. One more stands around
+the whole window, so that no fault leaves it blank.
+
 Selecting a passage opens a small menu under it: Comment, Rewrite, Remove.
 The form then opens in the same place. Both are drawn beside the page
 element, never inside it. Anything put inside the page becomes part of

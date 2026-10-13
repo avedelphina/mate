@@ -186,6 +186,10 @@ mark.active { background: var(--mark-active); }
 mark.pending, mark.found { background: var(--mark-pending); }
 
 /* The margin: where a comment is written, then the threads */
+/* A piece of the window that could not be drawn. The rest goes on. */
+.broken { margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--warn); border-radius: 10px; background: var(--card); font: 13px/1.5 var(--ui); }
+.broken p { margin: 0 0 6px; color: var(--warn); }
+.broken pre { max-height: 8em; margin: 0 0 8px; overflow: auto; color: var(--soft); font: 11.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 .error { margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; background: var(--warn-bg); color: var(--warn); }
 .center .scroll { position: relative; }
 .popover { position: absolute; z-index: 1; border: 1px solid var(--line); border-radius: 12px; background: var(--card); box-shadow: 0 2px 6px rgb(0 0 0 / 8%), 0 12px 32px rgb(0 0 0 / 12%); font: 13px/1.5 var(--ui); }

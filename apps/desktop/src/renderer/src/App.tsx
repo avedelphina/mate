@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type FormEvent } from 'react'
 import { Agent } from './Agent'
+import { Boundary } from './Boundary'
 import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran } from './env'
 import { Rendered, type Passage } from './Rendered'
 import { Tree } from './Tree'
@@ -1101,7 +1102,9 @@ export function App() {
             <div className="page talk-page" ref={setPageSlot} />
           ) : reading ? (
             <div className="page prose">
-              <Rendered text={reading.text} passages={passages} />
+              <Boundary what="This file" of={reading.text}>
+                <Rendered text={reading.text} passages={passages} />
+              </Boundary>
             </div>
           ) : !view ? (
             <p className="empty">Open a context, then a project. The draft is the page.</p>
@@ -1129,7 +1132,9 @@ export function App() {
             />
           ) : (
             <div className="page prose" ref={page} onMouseUp={pickPassage}>
-              <Rendered text={view.text} passages={passages} active={active} onPick={setActive} />
+              <Boundary what="This draft" of={view.text}>
+                <Rendered text={view.text} passages={passages} active={active} onPick={setActive} />
+              </Boundary>
             </div>
           )}
           {/* Beside the page, not in it: the page holds the text of the file and nothing else. */}
@@ -1239,12 +1244,14 @@ export function App() {
               {said?.pane === pane.name && <p className="meta asof">Said to the agent: “{said.words}”</p>}
               {/* The reader can act on a pane in two ways, and Mate draws both: tick a task, press a line that says its own words. */}
               <div className="prose pane">
-                <Rendered
-                  text={pane.text}
-                  onTick={(at) => tick(pane.name, pane.text, at)}
-                  onSay={(words) => say(pane.name, words)}
-                  onRun={(line) => run(`pane:${pane.name}`, line)}
-                />
+                <Boundary what="This pane" of={pane.text}>
+                  <Rendered
+                    text={pane.text}
+                    onTick={(at) => tick(pane.name, pane.text, at)}
+                    onSay={(words) => say(pane.name, words)}
+                    onRun={(line) => run(`pane:${pane.name}`, line)}
+                  />
+                </Boundary>
               </div>
               {outcome(`pane:${pane.name}`)}
             </>
@@ -1305,10 +1312,10 @@ export function App() {
             </>
           )}
           {shown === 'review' && view?.intents && (
-            <details open><summary>Intents</summary><div className="prose"><Rendered text={view.intents} /></div></details>
+            <details open><summary>Intents</summary><div className="prose"><Boundary what="The intents" of={view.intents}><Rendered text={view.intents} /></Boundary></div></details>
           )}
           {shown === 'review' && view?.principles && (
-            <details open><summary>Principles</summary><div className="prose"><Rendered text={view.principles} /></div></details>
+            <details open><summary>Principles</summary><div className="prose"><Boundary what="The principles" of={view.principles}><Rendered text={view.principles} /></Boundary></div></details>
           )}
         </div>
       </aside>

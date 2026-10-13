@@ -103,6 +103,9 @@ For contributors:
 
 ### Changed
 
+- A page, a pane or an answer that cannot be drawn says so in its place,
+  and the rest of the window goes on working. Before, one such fault
+  left the whole window blank.
 - A file of a project that is not a draft, and is not its intents or its
   principles, is now *Material* in a search, and a pane is a *Pane*.
   Agents are told that only the intents and the principles steer a

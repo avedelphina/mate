@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { EFFORTS } from '../../shared/effort'
 import type { AgentInfo, AgentKind, Compared, Models, Session } from './env'
+import { Boundary } from './Boundary'
 import { Rendered } from './Rendered'
 
 function reason(caught: unknown): string {
@@ -210,7 +211,15 @@ export function Agent(props: {
               {message.tools.map((tool, step) => <p key={step}>{tool}</p>)}
             </details>
           )}
-          {message.role === 'agent' ? <div className="prose"><Rendered text={message.text} /></div> : <p>{message.text}</p>}
+          {message.role === 'agent' ? (
+            <div className="prose">
+              <Boundary what="This answer" of={message.text}>
+                <Rendered text={message.text} />
+              </Boundary>
+            </div>
+          ) : (
+            <p>{message.text}</p>
+          )}
           {message.waiting && <p className="meta">Waits until the agent has finished this turn.</p>}
         </div>
       ))}
