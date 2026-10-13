@@ -709,12 +709,26 @@ A turn is written down before the agent starts: the reader's message is
 saved, and beside the session a note, `turn.json`, says which process
 runs the turn and holds a mark for every file of the context as it was.
 The note is taken away when the turn has ended and the guard has been
-through the folder. When the app closes, it stops its agents first. A
-note that is still there when the session is next read, with its process
-gone, is a turn that was cut off. The session then says so, and names
+through the folder. A note that is still there when the session is next
+read, with its process gone, is a turn that was cut off. The session then says so, and names
 the files that are not as they were. Nothing can be put back: the copies
 from before the turn were in the app's memory. Go on asks the agent to
 take the turn up again. What the agent had answered so far is not kept.
+
+Quitting while an agent works is the reader's call, asked in a dialog of
+the system. *Let it finish*: the windows close, the app stays without
+one until no agent is working, and then quits by itself. The guard goes
+through the folder as after any turn, because the app is still there to
+do it. An agent that asks before it does something is told no, since
+nobody is there to say yes. A window opened again meanwhile means the
+reader is back, and nothing quits. *Stop it*: the agents are stopped and
+the app quits, and the turn is found cut off the next time.
+
+An agent is never left running with the app gone. What it changed would
+not be checked, and nothing of it could be put back. An agent that
+outlives the app, with its changes checked when the reader comes back,
+needs the copies from before the turn on disk and the agent's words in
+a file: that is not built.
 
 The agent's tool keeps its own record of the conversation on this
 computer, outside the context. Mate does not manage that record.

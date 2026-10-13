@@ -716,6 +716,8 @@ async function begin(
             update()
           },
           ask: (ask) => {
+            // The reader left the agent to finish by itself. Nobody is there to say yes.
+            if (!attended) return agent.answer(ask.id, false)
             session.asks = [...(session.asks ?? []), ask]
             update()
           },
@@ -760,13 +762,36 @@ export function stopTurn(id: string): void {
 }
 
 /**
- * The app is closing. No agent goes on working with nobody to look at what it does: the ones in a
- * turn are stopped, and the ones that stayed between turns are sent away. The turn that was open
- * is found cut off when the app is next opened.
+ * The app is closing. No agent goes on working when Mate is not there to look at what it changed:
+ * the ones in a turn are stopped, and the ones that stayed between turns are sent away. A turn
+ * that was open is found cut off when the app is next opened. The reader who wants the work
+ * finished lets it finish first: see `whenIdle`.
  */
 export function stopAllTurns(): void {
   for (const child of running.values()) child.kill()
   for (const agent of live.values()) agent.close()
+}
+
+/** How many agents are working. */
+export const working = (): number => turns.size
+
+/** Settles when no agent is working any more. What waits behind a turn counts as work. */
+export async function whenIdle(): Promise<void> {
+  while (turns.size > 0) await Promise.all([...turns.values()].map((each) => each.finished.catch(() => {})))
+}
+
+/** Whether the reader is there to be asked. */
+let attended = true
+
+/**
+ * The reader has left the agents to finish by themselves, or has come back. While they are away,
+ * an agent that asks before it goes on is told no, at once: a question nobody will answer would
+ * keep the turn open for good. What is asked at that moment is answered no as well.
+ */
+export function attend(there: boolean): void {
+  attended = there
+  if (there) return
+  for (const [id, turn] of turns) for (const ask of [...(turn.session.asks ?? [])]) live.get(id)?.answer(ask.id, false)
 }
 
 /** What a change did, or would do: the lines taken out and put in. A `note` when there is nothing to show as lines. */

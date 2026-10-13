@@ -34,6 +34,7 @@ import { approve, describe, instructionFiles, keepPinsIn, unapproved } from './p
 import { isTrusted, keepTrustIn, setTrusted } from './trust'
 import {
   answerAsk,
+  attend,
   compare,
   gate,
   isBusy,
@@ -46,6 +47,8 @@ import {
   stopAllTurns,
   stopTurn,
   tuneSession,
+  whenIdle,
+  working,
   type Invited,
   type Session
 } from './sessions'
@@ -78,6 +81,11 @@ function contextFromArgv(): string | undefined {
 
 /** A new window starts in the context of the window it was opened from, with no project open. */
 function createWindow(from?: BrowserWindow | null, open?: string): void {
+  // A window again while the app waited for an agent to finish: the reader is back, and can be asked.
+  if (finishing) {
+    finishing = false
+    attend(true)
+  }
   const beside = from?.getPosition()
   const window = new BrowserWindow({
     width: 1280,
@@ -497,9 +505,49 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('before-quit', stopAllScripts)
-app.on('before-quit', stopAllTurns)
+// Quitting while an agent works is the reader's call: let it finish, or stop it.
+// `leaving`: it is decided, and the app goes. `finishing`: the windows are closed, and the app
+// waits for the agents. The app stays, since what an agent changes is checked from here.
+let leaving = false
+let finishing = false
+
+app.on('before-quit', (event) => {
+  if (!leaving && working() > 0) {
+    event.preventDefault()
+    void askAboutAgents()
+    return
+  }
+  stopAllScripts()
+  stopAllTurns()
+})
+
+async function askAboutAgents(): Promise<void> {
+  const window = BrowserWindow.getFocusedWindow()
+  const options = {
+    type: 'question' as const,
+    message: working() === 1 ? 'An agent is still working.' : 'Agents are still working.',
+    detail:
+      'Let it finish: Mate closes its windows and quits by itself when the work is done. What the agent changes is checked as always. If it asks before it does something, the answer is no.\n\n' +
+      'Stop it: the turn is cut off, and the session says so when you open it again.',
+    buttons: ['Let It Finish, Then Quit', 'Stop It and Quit', 'Cancel'],
+    defaultId: 0,
+    cancelId: 2
+  }
+  const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+  if (response === 2) return
+  if (response === 0) {
+    finishing = true
+    attend(false)
+    for (const each of BrowserWindow.getAllWindows()) each.close()
+    await whenIdle()
+    // The reader opened a window again meanwhile: they are back, and nothing quits.
+    if (!finishing) return
+  }
+  leaving = true
+  app.quit()
+}
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  // With its windows closed to let an agent finish, the app is not done yet.
+  if (process.platform !== 'darwin' && !finishing) app.quit()
 })

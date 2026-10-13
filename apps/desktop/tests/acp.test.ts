@@ -5,7 +5,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { outcome } from '../src/main/acp.ts'
 import { AGENTS } from '../src/main/agents.ts'
-import { answerAsk, listModels, sendMessage, startSession, stopAllTurns, tuneSession, type Session } from '../src/main/sessions.ts'
+import { answerAsk, attend, listModels, sendMessage, startSession, stopAllTurns, tuneSession, whenIdle, working, type Session } from '../src/main/sessions.ts'
 import { keepTrustIn, setTrusted } from '../src/main/trust.ts'
 
 test('a yes to an agent is for this once, and a yes it cannot take that way is a no', () => {
@@ -242,6 +242,43 @@ test('said while an agent that listens is working, a message waits for the turn 
     assert.equal(done.messages.some((each) => each.waiting), false)
   } finally {
     // The agent that stayed is sent away, as when the app closes. The test would not end with it there.
+    stopAllTurns()
+    AGENTS.hermes.command = command
+    await rm(root, { recursive: true, force: true })
+    await rm(out, { recursive: true, force: true })
+  }
+})
+
+test('left to finish by itself, an agent that asks is told no, and the work is known to be done when it is', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-leave-'))
+  const out = `${root}-out`
+  const command = AGENTS.hermes.command
+  try {
+    await mkdir(path.join(root, 'projects/review/draft'), { recursive: true })
+    await mkdir(out)
+    await writeFile(path.join(root, 'projects/review/draft/document.md'), 'Draft text.\n')
+    await writeFile(path.join(out, 'agent.mjs'), AGENT(path.join(out, 'log')))
+    await chmod(path.join(out, 'agent.mjs'), 0o755)
+    AGENTS.hermes.command = path.join(out, 'agent.mjs')
+    keepTrustIn(path.join(out, 'trusted.json'))
+    setTrusted(root, true)
+
+    const session = await startSession(root, 'review', 'hermes')
+    assert.equal(working(), 0)
+    // The reader quits and lets the agent finish. This agent asks before a command, and nobody is there.
+    attend(false)
+    const turn = await sendMessage(root, 'review', session.id, 'Tidy the draft.', false, () => {})
+    assert.equal(working(), 1)
+    await whenIdle()
+    assert.equal(working(), 0)
+    const done = await turn.finished
+    assert.equal(done.messages.find((each) => each.role === 'agent')!.text, 'Working. The answer was no.')
+    assert.deepEqual(done.asks, [])
+    // The guard was through the folder as after any turn: the edit before the plan is put back and held.
+    assert.equal(await readFile(path.join(root, 'projects/review/draft/document.md'), 'utf8'), 'Draft text.\n')
+    assert.deepEqual(done.held.map((held) => held.path), ['projects/review/draft/document.md'])
+  } finally {
+    attend(true)
     stopAllTurns()
     AGENTS.hermes.command = command
     await rm(root, { recursive: true, force: true })
