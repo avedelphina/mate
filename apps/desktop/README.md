@@ -62,6 +62,8 @@ src/
     App.tsx         the window: rail, page, margin
     Rendered.tsx    draws the markdown and the highlights
     Agent.tsx       the Agent tab: sessions, the conversation, the model and the effort
+    Palette.tsx     ⌘K: what the window can go to or do, found by typing
+    Boundary.tsx    keeps the window working when one piece cannot be drawn
     Tree.tsx        the files of the open project, in the rail
     markdown.ts     the markdown tree; every character appears once, in order
     styles.css      the look, light and dark
@@ -70,6 +72,7 @@ src/
     comments.ts     the comment marker: parse, insert, reply, apply, anchor, retype
     diff.ts         two texts compared line by line
     run.ts          what a run button leaves open, and how it is filled
+    named.ts        which file of a project some words name
     effort.ts       the steps of thinking effort
 assist/
   main.swift        the on-device helper: one question in, one answer out

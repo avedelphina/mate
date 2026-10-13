@@ -50,8 +50,10 @@ export function Rendered(props: {
   onSay?: (words: string) => void
   /** With this, a link written as `[scripts/NAME and what it is given](run:)` is a button that runs that script. */
   onRun?: (line: string) => void
+  /** With this, words written as code open what they name. It gives the way to open it, or null when they name nothing. */
+  onName?: (words: string) => (() => void) | null
 }) {
-  const { text, passages = [], active = null, onPick, onTick, onSay, onRun } = props
+  const { text, passages = [], active = null, onPick, onTick, onSay, onRun, onName } = props
   const pieces = useMemo(() => renderMarkdown(text), [text])
   /** The words of a piece as the reader sees them. */
   const shown = (piece: Piece): string => ('tag' in piece ? piece.children.map(shown).join('') : piece.hidden ? '' : text.slice(piece.from, piece.to))
@@ -83,6 +85,9 @@ export function Rendered(props: {
         const act = { className: 'say run', title: 'Run this script here. No agent is asked.', role: 'button', ...pressable(() => onRun(shown(piece))) }
         return createElement(tag, { key: index, ...act }, children.map(draw))
       }
+      // The name of a file, written as code, opens that file. The words stay as they are.
+      const open = onName && tag === 'code' ? onName(shown(piece)) : null
+      if (open) return createElement(tag, { key: index, ...rest, className: 'named', title: 'Open this file', role: 'link', ...pressable(open) }, children.map(draw))
       return createElement(tag, { key: index, ...rest }, children.map(draw))
     }
     if (piece.hidden) return <span key={index} className="syntax">{text.slice(piece.from, piece.to)}</span>

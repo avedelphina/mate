@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { fileNamed } from '../src/shared/named.ts'
 import { renderMarkdown, type Leaf, type Piece } from '../src/renderer/src/markdown.ts'
 
 function leaves(pieces: Piece[]): Leaf[] {
@@ -96,4 +97,20 @@ test('a task box and a line to say are found on the page by what they are in the
   assert.equal(words, 'Write this pane again')
   // Nothing of the file is dropped for either.
   assert.equal(leaves(renderMarkdown(pane)).map((leaf) => pane.slice(leaf.from, leaf.to)).join(''), pane)
+})
+
+test('words in an answer name a file of the project when they name exactly one', () => {
+  const files = ['draft/letter.md', 'draft/notes.md', 'dropbox/notes.md', 'intents.md', 'timesheets/2026-10.xlsx']
+  // From the project, from the context, with a dot before it, or by the name alone.
+  assert.equal(fileNamed('draft/letter.md', 'acme', files), 'draft/letter.md')
+  assert.equal(fileNamed('projects/acme/draft/letter.md', 'acme', files), 'draft/letter.md')
+  assert.equal(fileNamed(' ./intents.md ', 'acme', files), 'intents.md')
+  assert.equal(fileNamed('letter.md', 'acme', files), 'draft/letter.md')
+  assert.equal(fileNamed('2026-10.xlsx', 'acme', files), 'timesheets/2026-10.xlsx')
+  // A name two files have names neither. Another project's file, a file that is not there, and a path that climbs out name nothing.
+  assert.equal(fileNamed('notes.md', 'acme', files), null)
+  assert.equal(fileNamed('projects/other/draft/letter.md', 'acme', files), null)
+  assert.equal(fileNamed('draft/gone.md', 'acme', files), null)
+  assert.equal(fileNamed('../../shelf/terms.md', 'acme', files), null)
+  assert.equal(fileNamed('npm install', 'acme', files), null)
 })

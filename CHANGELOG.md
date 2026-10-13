@@ -87,6 +87,8 @@ Agents:
   one is new or has changed since you approved it.
 - *See the change*: a kept or a held change as lines taken out and put
   in, before you revert or approve it.
+- A file of the project that an agent names in its answer, written as
+  code, opens when you press its name.
 - Choose the model Hermes thinks with, and how hard it thinks, under the
   message you write. The list is what your Hermes offers.
 

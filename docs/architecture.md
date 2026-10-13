@@ -504,6 +504,13 @@ conversation on the page, the margin is free for a pane beside it. A
 project with no draft opens with the conversation on the page. Picking a
 file puts that file on the page and the conversation back in the margin.
 
+A file the agent names in its answer opens from there, when the name is
+written as code and names exactly one file of the open project: by its
+path from the project, by its path from the context, or by its name
+alone. `fileNamed` in `src/shared/named.ts` decides. Only a file the
+project lists is opened, so an answer cannot send the window anywhere
+else. A name written as plain words is not a link.
+
 There is one `Agent` for the open project. `App.tsx` gives it the place
 to draw into. It is the same component when it moves, so the open
 session and a message half written move with it.

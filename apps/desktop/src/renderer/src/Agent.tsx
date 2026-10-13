@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { EFFORTS } from '../../shared/effort'
+import { fileNamed } from '../../shared/named'
 import type { AgentInfo, AgentKind, Compared, Models, Session } from './env'
 import { Boundary } from './Boundary'
 import { Rendered } from './Rendered'
@@ -26,8 +27,11 @@ export function Agent(props: {
   into: HTMLElement | null
   /** Told which session is open, so that a pane can say something to it. */
   onSession: (id: string | null) => void
+  /** The files of the project, and how one is opened: a file an agent names in its answer opens from there. */
+  files: string[]
+  onOpen: (path: string) => void
 }) {
-  const { project, onChanged, into, onSession } = props
+  const { project, onChanged, into, onSession, files, onOpen } = props
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [open, setOpen] = useState<string | null>(null)
@@ -214,7 +218,13 @@ export function Agent(props: {
           {message.role === 'agent' ? (
             <div className="prose">
               <Boundary what="This answer" of={message.text}>
-                <Rendered text={message.text} />
+                <Rendered
+                  text={message.text}
+                  onName={(words) => {
+                    const path = fileNamed(words, project, files)
+                    return path === null ? null : () => onOpen(path)
+                  }}
+                />
               </Boundary>
             </div>
           ) : (

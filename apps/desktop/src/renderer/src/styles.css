@@ -186,6 +186,9 @@ mark.active { background: var(--mark-active); }
 mark.pending, mark.found { background: var(--mark-pending); }
 
 /* The margin: where a comment is written, then the threads */
+/* The name of a file in an agent's answer. It opens the file. */
+.prose code.named { cursor: pointer; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 55%, transparent); text-underline-offset: 2px; }
+.prose code.named:hover { color: var(--accent); }
 /* The palette: everything the window can go to or do, found by typing. */
 .bar .key { margin-left: auto; padding: 1px 6px; font-size: 11px; font-weight: 500; -webkit-app-region: no-drag; }
 .palette { width: min(560px, calc(100vw - 48px)); max-height: min(440px, 70vh); margin: 14vh auto 0; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); box-shadow: 0 2px 6px rgb(0 0 0 / 8%), 0 16px 48px rgb(0 0 0 / 18%); font: 13px/1.5 var(--ui); }

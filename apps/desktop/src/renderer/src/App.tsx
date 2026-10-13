@@ -1371,6 +1371,8 @@ export function App() {
           onChanged={() => window.mate.openProject(view.project, view.file ?? undefined).then(setView, () => {})}
           into={onPage ? pageSlot : shown === 'agent' ? marginSlot : null}
           onSession={setSessionOpen}
+          files={view.files}
+          onOpen={openFile}
         />
       )}
     </div>
