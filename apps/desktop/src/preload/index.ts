@@ -44,6 +44,9 @@ contextBridge.exposeInMainWorld('mate', {
     ipcRenderer.invoke('session:send', project, id, text, approve),
   stopTurn: (id: string) => ipcRenderer.invoke('session:stop', id),
   answerAsk: (id: string, ask: string, allow: boolean) => ipcRenderer.invoke('session:answer', id, ask, allow),
+  listModels: () => ipcRenderer.invoke('session:models'),
+  tuneSession: (project: string, id: string, model: string | null, effort: string | null) =>
+    ipcRenderer.invoke('session:tune', project, id, model, effort),
   revertChange: (project: string, id: string, index: number) => ipcRenderer.invoke('session:revert', project, id, index),
   compare: (project: string, id: string, which: 'kept' | 'held', index: number) =>
     ipcRenderer.invoke('session:compare', project, id, which, index),

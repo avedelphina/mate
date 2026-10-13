@@ -30,6 +30,9 @@ test('each agent is asked to plan first, and its output is read as the same even
   assert.ok(AGENTS.codex.args(turn).includes('read-only'))
   assert.deepEqual(AGENTS.codex.args({ ...turn, mayWrite: true, resume: 'abc' }).slice(-3), ['resume', 'abc', '-'])
   assert.deepEqual(AGENTS.hermes.args(turn).slice(-2), ['-t', 'file'])
+  // A model and an effort the reader chose go on the command line. Nothing that reads as an option does.
+  assert.deepEqual(AGENTS.hermes.args({ ...turn, model: 'shop:big/model-1', effort: 'low' }).slice(-4), ['-m', 'shop:big/model-1', '--reasoning', 'low'])
+  assert.deepEqual(AGENTS.hermes.args({ ...turn, model: '--yolo', effort: '--yolo' }).slice(-2), ['-t', 'file'])
   // Only Hermes has a way to stay between turns with all its tools. It is used in a trusted context only.
   assert.deepEqual([AGENTS.hermes.acp, AGENTS.claude.acp, AGENTS.codex.acp], [['acp'], undefined, undefined])
 

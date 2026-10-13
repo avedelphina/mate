@@ -27,6 +27,25 @@ export type Hooks = {
 
 type Option = { kind?: string; optionId?: string }
 
+const short = (value: unknown, length: number) => (typeof value === 'string' ? value : JSON.stringify(value ?? '')).slice(0, length)
+
+/** A model the agent can think with. `id` is the agent's own name for it, and only the agent reads it. */
+export type Model = { id: string; name: string; from: string }
+/** The models an agent offers, and the one it starts with. */
+export type Models = { current: string; all: Model[] }
+
+function modelsOf(told: Json | undefined): Models {
+  const all = (Array.isArray(told?.availableModels) ? told.availableModels : [])
+    .filter((each: Json) => typeof each?.modelId === 'string')
+    .map((each: Json) => ({
+      id: each.modelId as string,
+      // Hermes puts the provider before some names and into the description of all of them.
+      name: short(each.name ?? each.modelId, 200).replace(/^.* · /, ''),
+      from: short(each.description ?? '', 200).replace(/^Provider: /, '').replace(/ • current$/, '')
+    }))
+  return { current: typeof told?.currentModelId === 'string' ? told.currentModelId : '', all }
+}
+
 /**
  * The reader's yes or no, as the agent wants it. Yes is only ever "this once": if the agent does
  * not offer that, the answer is no, so that nothing is allowed for good on the reader's behalf.
@@ -36,8 +55,6 @@ export function outcome(options: Option[], allow: boolean): Json {
   const pick = (allow ? of('allow_once') : undefined) ?? of('reject_once')
   return pick ? { outcome: { outcome: 'selected', optionId: pick.optionId } } : { outcome: { outcome: 'cancelled' } }
 }
-
-const short = (value: unknown, length: number) => (typeof value === 'string' ? value : JSON.stringify(value ?? '')).slice(0, length)
 
 export class Acp {
   readonly child: ChildProcess
@@ -50,6 +67,11 @@ export class Acp {
   private gone: Error | null = null
   /** What the agent echoes when it is steered. It is the reader's own words, so it is not shown twice. */
   private echo = ''
+
+  /** What the agent offers to think with. Known once it is `ready`. */
+  models: Models = { current: '', all: [] }
+  /** The model the reader chose for this agent. Empty while it thinks with its own. */
+  model = ''
 
   /** Settles when the agent has answered and a conversation is open. Until then nothing else is sent. */
   readonly ready: Promise<void>
@@ -87,6 +109,7 @@ export class Acp {
     const made = await this.request('session/new', { cwd, mcpServers: [] })
     if (typeof made.sessionId !== 'string') throw new Error('The agent opened no conversation.')
     this.sessionId = made.sessionId
+    this.models = modelsOf(made.models)
   }
 
   get alive(): boolean {
@@ -148,6 +171,12 @@ export class Acp {
   /** Whether edits need the reader's yes each time (`default`) or go through (`accept_edits`). The guard rules either way. */
   async mode(id: 'default' | 'accept_edits'): Promise<void> {
     await this.request('session/set_mode', { sessionId: this.sessionId, modeId: id })
+  }
+
+  /** Think with another model from here on. The agent takes it only between turns. */
+  async setModel(id: string): Promise<void> {
+    await this.request('session/set_model', { sessionId: this.sessionId, modelId: id })
+    this.model = id
   }
 
   /** One turn. It ends when the agent stops. What is still asked then is over. */

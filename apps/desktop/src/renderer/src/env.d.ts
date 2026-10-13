@@ -87,7 +87,14 @@ export type Session = {
   running: boolean
   /** What the agent is asking right now. Only while a turn runs, and only from an agent that stays. */
   asks?: Ask[]
+  /** The model and the thinking effort the reader chose. Without one, the agent's own. */
+  model?: string
+  effort?: string
 }
+
+/** A model an agent offers. `id` is the agent's name for it, `from` is who serves it. */
+export type Model = { id: string; name: string; from: string }
+export type Models = { current: string; all: Model[] }
 
 /** What running a script came to. `output` is what it printed. `code` is null when it could not be started or was stopped. */
 export type Ran = { line: string; code: number | null; output: string; seconds: number; stopped: boolean }
@@ -145,6 +152,10 @@ export type MateApi = {
   stopTurn: (id: string) => Promise<void>
   /** Yes or no to what the agent asked. Yes is for that one thing, once. */
   answerAsk: (id: string, ask: string, allow: boolean) => Promise<void>
+  /** What Hermes on this computer offers to think with. Hermes is started to be asked, the first time. */
+  listModels: () => Promise<Models>
+  /** The model and the effort of a conversation, from its next turn on. Null gives the choice back to the agent. */
+  tuneSession: (project: string, id: string, model: string | null, effort: string | null) => Promise<Session>
   revertChange: (project: string, id: string, index: number) => Promise<Session>
   settleHeld: (project: string, id: string, index: number, approve: boolean) => Promise<Session>
   /** A kept change against the copy from before it, or a held change against the file as it is. */

@@ -28,7 +28,21 @@ import { startMcp, type Binding } from './mcp'
 import { runScript, stopAllScripts, stopScript } from './scripts'
 import { approve, describe, instructionFiles, keepPinsIn, unapproved } from './pins'
 import { isTrusted, keepTrustIn, setTrusted } from './trust'
-import { answerAsk, compare, gate, listSessions, revertChange, sendMessage, settleHeld, startSession, stopTurn, type Invited, type Session } from './sessions'
+import {
+  answerAsk,
+  compare,
+  gate,
+  listModels,
+  listSessions,
+  revertChange,
+  sendMessage,
+  settleHeld,
+  startSession,
+  stopTurn,
+  tuneSession,
+  type Invited,
+  type Session
+} from './sessions'
 
 // The name in the menu bar. Without this it is the package name.
 app.setName('Mate')
@@ -344,6 +358,16 @@ app.whenReady().then(() => {
 
   // The reader's yes or no to what an agent asked before it goes on. Yes is for that one thing, once.
   ipcMain.handle('session:answer', (_event, id: string, ask: string, allow: boolean) => answerAsk(String(id), String(ask), allow === true))
+
+  // The reader opened the choice of model. Hermes is asked what it offers, once for each run of the app.
+  ipcMain.handle('session:models', (event) => (requireContext(event), listModels()))
+
+  ipcMain.handle('session:tune', async (event, project: string, id: string, model: unknown, effort: unknown) => {
+    const contextDir = requireContext(event)
+    const session = await tuneSession(contextDir, project, id, typeof model === 'string' ? model : null, typeof effort === 'string' ? effort : null)
+    tell(contextDir, session)
+    return session
+  })
 
   ipcMain.handle('session:revert', (event, project: string, id: string, index: number) =>
     revertChange(requireContext(event), project, id, index)

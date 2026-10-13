@@ -189,6 +189,26 @@ mark.pending, mark.found { background: var(--mark-pending); }
 .chips button { padding: 1px 9px; border-radius: 99px; color: var(--soft); font-size: 12px; }
 .composer footer { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
 .composer footer > :first-child { margin-right: auto; }
+.composer footer button { flex: none; white-space: nowrap; }
+/* The model and the effort of a conversation. The list opens above the line it is chosen on. */
+/* When there is no room, the name of the model gives way, and the effort and the arrow stay. */
+.composer footer .tune { flex: 0 1 auto; display: flex; align-items: center; min-width: 0; max-width: 260px; padding: 2px 6px; white-space: pre; font-size: 12.5px; anchor-name: --tune; }
+.tune span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tune::after { content: ''; flex: none; display: inline-block; width: 5px; height: 5px; margin: 0 1px 3px 7px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+.picker { position: fixed; position-anchor: --tune; inset: auto auto anchor(top) anchor(left); position-try-fallbacks: flip-inline, flip-block; width: 320px; max-width: calc(100vw - 24px); box-sizing: border-box; margin: 6px 0; padding: 8px; color: var(--ink); }
+.picker:popover-open { display: flex; flex-direction: column; max-height: min(460px, 70vh); }
+.picker .search { flex: none; margin: 0 0 6px; }
+.picker .models { flex: 1; min-height: 0; overflow: auto; }
+.picker .models p { margin: 6px 8px; }
+.picker h4 { margin: 10px 8px 2px; color: var(--soft); font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; }
+.picker .row { padding: 4px 8px; border-radius: 6px; font-size: 12.5px; }
+.picker .row:hover { background: var(--hover); }
+.picker .row.active { color: var(--accent); }
+.picker .efforts { flex: none; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; padding-top: 2px; border-top: 1px solid var(--line); }
+.picker .efforts h4 { flex-basis: 100%; margin-top: 8px; }
+.picker .efforts p { margin: 0 8px 4px; }
+.chip { padding: 1px 9px; border-radius: 99px; font-size: 12px; }
+.chip.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
 .thread blockquote, .swap { padding-left: 10px; border-left: 2px solid var(--mark-active); color: var(--soft); font: italic 14px/1.5 var(--read); }
 
 .thread:first-child, .hint + .thread { margin-top: 0; }

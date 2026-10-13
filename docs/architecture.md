@@ -54,6 +54,7 @@ preload as CommonJS. Leave that as it is.
 | How an agent is started and its output read | `src/main/agents.ts` |
 | Which contexts are trusted, and what trust changes | `src/main/trust.ts`, then `acp` in `src/main/agents.ts` |
 | How an agent that stays is spoken to, and what it may ask | `src/main/acp.ts` |
+| The model and the thinking effort of a conversation | `listModels` and `tuneSession` in `src/main/sessions.ts`, then `Tune` in `Agent.tsx` |
 | Which files count as instructions, and what the reader approved | `src/main/pins.ts` |
 | Comparing two texts line by line | `src/shared/diff.ts` |
 | What an agent may change | `src/main/guard.ts`, then `src/main/sessions.ts` |
@@ -456,6 +457,32 @@ same rule decides. A change in the open project after the plan is kept.
 Any other change is put back and held. What a trusted agent does outside
 the context folder, Mate does not see. Trust is for a folder whose files
 the reader knows, because a file in it can ask the agent for anything.
+
+### The model and the effort
+
+Under the message to Hermes on this computer, the reader chooses the
+model it thinks with and how hard it thinks. The choice is kept in the
+session and holds from the next turn on.
+
+- **The list is Hermes's own.** Mate keeps no list of models. The first
+  time the reader opens the choice, Hermes is started once in a folder
+  that is nobody's, asked what it offers, and sent away. Until then
+  nothing is asked, because Hermes may look its models up on the network.
+- **A model's name is only ever read by Hermes.** It holds the provider
+  too, and Mate does not take it apart. It is checked before it is put
+  on a command line, where it must not read as an option, because a
+  session file may carry any text.
+- **Started for one turn**, Hermes is given both on its command line
+  (`-m`, `--reasoning`).
+- **An agent that stays** is told the model before the turn
+  (`session/set_model`). When the reader gives the choice back, that
+  agent is sent away, and a new one thinks with Hermes's own model again.
+  Hermes 0.21.5 cannot be told an effort while it stays, so in a trusted
+  context it thinks as hard as its own settings say, and the choice says
+  so instead of offering one.
+
+Claude and Codex take their model from their own settings, and so does
+an agent on another machine, which has other models than this one offers.
 
 ### Instruction files
 

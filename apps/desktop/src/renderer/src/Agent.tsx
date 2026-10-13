@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { AgentInfo, AgentKind, Compared, Session } from './env'
+import { EFFORTS } from '../../shared/effort'
+import type { AgentInfo, AgentKind, Compared, Models, Session } from './env'
 import { Rendered } from './Rendered'
 
 function reason(caught: unknown): string {
@@ -283,11 +284,16 @@ export function Agent(props: {
           onChange={(event) => setText(event.target.value)}
         />
         <footer>
-          {session.running ? (
-            <button className="quiet" onClick={() => window.mate.stopTurn(session.id)}>Stop</button>
+          {session.agent === 'hermes' && !session.host ? (
+            <Tune
+              session={session}
+              stays={listens}
+              onTune={(model, effort) => void act(() => window.mate.tuneSession(project, session.id, model, effort))}
+            />
           ) : (
             <span />
           )}
+          {session.running && <button className="quiet" onClick={() => window.mate.stopTurn(session.id)}>Stop</button>}
           {!session.planApproved && planned && !approving && (
             <button onClick={() => send(true)}>Approve the plan</button>
           )}
@@ -299,5 +305,93 @@ export function Agent(props: {
       <div ref={end} />
     </>,
     into
+  )
+}
+
+/** The end of a model's name, for the line under the message, which has no room for all of it. */
+const brief = (name: string) => name.slice(name.lastIndexOf('/') + 1).replace(/^[a-z-]+:/, '')
+
+/**
+ * The model Hermes thinks with in this conversation, and how hard it thinks. The choice holds from
+ * the next turn on. Hermes is asked what it offers only when the reader opens this.
+ */
+function Tune(props: {
+  session: Session
+  /** Hermes stays between turns here. It can be given a model then, and not an effort. */
+  stays: boolean
+  onTune: (model: string | null, effort: string | null) => void
+}) {
+  const { session, stays, onTune } = props
+  const [models, setModels] = useState<Models | null>(null)
+  const [failed, setFailed] = useState<string | null>(null)
+  const [find, setFind] = useState('')
+  const box = useRef<HTMLDivElement>(null)
+  const chosen = session.model ?? null
+  const effort = session.effort ?? null
+  const named = (id: string) => models?.all.find((each) => each.id === id)?.name ?? id
+  const thinks = chosen ?? models?.current
+  const seek = useRef<HTMLInputElement>(null)
+  // Opened: the whole list again, ready to be searched. Hermes is asked for it the first time.
+  const opened = () => {
+    setFind('')
+    seek.current?.focus()
+    if (models) return
+    setFailed(null)
+    window.mate.listModels().then(setModels, (caught) => setFailed(reason(caught)))
+  }
+  const words = find.toLowerCase().split(/\s+/).filter(Boolean)
+  const groups = new Map<string, Models['all']>()
+  for (const each of models?.all ?? []) {
+    // Hermes lists the model it starts with once more under a name of its own. The first row stands for it.
+    if (each.id === models?.current) continue
+    if (!words.every((word) => `${each.from} ${each.name}`.toLowerCase().includes(word))) continue
+    groups.set(each.from, [...(groups.get(each.from) ?? []), each])
+  }
+  const pick = (model: string | null) => {
+    onTune(model, effort)
+    box.current?.hidePopover()
+  }
+  return (
+    <>
+      <button className="quiet tune" popoverTarget="tune" title={thinks ? named(thinks) : 'The model, and how hard it thinks'}>
+        <span>{thinks ? brief(named(thinks)) : 'Model'}</span>
+        {effort && !stays && ` · ${effort}`}
+      </button>
+      <div id="tune" popover="auto" ref={box} className="popover picker" onToggle={(event) => event.newState === 'open' && opened()}>
+        <input ref={seek} className="search" aria-label="Find a model" placeholder="Find a model" value={find} onChange={(event) => setFind(event.target.value)} />
+        <div className="models">
+          {!models && !failed && <p className="meta">Asking Hermes what it offers…</p>}
+          {failed && <p className="error" role="alert">{failed}</p>}
+          {models && words.length === 0 && (
+            <button className={chosen ? 'row' : 'row active'} onClick={() => pick(null)}>
+              Hermes’s own{models.current && ` · ${named(models.current)}`}
+            </button>
+          )}
+          {[...groups].map(([from, all]) => (
+            <div key={from}>
+              <h4>{from}</h4>
+              {all.map((each) => (
+                <button key={each.id} className={each.id === chosen ? 'row active' : 'row'} title={each.id} onClick={() => pick(each.id)}>
+                  {each.name}
+                </button>
+              ))}
+            </div>
+          ))}
+          {models && words.length > 0 && groups.size === 0 && <p className="meta">Hermes offers no such model.</p>}
+        </div>
+        <div className="efforts">
+          <h4>Thinking</h4>
+          {stays ? (
+            <p className="meta">In a trusted context Hermes thinks as hard as its own settings say. It cannot be told otherwise from here yet.</p>
+          ) : (
+            [null, ...EFFORTS].map((each) => (
+              <button key={each ?? 'own'} className={each === effort ? 'chip on' : 'chip'} aria-pressed={each === effort} onClick={() => onTune(chosen, each)}>
+                {each ?? 'own'}
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </>
   )
 }

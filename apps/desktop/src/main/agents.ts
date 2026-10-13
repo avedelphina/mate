@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { EFFORTS } from '../shared/effort'
 
 export type AgentKind = 'claude' | 'codex' | 'hermes'
 
@@ -19,7 +20,18 @@ export type Turn = {
   resume: string | null
   /** False until the reviewer has approved the plan. */
   mayWrite: boolean
+  /** The model and the thinking effort the reader chose, when they did. See `isModel` and shared/effort.ts. */
+  model?: string
+  effort?: string
 }
+
+/**
+ * A model as an agent names it, such as `openrouter:anthropic/claude-sonnet-4.6`. It becomes a word
+ * on a command line and a session file may carry any text, so it is checked where it is used: it
+ * must not read as an option.
+ */
+export const isModel = (model: unknown): model is string =>
+  typeof model === 'string' && model.length <= 200 && /^[A-Za-z0-9][^\s\0]*$/.test(model)
 
 type Adapter = {
   label: string
@@ -141,6 +153,9 @@ export const AGENTS: Record<AgentKind, Adapter> = {
       'tool',
       '-t',
       'file',
+      // Hermes reads the provider out of the model's name itself.
+      ...(isModel(turn.model) ? ['-m', turn.model] : []),
+      ...(turn.effort && EFFORTS.includes(turn.effort) ? ['--reasoning', turn.effort] : []),
       ...(turn.resume ? ['--resume', turn.resume] : [])
     ],
     acp: ['acp'],

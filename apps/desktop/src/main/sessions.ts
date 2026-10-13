@@ -2,14 +2,16 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import readline from 'node:readline'
-import { Acp, type Ask } from './acp'
-import { AGENTS, SSH, agentEnvironment, isHost, sshArgs, type AgentKind } from './agents'
+import { Acp, type Ask, type Models } from './acp'
+import { AGENTS, SSH, agentEnvironment, isHost, isModel, sshArgs, type AgentKind } from './agents'
 import { resolveInside } from './context'
 import { placeOf } from './contextIndex'
 import { changesSince, insidePath, mateWrote, put, takeSnapshot, watching, type Change, type Snapshot } from './guard'
 import { changedParts, diffLines, type DiffLine } from '../shared/diff'
+import { EFFORTS } from '../shared/effort'
 import { isTrusted } from './trust'
 
 /** `waiting`: sent while the agent was working, and not yet given to it. */
@@ -45,6 +47,10 @@ export type Session = {
   running: boolean
   /** What the agent will not do until the reader says yes or no. Only while a turn runs. */
   asks?: Ask[]
+  /** The model the reader chose for this conversation, as the agent names it. Without one, the agent's own. */
+  model?: string
+  /** How hard the reader asks the agent to think. Without it, as the agent's own settings say. */
+  effort?: string
 }
 
 const RULES = `You have been invited into a project on a Mate desk. Mate is a tool for reviewing documents.
@@ -297,6 +303,48 @@ export const gate = { before: async (_contextDir: string): Promise<void> => {} }
 const turns = new Map<string, { session: Session; finished: Promise<Session>; steer?: (text: string) => Promise<void> }>()
 /** The agents that stay between turns, by session. See acp.ts. They end with the app. */
 const live = new Map<string, Acp>()
+/** What Hermes offers to think with. Asked once for each run of the app, when the reader first opens the choice. */
+let offered: Promise<Models> | null = null
+
+/**
+ * The models Hermes on this computer offers. Hermes is started for the question in a folder that
+ * is nobody's, so it reads no context's instruction files, and it is sent away with the answer.
+ */
+export function listModels(): Promise<Models> {
+  if (offered) return offered
+  const asked = Acp.start(AGENTS.hermes.command, AGENTS.hermes.acp!, tmpdir(), agentEnvironment())
+  const late = setTimeout(() => asked.close(), 30_000)
+  const found = asked.ready
+    .then(() => asked.models)
+    .finally(() => {
+      clearTimeout(late)
+      asked.close()
+    })
+  // A failure is not kept: the next time the reader looks, Hermes is asked again.
+  found.catch(() => (offered = null))
+  return (offered = found)
+}
+
+// ponytail: a model and an effort for Hermes on this computer only. Claude and Codex take theirs
+// from their own settings, and an agent on another machine has other models than this one offers.
+/** Choose the model and the thinking effort of a conversation. Null gives the choice back to the agent. */
+export async function tuneSession(
+  contextDir: string,
+  project: string,
+  id: string,
+  model: string | null,
+  effort: string | null
+): Promise<Session> {
+  const session = await loadSession(contextDir, project, id)
+  if (session.agent !== 'hermes' || session.host) throw new Error('Only Hermes on this computer takes a model from Mate.')
+  if (model !== null && !isModel(model)) throw new Error('That is not a model.')
+  if (effort !== null && !EFFORTS.includes(effort)) throw new Error('That is not a thinking effort.')
+  session.model = model ?? undefined
+  session.effort = effort ?? undefined
+  await saveSession(contextDir, session)
+  return session
+}
+
 /** The contexts in which an agent is working, or is about to. */
 const busy = new Set<string>()
 /** The last message of each session to come in. The next one waits until that one has been taken in. */
@@ -423,6 +471,12 @@ async function begin(
     snapshot = await takeSnapshot(contextDir)
     // An agent on another machine is sent the files. One on this machine reads them itself.
     const files = session.host ? pack(snapshot, session.sent) : ''
+    // The agent that stayed thinks with a model the reader chose, and the reader has given the choice
+    // back. Only a new one thinks with its own again.
+    if (acp && live.get(id)?.model && !isModel(session.model)) {
+      live.get(id)!.close()
+      live.delete(id)
+    }
     // An agent that can pick its conversation up again is told only what is new.
     // One that cannot is given the conversation so far.
     const known = acp ? live.get(id)?.alive === true : Boolean(session.agentSession)
@@ -449,7 +503,7 @@ async function begin(
       // The context is trusted no more, or never was: an agent that stayed is sent away.
       live.get(id)?.close()
       live.delete(id)
-      const turn = { cwd: projectDir, contextDir, resume: session.agentSession, mayWrite }
+      const turn = { cwd: projectDir, contextDir, resume: session.agentSession, mayWrite, model: session.model, effort: session.effort }
       child = session.host
         ? spawn(SSH.command, sshArgs(session.host, adapter.command, adapter.remoteArgs!(session.agentSession)), {
             env: agentEnvironment()
@@ -571,7 +625,17 @@ async function begin(
         throw caught
       }
     }
+    const model = isModel(session.model) ? session.model : ''
     agent.ready
+      // ponytail: the model only. Hermes 0.21.5 has no way to be told an effort while it stays, so
+      // here it thinks as hard as its own settings say. Pass it on when `hermes acp` takes one.
+      .then(() =>
+        model && agent.model !== model
+          ? agent.setModel(model).catch((caught: Error) => {
+              throw new Error(`${adapter.label} did not take the model ${model}.\n\n${caught.message}`)
+            })
+          : undefined
+      )
       // Until the plan is approved the agent asks before every edit. After it, the guard is enough.
       .then(() => agent.mode(mayWrite ? 'accept_edits' : 'default'))
       .then(() =>

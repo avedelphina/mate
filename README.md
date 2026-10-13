@@ -131,6 +131,11 @@ that file.
 | Hermes on another host | `ssh <host> hermes chat -Q …` with the `todo` toolset only | a host in `~/.ssh/config` with key login and Hermes installed there |
 | Your own agent | an MCP endpoint at `http://127.0.0.1:41757/mcp` | any MCP client; see below |
 
+With Hermes on this computer you choose the model, and how hard it
+thinks, under the message you write. The list is what your Hermes offers.
+In a context you trust, Hermes cannot be told the thinking effort yet,
+and uses its own setting.
+
 Agents are asked to plan first. Until you approve a plan, every turn is
 read-only. A message sent while an agent is working waits behind the turn
 and is delivered when it ends; it does not interrupt it.
