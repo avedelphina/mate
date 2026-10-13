@@ -757,7 +757,14 @@ export function App() {
         <Divider which="rail" width={rail} set={setRail} />
         <header className="bar">Mate</header>
         <div className="scroll">
-          <button className="wide" onClick={openContext}>Open context</button>
+          {/* With no context there is one thing to do. With one, its name heads the rail, and another is a small step away. */}
+          {!contextDir && <button className="wide" onClick={openContext}>Open context</button>}
+          {contextDir && (
+            <div className="context">
+              <h2 title={contextDir}>{contextName}</h2>
+              <button className="quiet" title="Open another context" onClick={openContext}>Open…</button>
+            </div>
+          )}
           {contextDir && (
             <input
               className="search"
@@ -787,7 +794,6 @@ export function App() {
           )}
           {contextDir && !hits && (
             <>
-              <h2 title={contextDir}>{contextName}</h2>
               {/* What is true now, for every project. A document is read from here, and taken down from the page. */}
               {shelf.length > 0 && (
                 <details className="shelf">
@@ -800,11 +806,12 @@ export function App() {
                   />
                 </details>
               )}
+              <h2>Projects</h2>
               {projects.length === 0 && <p className="meta hint">No projects in this folder.</p>}
               <ul className="projects">
                 {projects.map((name) => (
                   <li key={name}>
-                    <button className={project === name ? 'row active' : 'row'} onClick={() => openProject(name)}>
+                    <button className={project === name ? 'row project active' : 'row project'} onClick={() => openProject(name)}>
                       {name}
                     </button>
                     {view && project === name && (

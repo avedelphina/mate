@@ -156,12 +156,20 @@ export function Agent(props: {
             {trusted ? 'Stop trusting' : 'Trust this context…'}
           </button>
         </p>
-        {sessions.length > 0 && <h3>Earlier sessions</h3>}
-        {sessions.map((each) => (
-          <button key={each.id} className="row" onClick={() => setOpen(each.id)}>
-            {label(each)} · {each.messages.find((message) => message.role === 'you')?.text ?? 'Nothing said yet'}
-          </button>
-        ))}
+        {sessions.length > 0 && <h3>Sessions <span className="count">{sessions.length}</span></h3>}
+        {[...sessions]
+          .sort((a, b) => b.created.localeCompare(a.created))
+          .map((each) => (
+            <button key={each.id} className="row session" onClick={() => setOpen(each.id)}>
+              {/* Working, allowed to edit, or still at its plan. */}
+              <span className={each.running ? 'dot running' : each.planApproved ? 'dot on' : 'dot'} />
+              <span className="title">{each.messages.find((message) => message.role === 'you')?.text ?? 'Nothing said yet'}</span>
+              <span className="meta">
+                {label(each)} · {new Date(each.created).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                {each.running ? ' · working' : each.planApproved ? '' : ' · plan not approved'}
+              </span>
+            </button>
+          ))}
       </>,
       into
     )
