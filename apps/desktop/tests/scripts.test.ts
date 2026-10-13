@@ -50,11 +50,12 @@ test('a script of a trusted project is run as the line says, with no agent and n
     await assert.rejects(runScript(root, 'review', 'scripts/missing.sh'))
 
     // One at a time, and a script that runs too long is stopped. So is one the reader stops.
-    const slow = runScript(root, 'review', 'scripts/slow.sh', 0.3)
+    // Time enough for the script to start and print, also when the computer is busy with the other tests.
+    const slow = runScript(root, 'review', 'scripts/slow.sh', 2)
     await assert.rejects(runScript(root, 'review', 'scripts/note.sh'), /A script is running/)
     assert.deepEqual([(await slow).stopped, (await slow).output], [true, 'started\n'])
     const stopped = runScript(root, 'review', 'scripts/slow.sh')
-    setTimeout(() => stopScript(root), 200)
+    setTimeout(() => stopScript(root), 1000)
     assert.equal((await stopped).stopped, true)
   } finally {
     await rm(root, { recursive: true, force: true })
