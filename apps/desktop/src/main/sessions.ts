@@ -74,7 +74,11 @@ Rules:
    [Write this pane again](say:)
    The words between the square brackets are what is said, so write there what you want to be told. Put
    nothing after "say:". Use both where the reviewer has something to do.
-6. Do not invent evidence that the sources do not contain.`
+6. If you can run commands: what will be asked again, and a script can do, is done by a script. Use one that
+   is in scripts/ before you do the work by hand. If there is none, write it there, then run it. List the
+   scripts in panes/workflow.md, each as a button the reviewer can press, for example
+   [Run scripts/extract-docx.py on dropbox/letter.docx](say:)
+7. Do not invent evidence that the sources do not contain.`
 
 /** For an agent on another machine. The context folder stays here, and the agent keeps no copy of it. */
 const REMOTE_RULES = `You have been invited into a project on a Mate desk. Mate is a tool for reviewing documents.

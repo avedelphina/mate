@@ -56,7 +56,11 @@ Rules:
    [Write this pane again](say:)
    The words between the square brackets are what is said, so write there what you want to be told. Put
    nothing after "say:". Use both where the reviewer has something to do.
-7. Do not invent evidence that the sources do not contain.`
+7. If you can run commands: what will be asked again, and a script can do, is done by a script. Use one that
+   is in projects/NAME/scripts/ before you do the work by hand. If there is none, write it there, then run it.
+   List the scripts in projects/NAME/panes/workflow.md, each as a button the reviewer can press, for example
+   [Run scripts/extract-docx.py on dropbox/letter.docx](say:)
+8. Do not invent evidence that the sources do not contain.`
 
 const text = { type: 'string' }
 const tool = (name: string, description: string, properties: Json = {}, required = Object.keys(properties)) => ({
