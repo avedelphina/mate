@@ -35,7 +35,9 @@ Run the tests, the type check and the build before you open a pull
 request. The project has no CI yet, so these are run by hand.
 
 On macOS with Xcode, `pnpm build:assist` also builds the on-device helper.
-It is optional and not needed for any test.
+It is optional and not needed for any test. `pnpm pack:mac` makes the app
+as it would be installed, to try a change in it: an installed app finds
+its files in other places than a checkout does.
 
 ## Layout
 
@@ -118,9 +120,9 @@ in a dialog of the system.
 
 - One logical change per commit. Write the subject in the imperative,
   under about 70 characters, and say *why* in the body.
-- Do not commit generated output (`out/`, `dist/`, `node_modules/`), the
-  compiled helper (`apps/desktop/assist/mate-assist`), or anything from a
-  real context.
+- Do not commit generated output (`out/`, `dist/`, `release/`,
+  `node_modules/`), the compiled helper
+  (`apps/desktop/assist/mate-assist`), or anything from a real context.
 - A pull request should say what changed, why, and how you checked it. For
   anything visible in the window, say how you looked at it, and attach a
   screenshot if you can.

@@ -1,0 +1,57 @@
+# How the app is put together to be installed. Mac only so far, for Apple silicon.
+#   pnpm pack:mac   an app to try, in release/mac-arm64/. It takes no certificate from the keychain.
+#   pnpm dist:mac   the disk image, signed with the Developer ID in the keychain.
+appId: io.github.avedelphina.mate
+productName: Mate
+artifactName: Mate-${version}-${arch}.${ext}
+copyright: Copyright © 2026 Tomas Kracmar and Mate contributors
+directories:
+  output: release
+  buildResources: build
+
+# The built app is all there is: nothing is loaded from node_modules when it runs.
+files:
+  - out/**/*
+  - package.json
+npmRebuild: false
+
+# The on-device helper. `pnpm build:assist` makes it, and both commands above run that first.
+extraResources:
+  - from: assist/mate-assist
+    to: mate-assist
+
+# No update is fetched, so nothing is said about where one would come from.
+publish: null
+
+# An app that was installed is not a way to run other code as Mate: it does not act as Node,
+# takes no Node options or inspector from outside, and starts only what was packed with it.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  onlyLoadAppFromAsar: true
+  enableEmbeddedAsarIntegrityValidation: true
+  # Changing these breaks the signature Electron came with. An app that is then signed with no
+  # certificate, as `pack:mac` makes it, gets a signature of its own, or the Mac will not start it.
+  resetAdHocDarwinSignature: true
+
+mac:
+  category: public.app-category.productivity
+  icon: build/icon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  # Sent to Apple to be notarised only when the credentials are in the environment:
+  # APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID, or APPLE_KEYCHAIN_PROFILE.
+  target:
+    - target: dmg
+      arch: [arm64]
+
+dmg:
+  iconSize: 96
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications

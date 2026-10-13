@@ -69,6 +69,14 @@ Agents:
 - Choose the model Hermes thinks with, and how hard it thinks, under the
   message you write. The list is what your Hermes offers.
 
+An app to install:
+
+- `pnpm pack:mac` makes `Mate.app` for Apple silicon, to try, and
+  `pnpm dist:mac` a signed disk image. The app carries the on-device
+  helper and has an icon of its own.
+- An installed app does not act as Node, takes no inspector or debugging
+  port from outside, and fetches no update.
+
 For contributors:
 
 - `pnpm test:e2e` builds the app, starts it on a copy of the example

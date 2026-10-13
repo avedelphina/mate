@@ -649,9 +649,27 @@ Two windows on the same draft do not overwrite each other, because every
 change starts from the file on disk. A window shows what the other one did
 when it gets the focus back. Nothing tells it sooner.
 
+## The app, installed
+
+`electron-builder.yml` puts the app together for a Mac: the built `out/`
+folder in one archive, the on-device helper beside it in the resources,
+and the icon. Nothing is loaded from `node_modules` when it runs, because
+the build already holds what main and the window import.
+
+The only code that knows it is installed is in `index.ts`: the helper is
+looked for in the resources, and a debugging port asked for on the
+command line is refused. The program itself has three switches turned
+off, where a command line cannot turn them on again: it does not act as
+Node, it takes no Node options from the environment, and it takes no
+inspector. It starts only the archive it was packed with.
+
+The app keeps its data in the same folder installed or not, so trust and
+approved instruction files are the same in both. See
+[../apps/desktop/README.md](../apps/desktop/README.md) for the commands.
+
 ## What is deliberately absent
 
 No mail and no issues of Mate's own: an agent shows them in a pane, and
 Mate connects to neither. No git operations. No program from a context
 that runs in the window: a pane is markdown, and Mate draws its buttons.
-No update that fetches itself. No packaged app yet.
+No update that fetches itself.

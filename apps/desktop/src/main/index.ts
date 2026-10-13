@@ -50,9 +50,13 @@ app.setName('Mate')
 /** The context each window has open, by the id of its page. A window knows nothing of another's. */
 const contexts = new Map<number, string>()
 
-// ponytail: the helper is looked for beside the app in this checkout, where `pnpm build:assist` puts it.
-// A packaged app will carry it in its resources. MATE_ASSIST names another one.
-const assistHelper = process.env.MATE_ASSIST ?? path.join(__dirname, '../../assist/mate-assist')
+// An app that was installed carries the helper in its resources. In a checkout it is where
+// `pnpm build:assist` puts it. MATE_ASSIST names another one.
+const assistHelper =
+  process.env.MATE_ASSIST ?? (app.isPackaged ? path.join(process.resourcesPath, 'mate-assist') : path.join(__dirname, '../../assist/mate-assist'))
+
+// An app that was installed is not driven from outside. The port the end-to-end test asks for is for a checkout.
+if (app.isPackaged) app.commandLine.removeSwitch('remote-debugging-port')
 
 /** The files the reader chose in the file dialog, by a number the window is given in place of the path. */
 const chosen = new Map<string, string>()

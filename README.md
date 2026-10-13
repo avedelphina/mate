@@ -10,7 +10,8 @@ that you approve, and show you what it gathered in a pane beside the
 draft. Nothing is copied into a database, and nothing needs a server.
 
 > **Status: early.** Version 0.3.0. Built and driven by hand on macOS. No
-> installer yet: you run it from a checkout. See [Known limits](#known-limits).
+> download yet: you run it from a checkout, or build the app yourself. See
+> [Known limits](#known-limits).
 > `main` is ahead of that release: see *Unreleased* in the
 > [changelog](CHANGELOG.md).
 
@@ -111,8 +112,10 @@ Other commands:
 | `pnpm test` | Runs the unit tests (Node's test runner). |
 | `pnpm test:e2e` | Builds the app, starts it on a copy of the example context, and drives the window. A window opens for a few seconds. |
 | `pnpm typecheck` | Type-checks the main, preload, and renderer code. |
-| `pnpm build` | Builds the app into `apps/desktop/out/`. There is no installer yet. |
+| `pnpm build` | Builds the app into `apps/desktop/out/`. |
 | `pnpm build:assist` | macOS only. Builds the on-device helper (needs Xcode command line tools and the macOS 26 SDK). |
+| `pnpm pack:mac` | macOS on Apple silicon. Makes `apps/desktop/release/mac-arm64/Mate.app` to try on this Mac. |
+| `pnpm dist:mac` | Makes a signed disk image. It needs a Developer ID certificate: see [apps/desktop/README.md](apps/desktop/README.md). |
 
 The `pnpm-workspace.yaml` file allows build scripts for `electron` and
 `esbuild`. If `node_modules/electron/dist` is missing after an install, see
@@ -262,7 +265,9 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
 
 ## Known limits
 
-- **No packaged app.** Run from a checkout with `pnpm dev`.
+- **No download yet.** Run from a checkout with `pnpm dev`, or make the
+  app with `pnpm pack:mac`. That one is for Apple silicon, and nothing
+  has been published.
 - **Tested on macOS only.** Linux and Windows build, and the review works
   without the on-device assist, but they have not been exercised by hand.
 - **Codex needs its own sign-in** (`codex login`). Until then Mate shows the

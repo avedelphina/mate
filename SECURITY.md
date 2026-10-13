@@ -58,7 +58,9 @@ they show that the model is broken, for example:
   outside the context that the reader did not choose in the system's file
   dialog;
 - a way for a value kept in a session file, such as the name of a model,
-  to reach an agent's command line as an option.
+  to reach an agent's command line as an option;
+- a way to make the installed app act as Node, load code that was not
+  packed with it, or be driven through a debugging port.
 
 ## What is not in scope
 

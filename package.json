@@ -22,6 +22,8 @@
     "test:e2e": "pnpm --dir apps/desktop test:e2e",
     "typecheck": "pnpm --dir apps/desktop typecheck",
     "build": "pnpm --dir apps/desktop build",
-    "build:assist": "pnpm --dir apps/desktop build:assist"
+    "build:assist": "pnpm --dir apps/desktop build:assist",
+    "pack:mac": "pnpm --dir apps/desktop pack:mac",
+    "dist:mac": "pnpm --dir apps/desktop dist:mac"
   }
 }

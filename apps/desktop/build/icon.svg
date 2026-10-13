@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- The icon of the app: a page, its margin, and one comment in it. `pnpm icon` draws icon.icns from this. -->
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdfcfa"/>
+      <stop offset="1" stop-color="#efece3"/>
+    </linearGradient>
+    <filter id="lift" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#paper)" filter="url(#lift)"/>
+  <rect x="100.5" y="100.5" width="823" height="823" rx="185.5" fill="none" stroke="#000" stroke-opacity="0.07"/>
+  <text x="404" y="686" text-anchor="middle" font-family="'Iowan Old Style', Charter, Georgia, serif" font-size="500" fill="#22201c">M</text>
+  <line x1="690" y1="236" x2="690" y2="788" stroke="#d6d1c4" stroke-width="5" stroke-linecap="round"/>
+  <rect x="724" y="452" width="118" height="120" rx="26" fill="#2f6f5e"/>
+  <rect x="746" y="484" width="74" height="12" rx="6" fill="#fff" fill-opacity="0.92"/>
+  <rect x="746" y="512" width="74" height="12" rx="6" fill="#fff" fill-opacity="0.92"/>
+  <rect x="746" y="540" width="46" height="12" rx="6" fill="#fff" fill-opacity="0.92"/>
+</svg>

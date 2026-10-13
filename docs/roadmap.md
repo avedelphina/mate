@@ -306,12 +306,20 @@ one place the work happens, not a live sync between the Hub and the laptop.
 
 ## Beside the steps: an app you can install
 
-Mate is run from a checkout today. A signed and notarised app for macOS,
-as a disk image, is the next piece of work. It is not a step, because it
-changes no rule and adds nothing to the window. It is not built yet.
+A signed and notarised app for macOS, as a disk image. It is not a step,
+because it changes no rule and adds nothing to the window.
 
-The first one will not fetch its own updates: nothing connects anywhere
-unless the reader starts it.
+Built: the app is put together with one command, for Apple silicon, with
+the on-device helper inside and an icon. It was started from its bundle
+and gone through: a project, a draft, a comment into the file, a search,
+the helper, the agents found on a short PATH. An installed app does not
+act as Node and takes no debugging port.
+
+Not done: a disk image signed with a Developer ID and notarised by Apple,
+opened on a Mac that never had the checkout. Nothing has been published.
+
+It does not fetch its own updates: nothing connects anywhere unless the
+reader starts it.
 
 ## Not planned
 

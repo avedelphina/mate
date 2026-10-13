@@ -13,7 +13,8 @@ pnpm dev
 ```
 
 Or from this folder: `pnpm dev`, `pnpm test`, `pnpm test:e2e`,
-`pnpm typecheck`, `pnpm build`, `pnpm build:assist`.
+`pnpm typecheck`, `pnpm build`, `pnpm build:assist`, `pnpm pack:mac`,
+`pnpm dist:mac`.
 
 A folder named on the command line is opened as the context, with no
 folder dialog: `electron . path/to/context` in this folder, after
@@ -29,7 +30,7 @@ from there.
 | Variable | Default | Purpose |
 |---|---|---|
 | `MATE_MCP_PORT` | `41757` | Port of the local MCP endpoint. If it is taken, Mate picks a free one and shows the address. |
-| `MATE_ASSIST` | `assist/mate-assist` | Path to the on-device helper. Set it to point at another build. |
+| `MATE_ASSIST` | `assist/mate-assist`, or the app's resources when it is installed | Path to the on-device helper. Set it to point at another build. |
 | `ELECTRON_RENDERER_URL` | set by `pnpm dev` | Address of the Vite server in development. Do not set it by hand. |
 | `REMOTE_DEBUGGING_PORT`, `V8_INSPECTOR_PORT` | unset | Optional. Chrome DevTools and Node inspector ports, for debugging. |
 
@@ -71,6 +72,10 @@ src/
     effort.ts       the steps of thinking effort
 assist/
   main.swift        the on-device helper: one question in, one answer out
+build/
+  icon.svg          the drawing of the app's icon
+  icon.mjs          draws icon.icns from it (`pnpm icon`)
+electron-builder.yml  how the app is put together to be installed
 tests/              node:test unit tests, run with --experimental-strip-types
   e2e/              the built app, driven through its window
 ```
@@ -98,7 +103,47 @@ works while its window is covered. It starts no agent.
 
 ## Building
 
-`pnpm build` writes `out/main`, `out/preload`, and `out/renderer`. There is
-no packaging step yet, so the built app cannot be distributed. A signed
-app for macOS is the next piece of work: see the end of
-[../../docs/roadmap.md](../../docs/roadmap.md).
+`pnpm build` writes `out/main`, `out/preload`, and `out/renderer`.
+
+## An app to install
+
+Mac only so far, for Apple silicon. `electron-builder.yml` is the whole
+of it, and `electron-builder` is a development dependency: nothing of it
+is in the app.
+
+| Command | What it makes |
+|---|---|
+| `pnpm pack:mac` | `release/mac-arm64/Mate.app`, to try. It takes no certificate from the keychain, so it runs on this Mac and is not for anyone else. |
+| `pnpm dist:mac` | `release/Mate-<version>-arm64.dmg`, signed with the Developer ID Application certificate in the keychain. |
+
+Both build the on-device helper first, so they need the Xcode command
+line tools. `release/` is not committed.
+
+`pnpm dist:mac` sends the app to Apple to be notarised only when the
+credentials are in the environment: `APPLE_ID`,
+`APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID`, or
+`APPLE_KEYCHAIN_PROFILE` for a profile stored with `notarytool`. Without
+them it signs and says that it did not notarise. If the keychain holds
+more than one certificate, name the one to use in `CSC_NAME`.
+
+What is in the app: the built `out/` folder in one archive, `package.json`,
+the helper beside it in the resources, and the icon. Nothing is loaded
+from `node_modules` when it runs.
+
+An installed app differs from a checkout in three ways, all on purpose:
+
+- It does not act as Node, and takes no Node options and no inspector
+  from outside. These are switched off in the program itself.
+- It refuses a debugging port. The end-to-end test drives a checkout, not
+  the installed app.
+- It fetches no update. A new version is a new disk image.
+
+It keeps its data where `pnpm dev` does (on macOS,
+`~/Library/Application Support/Mate/`), so the contexts you trusted in
+one are trusted in the other.
+
+`pnpm icon` draws `build/icon.icns` again from `build/icon.svg`. Run it
+when the drawing changes, and commit both.
+
+If `pnpm dev` stops finding Electron after a dependency was added, see
+the repair steps in [../../docs/mvp.md](../../docs/mvp.md).
