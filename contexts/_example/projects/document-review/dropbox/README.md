@@ -1,10 +1,13 @@
 # Project dropbox
 
-Intake for this effort. Three exits:
+Intake for this effort. A file comes in with "Add a source" in the rail,
+or by dropping it on the window. Three exits, and no fourth:
 
-1. Leave it outside and index the path.
-2. Pull it into this project as it is. It is now part of the draft.
-3. Extract its content into this folder.
+1. Leave it outside and index the path. A note with its name and where it
+   lies is written here, so a search finds it.
+2. Pull it into this project as it is. It is now one of the drafts.
+3. Extract its text into `draft/`. Mate reads no Word file and no PDF
+   itself: one button asks the agent to do it.
 
 Material that every project in the context should reference does not belong
 here. Put that on the context shelf.

@@ -7,6 +7,7 @@
 - [ ] `pnpm test`
 - [ ] `pnpm typecheck`
 - [ ] `pnpm build`
+- [ ] `pnpm test:e2e` (if anything visible changed; a window opens for a few seconds)
 - [ ] Looked at it in `pnpm dev` with `contexts/_example` (if anything visible changed; say what you tried)
 - [ ] Ran a real agent, if the change touches how one is started or read (say which version)
 

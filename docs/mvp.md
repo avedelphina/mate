@@ -1,5 +1,9 @@
 # MVP
 
+> This is the first slice as it was on 2026-10-12, kept as history. What
+> was built after it is in [roadmap.md](roadmap.md) and in the
+> [changelog](../CHANGELOG.md). The setup notes under "Run it" still hold.
+
 The first usable slice. One window, one context, one project, one draft.
 You open a context, open a project, read the draft, and write a comment
 back into the file. The comment survives closing the app.
@@ -107,3 +111,6 @@ not followed. HTML and entities such as `&amp;` are shown as written.
 
 Mail, issues, or a way to publish to the shelf. The model for those is settled in [model.md](model.md). The
 implementation is not this slice.
+
+Since then: publishing is built, as step 6 of the roadmap. Mail and
+issues are still not Mate's own. An agent shows them in a pane.

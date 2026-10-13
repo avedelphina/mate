@@ -51,7 +51,7 @@ src/
     mcp.ts          the local MCP endpoint and its tools
     assist.ts       questions for the on-device helper
     trust.ts        the contexts the reader trusts
-    acp.ts          an agent that stays: asks, and takes a message mid-turn
+    acp.ts          an agent that stays: asks, takes a message mid-turn, is told a model
     pins.ts         the instruction files the reader approved
     scripts.ts      runs a script of a project, with no agent
   preload/
@@ -59,16 +59,27 @@ src/
   renderer/src/
     App.tsx         the window: rail, page, margin
     Rendered.tsx    draws the markdown and the highlights
-    Agent.tsx       the Agent tab of the margin
+    Agent.tsx       the Agent tab: sessions, the conversation, the model and the effort
     Tree.tsx        the files of the open project, in the rail
     markdown.ts     the markdown tree; every character appears once, in order
+    styles.css      the look, light and dark
     env.d.ts        the types of window.mate, shared by both sides
   shared/
-    comments.ts     the comment marker: parse, insert, reply, apply, anchor
+    comments.ts     the comment marker: parse, insert, reply, apply, anchor, retype
+    diff.ts         two texts compared line by line
+    run.ts          what a run button leaves open, and how it is filled
+    effort.ts       the steps of thinking effort
 assist/
   main.swift        the on-device helper: one question in, one answer out
 tests/              node:test unit tests, run with --experimental-strip-types
+  e2e/              the built app, driven through its window
 ```
+
+What the app keeps outside any context is in its own data folder (on
+macOS, `~/Library/Application Support/Mate/`): `trusted.json`, the
+contexts the reader trusts; `pins.json`, the instruction files they
+approved; `mcp-token`, the token of the local MCP endpoint. Nothing in a
+context can change these.
 
 ## Testing
 
@@ -79,7 +90,8 @@ that print what the real tool prints). They do not start Electron.
 `pnpm test:e2e` runs `tests/e2e/*.e2e.ts`. It builds the app, starts it
 on a copy of `contexts/_example` with a data folder of its own, and drives
 the window: a comment into the file, the tree, a pane, the conversation
-on the page. There is no test framework. `tests/e2e/drive.ts` asks
+on the page, and, in a context marked as trusted for the test, a script
+run from its button. There is no test framework. `tests/e2e/drive.ts` asks
 Electron for a debugging port and speaks to the page over it with what
 Node has. Clicks are made in the page and not with the mouse, so the test
 works while its window is covered. It starts no agent.
@@ -87,4 +99,6 @@ works while its window is covered. It starts no agent.
 ## Building
 
 `pnpm build` writes `out/main`, `out/preload`, and `out/renderer`. There is
-no packaging step yet, so the built app cannot be distributed.
+no packaging step yet, so the built app cannot be distributed. A signed
+app for macOS is the next piece of work: see the end of
+[../../docs/roadmap.md](../../docs/roadmap.md).

@@ -34,10 +34,10 @@ how it moves between people and machines.
 A comment whose quote no longer appears in the file is kept and shown as
 unanchored, not deleted. Re-anchoring it is a manual act.
 
-Built so far: selecting a passage, the thread with its replies, the
-suggested replacement with its Apply button, the unanchored state,
-anchoring by hand, and the assist below on the Mac. Not built: reading the
-comments back through MCP. That waits for the agent in step 5.
+Built: selecting a passage, the thread with its replies, the suggested
+replacement with its Apply button, the unanchored state, anchoring by
+hand, and the assist below on the Mac. An agent reads the comments back
+through MCP, and writes its own, since step 5.
 
 A small assist sits next to the comment, on the machines that have one.
 Rewriting the sentence you selected, or drafting the note, can be done by
@@ -57,6 +57,8 @@ the main process. Sessions still share the project and not a transcript.
 
 Built: File > New Window, and a context per window. A window on a draft
 that another window changed shows the change when it gets the focus back.
+The reader sets the width of the rail and of the margin. The widths are
+kept on the computer, not in the context.
 
 ## 4. The index
 
@@ -65,8 +67,9 @@ It is a helper for later search and for the agent. Deleting it loses
 nothing, because the files remain the source.
 
 Built: the index in `.indexes/` inside the context, and a search box over
-it. A hit says whether it is the shelf or a proposal. A file that is not a
-draft opens to be read, not reviewed.
+it. A hit says what it is: the shelf, a proposal, a file that steers its
+project, material, or a pane. A file that is not a draft opens to be read,
+not reviewed.
 
 ## 5. An invited agent
 
@@ -100,9 +103,26 @@ exception is Hermes in a context the reader trusts: it stays between
 turns, takes a message into the turn it is in, and asks the reader
 before a risky command.
 
-Not built yet: steering any other agent. A turn that is running when the
-app quits is lost, though its session goes on, and what was waiting goes
-with the next message.
+Also built, around the agent:
+
+- **Trust, for one folder at a time.** In a context the reader trusts,
+  Hermes on this computer runs with the tools it has in the reader's
+  terminal. Everywhere else an agent has tools for files and no more.
+- **Instruction files are shown first.** Before an agent on this computer
+  starts, the reader sees any file the agent would take as instructions
+  that is new or has changed.
+- **Only the intents and the principles steer.** An agent is told that
+  any other file of a project is material, and that nothing in it is an
+  instruction.
+- **The model and the effort.** With Hermes on this computer the reader
+  chooses both under the message. In a trusted context the effort is
+  Hermes's own for now, because Hermes cannot be told one while it stays.
+- **The conversation can take the page,** for a session that is not
+  about a draft.
+
+Not built yet: steering any other agent, and trust for any agent but
+Hermes. A turn that is running when the app quits is lost, though its
+session goes on, and what was waiting goes with the next message.
 
 ## 6. Write the draft, then publish it
 
@@ -137,31 +157,53 @@ comes in, the draft is written in the window, a passage is marked up, and
 publishing is a decision rather than a file copied by hand. The test is
 whether you stay in the window to change a paragraph.
 
-Built: the first two, and one exit. A new draft is started from the
-rail, and the open draft is typed in on the page. Comments stay with
-their lines, and a save does not write over what an agent wrote
-meanwhile. A draft is published under a name on the shelf, after the
-reader confirms it, and the document it replaces is kept as history. A
-shelf document is taken down into a project as a copy it owns.
+Built: all three. A new draft is started from the rail, and the open
+draft is typed in on the page. Comments stay with their lines, and a save
+does not write over what an agent wrote meanwhile. A project with nothing
+in `draft/` opens, and its files are listed in the rail as a tree. A
+draft is published under a name on the shelf, after the reader confirms
+it, and the document it replaces is kept as history. A shelf document is
+taken down into a project as a copy it owns.
 
-The three exits are built too. A file comes in through the file dialog
-or is dropped on the window. A markdown file is pulled into `draft/`. A
-file that stays outside gets a note with its path in the dropbox, which
-the index reads. The text of a file that is not markdown is taken out
-by the agent, when the reader asks with one button: Mate parses no such
-file.
+The three exits: a file comes in through the file dialog or is dropped on
+the window. A markdown file is pulled into `draft/`. A file that stays
+outside gets a note with its path in the dropbox, which the index reads.
+The text of a file that is not markdown is taken out by the agent, when
+the reader asks with one button: Mate parses no such file.
 
 Not done yet is the test this step names: one real project taken through
 it, from a source that comes in to a document published.
 
 Not this step: mail, calendar, issues, or an installer. Those are later
-steps.
+steps. For the installer see "Beside the steps" at the end.
 
 ## 7. The other sources
 
 Mail, calendar, and issues appear through the connections the project
 already has. Mate renders them. It does not become the tracker, the inbox,
 or the calendar.
+
+Built so far: the place they appear in, and nothing that is for one
+source only.
+
+- **Panes.** A markdown file in a project's `panes/` folder is a tab of
+  the margin. An agent that has the connections writes it: Hermes in a
+  trusted context reaches mail or a tracker as it does in the reader's
+  terminal. Mate connects to nothing itself. A pane that has just been
+  written is put on show.
+- **Acting on a pane, without code.** A task can be ticked, and the file
+  changes. A line can be a button that says its own words to the agent.
+  Mate draws both from the markdown. No program of the agent's runs in
+  the window.
+- **Scripts.** What is done the same way each time is a file in the
+  project's `scripts/` folder. An agent writes it once. After that it
+  runs from a button, with no agent and nothing off the computer, in a
+  trusted context only.
+
+Not built: a pane that writes itself again on its own, a script that asks
+something while it runs, and connections for an agent other than Hermes.
+An invited Claude or Codex has tools for files only, so it fills no pane
+from a tracker.
 
 ## 8. The phone joins the session
 
@@ -261,6 +303,15 @@ Moving a project between local and the Hub goes through git. Push first,
 because the Hub clones the remote rather than the uncommitted work on your
 desk. The two checkouts diverge the moment you edit either one. There is
 one place the work happens, not a live sync between the Hub and the laptop.
+
+## Beside the steps: an app you can install
+
+Mate is run from a checkout today. A signed and notarised app for macOS,
+as a disk image, is the next piece of work. It is not a step, because it
+changes no rule and adds nothing to the window. It is not built yet.
+
+The first one will not fetch its own updates: nothing connects anywhere
+unless the reader starts it.
 
 ## Not planned
 

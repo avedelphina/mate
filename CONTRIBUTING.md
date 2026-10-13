@@ -26,13 +26,13 @@ Requirements: Node.js 22 or newer and pnpm 10 or newer.
 pnpm install
 pnpm test        # unit tests
 pnpm test:e2e    # builds the app and drives its window (a window opens)
-pnpm typecheck   # TypeScript, all three configs
+pnpm typecheck   # TypeScript, both configs: main with preload, and the window
 pnpm build       # electron-vite build into apps/desktop/out/
 pnpm dev         # run the app
 ```
 
-Run all three checks before you open a pull request. The project has no
-CI yet, so these are run by hand.
+Run the tests, the type check and the build before you open a pull
+request. The project has no CI yet, so these are run by hand.
 
 On macOS with Xcode, `pnpm build:assist` also builds the on-device helper.
 It is optional and not needed for any test.
@@ -44,9 +44,10 @@ apps/desktop/
   src/main/          Electron main process: files, comments, index, agents, MCP
   src/preload/       the one bridge between window and main (window.mate)
   src/renderer/      the React window
-  src/shared/        code both sides use: the comment marker format
+  src/shared/        code both sides use: the comment marker, the line diff, run buttons
   assist/            the Swift helper for the on-device model
   tests/             unit tests, run with node --test
+  tests/e2e/         the built app, driven through its window
 contexts/_example/   a sample context, safe to open and edit
 docs/                the rules, the design, the roadmap
 ```
@@ -56,13 +57,19 @@ Where a change goes:
 | Change | Start in |
 |---|---|
 | The comment marker format | `apps/desktop/src/shared/comments.ts` |
-| Reading or writing a draft | `apps/desktop/src/main/context.ts` |
+| Reading or writing a draft, publishing, the dropbox | `apps/desktop/src/main/context.ts` |
+| Panes, and what the reader can press in one | `src/main/context.ts`, then `src/renderer/src/Rendered.tsx` |
+| Running a script of a project | `src/main/scripts.ts` |
 | A new capability for the window | `src/main/index.ts`, then `src/preload/index.ts`, then `src/renderer/src/env.d.ts` |
 | How markdown is drawn | `src/renderer/src/markdown.ts` |
 | Search and the index | `src/main/contextIndex.ts` |
 | What an agent may change | `src/main/guard.ts`, `src/main/sessions.ts` (`judge`) |
 | Agents on this computer and over SSH | `src/main/agents.ts` |
+| An agent that stays between turns | `src/main/acp.ts` |
+| Trusted contexts, and approved instruction files | `src/main/trust.ts`, `src/main/pins.ts` |
 | The MCP endpoint | `src/main/mcp.ts` |
+
+The full table is in [docs/architecture.md](docs/architecture.md).
 
 A new IPC capability touches three files in the same change: the handler in
 `index.ts`, the method in `preload/index.ts`, and the type in `env.d.ts`.
@@ -87,6 +94,13 @@ These are not style preferences. Breaking one will get a change sent back.
    path that calls it.
 6. **No silent network.** Nothing connects anywhere unless the reader starts
    it.
+
+Three more follow from the security model. They are in
+[SECURITY.md](SECURITY.md) and [docs/architecture.md](docs/architecture.md):
+a context runs no program unless the reader marked it as trusted, the
+window never names a path outside the context for main to read, and what
+only the reader may decide (trust, instruction files, publishing) is asked
+in a dialog of the system.
 
 ## Code style
 
@@ -115,8 +129,10 @@ These are not style preferences. Breaking one will get a change sent back.
 
 ## Testing the window
 
-The unit tests cover the logic: the marker format, the guard, the index,
-the agent adapters, and the MCP endpoint. They do not drive the window.
+The unit tests cover the logic: the marker format, typing in a draft, the
+shelf and the dropbox, the guard, the index, the agent adapters, an agent
+that stays, the instruction files, the script runner, and the MCP
+endpoint. They do not drive the window.
 `pnpm test:e2e` does: it starts the built app on a copy of the example
 context and goes through the main paths, with no agent. When you change
 anything the reader sees, run it, add a step to it if your path is not

@@ -8,28 +8,42 @@ the work is the markdown.
 
 ```
 renderer (React)                preload                     main (Node)
-App.tsx                         window.mate                 index.ts
-  openContext()      ---------> ipc 'context:open'   -----> folder dialog, list projects
-  currentContext()   ---------> ipc 'context:current' ----> what this window already has open
-  searchContext()    ---------> ipc 'context:search' -----> bring the index up to date, search it
-  readFile()         ---------> ipc 'file:read'      -----> a file that is read, not reviewed
-  startSession()     ---------> ipc 'session:start'  -----> a new conversation with one agent
-  sendMessage()      ---------> ipc 'session:send'   -----> one turn of the agent, then the guard
-  settleHeld()       ---------> ipc 'session:settle' -----> approve one held file, or drop it
-  revertChange()     ---------> ipc 'session:revert' -----> put a file back as it was
-  onSession()        <--------- ipc 'session:update' <----- the session as the agent goes on
+App.tsx, Agent.tsx              window.mate                 index.ts
   openProject()      ---------> ipc 'project:open'   -----> readProject()
   addComment()       ---------> ipc 'comment:add'    -----> insertComment()
-  addReply()         ---------> ipc 'comment:reply'  -----> addReply()
-  applySuggestion()  ---------> ipc 'comment:apply'  -----> applySuggestion()
-  anchorComment()    ---------> ipc 'comment:anchor' -----> anchorComment()
-  checkAssist()      ---------> ipc 'assist:check'   -----> is the helper here, can the model answer
-  runAssist()        ---------> ipc 'assist:run'     -----> the helper, once per question
+  sendMessage()      ---------> ipc 'session:send'   -----> one turn of the agent, then the guard
+  onSession()        <--------- ipc 'session:update' <----- the session as the agent goes on
 ```
+
+Every call has this shape. The whole of what the window can ask for:
+
+| What | Channels | In main |
+|---|---|---|
+| The context | `context:open`, `context:current`, `context:search` | the folder dialog, the projects, the index |
+| A file | `file:read`, `file:reveal` | a file that is read and not reviewed; a file shown in the file manager |
+| A project | `project:open` | `readProject`: the draft, its comments, the panes, the tree |
+| Comments | `comment:add`, `comment:reply`, `comment:apply`, `comment:anchor` | `insertComment`, `addReply`, `applySuggestion`, `anchorComment` |
+| A draft | `draft:write`, `draft:create`, `draft:publish` | `writeDraft`, `createDraft`, and `publish` after a dialog of the system |
+| The shelf | `shelf:list`, `shelf:take` | `listShelf`, `takeDown` |
+| Sources | `source:pick`, `source:note`, `source:pull`, `dropbox:pull` | the file dialog, `noteSource`, `copySource`, `pullIn` |
+| A pane | `pane:tick` | `tickPane` |
+| A script | `script:run`, `script:stop` | `runScript`, `stopScript` |
+| Agents | `agents:list`, `mcp:bind` | which agents can be invited; the door for the reader's own |
+| A session | `session:list`, `session:start`, `session:send`, `session:stop`, `session:answer`, `session:revert`, `session:settle`, `session:compare`, `session:models`, `session:tune` | `sessions.ts` |
+| Trust | `trust:get`, `trust:set` | `isTrusted`, and `setTrusted` after a dialog of the system |
+| The assist | `assist:check`, `assist:run` | is the helper here; the helper, once for each question |
+
+`session:update` is the one message that goes the other way: the session
+as the agent goes on.
 
 The renderer never imports `fs` and never sees a path it chose itself.
 Every file operation goes through `context.ts`, which checks the path
-stays inside the context before reading or writing.
+stays inside the context before reading or writing. Where the reader
+brings in a file from outside the context, they choose it in a dialog of
+the system: see "The shelf: taking down and publishing".
+
+Three things are decided in a dialog of the system, which the page cannot
+press: trusting a context, approving instruction files, and publishing.
 
 `sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`.
 Do not relax these to make a feature easier. A sandboxed window cannot
@@ -42,14 +56,18 @@ preload as CommonJS. Leave that as it is.
 |---|---|
 | Comment marker format | `apps/desktop/src/shared/comments.ts` |
 | Reading a project, writing the draft, path check | `apps/desktop/src/main/context.ts` |
+| Typing in a draft without losing a comment | `retype` in `src/shared/comments.ts`, then `writeDraft` in `src/main/context.ts` |
 | A new capability the window can call | `src/main/index.ts`, then `src/preload/index.ts`, then `src/renderer/src/env.d.ts` |
 | Layout | `src/renderer/src/App.tsx` and `styles.css` |
 | How markdown is drawn | `src/renderer/src/markdown.ts`, then `styles.css` |
 | What the assist is asked | `src/main/assist.ts` |
 | What is indexed, how a search ranks | `src/main/contextIndex.ts` |
 | Publishing a draft, and taking a shelf document down | `publish` and `takeDown` in `src/main/context.ts` |
+| How a file comes in, and the exits of a dropbox | `pullIn`, `noteSource` and `copySource` in `src/main/context.ts` |
 | Running a script of a project | `src/main/scripts.ts` |
+| What a run button leaves open, and how it is filled | `src/shared/run.ts` |
 | What a pane is, and how it is read | `readProject` in `src/main/context.ts`, then `App.tsx` |
+| What the reader can press in a pane | `tickPane` in `src/main/context.ts`, then `Rendered.tsx` |
 | The tree of a project's files | `listFiles` in `src/main/context.ts`, then `Tree.tsx` |
 | How an agent is started and its output read | `src/main/agents.ts` |
 | Which contexts are trusted, and what trust changes | `src/main/trust.ts`, then `acp` in `src/main/agents.ts` |
@@ -61,6 +79,7 @@ preload as CommonJS. Leave that as it is.
 | What an agent is told at the start | `RULES` in `src/main/sessions.ts` |
 | What an agent of the reader's own can do | `src/main/mcp.ts` |
 | How the on-device model is called | `assist/main.swift` |
+| Driving the built app in a test | `tests/e2e/drive.ts`, then `tests/e2e/smoke.e2e.ts` |
 
 Add the preload and the type in `env.d.ts` in the same change as the
 handler. A handler the renderer cannot name does not exist.
@@ -284,7 +303,8 @@ The rail lists the files of the open project as a tree, under its name.
 `readProject` sends the path of every file in the project folder. Hidden
 names are left out, and a link is not followed. A folder in the tree is
 a `<details>` element, so it folds with no code of ours. `draft/` starts
-unfolded.
+unfolded. Each level stands a step in, with a line down its side, and the
+project is the root of its own tree.
 
 A draft opens for review. Any other markdown file opens to be read, as
 it does from a search. The project stays open while the file is read:
@@ -600,6 +620,10 @@ that changes the session then, such as Revert, changes that one.
 The agent's tool keeps its own record of the conversation on this
 computer, outside the context. Mate does not manage that record.
 
+The list of sessions shows, for each, a dot for where it stands (working,
+may edit, still at its plan), what was first said in it, and who it is
+with and when. The newest comes first.
+
 ## Windows
 
 A folder named on the command line is the context of the first window.
@@ -627,4 +651,7 @@ when it gets the focus back. Nothing tells it sooner.
 
 ## What is deliberately absent
 
-No mail, no issues, no git operations.
+No mail and no issues of Mate's own: an agent shows them in a pane, and
+Mate connects to neither. No git operations. No program from a context
+that runs in the window: a pane is markdown, and Mate draws its buttons.
+No update that fetches itself. No packaged app yet.

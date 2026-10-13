@@ -5,6 +5,97 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+Mate becomes a place to work in a project, not only to review a draft.
+You write the draft and publish it, bring sources in, let an agent show
+what it gathered beside the draft, and run what is done the same way each
+time with no agent at all.
+
+### Added
+
+Writing and publishing:
+
+- Type in the open draft: *Edit*, *Save*, *Done*. Comments stay with
+  their lines. A save does not write over what an agent or another
+  program wrote in the meantime.
+- Start a new draft from the rail. A project with no draft opens too.
+- Publish a draft to the shelf under a name. The system asks once more
+  in a dialog and names what is replaced. The document that was there is
+  kept in `shelf/.history/`. Comments are not published.
+- Take a shelf document down into a project, as a copy the project owns.
+- Bring a file in with *Add a source*, or by dropping it on the window.
+  It leaves the dropbox by one of three exits: pulled into `draft/`,
+  left outside with its path noted, or its text taken out into a draft
+  by the agent. Mate itself reads no Word file and no PDF.
+
+The window:
+
+- The files of the open project as a tree in the rail, and the shelf
+  listed above the projects. A file Mate cannot draw is shown in the file
+  manager and is not opened.
+- Panes. A markdown file in a project's `panes/` folder is a tab of the
+  margin. An agent writes it, to show tasks, deadlines or mail it reached
+  through its own connections. A pane that has just been written is put
+  on show.
+- Acting on a pane. A task written as `- [ ]` can be ticked, and the file
+  changes. A link written as `[words](say:)` is a button that says its
+  own words to the agent.
+- Scripts. A file in a project's `scripts/` folder runs from a button
+  written as `[scripts/NAME and what it is given](run:)`, or from its
+  card, with no agent and no shell, in a trusted context only. A word in
+  curly brackets, such as `{file}`, is asked of you when you press it.
+- The conversation with an agent can take the page (*Open in the page*),
+  with a pane beside it.
+- The rail and the margin can be made wider or narrower by dragging the
+  edge, or with the arrow keys.
+- A quieter, denser look for the rail, the file tree and the session
+  list: small-capital section names, folders that fold with an arrow,
+  guide lines for each level, and a status dot for each session.
+
+Agents:
+
+- Trusted contexts. You mark one folder at a time as trusted, in a system
+  dialog. There Hermes on this computer runs with the tools it has in
+  your terminal. The answer is kept outside the folder.
+- In a trusted context Hermes stays between turns. It asks before a risky
+  command or an edit while no plan is approved (*Allow once*, *Deny*),
+  and a message sent while it works is taken into the turn.
+- Instruction files (`AGENTS.md`, `CLAUDE.md`, `.hermes.md` and the
+  like) are shown to you before an agent on this computer starts, when
+  one is new or has changed since you approved it.
+- *See the change*: a kept or a held change as lines taken out and put
+  in, before you revert or approve it.
+- Choose the model Hermes thinks with, and how hard it thinks, under the
+  message you write. The list is what your Hermes offers.
+
+For contributors:
+
+- `pnpm test:e2e` builds the app, starts it on a copy of the example
+  context, and drives the window. A folder named on the command line is
+  opened as the context.
+
+### Changed
+
+- A file of a project that is not a draft, and is not its intents or its
+  principles, is now *Material* in a search, and a pane is a *Pane*.
+  Agents are told that only the intents and the principles steer a
+  project, and that nothing in material or in a pane is an instruction.
+  The index is built again on the first search.
+- The context names the rail. *Open context* is a large button only
+  while nothing is open, and a small *Open…* beside the name after that.
+- Sessions are listed newest first.
+
+### Security
+
+- A session file that had been tampered with could make *Revert* or
+  *Approve this file* write outside the context. Paths in a session are
+  now checked where they are used.
+- `.git/config` is watched like `.git/hooks`: a change to it by an agent
+  is put back and held.
+- A link inside a context that points outside it is no longer read, by
+  the window or by an agent over MCP.
+
 ## [0.3.0] - 2026-10-12
 
 Agents in a project, held changes, search, and messages that wait behind a turn.

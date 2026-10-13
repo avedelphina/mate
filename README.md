@@ -3,13 +3,16 @@
 A desk for a body of work. The files are the application.
 
 Mate is a desktop window onto a folder of markdown. You open a *context*,
-open a *project* inside it, read the *draft*, and leave review comments
-that are written into the draft file itself. An agent can be invited into
-a project to read the context, propose a plan, and make changes that you
-approve. Nothing is copied into a database, and nothing needs a server.
+open a *project* inside it, write and read the *draft*, and leave review
+comments that are written into the draft file itself. An agent can be
+invited into a project to read the context, propose a plan, make changes
+that you approve, and show you what it gathered in a pane beside the
+draft. Nothing is copied into a database, and nothing needs a server.
 
 > **Status: early.** Version 0.3.0. Built and driven by hand on macOS. No
 > installer yet: you run it from a checkout. See [Known limits](#known-limits).
+> `main` is ahead of that release: see *Unreleased* in the
+> [changelog](CHANGELOG.md).
 
 ## Why it is built this way
 
@@ -22,7 +25,10 @@ approve. Nothing is copied into a database, and nothing needs a server.
   now. A draft in a project is a proposal until someone publishes it.
 - **An agent proposes; you decide.** An agent plans before it writes, and
   any change it makes outside its project is put back and held until you
-  approve that one file.
+  approve that one file. Only you publish.
+- **An agent shapes the window.** What Mate has no feature for, an agent
+  writes into a pane: a markdown file that Mate draws beside the draft.
+  No program from a context runs in the window.
 
 The full rules are in [docs/model.md](docs/model.md). The design is in
 [docs/architecture.md](docs/architecture.md).
@@ -36,19 +42,47 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
 - **Markdown, drawn.** Headings, lists, tables, code, and task lists are
   drawn. The markup stays in the text and is hidden, so the page is the
   file, character for character.
-- **Several drafts.** A project with more than one draft lists them.
-- **Search.** A search box indexes the whole context. Each hit says whether
-  it is on the shelf (what is true now) or in a proposal. The index lives
-  in `.indexes/` and can be deleted at any time.
-- **Read-only files.** Shelf files and project instructions open to be
-  read, not commented on.
-- **Two windows.** *File → New Window* opens a second context or document.
+- **Write the draft.** *Edit* turns the page into the text of the file,
+  to type in. Comments stay with their lines, and a save never writes
+  over what an agent or another program wrote in the meantime. *New
+  draft* in the rail starts one.
+- **The shelf.** The rail lists what is on it. *Publish* puts a draft on
+  the shelf under a name, after you confirm it in a system dialog. The
+  document it replaces is kept in `shelf/.history/`. A shelf document can
+  be taken down into a project, as a copy the project owns.
+- **Sources.** *Add a source*, or drop a file on the window. A markdown
+  file is pulled into the drafts. A file that stays where it is gets a
+  note with its path, so a search finds it. For a Word file or a PDF, one
+  button asks the agent to take its text out into a draft. Mate reads no
+  such file itself.
+- **The files of a project.** The rail shows them as a tree. A draft
+  opens for review, any other markdown file opens to be read, and a file
+  Mate cannot draw is shown in the file manager.
+- **Search.** A search box indexes the whole context. Each hit says what
+  it is: *Shelf* (what is true now), *Proposal*, *Project file*,
+  *Material*, or *Pane*. The index lives in `.indexes/` and can be
+  deleted at any time.
+- **Read-only files.** Shelf files, the intents and the principles open
+  to be read, not commented on.
+- **Panes.** A markdown file in a project's `panes/` folder is a tab of
+  the margin. An agent writes it, to show you tasks, deadlines or mail it
+  reached through its own connections. You can tick a task in it, and a
+  line written as `[words](say:)` is a button that says those words to
+  the agent.
+- **Scripts.** What is done the same way each time is a file in the
+  project's `scripts/` folder. A button written as
+  `[scripts/NAME and what it is given](run:)` runs it. No agent is asked,
+  so it works with no network and costs nothing. Only in a
+  [context you trust](#a-context-you-trust).
 - **Invite an agent.** The *Agent* tab of the margin talks to:
   - Claude Code, Codex, or Hermes on this computer;
   - Hermes on another computer, over SSH (the folder stays on your machine);
   - an agent you run yourself, through a local MCP endpoint.
 
-  See [Agents](#agents) below.
+  A conversation that is not about a draft can take the page (*Open in
+  the page*). See [Agents](#agents) below.
+- **Windows.** *File → New Window* opens a second context or document.
+  The rail and the margin are as wide as you drag them.
 - **On-device assist (macOS 26+).** Where Apple's on-device model is
   available, the rewrite and comment forms can draft text. You still press
   *Add*. Elsewhere the button is shown but off.
@@ -91,18 +125,24 @@ A context is a folder. Mate expects this shape:
 ```
 my-context/
   shelf/                 what is true now; changed only by publishing
+    .history/            what a publish replaced, by name and time
   dropbox/               intake for material not yet placed
   projects/
     my-project/
-      draft/             the documents under review (*.md)
+      draft/             the documents being written and reviewed (*.md)
       intents.md         which way to lean; never "done"
       principles.md      rules of engagement; not traded away
       dropbox/           intake for this project
+      panes/             what an agent gathered to show you (*.md)
+      scripts/           what is done the same way each time
 ```
 
-Nothing here is required beyond `projects/<name>/draft/`. Mate creates two
-helper folders on its own, each with a `.gitignore` that ignores its
-contents:
+Nothing here is required beyond `projects/<name>/`. Any other file in a
+project is material: what came in for the work, or was made in it. Only
+`intents.md` and `principles.md` steer a project.
+
+Mate creates two helper folders on its own, each with a `.gitignore` that
+ignores its contents:
 
 - `.indexes/`: the search index. Safe to delete.
 - `.sessions/`: agent conversations, the copies kept for *Revert*, and
@@ -131,14 +171,43 @@ that file.
 | Hermes on another host | `ssh <host> hermes chat -Q …` with the `todo` toolset only | a host in `~/.ssh/config` with key login and Hermes installed there |
 | Your own agent | an MCP endpoint at `http://127.0.0.1:41757/mcp` | any MCP client; see below |
 
-With Hermes on this computer you choose the model, and how hard it
-thinks, under the message you write. The list is what your Hermes offers.
-In a context you trust, Hermes cannot be told the thinking effort yet,
-and uses its own setting.
-
 Agents are asked to plan first. Until you approve a plan, every turn is
 read-only. A message sent while an agent is working waits behind the turn
-and is delivered when it ends; it does not interrupt it.
+and is delivered when it ends; it does not interrupt it. Before you revert
+a change or approve a held one, *See the change* shows it as lines taken
+out and lines put in.
+
+With Hermes on this computer you choose the model, and how hard it
+thinks, under the message you write. The list is what your Hermes offers.
+
+### A context you trust
+
+By default an agent gets tools for files and nothing else. *Trust this
+context…* in the Agent tab changes that for one folder. Mate asks in a
+system dialog and keeps the answer outside the folder, so nothing in a
+context can make it trusted. In a trusted context:
+
+- Hermes on this computer runs with the tools it has in your terminal:
+  its own tools, its skills, your connections, commands. That is how a
+  pane gets your tasks or your mail.
+- Hermes stays between turns. It asks you in the conversation before a
+  risky command, or before an edit while no plan is approved (*Allow
+  once* or *Deny*), and a message you send while it works is taken into
+  the turn.
+- A script of a project runs from its button.
+
+Trust does not change Claude, Codex, or an agent on another machine. It
+does not change who decides either: the plan comes first, a change
+outside the project is held, and only you publish. Trust a folder whose
+files you know, because a file in it can ask the agent for anything.
+
+### Instruction files
+
+Agents read some files of the folder they work in as their instructions:
+`AGENTS.md`, `CLAUDE.md`, `.hermes.md`, `.cursorrules` and a few more.
+Before an agent on this computer starts, Mate shows you any such file
+that is new or has changed since you last approved it, with the lines
+that differ. *Cancel* does not start the agent.
 
 ### Connecting your own agent
 
@@ -178,6 +247,13 @@ Tools: `mate_project`, `mate_read`, `mate_search`, `mate_comments`,
 - Files that an agent reads as its instructions, such as `AGENTS.md`, are
   shown to you before an agent starts, when they are new or have changed
   since you last approved them.
+- A pane is markdown that Mate draws. Its buttons are drawn by Mate from
+  the text, and a button that speaks to the agent says exactly the words
+  it shows. No program from a context runs in the window.
+- Publishing is confirmed in a system dialog that the page cannot press.
+  No agent can publish.
+- The list of models is asked of Hermes only when you open the choice,
+  because Hermes may look its models up on the network.
 - The renderer is sandboxed (`sandbox`, `contextIsolation`, no
   `nodeIntegration`). It reaches the file system only through the typed
   handlers in `apps/desktop/src/main/`.
@@ -195,10 +271,26 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
   outside its project does so before Mate can put the file back. The
   change is reverted and held, but it exists on disk for the length of
   that turn.
-- **One agent works in a context at a time.**
+- **One agent works in a context at a time.** A script does not run
+  while an agent is working there.
 - **A running turn is lost if the app quits.** Its session survives, and
-  messages that were waiting go with your next message.
-- **Over SSH an edit replaces the whole file.** There is no diff view yet.
+  messages that were waiting go with your next message. An agent that
+  stayed in a trusted context is started again and given the conversation
+  so far.
+- **Trust changes Hermes only.** Claude and Codex keep their limits in
+  every context, and take their model from their own settings.
+- **No thinking effort in a trusted context.** Hermes 0.21.5 cannot be
+  told one while it stays between turns, so it uses its own setting.
+- **A pane does not update itself.** Its tab says when it was written.
+  Ask the agent to write it again.
+- **A script cannot ask anything while it runs.** What it needs, it is
+  given on its line or takes from a file. It is stopped after five
+  minutes.
+- **What a publish replaced is kept but not shown.** It is in
+  `shelf/.history/`, to be read with any other tool.
+- **Mate draws markdown and nothing else.** A Word file, a spreadsheet or
+  a PDF is named in the tree and opened by you, in its own program.
+- **Over SSH an edit replaces the whole file.**
 - **Search reads each file whole,** up to 2 MB, and is sized for thousands
   of files, not hundreds of thousands.
 - **Ambiguous passages.** A passage that occurs twice on the same line

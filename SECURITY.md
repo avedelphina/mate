@@ -48,16 +48,28 @@ they show that the model is broken, for example:
 - a way for an agent on this computer to start with instruction files the
   reader has not approved;
 - a way to run a script in a context the reader has not trusted, or to
-  run a file that is not in the `scripts/` folder of the open project.
+  run a file that is not in the `scripts/` folder of the open project;
+- a way for text in a pane, a draft or any other file to run as a
+  program in the window, or to make a button say to an agent anything but
+  the words it shows;
+- a way to publish to the shelf without the reader's answer in the system
+  dialog, or for an agent to publish;
+- a way for the window to make the main process read or copy a file
+  outside the context that the reader did not choose in the system's file
+  dialog;
+- a way for a value kept in a session file, such as the name of a model,
+  to reach an agent's command line as an option.
 
 ## What is not in scope
 
 - The behaviour of the agents themselves (Claude Code, Codex, Hermes). Report
   those to their vendors. Mate's job is to limit what they are given and to
   check what they change, and reports about that are in scope.
-- A context that you chose to trust. A context folder can contain hooks and
-  scripts, and Mate does not run them, but opening a context you do not
-  trust is a decision you make.
+- A context from a source you do not know, that you chose to open. A
+  context folder can contain hooks and scripts. Mate runs none of them
+  unless you marked the context as trusted and pressed a script's button,
+  but opening such a folder, and asking an agent to work in it, is a
+  decision you make.
 - What a script does once you run it in a context you marked as trusted.
   It is a program with your rights.
 - What an agent does in a context you marked as trusted in Mate. There

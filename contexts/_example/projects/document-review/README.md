@@ -10,7 +10,8 @@ unfinished.
 
 - `intents.md` — which way to lean. Never completed.
 - `principles.md` — rules of engagement. Not traded away to finish faster.
-- `draft/` — the working copy and the comments on it.
+- `draft/` — the working copy and the comments on it. Edit types in it,
+  and Publish puts it on the shelf when you mean to.
 - `dropbox/` — intake that belongs to this effort, not to the whole context.
 - `scripts/` — what is done the same way each time, as a script. A button
   in the workflow pane runs one, written as
