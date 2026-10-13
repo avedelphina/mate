@@ -730,6 +730,13 @@ A new window starts in the context of the window it was opened from, with
 no project open. It can open any other context after that, and the first
 window does not follow.
 
+⌘K opens the palette: one list of what the window can go to or do just
+now, found by typing. The files of the open project, the shelf, the other
+projects, the tabs of the margin, and what the buttons do. It is made
+from the same functions the buttons call, so it adds no way to do
+anything that has none. It is a dialog of the platform, which takes the
+focus and closes on Escape.
+
 The reader sets the width of the rail and of the margin by dragging the
 edge between two columns, or with the arrow keys when the edge has the
 focus. A double click puts a column back. The widths are kept in the

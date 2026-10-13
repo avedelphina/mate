@@ -177,6 +177,19 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.error')?.textContent.includes('only in a context you trust')`, 'the reader is told why it did not run')
     assert.equal(await app.page(`document.querySelectorAll('.ran').length`), 0)
 
+    // The palette lists what the window can go to or do. A file of the project is found by a part of its name, and opened.
+    await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }))`)
+    await app.until(`document.querySelector('dialog.palette')?.open === true`, 'the palette')
+    await app.page(`(() => {
+      const input = document.querySelector('dialog.palette input')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'princ')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })()`)
+    await app.until(`document.querySelectorAll('dialog.palette .row').length === 1`, 'the one file by that name')
+    await app.page(`document.querySelector('dialog.palette input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`)
+    await app.until(`document.querySelector('.center .bar').textContent.includes('principles.md')`, 'the file, open to be read')
+    assert.equal(await app.page(`document.querySelector('dialog.palette').open`), false)
+
     // A project is started from the rail. It is in the folder with the two files that steer it, and it is open.
     await app.press('.project-new .row', '+ New project')
     await app.page(`(() => {

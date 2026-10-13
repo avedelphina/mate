@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type FormEvent } from 'react'
 import { Agent } from './Agent'
 import { Boundary } from './Boundary'
+import { Palette, type Act } from './Palette'
 import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran } from './env'
 import { Rendered, type Passage } from './Rendered'
 import { Tree } from './Tree'
@@ -160,6 +161,8 @@ export function App() {
   const [founding, setFounding] = useState<string | null>(null)
   // What the open folder still lacks: the shape of a context, and a git repository around it.
   const [lacks, setLacks] = useState({ shape: false, git: false })
+  // The list of the palette while it is open: what the window could go to or do when it was opened.
+  const [palette, setPalette] = useState<Act[] | null>(null)
   // A commit the reader is putting into words: how many files it would take, and the words so far.
   const [committing, setCommitting] = useState<{ files: number; words: string } | null>(null)
   // What came of the last commit, or why there was none.
@@ -820,6 +823,44 @@ export function App() {
     setAgentOnPage(false)
     setTab('agent')
   }
+  /** What the reader can go to or do just now, for the palette. Each one is what a button already does. */
+  function acts(): Act[] {
+    const all: Act[] = []
+    const add = (label: string, hint: string, run: () => void) => all.push({ label, hint, run })
+    if (view) {
+      for (const each of view.files) add(each, view.project, () => openFile(each))
+      add('Review', 'Show', () => setTab('review'))
+      if (!agentOnPage) add('Agent', 'Show', () => setTab('agent'))
+      for (const each of view.panes) add(each.name.replace(/\.md$/, ''), 'Show pane', () => setTab(`pane:${each.name}`))
+      if (file !== null && typing === null && !reading) add('Edit this draft', 'Do', edit)
+      if (file !== null && !reading) add('Publish this draft…', 'Do', () => setPublishing(file))
+      add('New draft…', 'Do', () => setNaming(''))
+      add('Add a source…', 'Do', () => void addSources())
+      add(agentOnPage ? 'Put the conversation back in the margin' : 'Open the conversation in the page', 'Do', agentOnPage ? toMargin : toPage)
+    }
+    for (const each of shelf) add(each, 'Shelf', () => void read(`shelf/${each}`))
+    for (const each of projects) if (each !== project) add(each, 'Open project', () => void openProject(each))
+    if (contextDir) {
+      add('New project…', 'Do', () => setFounding(''))
+      if (!lacks.git) add('Commit…', 'Do', () => void startCommit())
+      add('Search this context', 'Do', () => document.querySelector<HTMLInputElement>('.rail .search')?.focus())
+    }
+    add('Open context…', 'Do', () => void openContext())
+    add('New context…', 'Do', () => void newContext())
+    return all
+  }
+
+  // ⌘K opens the palette from anywhere in the window, and closes it again.
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return
+      event.preventDefault()
+      setPalette((now) => (now ? null : acts()))
+    }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  })
+
   // Where the page is in the tree of the open project, when it is in it at all.
   const inTree = reading ? (reading.project === project ? reading.path.split('/').slice(2).join('/') : null) : file && `draft/${file}`
 
@@ -832,7 +873,10 @@ export function App() {
     >
       <aside className="rail">
         <Divider which="rail" width={rail} set={setRail} />
-        <header className="bar">Mate</header>
+        <header className="bar">
+          Mate
+          <button className="quiet key" title="Go to a file, or do something" onClick={() => setPalette(acts())}>⌘K</button>
+        </header>
         <div className="scroll">
           {/* With no context there is one thing to do. With one, its name heads the rail, and another is a small step away. */}
           {!contextDir && <button className="wide" onClick={openContext}>Open context</button>}
@@ -1319,6 +1363,7 @@ export function App() {
           )}
         </div>
       </aside>
+      <Palette acts={palette} onClose={() => setPalette(null)} />
       {/* One agent for the open project, drawn into the margin or the page. It is not started again when it moves. */}
       {view && (
         <Agent

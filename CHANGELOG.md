@@ -67,6 +67,8 @@ The window:
   with a pane beside it.
 - The rail and the margin can be made wider or narrower by dragging the
   edge, or with the arrow keys.
+- ⌘K opens a palette: the files of the project, the shelf, the other
+  projects, the tabs and the things the buttons do, found by typing.
 - A quieter, denser look for the rail, the file tree and the session
   list: small-capital section names, folders that fold with an arrow,
   guide lines for each level, and a status dot for each session.

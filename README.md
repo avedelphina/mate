@@ -93,7 +93,9 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   A conversation that is not about a draft can take the page (*Open in
   the page*). See [Agents](#agents) below.
 - **Windows.** *File → New Window* opens a second context or document.
-  The rail and the margin are as wide as you drag them.
+  The rail and the margin are as wide as you drag them. **⌘K** opens a
+  palette: type part of a file's name to open it, or the name of
+  something to do.
 - **On-device assist (macOS 26+).** Where Apple's on-device model is
   available, the rewrite and comment forms can draft text. You still press
   *Add*. Elsewhere the button is shown but off.
