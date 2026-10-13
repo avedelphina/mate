@@ -142,11 +142,12 @@ rail, and the open draft is typed in on the page. Comments stay with
 their lines, and a save does not write over what an agent wrote
 meanwhile. A draft is published under a name on the shelf, after the
 reader confirms it, and the document it replaces is kept as history. A
-shelf document is taken down into a project as a copy it owns.
+shelf document is taken down into a project as a copy it owns, and a
+markdown file in a dropbox is pulled into `draft/`.
 
-Not built: the exits for a file that is not on the shelf, which are to
-leave it outside and index its path, to pull it into `draft/`, and to
-extract its text into `draft/`.
+Not built: the two other exits of a dropbox, which are to leave a file
+outside and index its path, and to extract the text of a file that is
+not markdown into `draft/`.
 
 Not this step: mail, calendar, issues, or an installer. Those are later
 steps.

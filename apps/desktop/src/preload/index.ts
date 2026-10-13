@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('mate', {
     ipcRenderer.invoke('pane:tick', project, name, base, at, draft),
   listShelf: () => ipcRenderer.invoke('shelf:list'),
   takeDown: (project: string, path: string) => ipcRenderer.invoke('shelf:take', project, path),
+  pullIn: (project: string, path: string) => ipcRenderer.invoke('dropbox:pull', project, path),
   publishDraft: (project: string, file: string, name: string) => ipcRenderer.invoke('draft:publish', project, file, name),
   writeDraft: (project: string, file: string, base: string, text: string) => ipcRenderer.invoke('draft:write', project, file, base, text),
   createDraft: (project: string, name: string) => ipcRenderer.invoke('draft:create', project, name),

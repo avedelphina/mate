@@ -348,11 +348,14 @@ export function App() {
     }
   }
 
-  /** Take the shelf document on the page down into the open project, as a draft to work on. */
+  /**
+   * Make the document on the page a draft of the open project. One of the shelf is copied, and the shelf
+   * keeps its own. One of a dropbox is moved: it leaves the dropbox.
+   */
   async function takeDown() {
     if (!view || !reading) return
     try {
-      const taken = await window.mate.takeDown(view.project, reading.path)
+      const taken = await (reading.kind === 'shelf' ? window.mate.takeDown : window.mate.pullIn)(view.project, reading.path)
       setError(null)
       setReading(null)
       setView(taken)
@@ -678,6 +681,13 @@ export function App() {
             <span className="acts">
               <button className="quiet" title="A copy the project owns. The shelf keeps its own." onClick={() => void takeDown()}>
                 Take a copy into {view.project}
+              </button>
+            </span>
+          )}
+          {!onPage && reading && view && (reading.path.startsWith('dropbox/') || reading.path.startsWith(`projects/${view.project}/dropbox/`)) && (
+            <span className="acts">
+              <button className="quiet" title="It leaves the dropbox and becomes a draft of this project." onClick={() => void takeDown()}>
+                Pull into draft/
               </button>
             </span>
           )}

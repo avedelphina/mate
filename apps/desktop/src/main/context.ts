@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { lstat, mkdir, readdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { insertComment, readDocument, retype, type Thread } from '../shared/comments'
 import { placeOf, type Place } from './contextIndex'
@@ -299,5 +299,35 @@ export async function takeDown(contextDir: string, project: string, relative: st
     throw new Error('A draft of that name is already in this project. It was not written over.')
   }
   mateWrote(contextDir, `projects/${project}/draft/${file}`, text)
+  return readProject(contextDir, project, file)
+}
+
+/** Whether a file lies in a dropbox this project may pull from: its own, or the one of the whole context. */
+export const inDropbox = (project: string, relative: string) =>
+  relative.startsWith('dropbox/') || relative.startsWith(`projects/${project}/dropbox/`)
+
+/**
+ * Pull a document out of a dropbox into the project's drafts. It is one of the exits of a dropbox:
+ * the file leaves it, and is from then on a draft the project works on. A draft of that name is
+ * never written over.
+ */
+export async function pullIn(contextDir: string, project: string, relative: string): Promise<DocumentView> {
+  if (!inDropbox(project, String(relative))) throw new Error('Only a file of a dropbox is pulled in this way.')
+  if (!relative.toLowerCase().endsWith('.md')) throw new Error('That is not a document Mate can open as a draft.')
+  const source = await placeOnDisk(contextDir, relative)
+  const projectDir = resolveInside(contextDir, 'projects', project)
+  if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
+  const file = relative.split('/').pop()!
+  const text = await readFile(source)
+  await mkdir(path.join(projectDir, 'draft'), { recursive: true })
+  try {
+    await writeFile(path.join(projectDir, 'draft', file), text, { flag: 'wx' })
+  } catch {
+    throw new Error('A draft of that name is already in this project. The file was left in the dropbox.')
+  }
+  mateWrote(contextDir, `projects/${project}/draft/${file}`, text)
+  // It has left the dropbox only once the draft is written.
+  await rm(source)
+  mateWrote(contextDir, relative, null)
   return readProject(contextDir, project, file)
 }

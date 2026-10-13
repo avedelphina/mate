@@ -106,6 +106,8 @@ export type MateApi = {
   listShelf: () => Promise<string[]>
   /** Copy a shelf document into a project's drafts, to work on. The shelf keeps its own. */
   takeDown: (project: string, path: string) => Promise<DocumentView>
+  /** Move a document out of a dropbox into a project's drafts. */
+  pullIn: (project: string, path: string) => Promise<DocumentView>
   /** Publish a draft as a named document of the shelf. The reader confirms in a system dialog. Null when they do not. */
   publishDraft: (project: string, file: string, name: string) => Promise<{ path: string; replaced: boolean } | null>
   /** Save what the reader typed. `base` is the text they began from: it is refused when the file holds another by now. */

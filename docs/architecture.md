@@ -147,6 +147,13 @@ taken down into it: a copy in the project's `draft/`, which the project
 owns. The shelf keeps its own and stays what is true. A draft of that
 name is never written over.
 
+**Pulling in.** A document that lies in the project's dropbox, or in the
+dropbox of the whole context, can be pulled into the project's drafts
+when it is on the page. It is moved, not copied: it leaves the dropbox.
+This is one of the exits of a dropbox. The other two, for a file that is
+left where it is and for one whose text has to be taken out of it, are
+not built.
+
 **Publishing.** Publish on a draft asks for a name on the shelf and
 offers the ones that are there. Then the system asks once more, in a
 dialog the page cannot press, and names what is replaced. `publish`

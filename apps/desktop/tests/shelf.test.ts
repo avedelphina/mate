@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { listShelf, publish, readProject, takeDown } from '../src/main/context.ts'
+import { listShelf, publish, pullIn, readProject, takeDown } from '../src/main/context.ts'
 import { refreshIndex, searchIndex } from '../src/main/contextIndex.ts'
 
 async function context(): Promise<string> {
@@ -86,6 +86,37 @@ test('a shelf document is taken down as a copy the project owns, and the shelf k
     await assert.rejects(takeDown(root, 'review', 'shelf/../projects/review/draft/policy.md'), /not a file of this context/)
     await assert.rejects(takeDown(root, 'nowhere', 'shelf/rules/retention.md'), /not in this context/)
     assert.equal((await readProject(root, 'review', 'policy.md')).drafts.length, 2)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a document is pulled out of a dropbox into the drafts, and is in the dropbox no more', async () => {
+  const root = await context()
+  try {
+    await mkdir(path.join(root, 'projects/review/dropbox'))
+    await mkdir(path.join(root, 'projects/sibling/dropbox'), { recursive: true })
+    await mkdir(path.join(root, 'dropbox'))
+    await writeFile(path.join(root, 'projects/review/dropbox/letter.md'), '# Letter\n')
+    await writeFile(path.join(root, 'projects/review/dropbox/policy.md'), 'Another policy.\n')
+    await writeFile(path.join(root, 'projects/review/dropbox/scan.pdf'), 'pdf')
+    await writeFile(path.join(root, 'projects/sibling/dropbox/theirs.md'), 'Theirs.\n')
+    await writeFile(path.join(root, 'dropbox/for-all.md'), 'For all.\n')
+
+    const pulled = await pullIn(root, 'review', 'projects/review/dropbox/letter.md')
+    assert.deepEqual([pulled.file, pulled.text], ['letter.md', '# Letter\n'])
+    assert.deepEqual(await readdir(path.join(root, 'projects/review/dropbox')), ['policy.md', 'scan.pdf'])
+    // The dropbox of the whole context is pulled from too.
+    assert.equal((await pullIn(root, 'review', 'dropbox/for-all.md')).file, 'for-all.md')
+    assert.deepEqual(await readdir(path.join(root, 'dropbox')), [])
+
+    // A draft of that name is there: the file stays in the dropbox. Another project's dropbox is not this one's.
+    await assert.rejects(pullIn(root, 'review', 'projects/review/dropbox/policy.md'), /already in this project/)
+    assert.equal(await readFile(path.join(root, 'projects/review/dropbox/policy.md'), 'utf8'), 'Another policy.\n')
+    await assert.rejects(pullIn(root, 'review', 'projects/sibling/dropbox/theirs.md'), /Only a file of a dropbox/)
+    await assert.rejects(pullIn(root, 'review', 'shelf/x.md'), /Only a file of a dropbox/)
+    await assert.rejects(pullIn(root, 'review', 'projects/review/dropbox/scan.pdf'), /not a document Mate can open/)
+    await assert.rejects(pullIn(root, 'review', 'dropbox/../shelf/x.md'), /not a file of this context/)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

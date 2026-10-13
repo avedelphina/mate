@@ -13,6 +13,7 @@ import {
   listShelf,
   placeOnDisk,
   publish,
+  pullIn,
   readContextFile,
   readProject,
   shelfPath,
@@ -231,6 +232,9 @@ app.whenReady().then(() => {
 
   // A shelf document is taken down into a project as a copy to work on. The shelf keeps its own.
   ipcMain.handle('shelf:take', (event, project: string, relative: string) => takeDown(requireContext(event), project, String(relative)))
+
+  // A document in a dropbox is pulled into the project's drafts. It leaves the dropbox.
+  ipcMain.handle('dropbox:pull', (event, project: string, relative: string) => pullIn(requireContext(event), project, String(relative)))
 
   // Publishing is the reader's act, and no agent's. The shelf is what every project reads as true, so the
   // reader says yes in a dialog of the system, which the page cannot press. It names what is replaced.

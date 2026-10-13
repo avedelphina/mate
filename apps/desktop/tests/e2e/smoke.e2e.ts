@@ -102,6 +102,16 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.center .bar button', 'Take a copy into document-review')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document-review/README.md')`, 'the copy, open as a draft')
     assert.equal(await readFile(path.join(project, 'draft/README.md'), 'utf8'), await readFile(path.join(context, 'shelf/README.md'), 'utf8'))
+    // A document dropped into the project's dropbox is read there, and pulled into the drafts. It leaves the dropbox.
+    await writeFile(path.join(project, 'dropbox/letter.md'), '# A letter\n\nIt came in today.\n')
+    await app.page(`window.dispatchEvent(new Event('focus'))`)
+    await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'letter.md')`, 'the file in the dropbox')
+    await app.press('.projects .tree .row', 'letter.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('dropbox/letter.md')`, 'the dropped file on the page')
+    await app.press('.center .bar button', 'Pull into draft/')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document-review/letter.md')`, 'the file, open as a draft')
+    assert.equal(existsSync(path.join(project, 'dropbox/letter.md')), false)
+    assert.equal(await readFile(path.join(project, 'draft/letter.md'), 'utf8'), '# A letter\n\nIt came in today.\n')
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the first draft once more')
 
