@@ -137,10 +137,16 @@ comes in, the draft is written in the window, a passage is marked up, and
 publishing is a decision rather than a file copied by hand. The test is
 whether you stay in the window to change a paragraph.
 
-Built: the first of the three. A new draft is started from the rail, and
-the open draft is typed in on the page. Comments stay with their lines,
-and a save does not write over what an agent wrote meanwhile. Not built:
-publishing, and the exits of the dropbox.
+Built: the first two, and one exit. A new draft is started from the
+rail, and the open draft is typed in on the page. Comments stay with
+their lines, and a save does not write over what an agent wrote
+meanwhile. A draft is published under a name on the shelf, after the
+reader confirms it, and the document it replaces is kept as history. A
+shelf document is taken down into a project as a copy it owns.
+
+Not built: the exits for a file that is not on the shelf, which are to
+leave it outside and index its path, to pull it into `draft/`, and to
+extract its text into `draft/`.
 
 Not this step: mail, calendar, issues, or an installer. Those are later
 steps.

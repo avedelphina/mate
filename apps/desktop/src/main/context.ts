@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { mkdir, readdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, readdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { insertComment, readDocument, retype, type Thread } from '../shared/comments'
 import { placeOf, type Place } from './contextIndex'
@@ -220,4 +220,84 @@ export async function tickPane(contextDir: string, project: string, name: string
   await rename(temporary, path.join(dir, name))
   mateWrote(contextDir, `projects/${project}/panes/${name}`, next)
   return readProject(contextDir, project, draft)
+}
+
+/** The documents of the shelf, by their path from the shelf folder. What is true now, for every project. */
+export async function listShelf(contextDir: string): Promise<string[]> {
+  const shelf = path.join(contextDir, 'shelf')
+  if (!existsSync(shelf)) return []
+  return (await listFiles(shelf)).filter((each) => each.toLowerCase().endsWith('.md'))
+}
+
+/** Where a name puts a document on the shelf, from the context folder. It throws on a name that is not one. */
+export const shelfPath = (name: string) => ['shelf', ...shelfName(name)].join('/')
+
+/** A name on the shelf, as its parts. Folders may be named. Nothing hidden, and nothing that climbs out. */
+function shelfName(name: string): string[] {
+  const parts = String(name).trim().replace(/\.md$/i, '').split('/')
+  if (parts.some((part) => !/^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,80}$/u.test(part))) {
+    throw new Error('Name the shelf document with letters and numbers. Spaces, dots, dashes and underscores may follow, and a folder before a slash.')
+  }
+  parts[parts.length - 1] += '.md'
+  return parts
+}
+
+/**
+ * Publish a draft: its text becomes the named document on the shelf, which every project reads as
+ * what is true now. Only the reader does this. Saving a draft never does, and no agent can.
+ *
+ * The comments are not published: the shelf gets the text the page shows. The draft is not changed,
+ * and is a proposal again. A document that was on the shelf under that name is kept beside it, in
+ * `shelf/.history/`, as what was true before. It is hidden there, so nothing reads it as current.
+ */
+export async function publish(contextDir: string, project: string, file: string, name: string): Promise<{ path: string; replaced: boolean }> {
+  const draftDir = path.join(resolveInside(contextDir, 'projects', project), 'draft')
+  if (!(await listMarkdown(draftDir)).includes(file)) throw new Error('That draft is not in this project.')
+  const raw = await readFile(path.join(draftDir, file), 'utf8')
+  const text = Buffer.from(readDocument(raw).text.replace(/\n/g, raw.includes('\r\n') ? '\r\n' : '\n'))
+  const parts = shelfName(name)
+  const relative = ['shelf', ...parts].join('/')
+
+  // The folder the document goes into is made, and must really be inside the context: a link is not written through.
+  await mkdir(resolveInside(contextDir, 'shelf', ...parts.slice(0, -1)), { recursive: true })
+  const dir = await realInside(contextDir, 'shelf', ...parts.slice(0, -1))
+  const target = path.join(dir, parts[parts.length - 1])
+  const there = await lstat(target).catch(() => null)
+  if (there && !there.isFile()) throw new Error('That name on the shelf is not a document. Nothing was published.')
+
+  if (there) {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const kept = ['shelf', '.history', parts.join('__'), `${stamp}.md`]
+    await mkdir(resolveInside(contextDir, ...kept.slice(0, -1)), { recursive: true })
+    const before = await readFile(target)
+    await writeFile(path.join(await realInside(contextDir, ...kept.slice(0, -1)), kept[kept.length - 1]), before, { flag: 'wx' })
+    mateWrote(contextDir, kept.join('/'), before)
+  }
+  const temporary = path.join(dir, `.${parts[parts.length - 1]}.${randomUUID()}.tmp`)
+  await writeFile(temporary, text)
+  await rename(temporary, target)
+  mateWrote(contextDir, relative, text)
+  return { path: relative, replaced: there !== null }
+}
+
+/**
+ * Take a document of the shelf down into a project, to work on. It is a copy the project owns:
+ * the shelf keeps its own, and stays what is true until the copy is published back.
+ */
+export async function takeDown(contextDir: string, project: string, relative: string): Promise<DocumentView> {
+  const parts = String(relative).split('/')
+  if (parts[0] !== 'shelf' || parts.length < 2) throw new Error('Only a document of the shelf is taken down this way.')
+  const text = await readFile(await placeOnDisk(contextDir, relative))
+  if (!relative.toLowerCase().endsWith('.md')) throw new Error('That is not a document of this context.')
+  const projectDir = resolveInside(contextDir, 'projects', project)
+  if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
+  const file = parts[parts.length - 1]
+  await mkdir(path.join(projectDir, 'draft'), { recursive: true })
+  try {
+    await writeFile(path.join(projectDir, 'draft', file), text, { flag: 'wx' })
+  } catch {
+    throw new Error('A draft of that name is already in this project. It was not written over.')
+  }
+  mateWrote(contextDir, `projects/${project}/draft/${file}`, text)
+  return readProject(contextDir, project, file)
 }

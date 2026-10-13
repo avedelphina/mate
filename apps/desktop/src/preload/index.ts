@@ -9,6 +9,9 @@ contextBridge.exposeInMainWorld('mate', {
   openProject: (project: string, file?: string) => ipcRenderer.invoke('project:open', project, file),
   tickPane: (project: string, name: string, base: string, at: number, draft?: string) =>
     ipcRenderer.invoke('pane:tick', project, name, base, at, draft),
+  listShelf: () => ipcRenderer.invoke('shelf:list'),
+  takeDown: (project: string, path: string) => ipcRenderer.invoke('shelf:take', project, path),
+  publishDraft: (project: string, file: string, name: string) => ipcRenderer.invoke('draft:publish', project, file, name),
   writeDraft: (project: string, file: string, base: string, text: string) => ipcRenderer.invoke('draft:write', project, file, base, text),
   createDraft: (project: string, name: string) => ipcRenderer.invoke('draft:create', project, name),
   addComment: (

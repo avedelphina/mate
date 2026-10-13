@@ -47,6 +47,7 @@ preload as CommonJS. Leave that as it is.
 | How markdown is drawn | `src/renderer/src/markdown.ts`, then `styles.css` |
 | What the assist is asked | `src/main/assist.ts` |
 | What is indexed, how a search ranks | `src/main/contextIndex.ts` |
+| Publishing a draft, and taking a shelf document down | `publish` and `takeDown` in `src/main/context.ts` |
 | What a pane is, and how it is read | `readProject` in `src/main/context.ts`, then `App.tsx` |
 | The tree of a project's files | `listFiles` in `src/main/context.ts`, then `Tree.tsx` |
 | How an agent is started and its output read | `src/main/agents.ts` |
@@ -135,6 +136,30 @@ field.
 Only a draft can be typed in. The shelf, the intents, the principles
 and all other files are read. No agent can reach this path: an agent
 proposes a replacement, and the reader applies it.
+
+## The shelf: taking down and publishing
+
+The rail lists the documents of the shelf above the projects. One is
+read from there, on the page.
+
+**Taking down.** With a project open, a shelf document on the page can be
+taken down into it: a copy in the project's `draft/`, which the project
+owns. The shelf keeps its own and stays what is true. A draft of that
+name is never written over.
+
+**Publishing.** Publish on a draft asks for a name on the shelf and
+offers the ones that are there. Then the system asks once more, in a
+dialog the page cannot press, and names what is replaced. `publish`
+writes the text the page shows: the comments are not published. The
+draft is not changed, and is a proposal again. A document that was on
+the shelf under that name is kept in `shelf/.history/`, by its name and
+the time. That folder is hidden, so the index does not read it and
+nothing takes it for current.
+
+Saving a draft is never publishing. No agent can publish: there is no
+tool for it, and an agent's own change to the shelf is held like any
+change outside its project. A shelf folder that is a link to somewhere
+else is not published into.
 
 ## Drawing the markdown
 

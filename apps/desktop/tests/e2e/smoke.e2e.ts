@@ -19,11 +19,11 @@ test('the window, on the example context: a comment into the file, the tree, a p
     // The folder on the command line is the open context. No folder dialog is involved.
     await app.until(`document.querySelector('.rail h2')?.textContent === 'example'`, 'the context is open')
     await app.press('.rail .row', 'document-review')
-    await app.until(`document.querySelectorAll('.rail .tree .row').length > 0`, 'the project is open')
+    await app.until(`document.querySelectorAll('.projects .tree .row').length > 0`, 'the project is open')
     assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review*', 'Agent', 'tasks'])
     // Every file of the project is in the tree, those in folded folders too. The draft is the one on the page.
     assert.deepEqual(
-      (await app.page<string[]>(names('.rail .tree .row'))).sort(),
+      (await app.page<string[]>(names('.projects .tree .row'))).sort(),
       ['README.md', 'README.md', 'document.md*', 'intents.md', 'principles.md', 'tasks.md']
     )
 
@@ -87,11 +87,26 @@ test('the window, on the example context: a comment into the file, the tree, a p
     })()`)
     await app.until(`document.querySelector('textarea.editor')?.value === '# Second draft\\n'`, 'the new draft, open to be written')
     assert.equal(await readFile(path.join(project, 'draft/Second draft.md'), 'utf8'), '# Second draft\n')
-    await app.press('.rail .tree .row', 'document.md')
+    await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the first draft again')
 
+    // Publishing asks for a name on the shelf, and offers the ones that are there. The system asks once more, so it stops here.
+    await app.press('.center .bar button', 'Publish…')
+    await app.until(`document.querySelector('.publish input')?.value === 'document.md'`, 'the name to publish under')
+    assert.deepEqual(await app.page(`[...document.querySelectorAll('#shelf-names option')].map((each) => each.value)`), ['README.md'])
+    await app.press('.publish button', 'Cancel')
+
+    // A document of the shelf is read from the rail, and taken down into the project as a draft of its own.
+    await app.press('.rail .shelf .tree .row', 'README.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('shelf/README.md')`, 'the shelf document on the page')
+    await app.press('.center .bar button', 'Take a copy into document-review')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document-review/README.md')`, 'the copy, open as a draft')
+    assert.equal(await readFile(path.join(project, 'draft/README.md'), 'utf8'), await readFile(path.join(context, 'shelf/README.md'), 'utf8'))
+    await app.press('.projects .tree .row', 'document.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the first draft once more')
+
     // Another file of the project is read on the page, and the project stays open beside it.
-    await app.press('.rail .tree .row', 'intents.md')
+    await app.press('.projects .tree .row', 'intents.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('intents.md')`, 'the file on the page')
     assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review*', 'Agent', 'tasks'])
 

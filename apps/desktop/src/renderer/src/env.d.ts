@@ -102,6 +102,12 @@ export type MateApi = {
   openProject: (project: string, file?: string) => Promise<DocumentView>
   /** Tick a task box in a pane, or clear it. `at` is where the box is in `base`, the text that was shown. */
   tickPane: (project: string, name: string, base: string, at: number, draft?: string) => Promise<DocumentView>
+  /** The documents of the shelf, by their path from the shelf folder. */
+  listShelf: () => Promise<string[]>
+  /** Copy a shelf document into a project's drafts, to work on. The shelf keeps its own. */
+  takeDown: (project: string, path: string) => Promise<DocumentView>
+  /** Publish a draft as a named document of the shelf. The reader confirms in a system dialog. Null when they do not. */
+  publishDraft: (project: string, file: string, name: string) => Promise<{ path: string; replaced: boolean } | null>
   /** Save what the reader typed. `base` is the text they began from: it is refused when the file holds another by now. */
   writeDraft: (project: string, file: string, base: string, text: string) => Promise<DocumentView>
   /** Start a new draft in a project. An existing file is never written over. */

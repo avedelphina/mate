@@ -115,6 +115,12 @@ export function App() {
   // Where the search matched in the open page.
   const [found, setFound] = useState<{ start: number; end: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Something that went well and is worth a line: a draft was published.
+  const [notice, setNotice] = useState<string | null>(null)
+  // The documents of the shelf, by their path from the shelf folder.
+  const [shelf, setShelf] = useState<string[]>([])
+  // The name a draft is being published under, while the reader is choosing it. Null when they are not.
+  const [publishing, setPublishing] = useState<string | null>(null)
   // The margin shows the threads of the draft, the agent invited into the project, or one of its panes.
   const [tab, setTab] = useState('review')
   // A session that is not about a draft is a conversation, and the conversation may have the page.
@@ -180,6 +186,15 @@ export function App() {
       unhear()
     }
   }, [project, file, readingPath])
+
+  // The shelf is listed with the context, and again when the window is come back to.
+  useEffect(() => {
+    if (!contextDir) return setShelf([])
+    const list = () => window.mate.listShelf().then(setShelf, () => setShelf([]))
+    void list()
+    window.addEventListener('focus', list)
+    return () => window.removeEventListener('focus', list)
+  }, [contextDir])
 
   useEffect(() => {
     if (!contextDir || !query.trim()) return setHits(null)
@@ -317,6 +332,35 @@ export function App() {
     return saving.current
   }
 
+  /** Publish the draft on the page under the name the reader chose. Main asks them once more, by name. */
+  async function publishDraft(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!project || file === null || !publishing?.trim() || !(await save())) return
+    try {
+      const done = await window.mate.publishDraft(project, file, publishing)
+      if (!done) return
+      setError(null)
+      setPublishing(null)
+      setNotice(`Published as ${done.path}.${done.replaced ? ' The document that was there is kept as history.' : ''}`)
+      setShelf(await window.mate.listShelf())
+    } catch (caught) {
+      setError(reason(caught, 'Could not publish the draft.'))
+    }
+  }
+
+  /** Take the shelf document on the page down into the open project, as a draft to work on. */
+  async function takeDown() {
+    if (!view || !reading) return
+    try {
+      const taken = await window.mate.takeDown(view.project, reading.path)
+      setError(null)
+      setReading(null)
+      setView(taken)
+    } catch (caught) {
+      setError(reason(caught, 'Could not take that document down.'))
+    }
+  }
+
   async function newDraft(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!project || !naming?.trim() || !(await leaveEditor())) return
@@ -338,6 +382,8 @@ export function App() {
   async function openProject(name: string, draft?: string) {
     if (!(await leaveEditor())) return
     setError(null)
+    setNotice(null)
+    setPublishing(null)
     setActive(null)
     setReading(null)
     setFound(null)
@@ -358,6 +404,8 @@ export function App() {
   async function read(path: string) {
     if (!(await leaveEditor())) return
     setAgentOnPage(false)
+    setNotice(null)
+    setPublishing(null)
     setError(null)
     setActive(null)
     setFound(null)
@@ -563,8 +611,20 @@ export function App() {
           {contextDir && !hits && (
             <>
               <h2 title={contextDir}>{contextName}</h2>
+              {/* What is true now, for every project. A document is read from here, and taken down from the page. */}
+              {shelf.length > 0 && (
+                <details className="shelf">
+                  <summary>Shelf</summary>
+                  <Tree
+                    paths={shelf}
+                    current={reading?.kind === 'shelf' ? reading.path.slice('shelf/'.length) : null}
+                    onOpen={(path) => void read(`shelf/${path}`)}
+                    onReveal={() => {}}
+                  />
+                </details>
+              )}
               {projects.length === 0 && <p className="meta hint">No projects in this folder.</p>}
-              <ul>
+              <ul className="projects">
                 {projects.map((name) => (
                   <li key={name}>
                     <button className={project === name ? 'row active' : 'row'} onClick={() => openProject(name)}>
@@ -614,13 +674,38 @@ export function App() {
           {onPage && <button className="quiet move" onClick={toMargin}>Back to the margin</button>}
           {!onPage && reading && <span className={`kind ${reading.kind}`}>{KINDS[reading.kind].label}</span>}
           {!onPage && reading && <span>{reading.path}</span>}
+          {!onPage && reading?.kind === 'shelf' && view && (
+            <span className="acts">
+              <button className="quiet" title="A copy the project owns. The shelf keeps its own." onClick={() => void takeDown()}>
+                Take a copy into {view.project}
+              </button>
+            </span>
+          )}
           {!onPage && !reading && view && <span className="meta">{view.project}</span>}
           {!onPage && !reading && file !== null && <span className="meta">/</span>}
           {!onPage && !reading && file !== null && <span>{file}</span>}
           {!onPage && !reading && file !== null && (
             <span className="acts">
-              {typing === null ? (
-                <button className="quiet" onClick={edit}>Edit</button>
+              {publishing !== null ? (
+                <form className="publish" onSubmit={publishDraft}>
+                  <input
+                    autoFocus
+                    list="shelf-names"
+                    value={publishing}
+                    aria-label="Name on the shelf"
+                    title="The name of the document on the shelf. One that is there is replaced, and kept as history."
+                    onChange={(event) => setPublishing(event.target.value)}
+                    onKeyDown={(event) => event.key === 'Escape' && setPublishing(null)}
+                  />
+                  <datalist id="shelf-names">{shelf.map((each) => <option key={each} value={each} />)}</datalist>
+                  <button className="primary">Publish</button>
+                  <button type="button" className="quiet" onClick={() => setPublishing(null)}>Cancel</button>
+                </form>
+              ) : typing === null ? (
+                <>
+                  <button className="quiet" onClick={edit}>Edit</button>
+                  <button className="quiet" title="Make this draft a document of the shelf" onClick={() => setPublishing(file)}>Publish…</button>
+                </>
               ) : (
                 <>
                   <button className="quiet" title="⌘S" disabled={typing === based.current} onClick={() => void save()}>Save</button>
@@ -755,6 +840,7 @@ export function App() {
         </header>
         <div className="scroll">
           {error && <p className="error" role="alert">{error}</p>}
+          {notice && <p className="notice" role="status">{notice}</p>}
           {reading && (!view || shown === 'review') && <p className="meta hint">{KINDS[reading.kind].note}</p>}
           {view && shown === 'agent' && (
             <>

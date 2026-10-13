@@ -5,7 +5,21 @@ import path from 'node:path'
 import { addReply, anchorComment, applySuggestion } from '../shared/comments'
 import { listAgents } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
-import { addComment, createDraft, editDraft, listProjects, placeOnDisk, readContextFile, readProject, tickPane, writeDraft } from './context'
+import {
+  addComment,
+  createDraft,
+  editDraft,
+  listProjects,
+  listShelf,
+  placeOnDisk,
+  publish,
+  readContextFile,
+  readProject,
+  shelfPath,
+  takeDown,
+  tickPane,
+  writeDraft
+} from './context'
 import { refreshIndex, searchIndex } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
 import { approve, describe, instructionFiles, keepPinsIn, unapproved } from './pins'
@@ -212,6 +226,37 @@ app.whenReady().then(() => {
     writeDraft(requireContext(event), project, file, String(base), String(text))
   )
   ipcMain.handle('draft:create', (event, project: string, name: string) => createDraft(requireContext(event), project, String(name)))
+
+  ipcMain.handle('shelf:list', (event) => listShelf(requireContext(event)))
+
+  // A shelf document is taken down into a project as a copy to work on. The shelf keeps its own.
+  ipcMain.handle('shelf:take', (event, project: string, relative: string) => takeDown(requireContext(event), project, String(relative)))
+
+  // Publishing is the reader's act, and no agent's. The shelf is what every project reads as true, so the
+  // reader says yes in a dialog of the system, which the page cannot press. It names what is replaced.
+  ipcMain.handle('draft:publish', async (event, project: string, file: string, name: string) => {
+    const contextDir = requireContext(event)
+    const open = (await readProject(contextDir, project, file)).comments.filter((each) => !each.resolved).length
+    const target = shelfPath(String(name))
+    const replaces = (await listShelf(contextDir)).includes(target.slice('shelf/'.length))
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      type: 'question' as const,
+      buttons: ['Cancel', 'Publish'],
+      defaultId: 0,
+      cancelId: 0,
+      message: `Publish ${file} to the shelf?`,
+      detail:
+        `projects/${project}/draft/${file}\nbecomes\n${target}\n\n` +
+        (replaces
+          ? 'It takes the place of the document that is there. That one is kept as history, and is no longer current.'
+          : 'It is a new document on the shelf.') +
+        (open > 0 ? `\n\n${open === 1 ? 'One comment on the draft is' : `${open} comments on the draft are`} still open. Comments are not published.` : '') +
+        '\n\nEvery project of this context reads the shelf as what is true now.'
+    }
+    const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+    return response === 1 ? publish(contextDir, project, file, String(name)) : null
+  })
 
   // The reader ticks a task in a pane. One character of the pane's file changes, and no other file can.
   ipcMain.handle('pane:tick', (event, project: string, name: string, base: string, at: number, draft?: string) =>
