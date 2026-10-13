@@ -184,6 +184,10 @@ test('typing in a draft keeps every comment, and every line that was not touched
   const windows = `One.\r\n${marker('1', 'One.')}\r\nTwo.\r\n`
   assert.equal(retype(windows, 'One.\nBetween.\nTwo.\n'), `One.\r\n${marker('1', 'One.')}\r\nBetween.\r\nTwo.\r\n`)
 
+  // An empty line after the changed one keeps its Windows ending too.
+  assert.equal(retype('One.\r\n\r\nTwo.\r\n', 'One, edited.\n\nTwo.\n'), 'One, edited.\r\n\r\nTwo.\r\n')
+  assert.equal(retype('\r\nOne.\r\n', '\nOne, edited.\n'), '\r\nOne, edited.\r\n')
+
   // A file with no line break at its end keeps none, unless the reader types one.
   assert.equal(retype('One.\nTwo.', 'One.\nTwo, edited.'), 'One.\nTwo, edited.')
   assert.equal(retype('One.\nTwo.', 'One.\nTwo.\n'), 'One.\nTwo.\n')

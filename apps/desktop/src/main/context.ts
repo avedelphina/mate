@@ -198,3 +198,26 @@ export async function createDraft(contextDir: string, project: string, name: str
   mateWrote(contextDir, `projects/${project}/draft/${file}`, Buffer.from(text))
   return readProject(contextDir, project, file)
 }
+
+/**
+ * Tick a task box in a pane, or clear it. `at` is where the box is in the text the reader was
+ * shown, and `base` is that text: a pane an agent has written since is not changed. The one
+ * character is all that changes in the file.
+ */
+export async function tickPane(contextDir: string, project: string, name: string, base: string, at: number, draft?: string): Promise<DocumentView> {
+  const dir = path.join(resolveInside(contextDir, 'projects', project), 'panes')
+  if (name.startsWith('.') || !(await listMarkdown(dir)).includes(name)) throw new Error('That pane is not in this project.')
+  const raw = await readFile(path.join(dir, name), 'utf8')
+  const text = readDocument(raw).text
+  if (text !== base) throw new Error('The pane has changed since it was shown. Nothing was ticked.')
+  // A box is `[ ]` or `[x]` at the start of a list item, and nothing else is.
+  const box = text.slice(at, at + 3)
+  const line = text.slice(text.lastIndexOf('\n', at - 1) + 1, at)
+  if (!Number.isInteger(at) || !/^\[[ xX]\]$/.test(box) || !/^[\s>]*(?:[-*+]|\d+[.)])\s+$/.test(line)) throw new Error('That is not a task box.')
+  const next = Buffer.from(retype(raw, text.slice(0, at + 1) + (box[1] === ' ' ? 'x' : ' ') + text.slice(at + 2)))
+  const temporary = path.join(dir, `.${name}.${randomUUID()}.tmp`)
+  await writeFile(temporary, next)
+  await rename(temporary, path.join(dir, name))
+  mateWrote(contextDir, `projects/${project}/panes/${name}`, next)
+  return readProject(contextDir, project, draft)
+}

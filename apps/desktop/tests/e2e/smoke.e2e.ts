@@ -98,6 +98,23 @@ test('the window, on the example context: a comment into the file, the tree, a p
     // A pane is a tab of the margin. One that is written while the project is open is put on show.
     await app.press('.margin .tabs button', 'tasks')
     await app.until(`document.querySelector('.margin .pane h1')?.textContent.includes('Tasks')`, 'the pane in the margin')
+    // The reader ticks a task in the pane, and the file has it ticked.
+    await app.page(`[...document.querySelectorAll('.margin .pane li')].find((each) => each.textContent.includes('Mark what is unclear')).querySelector('.box').click()`)
+    await app.until(`[...document.querySelectorAll('.margin .pane li')].find((each) => each.textContent.includes('Mark what is unclear')).querySelector('.box.checked') !== null`, 'the task is ticked')
+    assert.match(await readFile(path.join(project, 'panes/tasks.md'), 'utf8'), /^- \[x\] Mark what is unclear$/m)
+    // A line written to be said is a button, and it reads its own words. With no session open, there is nobody to say it to.
+    assert.equal(await app.page(`document.querySelector('.margin .pane .say').innerText`), 'Write this pane again from the tracker')
+    await app.page(`document.querySelector('.margin .pane .say').click()`)
+    await app.until(`document.querySelector('.error')?.textContent.includes('Open a session with an agent first')`, 'the reader is told to open a session')
+    await app.press('.invite button', 'Your own agent')
+    await app.until(`!!document.querySelector('.margin .talk')`, 'a session is open')
+    await app.press('.margin .tabs button', 'tasks')
+    await app.page(`document.querySelector('.margin .pane .say').click()`)
+    await app.until(`document.querySelector('.margin .asof + .asof')?.textContent.includes('Said to the agent')`, 'the pane says what it said')
+    await app.press('.margin .tabs button', 'Agent')
+    await app.until(`[...document.querySelectorAll('.said.you')].some((each) => each.textContent.trim() === 'Write this pane again from the tracker')`, 'the words are in the conversation')
+    await app.press('.margin .tabs button', 'tasks')
+
     await writeFile(path.join(project, 'panes/deadlines.md'), '# Deadlines\n\n- 20 October: legal\n')
     await app.page(`window.dispatchEvent(new Event('focus'))`)
     await app.until(`document.querySelector('.margin .pane h1')?.textContent.includes('Deadlines')`, 'the new pane on show')
@@ -105,6 +122,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
 
     // The conversation with the agent can have the page. Nothing is trusted, and no agent is started here.
     await app.press('.margin .tabs button', 'Agent')
+    await app.press('.margin .talk-head button', '‹ Sessions')
     await app.until(`!!document.querySelector('.margin .invite')`, 'the agents to invite')
     assert.match(await app.page<string>(`document.querySelector('.trust').textContent`), /This context is not trusted/)
     await app.press('.talk-move button', 'Open in the page')

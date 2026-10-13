@@ -188,6 +188,11 @@ details .prose, .pane { margin-top: 8px; font: 13.5px/1.6 var(--read); }
 details .prose h1, .pane h1 { font-size: 1.15em; }
 details .prose h2, details .prose h3, .pane h2, .pane h3 { font-size: 1em; }
 .asof { margin: 4px 0 12px; }
+/* What the reader can press in a pane: a task box, and a line that says its own words to the agent. */
+.pane .box { cursor: pointer; }
+.pane .box:hover::before { color: var(--accent); }
+.say { display: inline-block; margin: 2px 0; padding: 3px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); font: 12.5px/1.5 var(--ui); cursor: pointer; }
+.say:hover { background: var(--hover); }
 /* A pane is as wide as the margin. A table that is wider scrolls on its own. */
 .pane .table { display: block; overflow-x: auto; }
 
@@ -242,4 +247,4 @@ details .prose h2, details .prose h3, .pane h2, .pane h3 { font-size: 1em; }
 .decide .diff { margin: 8px 0 0; }
 .diff-note { margin: 0 0 10px; }
 .margin code, .talk-page code { font: 0.92em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
-.talk { position: sticky; bottom: 0; margin-top: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+.talk { position: sticky; bottom: 0; margin-top: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); box-shadow: 0 28px 0 var(--page); }

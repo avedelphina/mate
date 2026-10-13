@@ -123,6 +123,10 @@ export function App() {
   // Where the agent is drawn. Each is there only while its place is on show.
   const [pageSlot, setPageSlot] = useState<HTMLElement | null>(null)
   const [marginSlot, setMarginSlot] = useState<HTMLElement | null>(null)
+  // The session that is open with the agent, when there is one. A pane can say something to it.
+  const [sessionOpen, setSessionOpen] = useState<string | null>(null)
+  // What a pane last said to the agent, shown on that pane until it is written again.
+  const [said, setSaid] = useState<{ pane: string; words: string } | null>(null)
   // The draft as the reader is typing it. Null while the page is read and not written.
   const [typing, setTyping] = useState<string | null>(null)
   // The text the reader began from. A save is refused when the file holds another text by now.
@@ -202,6 +206,7 @@ export function App() {
     if (!before) return setFresh([])
     const news = view.panes.filter((each) => before[each.name] !== each.written).map((each) => each.name)
     if (news.length === 0) return
+    setSaid((now) => (now && news.includes(now.pane) ? null : now))
     // Not when that would take the conversation away from the reader. Then the tab is marked instead.
     if (tab === 'agent' && !agentOnPage) setFresh((marked) => [...new Set([...marked, ...news])])
     else setTab(`pane:${news[news.length - 1]}`)
@@ -478,6 +483,35 @@ export function App() {
   const shown = pane ? 'pane' : tab === 'agent' && !agentOnPage ? 'agent' : 'review'
   const onPage = agentOnPage && view !== null
 
+  /** Tick a task in a pane, or clear it. The file changes, so the agent finds it ticked when it next reads. */
+  function tick(name: string, base: string, at: number) {
+    if (!view) return
+    setError(null)
+    window.mate.tickPane(view.project, name, base, at, view.file ?? undefined).then(setView, (caught) => {
+      setError(reason(caught, 'Could not tick that.'))
+      // The pane may have been written meanwhile. Show what the file holds now.
+      window.mate.openProject(view.project, view.file ?? undefined).then(setView, () => {})
+    })
+  }
+
+  /** A pane says its own words to the agent, in the session that is open. The words are the ones on the button. */
+  function say(name: string, heard: string) {
+    if (!view) return
+    const words = heard.replace(/\s+/g, ' ').trim()
+    if (!words) return
+    // ponytail: a fixed limit, so that a button is something the reader has read before they press it.
+    if (words.length > 300) return setError('That is too long to say from a button. Say it to the agent yourself.')
+    if (!sessionOpen) {
+      if (!agentOnPage) setTab('agent')
+      return setError('Open a session with an agent first. Then a pane can say this to it.')
+    }
+    setError(null)
+    window.mate.sendMessage(view.project, sessionOpen, words, false).then(
+      () => setSaid({ pane: name, words }),
+      (caught) => setError(reason(caught, 'Could not say that to the agent.'))
+    )
+  }
+
   /** Give the page to the conversation. The margin then shows a pane, when the project has one. */
   function toPage() {
     clearComment()
@@ -735,7 +769,11 @@ export function App() {
                 {new Date(pane.written).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}. It does
                 not update itself. Ask the agent to write it again.
               </p>
-              <div className="prose pane"><Rendered text={pane.text} /></div>
+              {said?.pane === pane.name && <p className="meta asof">Said to the agent: “{said.words}”</p>}
+              {/* The reader can act on a pane in two ways, and Mate draws both: tick a task, press a line that says its own words. */}
+              <div className="prose pane">
+                <Rendered text={pane.text} onTick={(at) => tick(pane.name, pane.text, at)} onSay={(words) => say(pane.name, words)} />
+              </div>
             </>
           )}
           {view && shown === 'review' && file !== null && !reading && (
@@ -807,6 +845,7 @@ export function App() {
           project={view.project}
           onChanged={() => window.mate.openProject(view.project, view.file ?? undefined).then(setView, () => {})}
           into={onPage ? pageSlot : shown === 'agent' ? marginSlot : null}
+          onSession={setSessionOpen}
         />
       )}
     </div>

@@ -13,7 +13,9 @@ unfinished.
 - `draft/` — the working copy and the comments on it.
 - `dropbox/` — intake that belongs to this effort, not to the whole context.
 - `panes/` — what an agent gathered to show you beside the draft: tasks,
-  deadlines, mail. One file is one pane. A pane is not a source.
+  deadlines, mail. One file is one pane. A pane is not a source. You can
+  tick a task in it, and press a line written as `[words](say:)` to say
+  those words to the agent.
 
 Comments are written into the markdown file with the same marker
 [md-redline](https://github.com/dejuknow/md-redline) uses, so the comment

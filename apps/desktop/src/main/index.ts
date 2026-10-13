@@ -5,7 +5,7 @@ import path from 'node:path'
 import { addReply, anchorComment, applySuggestion } from '../shared/comments'
 import { listAgents } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
-import { addComment, createDraft, editDraft, listProjects, placeOnDisk, readContextFile, readProject, writeDraft } from './context'
+import { addComment, createDraft, editDraft, listProjects, placeOnDisk, readContextFile, readProject, tickPane, writeDraft } from './context'
 import { refreshIndex, searchIndex } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
 import { approve, describe, instructionFiles, keepPinsIn, unapproved } from './pins'
@@ -212,6 +212,11 @@ app.whenReady().then(() => {
     writeDraft(requireContext(event), project, file, String(base), String(text))
   )
   ipcMain.handle('draft:create', (event, project: string, name: string) => createDraft(requireContext(event), project, String(name)))
+
+  // The reader ticks a task in a pane. One character of the pane's file changes, and no other file can.
+  ipcMain.handle('pane:tick', (event, project: string, name: string, base: string, at: number, draft?: string) =>
+    tickPane(requireContext(event), project, String(name), String(base), Number(at), draft)
+  )
 
   // The other handler that changes the prose. It runs when the reader presses Apply, never otherwise.
   ipcMain.handle('comment:apply', (event, project: string, file: string, id: string) =>

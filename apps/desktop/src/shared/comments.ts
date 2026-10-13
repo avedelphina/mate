@@ -298,8 +298,14 @@ export function retype(markdown: string, next: string): string {
   for (const line of text === '' ? [] : text.replace(/\n$/, '').split('\n')) {
     starts.push(Math.min(text.length, starts[starts.length - 1] + line.length + 1))
   }
+  // Where a visible line begins in the file. An empty line in a file with Windows line endings begins
+  // at its `\r`, which the visible text does not have: without this it would be left with the line before.
+  const edge = (visible: number) => {
+    const at = raw[visible]
+    return markdown[at] === '\n' && markdown[at - 1] === '\r' ? at - 1 : at
+  }
   // What comes before the first visible character: markers only, when there is anything.
-  let out = markdown.slice(0, raw[0])
+  let out = markdown.slice(0, edge(0))
   const onNewLine = () => {
     if (out && !out.endsWith('\n')) out += eol
   }
@@ -321,8 +327,8 @@ export function retype(markdown: string, next: string): string {
       continue
     }
     // A visible line in the file: its own bytes, its line ending, and the markers that follow it.
-    const from = raw[starts[k]]
-    const to = raw[starts[k + 1]]
+    const from = edge(starts[k])
+    const to = edge(starts[k + 1])
     k += 1
     if (line.kind === ' ') {
       // Nothing is put between what came before and a line that was kept: the bytes stay as they were.

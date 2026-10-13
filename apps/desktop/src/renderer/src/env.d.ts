@@ -100,6 +100,8 @@ export type MateApi = {
   /** Show a file of the context in the system's file manager. It is not opened. */
   revealFile: (path: string) => Promise<void>
   openProject: (project: string, file?: string) => Promise<DocumentView>
+  /** Tick a task box in a pane, or clear it. `at` is where the box is in `base`, the text that was shown. */
+  tickPane: (project: string, name: string, base: string, at: number, draft?: string) => Promise<DocumentView>
   /** Save what the reader typed. `base` is the text they began from: it is refused when the file holds another by now. */
   writeDraft: (project: string, file: string, base: string, text: string) => Promise<DocumentView>
   /** Start a new draft in a project. An existing file is never written over. */

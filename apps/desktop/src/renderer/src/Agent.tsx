@@ -18,7 +18,14 @@ function reason(caught: unknown): string {
  * into whichever place the window gives it: the margin, or the page for a session that is not
  * about a draft. With no place it draws nothing, and still keeps up with its sessions.
  */
-export function Agent({ project, onChanged, into }: { project: string; onChanged: () => void; into: HTMLElement | null }) {
+export function Agent(props: {
+  project: string
+  onChanged: () => void
+  into: HTMLElement | null
+  /** Told which session is open, so that a pane can say something to it. */
+  onSession: (id: string | null) => void
+}) {
+  const { project, onChanged, into, onSession } = props
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [open, setOpen] = useState<string | null>(null)
@@ -33,6 +40,7 @@ export function Agent({ project, onChanged, into }: { project: string; onChanged
   const [trusted, setTrusted] = useState(false)
 
   const session = sessions.find((each) => each.id === open) ?? null
+  useEffect(() => onSession(session?.id ?? null), [session?.id])
   const label = (each: { agent: AgentKind; host: string | null }) =>
     agents.find((agent) => agent.kind === each.agent && agent.host === each.host)?.label ?? each.agent
   const keep = (next: Session) =>

@@ -78,3 +78,22 @@ test('front matter and a fenced block are shown as written, without their fences
   const body = leaves(code.children).filter((leaf) => !leaf.hidden)
   assert.deepEqual(body.map((leaf) => draft.slice(leaf.from, leaf.to)), ['const a = 1'])
 })
+
+test('a task box and a line to say are found on the page by what they are in the text', () => {
+  const pane = '- [ ] Call Ada\n- [x] Sent\n\n[Write this pane again](say:)\n\nA [plain link](http://x.y).\n'
+  const elements = (pieces: Piece[]): Extract<Piece, { tag: string }>[] =>
+    pieces.flatMap((piece) => ('tag' in piece ? [piece, ...elements(piece.children)] : []))
+  const found = elements(renderMarkdown(pane))
+
+  // A box holds its marker, hidden. Where the marker is in the text is how the file is ticked.
+  const boxes = found.filter((each) => each.className?.startsWith('box'))
+  assert.deepEqual(boxes.map((each) => [each.className, pane.slice((each.children[0] as Leaf).from, (each.children[0] as Leaf).to)]), [['box', '[ ]'], ['box checked', '[x]']])
+
+  // A link whose address is `say:` is the one that becomes a button. Its words are what is shown of it.
+  const links = found.filter((each) => each.className === 'link')
+  assert.deepEqual(links.map((each) => each.title), ['say:', 'http://x.y'])
+  const words = leaves(links[0].children).filter((leaf) => !leaf.hidden).map((leaf) => pane.slice(leaf.from, leaf.to)).join('')
+  assert.equal(words, 'Write this pane again')
+  // Nothing of the file is dropped for either.
+  assert.equal(leaves(renderMarkdown(pane)).map((leaf) => pane.slice(leaf.from, leaf.to)).join(''), pane)
+})

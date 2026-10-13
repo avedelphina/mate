@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { readProject } from '../src/main/context.ts'
+import { readProject, tickPane } from '../src/main/context.ts'
 import { placeOf, refreshIndex, searchIndex } from '../src/main/contextIndex.ts'
 import { insertComment } from '../src/shared/comments.ts'
 
@@ -130,6 +130,34 @@ test('a project lists the files in its folder, and opens with no draft', async (
     const empty = await readProject(root, 'empty')
     assert.deepEqual([empty.drafts, empty.file, empty.text, empty.files], [[], null, '', ['README.md']])
     await assert.rejects(readProject(root, 'nowhere'), /not in this context/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a task in a pane is ticked in the file, one character, and only from the text that was shown', async () => {
+  const root = await context()
+  try {
+    const file = path.join(root, 'projects/review/panes/tasks.md')
+    await mkdir(path.dirname(file))
+    const text = '# Tasks\r\n\r\n- [ ] Call Ada\r\n- [x] Send the copy\r\n\r\nNot a task: [ ] here.\r\n'
+    await writeFile(file, text)
+    const shown = (await readProject(root, 'review')).panes[0].text
+    assert.equal(shown, text.replace(/\r\n/g, '\n'))
+
+    // The box is found by where it is in the text the reader saw. The file keeps its line endings.
+    const ticked = await tickPane(root, 'review', 'tasks.md', shown, shown.indexOf('[ ] Call'))
+    assert.equal(await readFile(file, 'utf8'), text.replace('- [ ] Call', '- [x] Call'))
+    const cleared = await tickPane(root, 'review', 'tasks.md', ticked.panes[0].text, ticked.panes[0].text.indexOf('[x] Send'))
+    assert.equal(await readFile(file, 'utf8'), text.replace('- [ ] Call', '- [x] Call').replace('- [x] Send', '- [ ] Send'))
+
+    const now = cleared.panes[0].text
+    // Brackets that are not the box of a list item are not ticked, and nothing is, from a text that is no longer there.
+    await assert.rejects(tickPane(root, 'review', 'tasks.md', now, now.indexOf('[ ] here')), /not a task box/)
+    await assert.rejects(tickPane(root, 'review', 'tasks.md', now, 2), /not a task box/)
+    await assert.rejects(tickPane(root, 'review', 'tasks.md', shown, shown.indexOf('[ ] Call')), /has changed since it was shown/)
+    await assert.rejects(tickPane(root, 'review', '../intents.md', now, 0), /not in this project/)
+    await assert.rejects(tickPane(root, 'review', 'missing.md', now, 0), /not in this project/)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

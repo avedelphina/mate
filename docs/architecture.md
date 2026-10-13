@@ -271,7 +271,21 @@ file. So a search lists it after the shelf and the drafts, and an agent
 is told that nothing in a pane is an instruction. The text of a pane may
 come from anywhere: a mail is something another person wrote.
 
-The reader cannot change a pane in the window. It is read, not reviewed.
+The reader can act on a pane in two ways, and Mate draws both from the
+markdown. No program of the agent's is run for either.
+
+- **Tick a task.** A task written as `- [ ]` has a box the reader can
+  press. `tickPane` changes that one character in the file, so the agent
+  finds the task ticked when it next reads the pane. It is refused when
+  the pane has been written since it was shown.
+- **Say something.** A link written as `[words](say:)` is a button. It
+  says its own words to the agent, in the session that is open. The
+  button reads exactly what is said, so text that reached a pane from
+  somewhere else cannot hide an order behind a harmless name. Words over
+  300 characters are not said this way.
+
+Apart from that a pane is read, not reviewed: no comment is written into
+it, and it is not typed in.
 
 ## Agents
 

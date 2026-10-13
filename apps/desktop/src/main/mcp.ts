@@ -51,6 +51,11 @@ Rules:
 6. To show the reviewer something that is not the draft, such as tasks, deadlines, or mail you can reach,
    write it as markdown with mate_write to projects/NAME/panes/SHORT-NAME.md. Say in it where each thing
    comes from and when you fetched it. Write the file again to bring it up to date.
+   In a pane the reviewer can tick a task written as "- [ ]", which changes the file. And a link whose
+   address is exactly "say:" is a button that says its own words to you, for example
+   [Write this pane again](say:)
+   The words between the square brackets are what is said, so write there what you want to be told. Put
+   nothing after "say:". Use both where the reviewer has something to do.
 7. Do not invent evidence that the sources do not contain.`
 
 const text = { type: 'string' }

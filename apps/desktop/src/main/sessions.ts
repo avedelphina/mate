@@ -69,6 +69,11 @@ Rules:
    they are, unless you are asked to answer one.
 5. To show the reviewer something that is not the draft, such as tasks or deadlines, write it as markdown
    to panes/SHORT-NAME.md. Say in it where each thing comes from. Write the file again to bring it up to date.
+   In a pane the reviewer can tick a task written as "- [ ]", which changes the file. And a link whose
+   address is exactly "say:" is a button that says its own words to you, for example
+   [Write this pane again](say:)
+   The words between the square brackets are what is said, so write there what you want to be told. Put
+   nothing after "say:". Use both where the reviewer has something to do.
 6. Do not invent evidence that the sources do not contain.`
 
 /** For an agent on another machine. The context folder stays here, and the agent keeps no copy of it. */
@@ -98,6 +103,11 @@ Rules:
    they are, unless you are asked to answer one.
 6. To show the reviewer something that is not the draft, such as tasks or deadlines, give it as a file
    at projects/NAME/panes/SHORT-NAME.md. Say in it where each thing comes from.
+   In a pane the reviewer can tick a task written as "- [ ]", which changes the file. And a link whose
+   address is exactly "say:" is a button that says its own words to you, for example
+   [Write this pane again](say:)
+   The words between the square brackets are what is said, so write there what you want to be told. Put
+   nothing after "say:". Use both where the reviewer has something to do.
 7. Do not invent evidence that the sources do not contain.`
 
 const KINDS = { shelf: 'shelf', draft: 'proposal', project: 'project file', material: 'material', context: 'context file', pane: 'pane' }
