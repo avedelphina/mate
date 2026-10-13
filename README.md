@@ -210,7 +210,8 @@ context can make it trusted. In a trusted context:
 - Hermes stays between turns. It asks you in the conversation before a
   risky command, or before an edit while no plan is approved (*Allow
   once* or *Deny*), and a message you send while it works is taken into
-  the turn.
+  the turn. *After this turn* sends it to wait for the turn to end
+  instead.
 - A script of a project runs from its button.
 - *Commit…* commits. A commit starts the hooks of the repository, and
   those are programs from the folder, like a script.

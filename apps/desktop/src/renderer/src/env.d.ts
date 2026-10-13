@@ -164,7 +164,8 @@ export type MateApi = {
   bindMcp: (project: string, id: string) => Promise<{ url: string; token: string }>
   listSessions: (project: string) => Promise<Session[]>
   startSession: (project: string, agent: AgentKind, host?: string) => Promise<Session>
-  sendMessage: (project: string, id: string, text: string, approve: boolean) => Promise<Session>
+  /** `wait`: sent while the agent works, it is to go when the turn has ended, even to an agent that would take it into the turn. */
+  sendMessage: (project: string, id: string, text: string, approve: boolean, wait?: boolean) => Promise<Session>
   stopTurn: (id: string) => Promise<void>
   /** Yes or no to what the agent asked. Yes is for that one thing, once. */
   answerAsk: (id: string, ask: string, allow: boolean) => Promise<void>

@@ -5,7 +5,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { outcome } from '../src/main/acp.ts'
 import { AGENTS } from '../src/main/agents.ts'
-import { answerAsk, listModels, sendMessage, startSession, tuneSession, type Session } from '../src/main/sessions.ts'
+import { answerAsk, listModels, sendMessage, startSession, stopAllTurns, tuneSession, type Session } from '../src/main/sessions.ts'
 import { keepTrustIn, setTrusted } from '../src/main/trust.ts'
 
 test('a yes to an agent is for this once, and a yes it cannot take that way is a no', () => {
@@ -197,6 +197,52 @@ test('the reader chooses the model and the effort of a conversation with Hermes'
     await turn(session.id)
     assert.deepEqual((await logged()).filter((each) => each.started).at(-1)!.started.slice(-4), ['-m', 'shop:big/model-1', '--reasoning', 'low'])
   } finally {
+    AGENTS.hermes.command = command
+    await rm(root, { recursive: true, force: true })
+    await rm(out, { recursive: true, force: true })
+  }
+})
+
+test('said while an agent that listens is working, a message waits for the turn to end when the reader says so', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-wait-'))
+  const out = `${root}-out`
+  const command = AGENTS.hermes.command
+  try {
+    await mkdir(path.join(root, 'projects/review/draft'), { recursive: true })
+    await mkdir(out)
+    await writeFile(path.join(root, 'projects/review/draft/document.md'), 'Draft text.\n')
+    await writeFile(path.join(out, 'agent.mjs'), AGENT(path.join(out, 'log')))
+    await chmod(path.join(out, 'agent.mjs'), 0o755)
+    AGENTS.hermes.command = path.join(out, 'agent.mjs')
+    keepTrustIn(path.join(out, 'trusted.json'))
+    setTrusted(root, true)
+    const logged = async () => (await readFile(path.join(out, 'log'), 'utf8')).trim().split('\n').map((line) => JSON.parse(line))
+
+    const session = await startSession(root, 'review', 'hermes')
+    let now: Session = session
+    // A quick turn that goes on until it is told something.
+    const first = await sendMessage(root, 'review', session.id, 'A quick one, and wait for me.', false, (next) => (now = next))
+    for (let waited = 0; !now.messages.at(-1)?.text.includes('The answer was'); waited += 20) {
+      if (waited > 5000) throw new Error('The agent did not get to work.')
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+
+    // To wait: it is not put into the turn. It is shown as waiting, and the agent has not heard it.
+    const later = await sendMessage(root, 'review', session.id, 'A quick one for afterwards.', false, (next) => (now = next), true)
+    assert.deepEqual([later.started.messages.at(-1)!.text, later.started.messages.at(-1)!.waiting], ['A quick one for afterwards.', true])
+    assert.equal((await logged()).filter((each) => each.prompt).length, 1)
+
+    // Not to wait: the agent takes it into the turn, which then ends. What waited goes as a turn of its own.
+    await sendMessage(root, 'review', session.id, 'Now.', false, (next) => (now = next))
+    const done = await first.finished
+    const prompts = (await logged()).filter((each) => each.prompt).map((each) => each.prompt as string)
+    assert.equal(prompts[1], '/steer Now.')
+    assert.match(prompts[2], /A quick one for afterwards\.$/)
+    assert.equal(prompts.length, 3)
+    assert.equal(done.messages.some((each) => each.waiting), false)
+  } finally {
+    // The agent that stayed is sent away, as when the app closes. The test would not end with it there.
+    stopAllTurns()
     AGENTS.hermes.command = command
     await rm(root, { recursive: true, force: true })
     await rm(out, { recursive: true, force: true })

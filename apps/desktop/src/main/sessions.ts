@@ -421,7 +421,8 @@ const conversation = (session: Session) =>
  * Send one message and let the agent answer. An approval is a message too.
  *
  * A message sent while the agent is working does not stop the turn. It waits behind it, and goes
- * to the agent as soon as the turn has ended.
+ * to the agent as soon as the turn has ended. An agent that listens while it works takes the
+ * message into the turn instead, unless the reader said it is to wait (`wait`).
  *
  * `started` is the session as the message is taken in. `finished` settles when the agent has
  * stopped, the guard has been through the folder, and nothing is waiting any more.
@@ -432,7 +433,8 @@ export async function sendMessage(
   id: string,
   text: string,
   approve: boolean,
-  emit: (session: Session) => void
+  emit: (session: Session) => void,
+  wait = false
 ): Promise<{ started: Session; finished: Promise<Session> }> {
   // Two messages sent at the same moment are taken in one after the other, so the second finds the first one's turn.
   const before = entering.get(id) ?? Promise.resolve()
@@ -455,7 +457,7 @@ export async function sendMessage(
     }
 
     const turn = turns.get(id)
-    if (turn?.steer && !approve) {
+    if (turn?.steer && !approve && !wait) {
       // Mid-turn, with an agent that listens while it works: it takes the message into the turn.
       try {
         await turn.steer(message)

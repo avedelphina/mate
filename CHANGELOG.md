@@ -78,7 +78,8 @@ Agents:
   your terminal. The answer is kept outside the folder.
 - In a trusted context Hermes stays between turns. It asks before a risky
   command or an edit while no plan is approved (*Allow once*, *Deny*),
-  and a message sent while it works is taken into the turn.
+  and a message sent while it works is taken into the turn. *After this
+  turn* sends one that waits for the turn to end instead.
 - Instruction files (`AGENTS.md`, `CLAUDE.md`, `.hermes.md` and the
   like) are shown to you before an agent on this computer starts, when
   one is new or has changed since you approved it.

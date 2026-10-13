@@ -118,9 +118,9 @@ export function Agent(props: {
       <p className="meta diff-note">{compared.note}</p>
     ))
 
-  const send = (approve: boolean) => {
+  const send = (approve: boolean, wait = false) => {
     if (!session) return
-    void act(() => window.mate.sendMessage(project, session.id, text, approve), () => setText(''))
+    void act(() => window.mate.sendMessage(project, session.id, text, approve, wait), () => setText(''))
   }
 
   if (!into) return null
@@ -282,7 +282,7 @@ export function Agent(props: {
           placeholder={
             session.running
               ? listens
-                ? 'Add something. The agent takes it into what it is doing.'
+                ? 'Add something. Send puts it into what the agent is doing. After this turn keeps it until then.'
                 : 'Add something. It goes to the agent when this turn has ended.'
               : !planned
                 ? 'Say what you want done'
@@ -310,6 +310,12 @@ export function Agent(props: {
           {!session.running && session.messages.at(-1)?.cut && (
             <button onClick={() => void act(() => window.mate.sendMessage(project, session.id, 'Go on from where you were cut off.', false))}>
               Go on
+            </button>
+          )}
+          {/* An agent that listens takes a message into the turn it is in. The reader may want it to wait for the turn to end. */}
+          {session.running && listens && (
+            <button title="It goes to the agent when this turn has ended, and does not change what it is doing now" disabled={!text.trim()} onClick={() => send(false, true)}>
+              After this turn
             </button>
           )}
           <button className="primary" title="⌘↵" disabled={!text.trim()} onClick={() => send(false)}>

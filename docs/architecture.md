@@ -539,7 +539,10 @@ whole of that. Three things follow.
   Mate answers no. An ask that is still open when the turn ends is over.
 - **The agent can be told something while it works.** A message sent
   mid-turn goes to it at once, and it takes it into the turn. An approval
-  still waits behind the turn, as before.
+  still waits behind the turn, as before. The reader can also send a
+  message with After this turn: it then waits for the turn to end, as it
+  would with any other agent, and does not change what the agent is
+  doing now.
 - **The plan gate is in the agent too.** Until the plan is approved the
   agent is in the mode that asks before every edit. After it, edits go
   through, and the guard rules on them as on any other.
