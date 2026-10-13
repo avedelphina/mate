@@ -62,7 +62,8 @@ Rules:
    "run:" is a button that runs the script it names, on the reviewer's computer, with no agent, for example
    [scripts/extract-docx.py dropbox/letter.docx](run:)
    Between the square brackets is the script, then what it is given, and nothing else. It is run from the
-   project folder. A script must need nothing but what it is given: no question, no network.
+   project folder. A word in curly brackets, such as {file}, is asked of the reviewer when they press the
+   button. A script cannot ask anything while it runs: what it needs, it is given, or it takes from a file.
 8. Do not invent evidence that the sources do not contain.`
 
 const text = { type: 'string' }

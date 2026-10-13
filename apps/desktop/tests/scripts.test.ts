@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { runScript, stopScript, wordsOf } from '../src/main/scripts.ts'
+import { asked, filled } from '../src/shared/run.ts'
 import { keepTrustIn, setTrusted } from '../src/main/trust.ts'
 
 test('a line is the script and what it is given, with quotes around a word that has a space', () => {
@@ -61,4 +62,17 @@ test('a script of a trusted project is run as the line says, with no agent and n
     await rm(root, { recursive: true, force: true })
     await rm(out, { recursive: true, force: true })
   }
+})
+
+test('what a line leaves open is asked of the reader, and is given to the script as one thing', () => {
+  const line = 'scripts/merge.py {file} into {target} {file}'
+  assert.deepEqual(asked(line), ['file', 'target'])
+  assert.deepEqual(asked('scripts/plain.sh draft/document.md'), [])
+  // What has a space stays one thing the script is given. Nothing in it is read as anything else.
+  const full = filled(line, { file: 'dropbox/two words.docx', target: ' draft/out.md ' })
+  assert.equal(full, 'scripts/merge.py "dropbox/two words.docx" into draft/out.md "dropbox/two words.docx"')
+  assert.deepEqual(wordsOf(full), ['scripts/merge.py', 'dropbox/two words.docx', 'into', 'draft/out.md', 'dropbox/two words.docx'])
+  assert.deepEqual(wordsOf(filled('scripts/x.sh {a}', { a: '$(rm -rf ~); echo' })), ['scripts/x.sh', '$(rm -rf ~); echo'])
+  assert.throws(() => filled(line, { file: 'a.md' }), /Say what target is/)
+  assert.throws(() => filled(line, { file: 'a"b', target: 'c' }), /double quote cannot be given/)
 })

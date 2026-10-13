@@ -371,6 +371,14 @@ rights, so:
   changes for the agent's. It is stopped after five minutes, or when the
   reader presses Stop, together with what it started.
 
+The line may leave something open. A word in curly brackets, such as
+`{file}`, is asked of the reader when they press the button, and the
+files of the project are offered. What they give is one thing the script
+is given, spaces and all.
+
+A script cannot ask anything while it runs. It has no input: what it
+needs, it is given on its line or takes from a file.
+
 What it printed is shown under the button, with whether it failed. What
 it changed in the folder is just changed: no copy is kept and there is
 no Revert, as when the reader types. The guard is for agents.

@@ -205,6 +205,18 @@ test('in a context the reader trusts, a script of the project runs from its butt
     assert.match(await app.page<string>(`document.querySelector('.margin .ran pre').textContent`), /^draft\/document\.md: \d+ words\n$/)
     assert.match(await app.page<string>(`document.querySelector('.margin .ran .meta span').textContent`), /^scripts\/count-words\.py draft\/document\.md: done, [\d.]+ s$/)
 
+    // A line that leaves something open asks for it first, and offers the files of the project.
+    await app.page(`document.querySelectorAll('.margin .pane .run')[1].click()`)
+    await app.until(`!!document.querySelector('.margin .given input')`, 'the question before the run')
+    assert.ok((await app.page<string[]>(`[...document.querySelectorAll('#project-files option')].map((each) => each.value)`)).includes('intents.md'))
+    await app.page(`(() => {
+      const input = document.querySelector('.margin .given input')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'intents.md')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.form.requestSubmit()
+    })()`)
+    await app.until(`document.querySelector('.margin .ran pre')?.textContent.startsWith('intents.md: ')`, 'what the script printed for the file that was given')
+
     // A script has a card of its own in the tree, and runs from there too, given nothing.
     await app.press('.projects .tree .row', 'count-words.py')
     await app.until(`document.querySelector('.source strong')?.textContent === 'count-words.py'`, 'the card of the script')

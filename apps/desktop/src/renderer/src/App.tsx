@@ -3,6 +3,7 @@ import { Agent } from './Agent'
 import type { AssistState, DocumentView, FileView, Hit, Kind, Ran } from './env'
 import { Rendered, type Passage } from './Rendered'
 import { Tree } from './Tree'
+import { asked, filled } from '../../shared/run'
 import './styles.css'
 
 /** Electron wraps what a handler throws. The reader gets the sentence the handler wrote. */
@@ -138,6 +139,8 @@ export function App() {
   const [marginSlot, setMarginSlot] = useState<HTMLElement | null>(null)
   // The script that was last run, where its button is, and what it came to. `result` is null while it runs.
   const [ran, setRan] = useState<{ at: string; line: string; result: Ran | null } | null>(null)
+  // A run button whose line leaves something open, such as {file}: what the reader is giving for each name.
+  const [asking, setAsking] = useState<{ at: string; line: string; given: Record<string, string> } | null>(null)
   // Files the reader is deciding about: each leaves by one of the exits, or is let be.
   const [sources, setSources] = useState<Source[]>([])
   // The session that is open with the agent, when there is one. A pane can say something to it.
@@ -584,9 +587,19 @@ export function App() {
   }
 
   /** Run a script of the project, as the line on its button says. No agent is asked. `at` is where the button is. */
-  function run(at: string, heard: string) {
-    const line = heard.replace(/\s+/g, ' ').trim()
+  function run(at: string, heard: string, given?: Record<string, string>) {
+    let line = heard.replace(/\s+/g, ' ').trim()
     if (!view || !line || ran?.result === null) return
+    // Something is left open on the line: the reader is asked for it first, and the script runs when they have said.
+    if (asked(line).length > 0) {
+      if (!given) return setAsking({ at, line, given: {} })
+      try {
+        line = filled(line, given)
+      } catch (caught) {
+        return setError(reason(caught, 'That cannot be given to the script.'))
+      }
+    }
+    setAsking(null)
     const { project: inProject, file: inFile } = view
     setError(null)
     setRan({ at, line, result: null })
@@ -605,7 +618,39 @@ export function App() {
 
   /** What the script at this place is doing, or came to, with what it printed. */
   const outcome = (at: string) =>
-    ran?.at === at && (
+    asking?.at === at ? (
+      <form
+        className="ran given"
+        onSubmit={(event) => {
+          event.preventDefault()
+          run(at, asking.line, asking.given)
+        }}
+      >
+        <p className="meta"><span>{asking.line}</span></p>
+        {asked(asking.line).map((name, index) => (
+          <label key={name}>
+            <span>{name}</span>
+            <input
+              autoFocus={index === 0}
+              list="project-files"
+              value={asking.given[name] ?? ''}
+              onChange={(event) => setAsking({ ...asking, given: { ...asking.given, [name]: event.target.value } })}
+              onKeyDown={(event) => event.key === 'Escape' && setAsking(null)}
+            />
+          </label>
+        ))}
+        {/* What is asked for is most often a file of the project, so those are offered. Anything may be typed. */}
+        <datalist id="project-files">{view?.files.map((each) => <option key={each} value={each} />)}</datalist>
+        <p>
+          <span />
+          <span>
+            <button type="button" className="quiet" onClick={() => setAsking(null)}>Cancel</button>
+            <button className="primary">Run</button>
+          </span>
+        </p>
+      </form>
+    ) : (
+      ran?.at === at && (
       <div className="ran">
         <p className="meta">
           <span>
@@ -621,6 +666,7 @@ export function App() {
         </p>
         {ran.result?.output && <pre>{ran.result.output}</pre>}
       </div>
+      )
     )
 
   const settled = (source: Source) => setSources((all) => all.filter((each) => each !== source))
