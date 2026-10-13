@@ -1,9 +1,11 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 contextBridge.exposeInMainWorld('mate', {
-  openContext: (): Promise<{ dir: string; projects: string[] } | null> => ipcRenderer.invoke('context:open'),
-  newContext: (): Promise<{ dir: string; projects: string[] } | null> => ipcRenderer.invoke('context:create'),
-  currentContext: (): Promise<{ dir: string; projects: string[] } | null> => ipcRenderer.invoke('context:current'),
+  openContext: () => ipcRenderer.invoke('context:open'),
+  shapeContext: () => ipcRenderer.invoke('context:shape'),
+  trackContext: () => ipcRenderer.invoke('context:track'),
+  newContext: () => ipcRenderer.invoke('context:create'),
+  currentContext: () => ipcRenderer.invoke('context:current'),
   searchContext: (query: string) => ipcRenderer.invoke('context:search', query),
   readFile: (path: string) => ipcRenderer.invoke('file:read', path),
   revealFile: (path: string) => ipcRenderer.invoke('file:reveal', path),

@@ -19,7 +19,7 @@ Every call has this shape. The whole of what the window can ask for:
 
 | What | Channels | In main |
 |---|---|---|
-| The context | `context:open`, `context:create`, `context:current`, `context:search` | the folder dialog, `createContext` after a dialog of the system, the projects, the index |
+| The context | `context:open`, `context:create`, `context:shape`, `context:track`, `context:current`, `context:search` | the folder dialog, `createContext` after a dialog of the system, `shapeContext`, `startRepository`, the projects, the index |
 | A file | `file:read`, `file:reveal` | a file that is read and not reviewed; a file shown in the file manager |
 | A project | `project:open`, `project:create` | `readProject`: the draft, its comments, the panes, the tree; `createProject` |
 | Comments | `comment:add`, `comment:reply`, `comment:apply`, `comment:anchor` | `insertComment`, `addReply`, `applySuggestion`, `anchorComment` |
@@ -305,6 +305,30 @@ makes the folder with `shelf/`, `dropbox/` and `projects/` in it, all
 empty. A folder that is already there is never made over. It is opened
 instead, as any folder can be: one with no `projects/` is a context with
 no projects yet.
+
+A folder that is opened and has no `projects/` is not a context yet. The
+rail says so and offers to make it one. `shapeContext` adds the three
+folders where the folder stands, and what is in it stays as it is.
+
+A context that is in no git repository has no history and no way to
+another computer, and git is the only sync Mate has. The rail says that
+too, and offers to start a repository. `startRepository` runs `git init`
+in the context folder. It is the one thing Mate does with git, and it is
+kept that narrow on purpose:
+
+- Whether a folder is in a repository is seen by looking for `.git` in
+  it and in the folders above it. Git is not asked.
+- Git is run only where there is none. In a repository that came with a
+  context, git reads that folder's config and runs its hooks, and a
+  context must not be able to run a program. A repository that is new
+  holds nothing but what git put there.
+- Nothing is committed, no remote is added, nothing is pushed. A remote
+  is of use only with a push and a pull, and those bring credentials,
+  conflicts and the hooks again. They stay with git: in a terminal, or
+  with an agent in a context the reader trusts.
+- It is not started while an agent works in the context. The guard
+  watches `.git/config` and the hooks, and would take the new ones for
+  the agent's.
 
 A project is started from the rail, by its name. `createProject` makes
 `projects/<name>/` with a `draft/` folder, `intents.md` and
@@ -687,6 +711,7 @@ approved instruction files are the same in both. See
 ## What is deliberately absent
 
 No mail and no issues of Mate's own: an agent shows them in a pane, and
-Mate connects to neither. No git operations. No program from a context
+Mate connects to neither. No git operations but one: a repository is
+started where there is none, when the reader asks. No program from a context
 that runs in the window: a pane is markdown, and Mate draws its buttons.
 No update that fetches itself.

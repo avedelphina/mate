@@ -158,7 +158,9 @@ publishing is a decision rather than a file copied by hand. The test is
 whether you stay in the window to change a paragraph.
 
 Built: all three. A context and a project are started from the window,
-so a new piece of work needs no other tool to begin. A new draft is
+so a new piece of work needs no other tool to begin. A folder that is
+already there is made a context where it stands, and a context in no git
+repository is offered one. A new draft is
 started from the rail, and the open
 draft is typed in on the page. Comments stay with their lines, and a save
 does not write over what an agent wrote meanwhile. A project with nothing

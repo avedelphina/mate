@@ -63,6 +63,9 @@ export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: str
 /** One line of a comparison: kept, put in, or taken out. */
 export type DiffLine = { kind: ' ' | '+' | '-'; text: string }
 
+/** A context as the window is told of it. `shaped`: it has a folder for projects. `tracked`: it is in a git repository. */
+export type Opened = { dir: string; projects: string[]; shaped: boolean; tracked: boolean }
+
 /** What a change did or would do, as lines. A `note` when there are no lines to show. */
 export type Compared = { lines?: DiffLine[]; note?: string }
 
@@ -103,12 +106,16 @@ export type Ran = { line: string; code: number | null; output: string; seconds: 
 export type AssistState = { present: boolean; available: boolean; reason: string }
 
 export type MateApi = {
-  openContext: () => Promise<{ dir: string; projects: string[] } | null>
+  openContext: () => Promise<Opened | null>
+  /** Give the open folder the shape of a context. What is in it stays as it is. */
+  shapeContext: () => Promise<Opened>
+  /** Make the open context a git repository, where it is in none. Nothing is committed, and nothing connects. */
+  trackContext: () => Promise<Opened>
   /** A context in a folder that is not there yet. The reader names it and says where, in a dialog of the system. */
-  newContext: () => Promise<{ dir: string; projects: string[] } | null>
+  newContext: () => Promise<Opened | null>
   /** A project in the open context: its folder, a place for drafts, its intents and its principles. */
-  createProject: (name: string) => Promise<{ made: string; projects: string[] }>
-  currentContext: () => Promise<{ dir: string; projects: string[] } | null>
+  createProject: (name: string) => Promise<{ made: string; context: Opened }>
+  currentContext: () => Promise<Opened | null>
   searchContext: (query: string) => Promise<Hit[]>
   readFile: (path: string) => Promise<FileView>
   /** Show a file of the context in the system's file manager. It is not opened. */

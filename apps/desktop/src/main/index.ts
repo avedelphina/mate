@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { addReply, anchorComment, applySuggestion } from '../shared/comments'
-import { listAgents } from './agents'
+import { agentEnvironment, listAgents } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
 import {
   addComment,
@@ -11,8 +11,9 @@ import {
   createContext,
   createDraft,
   createProject,
+  describeContext,
   editDraft,
-  listProjects,
+  inRepository,
   listShelf,
   noteSource,
   placeOnDisk,
@@ -20,7 +21,9 @@ import {
   pullIn,
   readContextFile,
   readProject,
+  shapeContext,
   shelfPath,
+  startRepository,
   takeDown,
   tickPane,
   writeDraft
@@ -34,6 +37,7 @@ import {
   answerAsk,
   compare,
   gate,
+  isBusy,
   listModels,
   listSessions,
   revertChange,
@@ -214,7 +218,23 @@ app.whenReady().then(() => {
     contexts.set(event.sender.id, chosen)
     // Built now so that it is there for whatever reads it next. A search brings it up to date again.
     void refreshIndex(chosen).catch(() => {})
-    return { dir: chosen, projects: await listProjects(chosen) }
+    return describeContext(chosen)
+  })
+
+  // A folder that was opened and is not a context yet is made one when the reader says so. What is in it stays.
+  ipcMain.handle('context:shape', async (event) => {
+    const contextDir = requireContext(event)
+    await shapeContext(contextDir)
+    return describeContext(contextDir)
+  })
+
+  // The one thing Mate does with git: a repository where there is none. See startRepository.
+  ipcMain.handle('context:track', async (event) => {
+    const contextDir = requireContext(event)
+    // The guard would take the new files of the repository for the agent's, and put them back.
+    if (isBusy(contextDir)) throw new Error('An agent is working in this context. Start the repository when it has finished.')
+    if (!inRepository(contextDir)) await startRepository(contextDir, agentEnvironment())
+    return describeContext(contextDir)
   })
 
   // A context that is not there yet. The reader names it and says where in a dialog of the system:
@@ -226,13 +246,13 @@ app.whenReady().then(() => {
     if (result.canceled || !result.filePath) return null
     await createContext(result.filePath)
     contexts.set(event.sender.id, result.filePath)
-    return { dir: result.filePath, projects: [] }
+    return describeContext(result.filePath)
   })
 
   // What a window has open when it starts: the context it inherited, or nothing.
   ipcMain.handle('context:current', async (event) => {
     const dir = contexts.get(event.sender.id)
-    return dir ? { dir, projects: await listProjects(dir) } : null
+    return dir ? describeContext(dir) : null
   })
 
   ipcMain.handle('context:search', async (event, query: string) =>
@@ -252,7 +272,7 @@ app.whenReady().then(() => {
   ipcMain.handle('project:create', async (event, name: string) => {
     const contextDir = requireContext(event)
     const made = await createProject(contextDir, String(name))
-    return { made, projects: await listProjects(contextDir) }
+    return { made, context: await describeContext(contextDir) }
   })
 
   ipcMain.handle(

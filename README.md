@@ -21,7 +21,8 @@ draft. Nothing is copied into a database, and nothing needs a server.
   Deleting Mate loses no work. Anyone who does not run Mate can read the
   comments, because they are HTML comments in the text.
 - **Git is the sync.** Mate keeps no second copy of a document and has no
-  accounts. Commit, push, and pull as you already do.
+  accounts. Commit, push, and pull as you already do. Mate starts the
+  repository if you ask, and does nothing else with git.
 - **A reference is not a proposal.** The `shelf/` folder is what is true
   now. A draft in a project is a proposal until someone publishes it.
 - **An agent proposes; you decide.** An agent plans before it writes, and
@@ -46,7 +47,9 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
 - **Start a context and a project.** *New context…* makes a folder with
   a shelf, a dropbox and room for projects, where you say. *+ New
   project* in the rail makes a project in it, with its intents and its
-  principles.
+  principles. A folder you already have can be opened and made a context
+  where it stands, and Mate offers to start a git repository for a
+  context that is in none.
 - **Write the draft.** *Edit* turns the page into the text of the file,
   to type in. Comments stay with their lines, and a save never writes
   over what an agent or another program wrote in the meantime. *New
@@ -263,6 +266,10 @@ Tools: `mate_project`, `mate_read`, `mate_search`, `mate_comments`,
   it shows. No program from a context runs in the window.
 - Publishing is confirmed in a system dialog that the page cannot press.
   No agent can publish.
+- The one git command Mate runs is `git init`, when you press *Start a
+  repository*, and only in a folder that is in no repository. Git in a
+  folder from someone else can run that folder's hooks, so Mate never
+  runs it there. It adds no remote, commits nothing, and pushes nothing.
 - The list of models is asked of Hermes only when you open the choice,
   because Hermes may look its models up on the network.
 - The renderer is sandboxed (`sandbox`, `contextIsolation`, no
@@ -301,6 +308,9 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
   minutes.
 - **What a publish replaced is kept but not shown.** It is in
   `shelf/.history/`, to be read with any other tool.
+- **No remote from Mate.** Connecting a context to a repository
+  elsewhere, and the first push, are done with git: in a terminal, or by
+  an agent in a context you trust.
 - **The intents and the principles are not typed in Mate.** A new project
   gets both files with a line each. Write them in any editor.
 - **Mate draws markdown and nothing else.** A Word file, a spreadsheet or

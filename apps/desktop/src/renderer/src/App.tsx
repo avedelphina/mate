@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type FormEvent } from 'react'
 import { Agent } from './Agent'
-import type { AssistState, DocumentView, FileView, Hit, Kind, Ran } from './env'
+import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran } from './env'
 import { Rendered, type Passage } from './Rendered'
 import { Tree } from './Tree'
 import { asked, filled } from '../../shared/run'
@@ -157,6 +157,8 @@ export function App() {
   const [naming, setNaming] = useState<string | null>(null)
   // The name of a project that is being started, while the reader types it.
   const [founding, setFounding] = useState<string | null>(null)
+  // What the open folder still lacks: the shape of a context, and a git repository around it.
+  const [lacks, setLacks] = useState({ shape: false, git: false })
   // The panes of the open project as last seen, to notice one that has just been written.
   const seenPanes = useRef<{ project: string; written: Record<string, number> } | null>(null)
   // Panes written while the reader was in the conversation in the margin. Their tabs are marked, not opened.
@@ -170,11 +172,7 @@ export function App() {
 
   // A window opened from another starts in that window's context.
   useEffect(() => {
-    void window.mate.currentContext().then((opened) => {
-      if (!opened) return
-      setContextDir(opened.dir)
-      setProjects(opened.projects)
-    })
+    void window.mate.currentContext().then((opened) => opened && take(opened))
   }, [])
 
   // With two windows open, the Window menu and the task switcher need to tell them apart.
@@ -300,10 +298,16 @@ export function App() {
     }
   }
 
-  function enter(opened: { dir: string; projects: string[] } | null) {
-    if (!opened) return
+  /** What main says of the open context, as it is now. */
+  function take(opened: Opened) {
     setContextDir(opened.dir)
     setProjects(opened.projects)
+    setLacks({ shape: !opened.shaped, git: !opened.tracked })
+  }
+
+  function enter(opened: Opened | null) {
+    if (!opened) return
+    take(opened)
     setView(null)
     setReading(null)
     setQuery('')
@@ -324,13 +328,23 @@ export function App() {
     }
   }
 
+  /** Make the open folder a context, or start a git repository for it. Either is what the reader pressed. */
+  async function settle(how: () => Promise<Opened>, failed: string) {
+    setError(null)
+    try {
+      take(await how())
+    } catch (caught) {
+      setError(reason(caught, failed))
+    }
+  }
+
   async function newProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!founding?.trim() || !(await leaveEditor())) return
     try {
-      const { made, projects: all } = await window.mate.createProject(founding)
+      const { made, context } = await window.mate.createProject(founding)
       setFounding(null)
-      setProjects(all)
+      take(context)
       await openProject(made)
     } catch (caught) {
       setError(reason(caught, 'Could not start the project.'))
@@ -824,6 +838,23 @@ export function App() {
           )}
           {contextDir && !hits && (
             <>
+              {/* Any folder can be opened. What it lacks to be a context that is kept, the reader is asked about. */}
+              {lacks.shape && (
+                <p className="meta hint ask">
+                  This folder is not a context yet.
+                  <button title="Makes shelf/, dropbox/ and projects/ here. What is in the folder stays as it is." onClick={() => void settle(window.mate.shapeContext, 'Could not make the folders.')}>
+                    Make it a context
+                  </button>
+                </p>
+              )}
+              {lacks.git && (
+                <p className="meta hint ask">
+                  It is in no git repository, so it has no history.
+                  <button title="Runs git init here. Nothing is committed, and nothing connects anywhere." onClick={() => void settle(window.mate.trackContext, 'Could not start the repository.')}>
+                    Start a repository
+                  </button>
+                </p>
+              )}
               {/* What is true now, for every project. A document is read from here, and taken down from the page. */}
               {shelf.length > 0 && (
                 <details className="shelf">

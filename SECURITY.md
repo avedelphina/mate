@@ -60,7 +60,9 @@ they show that the model is broken, for example:
 - a way for a value kept in a session file, such as the name of a model,
   to reach an agent's command line as an option;
 - a way to make the installed app act as Node, load code that was not
-  packed with it, or be driven through a debugging port.
+  packed with it, or be driven through a debugging port;
+- a way to make Mate run git in a folder that is in a repository
+  already, or run any git command but `git init`.
 
 ## What is not in scope
 

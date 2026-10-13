@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { createContext, createProject, listProjects, readProject, tickPane } from '../src/main/context.ts'
+import { createContext, createProject, describeContext, listProjects, readProject, shapeContext, startRepository, tickPane } from '../src/main/context.ts'
 import { placeOf, refreshIndex, searchIndex } from '../src/main/contextIndex.ts'
 import { insertComment } from '../src/shared/comments.ts'
 
@@ -198,6 +198,39 @@ test('a context and a project are started as new folders, and nothing that is th
     await symlink(path.join(root, 'elsewhere'), path.join(linked, 'projects'))
     await assert.rejects(createProject(linked, 'stray'), /leaves the context/)
     assert.deepEqual(await readdir(path.join(root, 'elsewhere')), [])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a folder that is opened is made a context where it stands, and a repository is started only where there is none', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-init-'))
+  try {
+    // Somebody's folder, with work in it already. It is not a context, and it is in no repository.
+    const dir = path.join(root, 'notes')
+    await mkdir(path.join(dir, 'shelf'), { recursive: true })
+    await writeFile(path.join(dir, 'shelf/terms.md'), 'Kept.\n')
+    await writeFile(path.join(dir, 'README.md'), 'Mine.\n')
+    assert.deepEqual(await describeContext(dir), { dir, projects: [], shaped: false, tracked: false })
+
+    await shapeContext(dir)
+    assert.deepEqual((await readdir(dir)).sort(), ['README.md', 'dropbox', 'projects', 'shelf'])
+    assert.equal(await readFile(path.join(dir, 'shelf/terms.md'), 'utf8'), 'Kept.\n')
+    assert.equal((await describeContext(dir)).shaped, true)
+
+    // Git starts the repository and nothing else: nothing is committed.
+    await startRepository(dir, process.env)
+    assert.equal(existsSync(path.join(dir, '.git/HEAD')), true)
+    assert.equal(existsSync(path.join(dir, '.git/index')), false)
+    assert.equal((await describeContext(dir)).tracked, true)
+
+    // In a repository already, its own or one above it, git is not run: a context may have brought its config.
+    await assert.rejects(startRepository(dir, process.env), /in a git repository already/)
+    const inner = path.join(dir, 'projects/one')
+    await mkdir(inner)
+    assert.equal((await describeContext(inner)).tracked, true)
+    await assert.rejects(startRepository(inner, process.env), /in a git repository already/)
+    assert.equal(existsSync(path.join(inner, '.git')), false)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

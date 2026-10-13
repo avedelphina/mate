@@ -191,6 +191,12 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.deepEqual((await readdir(path.join(context, 'projects/Next thing'))).sort(), ['draft', 'intents.md', 'principles.md'])
     assert.equal(await app.page(`!!document.querySelector('.project-new .row')`), true)
 
+    // The context is a context, and it is in no repository. The reader is asked about that, and git starts one.
+    assert.deepEqual(await app.page(names('.rail .ask button')), ['Start a repository'])
+    await app.press('.rail .ask button', 'Start a repository')
+    await app.until(`document.querySelectorAll('.rail .ask').length === 0`, 'nothing left to ask')
+    assert.equal(existsSync(path.join(context, '.git/HEAD')), true)
+
     // The app kept its own data in the folder it was given, not in the reader's.
     assert.ok((await readdir(app.userData)).length > 0)
     assert.equal(existsSync(path.join(app.userData, 'trusted.json')), false)

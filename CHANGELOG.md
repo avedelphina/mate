@@ -21,6 +21,11 @@ Starting out:
   projects.
 - Start a project from the rail: *+ New project* makes its folder, a
   place for its drafts, and its intents and principles.
+- Open any folder. One that is not a context yet can be made one where
+  it stands (*Make it a context*): what is in it stays. One that is in no
+  git repository can get one (*Start a repository*). That runs
+  `git init` and nothing else: nothing is committed, and nothing
+  connects anywhere.
 
 Writing and publishing:
 
