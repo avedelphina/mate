@@ -7,10 +7,12 @@ import { listAgents } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
 import {
   addComment,
+  copySource,
   createDraft,
   editDraft,
   listProjects,
   listShelf,
+  noteSource,
   placeOnDisk,
   publish,
   pullIn,
@@ -36,6 +38,9 @@ const contexts = new Map<number, string>()
 // ponytail: the helper is looked for beside the app in this checkout, where `pnpm build:assist` puts it.
 // A packaged app will carry it in its resources. MATE_ASSIST names another one.
 const assistHelper = process.env.MATE_ASSIST ?? path.join(__dirname, '../../assist/mate-assist')
+
+/** The files the reader chose in the file dialog, by a number the window is given in place of the path. */
+const chosen = new Map<string, string>()
 
 /** A folder named on the command line is the context the first window opens: `mate <folder>`. */
 function contextFromArgv(): string | undefined {
@@ -67,6 +72,13 @@ function createWindow(from?: BrowserWindow | null, open?: string): void {
       sandbox: true
     }
   })
+  // The window is one page and stays that page. A file dropped on it is taken as a source, and must
+  // never be opened in its place. Nothing in it opens another window either.
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  window.webContents.on('will-navigate', (event, url) => {
+    if (url !== window.webContents.getURL()) event.preventDefault()
+  })
+
   const id = window.webContents.id
   const inherited = open ?? (from ? contexts.get(from.webContents.id) : undefined)
   if (inherited) contexts.set(id, inherited)
@@ -233,6 +245,38 @@ app.whenReady().then(() => {
   // A shelf document is taken down into a project as a copy to work on. The shelf keeps its own.
   ipcMain.handle('shelf:take', (event, project: string, relative: string) => takeDown(requireContext(event), project, String(relative)))
 
+  // A source comes in from outside the context. The reader picks it in the dialog of the system, and
+  // the window is given a number for it, not the right to name any path it likes.
+  // `near` is where the dialog opens: a file that was dropped on the window is shown there, to be chosen.
+  ipcMain.handle('source:pick', async (event, near?: string) => {
+    requireContext(event)
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      properties: ['openFile' as const, 'multiSelections' as const],
+      ...(typeof near === 'string' && path.isAbsolute(near) ? { defaultPath: near } : {})
+    }
+    const result = await (window ? dialog.showOpenDialog(window, options) : dialog.showOpenDialog(options))
+    return result.canceled
+      ? []
+      : result.filePaths.map((each) => {
+          const id = randomBytes(8).toString('hex')
+          chosen.set(id, each)
+          return { id, name: path.basename(each), where: each, markdown: each.toLowerCase().endsWith('.md') }
+        })
+  })
+
+  // Only where the file lies is written down, so a path from a file dropped on the window is taken too.
+  ipcMain.handle('source:note', (event, project: string, source: string) =>
+    noteSource(requireContext(event), project, chosen.get(String(source)) ?? String(source))
+  )
+
+  // The document itself is copied in, so only a file the reader chose in the dialog is.
+  ipcMain.handle('source:pull', (event, project: string, id: string) => {
+    const source = chosen.get(String(id))
+    if (!source) throw new Error('Choose the file with Add a source first.')
+    return copySource(requireContext(event), project, source)
+  })
+
   // A document in a dropbox is pulled into the project's drafts. It leaves the dropbox.
   ipcMain.handle('dropbox:pull', (event, project: string, relative: string) => pullIn(requireContext(event), project, String(relative)))
 
@@ -290,6 +334,8 @@ app.whenReady().then(() => {
   ipcMain.handle('session:send', async (event, project: string, id: string, text: string, approve: boolean) => {
     const contextDir = requireContext(event)
     const turn = await sendMessage(contextDir, project, id, text, approve, (session) => tell(contextDir, session))
+    // Said from a pane or from a file's card, not from the conversation: the conversation shows it at once all the same.
+    tell(contextDir, turn.started)
     return turn.started
   })
 

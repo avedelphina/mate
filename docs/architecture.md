@@ -147,12 +147,35 @@ taken down into it: a copy in the project's `draft/`, which the project
 owns. The shelf keeps its own and stays what is true. A draft of that
 name is never written over.
 
-**Pulling in.** A document that lies in the project's dropbox, or in the
-dropbox of the whole context, can be pulled into the project's drafts
-when it is on the page. It is moved, not copied: it leaves the dropbox.
-This is one of the exits of a dropbox. The other two, for a file that is
-left where it is and for one whose text has to be taken out of it, are
-not built.
+**The exits of a dropbox.** A file that comes into a project leaves the
+dropbox by one of three exits. There is no fourth, where it is just
+remembered.
+
+- *Pulled into the drafts.* A document that lies in the project's
+  dropbox, or in the dropbox of the whole context, is pulled into the
+  project's drafts when it is on the page. It is moved, not copied.
+- *Left outside, with its path noted.* A file that is not in the context
+  stays where it is. `noteSource` writes a note into the project's
+  dropbox: the name, where the file lies on this computer, its size and
+  date. Nothing of what is in the file is read. The note is a document,
+  so a search finds the file by its name, and an agent is told of it.
+- *Its text taken out, into a draft.* For a file that is not markdown,
+  such as a Word file or a PDF. Mate reads no such file. The reader asks
+  the agent, with one button, and the agent writes the draft through the
+  guard like any other change.
+
+A file comes in from outside in two ways. "Add a source" opens the file
+dialog of the system. Or the file is dropped on the window. Either way
+the window shows a card for it, with the exits that fit. A file of the
+project that Mate cannot draw has the same card, with "Show it in
+Finder" in place of the first exit.
+
+The window never names a path for main to read. A file chosen in the
+dialog is known to the window by a number, and only such a file is
+copied in. A file that was dropped is known by its path, and that is
+used for the note alone: to copy it in, the reader chooses it once more
+in the dialog, which opens at it. A file dropped on the window is never
+opened in its place: the window does not go to another page.
 
 **Publishing.** Publish on a draft asks for a name on the shelf and
 offers the ones that are there. Then the system asks once more, in a

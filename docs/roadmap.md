@@ -142,12 +142,17 @@ rail, and the open draft is typed in on the page. Comments stay with
 their lines, and a save does not write over what an agent wrote
 meanwhile. A draft is published under a name on the shelf, after the
 reader confirms it, and the document it replaces is kept as history. A
-shelf document is taken down into a project as a copy it owns, and a
-markdown file in a dropbox is pulled into `draft/`.
+shelf document is taken down into a project as a copy it owns.
 
-Not built: the two other exits of a dropbox, which are to leave a file
-outside and index its path, and to extract the text of a file that is
-not markdown into `draft/`.
+The three exits are built too. A file comes in through the file dialog
+or is dropped on the window. A markdown file is pulled into `draft/`. A
+file that stays outside gets a note with its path in the dropbox, which
+the index reads. The text of a file that is not markdown is taken out
+by the agent, when the reader asks with one button: Mate parses no such
+file.
+
+Not done yet is the test this step names: one real project taken through
+it, from a source that comes in to a document published.
 
 Not this step: mail, calendar, issues, or an installer. Those are later
 steps.

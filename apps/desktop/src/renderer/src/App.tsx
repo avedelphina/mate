@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type FormEvent } from 'react'
 import { Agent } from './Agent'
 import type { AssistState, DocumentView, FileView, Hit, Kind } from './env'
 import { Rendered, type Passage } from './Rendered'
@@ -30,6 +30,13 @@ const KINDS: Record<Kind, { label: string; note: string }> = {
   context: { label: 'Context', note: 'A file of the whole context. It is read here, not reviewed.' },
   pane: { label: 'Pane', note: 'A pane of its project: what an agent gathered to show beside the draft. It is not a source.' }
 }
+
+/**
+ * A file that is not a document on the page: one that comes in from outside the context, or one of
+ * the project that Mate cannot draw. `id` stands for a path the reader chose in the system dialog.
+ * `inContext` is its path from the context folder, when it is in it.
+ */
+type Source = { name: string; where: string; id?: string; inContext?: string; markdown: boolean }
 
 // How wide the rail and the margin may be. styles.css keeps the page at 320px or more, whatever these say.
 const COLUMNS = {
@@ -129,6 +136,8 @@ export function App() {
   // Where the agent is drawn. Each is there only while its place is on show.
   const [pageSlot, setPageSlot] = useState<HTMLElement | null>(null)
   const [marginSlot, setMarginSlot] = useState<HTMLElement | null>(null)
+  // Files the reader is deciding about: each leaves by one of the exits, or is let be.
+  const [sources, setSources] = useState<Source[]>([])
   // The session that is open with the agent, when there is one. A pane can say something to it.
   const [sessionOpen, setSessionOpen] = useState<string | null>(null)
   // What a pane last said to the agent, shown on that pane until it is written again.
@@ -547,20 +556,92 @@ export function App() {
 
   /** A pane says its own words to the agent, in the session that is open. The words are the ones on the button. */
   function say(name: string, heard: string) {
-    if (!view) return
     const words = heard.replace(/\s+/g, ' ').trim()
     if (!words) return
     // ponytail: a fixed limit, so that a button is something the reader has read before they press it.
     if (words.length > 300) return setError('That is too long to say from a button. Say it to the agent yourself.')
+    void tell(words).then((told) => told && setSaid({ pane: name, words }))
+  }
+
+  /** Say something to the agent in the session that is open. False when there is none, or it could not be said. */
+  async function tell(words: string): Promise<boolean> {
+    if (!view) return false
     if (!sessionOpen) {
       if (!agentOnPage) setTab('agent')
-      return setError('Open a session with an agent first. Then a pane can say this to it.')
+      setError('Open a session with an agent first. Then this can be said to it.')
+      return false
     }
     setError(null)
-    window.mate.sendMessage(view.project, sessionOpen, words, false).then(
-      () => setSaid({ pane: name, words }),
-      (caught) => setError(reason(caught, 'Could not say that to the agent.'))
-    )
+    try {
+      await window.mate.sendMessage(view.project, sessionOpen, words, false)
+      return true
+    } catch (caught) {
+      setError(reason(caught, 'Could not say that to the agent.'))
+      return false
+    }
+  }
+
+  const settled = (source: Source) => setSources((all) => all.filter((each) => each !== source))
+
+  /** The reader chooses files in the dialog of the system. Each then leaves by one of the exits. */
+  async function addSources() {
+    try {
+      const picked = await window.mate.pickSources()
+      if (picked.length > 0) setSources(picked)
+    } catch (caught) {
+      setError(reason(caught, 'Could not take those files.'))
+    }
+  }
+
+  /** A file dropped on the window comes in the same way. The window learns where it lies, and cannot read it. */
+  function dropped(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault()
+    const files = [...event.dataTransfer.files].map((each) => ({ name: each.name, where: window.mate.pathOf(each), markdown: /\.md$/i.test(each.name) }))
+    if (files.length === 0) return
+    if (!view) return setError('Open a project first. A file that comes in belongs to a project.')
+    setSources(files.filter((each) => each.where))
+  }
+
+  /** The first exit: the file stays where it is, and a note in the dropbox says where. */
+  async function noteSource(source: Source) {
+    if (!view) return
+    try {
+      const note = await window.mate.noteSource(view.project, source.id ?? source.where)
+      settled(source)
+      setView(await window.mate.openProject(view.project, view.file ?? undefined))
+      await read(note)
+    } catch (caught) {
+      setError(reason(caught, 'Could not note that file.'))
+    }
+  }
+
+  /**
+   * The second exit: a document is copied into the drafts. Only one the reader chose in the dialog of
+   * the system is copied. So for a file that was dropped on the window the dialog opens at it, and the
+   * reader chooses it there.
+   */
+  async function pullSource(source: Source) {
+    if (!view || !(await leaveEditor())) return
+    try {
+      const id = source.id ?? (await window.mate.pickSources(source.where)).find((each) => each.markdown)?.id
+      if (!id) return
+      const pulled = await window.mate.pullSource(view.project, id)
+      settled(source)
+      setError(null)
+      setReading(null)
+      setAgentOnPage(false)
+      setView(pulled)
+    } catch (caught) {
+      setError(reason(caught, 'Could not pull that file in.'))
+    }
+  }
+
+  /** The third exit: the agent takes the text out of the file and writes it as a draft. Mate reads no such file itself. */
+  async function extract(source: Source) {
+    if (!view) return
+    const from = source.inContext ? source.inContext.replace(`projects/${view.project}/`, '') : `the file at ${source.where}`
+    const into = `draft/${source.name.replace(/\.[^.]+$/, '')}.md`
+    if (await tell(`Extract the text of ${from} into ${into}. Keep its wording and do not summarise it. Say what you could not read.`)) settled(source)
   }
 
   /** Give the page to the conversation. The margin then shows a pane, when the project has one. */
@@ -578,7 +659,12 @@ export function App() {
   const inTree = reading ? (reading.project === project ? reading.path.split('/').slice(2).join('/') : null) : file && `draft/${file}`
 
   return (
-    <div className="app" style={{ '--rail-w': `${rail}px`, '--margin-w': `${margin}px` } as CSSProperties}>
+    <div
+      className="app"
+      style={{ '--rail-w': `${rail}px`, '--margin-w': `${margin}px` } as CSSProperties}
+      onDragOver={(event) => event.dataTransfer.types.includes('Files') && event.preventDefault()}
+      onDrop={dropped}
+    >
       <aside className="rail">
         <Divider which="rail" width={rail} set={setRail} />
         <header className="bar">Mate</header>
@@ -639,14 +725,19 @@ export function App() {
                         current={inTree}
                         onOpen={openFile}
                         onReveal={(path) =>
-                          window.mate.revealFile(`projects/${view.project}/${path}`).catch((caught) => setError(reason(caught, 'Could not show that file.')))
+                          setSources([{ name: path.split('/').pop()!, where: path, inContext: `projects/${view.project}/${path}`, markdown: false }])
                         }
                       />
                     )}
                     {view && project === name && (
                       <div className="tree-new">
                         {naming === null ? (
-                          <button className="row" onClick={() => setNaming('')}>+ New draft</button>
+                          <>
+                            <button className="row" onClick={() => setNaming('')}>+ New draft</button>
+                            <button className="row" title="A file from outside this context. You choose what becomes of it." onClick={() => void addSources()}>
+                              + Add a source
+                            </button>
+                          </>
                         ) : (
                           <form onSubmit={newDraft}>
                             <input
@@ -684,7 +775,12 @@ export function App() {
               </button>
             </span>
           )}
-          {!onPage && reading && view && (reading.path.startsWith('dropbox/') || reading.path.startsWith(`projects/${view.project}/dropbox/`)) && (
+          {/* Not for a note about a file that was left outside: the note is the exit that file took. */}
+          {!onPage &&
+            reading &&
+            view &&
+            !reading.path.endsWith('.source.md') &&
+            (reading.path.startsWith('dropbox/') || reading.path.startsWith(`projects/${view.project}/dropbox/`)) && (
             <span className="acts">
               <button className="quiet" title="It leaves the dropbox and becomes a draft of this project." onClick={() => void takeDown()}>
                 Pull into draft/
@@ -726,6 +822,43 @@ export function App() {
           )}
         </header>
         <div className="scroll">
+          {/* A file the reader is deciding about. It leaves by one of the exits. There is no exit where it is just remembered. */}
+          {view &&
+            sources.map((source) => (
+              <div key={source.where} className="source">
+                <p><strong>{source.name}</strong></p>
+                <p className="meta">{source.inContext ? `In this project: ${source.where}` : `Not in this context: ${source.where}`}</p>
+                <p className="acts">
+                  {source.inContext ? (
+                    <button
+                      onClick={() =>
+                        window.mate.revealFile(source.inContext!).catch((caught) => setError(reason(caught, 'Could not show that file.')))
+                      }
+                    >
+                      Show it in {document.documentElement.dataset.platform === 'mac' ? 'Finder' : 'the file manager'}
+                    </button>
+                  ) : (
+                    <button title="The file stays where it is. A note in the dropbox says where." onClick={() => void noteSource(source)}>
+                      Leave it there, and note its path
+                    </button>
+                  )}
+                  {source.markdown && !source.inContext && (
+                    <button
+                      title={source.id ? 'A copy in draft/, to work on.' : 'A copy in draft/, to work on. You choose the file once more, in the dialog of the system.'}
+                      onClick={() => void pullSource(source)}
+                    >
+                      {source.id ? 'Pull it into draft/' : 'Pull it into draft/…'}
+                    </button>
+                  )}
+                  {!source.markdown && (
+                    <button title="Said to the agent in the open session. Mate reads no such file itself." onClick={() => void extract(source)}>
+                      Ask the agent to extract its text into draft/
+                    </button>
+                  )}
+                  <button className="quiet" onClick={() => settled(source)}>Close</button>
+                </p>
+              </div>
+            ))}
           {onPage ? (
             <div className="page talk-page" ref={setPageSlot} />
           ) : reading ? (

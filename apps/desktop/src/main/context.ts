@@ -314,6 +314,7 @@ export const inDropbox = (project: string, relative: string) =>
 export async function pullIn(contextDir: string, project: string, relative: string): Promise<DocumentView> {
   if (!inDropbox(project, String(relative))) throw new Error('Only a file of a dropbox is pulled in this way.')
   if (!relative.toLowerCase().endsWith('.md')) throw new Error('That is not a document Mate can open as a draft.')
+  if (relative.endsWith('.source.md')) throw new Error('That is a note about a file that was left outside. It stays in the dropbox.')
   const source = await placeOnDisk(contextDir, relative)
   const projectDir = resolveInside(contextDir, 'projects', project)
   if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
@@ -329,5 +330,63 @@ export async function pullIn(contextDir: string, project: string, relative: stri
   // It has left the dropbox only once the draft is written.
   await rm(source)
   mateWrote(contextDir, relative, null)
+  return readProject(contextDir, project, file)
+}
+
+const sized = (bytes: number) => (bytes < 1024 ? `${bytes} bytes` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`)
+
+/**
+ * Note a file that is not in the context: where it lies on this computer, and nothing of what is
+ * in it. It is one of the exits of a dropbox. The file stays outside, and the context knows of it:
+ * the note is a document, so a search finds it and an agent is told of it.
+ */
+export async function noteSource(contextDir: string, project: string, source: string): Promise<string> {
+  const info = path.isAbsolute(String(source)) ? await stat(source).catch(() => null) : null
+  const name = path.basename(String(source)).replace(/^\.+/, '')
+  if (!info?.isFile() || !name) throw new Error('That is not a file on this computer.')
+  const projectDir = resolveInside(contextDir, 'projects', project)
+  if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
+  const note = `${name}.source.md`
+  const day = (date: Date) => date.toISOString().slice(0, 10)
+  const text = Buffer.from(
+    [
+      `# ${name}`,
+      '',
+      'This file is not in the context. It was left where it lies, on this computer:',
+      '',
+      `\`${source}\``,
+      '',
+      `${sized(info.size)}, last changed ${day(info.mtime)}. Noted ${day(new Date())}.`,
+      ''
+    ].join('\n')
+  )
+  await mkdir(path.join(projectDir, 'dropbox'), { recursive: true })
+  try {
+    await writeFile(path.join(projectDir, 'dropbox', note), text, { flag: 'wx' })
+  } catch {
+    throw new Error('That file is already noted in this dropbox.')
+  }
+  const relative = `projects/${project}/dropbox/${note}`
+  mateWrote(contextDir, relative, text)
+  return relative
+}
+
+/**
+ * Copy a document from outside the context into a project's drafts. The path is one the reader
+ * chose in the file dialog of the system, never one the window made up.
+ */
+export async function copySource(contextDir: string, project: string, source: string): Promise<DocumentView> {
+  const file = path.basename(String(source)).replace(/^\.+/, '')
+  if (!path.isAbsolute(String(source)) || !file.toLowerCase().endsWith('.md')) throw new Error('That is not a document Mate can open as a draft.')
+  const projectDir = resolveInside(contextDir, 'projects', project)
+  if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
+  const text = await readFile(source)
+  await mkdir(path.join(projectDir, 'draft'), { recursive: true })
+  try {
+    await writeFile(path.join(projectDir, 'draft', file), text, { flag: 'wx' })
+  } catch {
+    throw new Error('A draft of that name is already in this project. It was not written over.')
+  }
+  mateWrote(contextDir, `projects/${project}/draft/${file}`, text)
   return readProject(contextDir, project, file)
 }

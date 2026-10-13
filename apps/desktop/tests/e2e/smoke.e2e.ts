@@ -145,6 +145,23 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.margin .pane h1')?.textContent.includes('Deadlines')`, 'the new pane on show')
     assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review', 'Agent', 'deadlines*', 'tasks'])
 
+    // A file Mate cannot draw has a card with what can be done with it. Its text is taken out by the agent, when asked.
+    await writeFile(path.join(project, 'dropbox/scan.pdf'), 'not a real pdf')
+    await app.page(`window.dispatchEvent(new Event('focus'))`)
+    await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'scan.pdf')`, 'the file in the tree')
+    await app.press('.projects .tree .row', 'scan.pdf')
+    await app.until(`document.querySelector('.source strong')?.textContent === 'scan.pdf'`, 'the card of the file')
+    assert.deepEqual(await app.page(`[...document.querySelectorAll('.source .acts button')].map((each) => each.textContent.trim())`), [
+      'Show it in Finder',
+      'Ask the agent to extract its text into draft/',
+      'Close'
+    ])
+    await app.press('.margin .tabs button', 'Agent')
+    await app.until(`!!document.querySelector('.margin .talk')`, 'the session that is still open')
+    await app.press('.source .acts button', 'Ask the agent to extract its text into draft/')
+    await app.until(`[...document.querySelectorAll('.said.you')].some((each) => each.textContent.includes('Extract the text of dropbox/scan.pdf into draft/scan.md.'))`, 'the request in the conversation')
+    assert.equal(await app.page(`document.querySelectorAll('.source').length`), 0)
+
     // The conversation with the agent can have the page. Nothing is trusted, and no agent is started here.
     await app.press('.margin .tabs button', 'Agent')
     await app.press('.margin .talk-head button', '‹ Sessions')

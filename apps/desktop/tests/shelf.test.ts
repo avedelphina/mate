@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { listShelf, publish, pullIn, readProject, takeDown } from '../src/main/context.ts'
+import { copySource, listShelf, noteSource, publish, pullIn, readProject, takeDown } from '../src/main/context.ts'
 import { refreshIndex, searchIndex } from '../src/main/contextIndex.ts'
 
 async function context(): Promise<string> {
@@ -117,7 +117,43 @@ test('a document is pulled out of a dropbox into the drafts, and is in the dropb
     await assert.rejects(pullIn(root, 'review', 'shelf/x.md'), /Only a file of a dropbox/)
     await assert.rejects(pullIn(root, 'review', 'projects/review/dropbox/scan.pdf'), /not a document Mate can open/)
     await assert.rejects(pullIn(root, 'review', 'dropbox/../shelf/x.md'), /not a file of this context/)
+    // A note about a file that was left outside is the exit that file took. It is not made a draft.
+    await writeFile(path.join(root, 'projects/review/dropbox/contract.pdf.source.md'), '# contract.pdf\n')
+    await assert.rejects(pullIn(root, 'review', 'projects/review/dropbox/contract.pdf.source.md'), /stays in the dropbox/)
   } finally {
     await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a file outside the context is noted by where it lies, or copied in when it is a document', async () => {
+  const root = await context()
+  const outside = `${root}-outside`
+  try {
+    await mkdir(outside)
+    await writeFile(path.join(outside, 'contract.pdf'), 'x'.repeat(3000))
+    await writeFile(path.join(outside, 'memo.md'), '# Memo\n')
+
+    // Left outside: the dropbox gets a note with the path, and nothing of what is in the file.
+    const note = await noteSource(root, 'review', path.join(outside, 'contract.pdf'))
+    assert.equal(note, 'projects/review/dropbox/contract.pdf.source.md')
+    const text = await readFile(path.join(root, note), 'utf8')
+    assert.match(text, /^# contract\.pdf\n\nThis file is not in the context\./)
+    assert.ok(text.includes(`\`${path.join(outside, 'contract.pdf')}\``))
+    assert.match(text, /3 KB, last changed \d{4}-\d\d-\d\d\. Noted \d{4}-\d\d-\d\d\./)
+    assert.equal(text.includes('xxx'), false)
+    // The note is a document of the project: a search finds the file by its name.
+    assert.deepEqual([...new Set(searchIndex(await refreshIndex(root), 'contract').map((hit) => `${hit.kind} ${hit.path}`))], [`material ${note}`])
+    await assert.rejects(noteSource(root, 'review', path.join(outside, 'contract.pdf')), /already noted/)
+    for (const bad of ['relative.pdf', outside, path.join(outside, 'missing.pdf')]) await assert.rejects(noteSource(root, 'review', bad), /not a file on this computer/)
+
+    // Copied in: only a document, and never over a draft that is there.
+    const copied = await copySource(root, 'review', path.join(outside, 'memo.md'))
+    assert.deepEqual([copied.file, copied.text], ['memo.md', '# Memo\n'])
+    assert.equal(await readFile(path.join(outside, 'memo.md'), 'utf8'), '# Memo\n')
+    await assert.rejects(copySource(root, 'review', path.join(outside, 'memo.md')), /already in this project/)
+    await assert.rejects(copySource(root, 'review', path.join(outside, 'contract.pdf')), /not a document Mate can open/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+    await rm(outside, { recursive: true, force: true })
   }
 })

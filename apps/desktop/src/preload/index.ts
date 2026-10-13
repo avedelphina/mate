@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 contextBridge.exposeInMainWorld('mate', {
   openContext: (): Promise<{ dir: string; projects: string[] } | null> => ipcRenderer.invoke('context:open'),
@@ -11,6 +11,11 @@ contextBridge.exposeInMainWorld('mate', {
     ipcRenderer.invoke('pane:tick', project, name, base, at, draft),
   listShelf: () => ipcRenderer.invoke('shelf:list'),
   takeDown: (project: string, path: string) => ipcRenderer.invoke('shelf:take', project, path),
+  pickSources: (near?: string) => ipcRenderer.invoke('source:pick', near),
+  noteSource: (project: string, source: string) => ipcRenderer.invoke('source:note', project, source),
+  pullSource: (project: string, id: string) => ipcRenderer.invoke('source:pull', project, id),
+  /** Where a file dropped on the window lies. The window cannot read it: it can only have it noted. */
+  pathOf: (file: File) => webUtils.getPathForFile(file),
   pullIn: (project: string, path: string) => ipcRenderer.invoke('dropbox:pull', project, path),
   publishDraft: (project: string, file: string, name: string) => ipcRenderer.invoke('draft:publish', project, file, name),
   writeDraft: (project: string, file: string, base: string, text: string) => ipcRenderer.invoke('draft:write', project, file, base, text),
