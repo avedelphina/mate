@@ -14,6 +14,14 @@ time with no agent at all.
 
 ### Added
 
+Starting out:
+
+- Start a context from the window: *New context…* asks for a name and a
+  place, and makes a folder with a shelf, a dropbox and room for
+  projects.
+- Start a project from the rail: *+ New project* makes its folder, a
+  place for its drafts, and its intents and principles.
+
 Writing and publishing:
 
 - Type in the open draft: *Edit*, *Save*, *Done*. Comments stay with

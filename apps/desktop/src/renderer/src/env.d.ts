@@ -104,6 +104,10 @@ export type AssistState = { present: boolean; available: boolean; reason: string
 
 export type MateApi = {
   openContext: () => Promise<{ dir: string; projects: string[] } | null>
+  /** A context in a folder that is not there yet. The reader names it and says where, in a dialog of the system. */
+  newContext: () => Promise<{ dir: string; projects: string[] } | null>
+  /** A project in the open context: its folder, a place for drafts, its intents and its principles. */
+  createProject: (name: string) => Promise<{ made: string; projects: string[] }>
   currentContext: () => Promise<{ dir: string; projects: string[] } | null>
   searchContext: (query: string) => Promise<Hit[]>
   readFile: (path: string) => Promise<FileView>

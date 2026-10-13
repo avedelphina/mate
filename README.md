@@ -43,6 +43,10 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
 - **Markdown, drawn.** Headings, lists, tables, code, and task lists are
   drawn. The markup stays in the text and is hidden, so the page is the
   file, character for character.
+- **Start a context and a project.** *New context…* makes a folder with
+  a shelf, a dropbox and room for projects, where you say. *+ New
+  project* in the rail makes a project in it, with its intents and its
+  principles.
 - **Write the draft.** *Edit* turns the page into the text of the file,
   to type in. Comments stay with their lines, and a save never writes
   over what an agent or another program wrote in the meantime. *New
@@ -101,8 +105,9 @@ pnpm install
 pnpm dev
 ```
 
-Then choose **Open context** and pick a folder. To try it without touching
-your own files, pick `contexts/_example` in this repository.
+Then choose **Open context** and pick a folder, or **New context…** to
+start one. To try it without touching your own files, pick
+`contexts/_example` in this repository.
 
 Other commands:
 
@@ -140,9 +145,12 @@ my-context/
       scripts/           what is done the same way each time
 ```
 
-Nothing here is required beyond `projects/<name>/`. Any other file in a
-project is material: what came in for the work, or was made in it. Only
-`intents.md` and `principles.md` steer a project.
+Mate makes this shape for you: *New context…* the outer one, *+ New
+project* a project. Or make the folders yourself. Nothing here is
+required beyond `projects/<name>/`, and any folder can be opened as a
+context. Any other file in a project is material: what came in for the
+work, or was made in it. Only `intents.md` and `principles.md` steer a
+project.
 
 Mate creates two helper folders on its own, each with a `.gitignore` that
 ignores its contents:
@@ -293,6 +301,8 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
   minutes.
 - **What a publish replaced is kept but not shown.** It is in
   `shelf/.history/`, to be read with any other tool.
+- **The intents and the principles are not typed in Mate.** A new project
+  gets both files with a line each. Write them in any editor.
 - **Mate draws markdown and nothing else.** A Word file, a spreadsheet or
   a PDF is named in the tree and opened by you, in its own program.
 - **Over SSH an edit replaces the whole file.**

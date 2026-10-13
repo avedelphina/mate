@@ -177,6 +177,20 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.error')?.textContent.includes('only in a context you trust')`, 'the reader is told why it did not run')
     assert.equal(await app.page(`document.querySelectorAll('.ran').length`), 0)
 
+    // A project is started from the rail. It is in the folder with the two files that steer it, and it is open.
+    await app.press('.project-new .row', '+ New project')
+    await app.page(`(() => {
+      const input = document.querySelector('.project-new input')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Next thing')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.form.requestSubmit()
+    })()`)
+    await app.until(`document.querySelector('.row.project.active')?.textContent === 'Next thing'`, 'the new project, open')
+    assert.deepEqual(await app.page(names('.projects .row.project')), ['Next thing*', 'document-review', 'sibling'])
+    assert.deepEqual(await app.page(names('.projects .tree .row')), ['intents.md', 'principles.md'])
+    assert.deepEqual((await readdir(path.join(context, 'projects/Next thing'))).sort(), ['draft', 'intents.md', 'principles.md'])
+    assert.equal(await app.page(`!!document.querySelector('.project-new .row')`), true)
+
     // The app kept its own data in the folder it was given, not in the reader's.
     assert.ok((await readdir(app.userData)).length > 0)
     assert.equal(existsSync(path.join(app.userData, 'trusted.json')), false)

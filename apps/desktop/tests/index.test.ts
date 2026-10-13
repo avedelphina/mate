@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { readProject, tickPane } from '../src/main/context.ts'
+import { createContext, createProject, listProjects, readProject, tickPane } from '../src/main/context.ts'
 import { placeOf, refreshIndex, searchIndex } from '../src/main/contextIndex.ts'
 import { insertComment } from '../src/shared/comments.ts'
 
@@ -158,6 +158,46 @@ test('a task in a pane is ticked in the file, one character, and only from the t
     await assert.rejects(tickPane(root, 'review', 'tasks.md', shown, shown.indexOf('[ ] Call')), /has changed since it was shown/)
     await assert.rejects(tickPane(root, 'review', '../intents.md', now, 0), /not in this project/)
     await assert.rejects(tickPane(root, 'review', 'missing.md', now, 0), /not in this project/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a context and a project are started as new folders, and nothing that is there is made over', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-new-'))
+  try {
+    const dir = path.join(root, 'work')
+    await createContext(dir)
+    assert.deepEqual((await readdir(dir)).sort(), ['dropbox', 'projects', 'shelf'])
+    assert.deepEqual(await listProjects(dir), [])
+    await assert.rejects(createContext(dir), /already there/)
+
+    // A project has a place for drafts and the two files that steer it. It opens with no draft.
+    assert.equal(await createProject(dir, '  Client letter '), 'Client letter')
+    assert.deepEqual(await listProjects(dir), ['Client letter'])
+    const view = await readProject(dir, 'Client letter')
+    assert.deepEqual([view.drafts, view.files], [[], ['intents.md', 'principles.md']])
+    assert.match(await readFile(path.join(dir, 'projects/Client letter/intents.md'), 'utf8'), /^# Intents\n/)
+    assert.equal(existsSync(path.join(dir, 'projects/Client letter/draft')), true)
+
+    // One that is there is not started again, and a name is never a path.
+    await assert.rejects(createProject(dir, 'Client letter'), /already there/)
+    for (const name of ['', ' ', '../out', 'a/b', '.hidden']) await assert.rejects(createProject(dir, name), /Name the project/)
+    assert.deepEqual(await readdir(root), ['work'])
+
+    // Any folder can become a context: it gets its projects folder with its first project.
+    const bare = path.join(root, 'bare')
+    await mkdir(bare)
+    await createProject(bare, 'first')
+    assert.deepEqual(await listProjects(bare), ['first'])
+
+    // A projects folder that is a link to somewhere else is not written into.
+    const linked = path.join(root, 'linked')
+    await mkdir(linked)
+    await mkdir(path.join(root, 'elsewhere'))
+    await symlink(path.join(root, 'elsewhere'), path.join(linked, 'projects'))
+    await assert.rejects(createProject(linked, 'stray'), /leaves the context/)
+    assert.deepEqual(await readdir(path.join(root, 'elsewhere')), [])
   } finally {
     await rm(root, { recursive: true, force: true })
   }

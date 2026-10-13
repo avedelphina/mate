@@ -8,7 +8,9 @@ import { checkAssist, runAssist, type AssistTask } from './assist'
 import {
   addComment,
   copySource,
+  createContext,
   createDraft,
+  createProject,
   editDraft,
   listProjects,
   listShelf,
@@ -204,7 +206,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('context:open', async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
-    const options = { properties: ['openDirectory' as const] }
+    const options = { properties: ['openDirectory' as const, 'createDirectory' as const] }
     const result = await (window ? dialog.showOpenDialog(window, options) : dialog.showOpenDialog(options))
     if (result.canceled || result.filePaths.length === 0) return null
     const chosen = result.filePaths[0]
@@ -213,6 +215,18 @@ app.whenReady().then(() => {
     // Built now so that it is there for whatever reads it next. A search brings it up to date again.
     void refreshIndex(chosen).catch(() => {})
     return { dir: chosen, projects: await listProjects(chosen) }
+  })
+
+  // A context that is not there yet. The reader names it and says where in a dialog of the system:
+  // the window never names a folder for main to make.
+  ipcMain.handle('context:create', async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = { title: 'New context', buttonLabel: 'Create', nameFieldLabel: 'Name:', properties: ['createDirectory' as const] }
+    const result = await (window ? dialog.showSaveDialog(window, options) : dialog.showSaveDialog(options))
+    if (result.canceled || !result.filePath) return null
+    await createContext(result.filePath)
+    contexts.set(event.sender.id, result.filePath)
+    return { dir: result.filePath, projects: [] }
   })
 
   // What a window has open when it starts: the context it inherited, or nothing.
@@ -234,6 +248,12 @@ app.whenReady().then(() => {
   ipcMain.handle('project:open', (event, project: string, file?: string) =>
     readProject(requireContext(event), project, file)
   )
+
+  ipcMain.handle('project:create', async (event, name: string) => {
+    const contextDir = requireContext(event)
+    const made = await createProject(contextDir, String(name))
+    return { made, projects: await listProjects(contextDir) }
+  })
 
   ipcMain.handle(
     'comment:add',

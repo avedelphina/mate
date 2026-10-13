@@ -19,9 +19,9 @@ Every call has this shape. The whole of what the window can ask for:
 
 | What | Channels | In main |
 |---|---|---|
-| The context | `context:open`, `context:current`, `context:search` | the folder dialog, the projects, the index |
+| The context | `context:open`, `context:create`, `context:current`, `context:search` | the folder dialog, `createContext` after a dialog of the system, the projects, the index |
 | A file | `file:read`, `file:reveal` | a file that is read and not reviewed; a file shown in the file manager |
-| A project | `project:open` | `readProject`: the draft, its comments, the panes, the tree |
+| A project | `project:open`, `project:create` | `readProject`: the draft, its comments, the panes, the tree; `createProject` |
 | Comments | `comment:add`, `comment:reply`, `comment:apply`, `comment:anchor` | `insertComment`, `addReply`, `applySuggestion`, `anchorComment` |
 | A draft | `draft:write`, `draft:create`, `draft:publish` | `writeDraft`, `createDraft`, and `publish` after a dialog of the system |
 | The shelf | `shelf:list`, `shelf:take` | `listShelf`, `takeDown` |
@@ -296,6 +296,23 @@ A proposal opens as a draft, at the match. Every other file opens to be
 read: the page is drawn, and there is no menu under a selection. The
 project that is open stays open beside it. The model does not allow a
 comment written into the shelf or into a file that steers a project.
+
+## Starting a context and a project
+
+A context is started where the reader says, in the save dialog of the
+system: the window never names a folder for main to make. `createContext`
+makes the folder with `shelf/`, `dropbox/` and `projects/` in it, all
+empty. A folder that is already there is never made over. It is opened
+instead, as any folder can be: one with no `projects/` is a context with
+no projects yet.
+
+A project is started from the rail, by its name. `createProject` makes
+`projects/<name>/` with a `draft/` folder, `intents.md` and
+`principles.md`. The two files say what they are for and nothing more,
+so an agent that reads them is told nothing the reader did not write.
+The name is a file name: letters and numbers first, and nothing that
+could be a path. A project of that name is never written over, and a
+`projects/` folder that is a link to somewhere else is not written into.
 
 ## The files of a project
 

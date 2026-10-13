@@ -155,6 +155,8 @@ export function App() {
   const saving = useRef<Promise<boolean>>(Promise.resolve(true))
   // The name of a new draft, while the reader is typing it in the rail. Null when they are not.
   const [naming, setNaming] = useState<string | null>(null)
+  // The name of a project that is being started, while the reader types it.
+  const [founding, setFounding] = useState<string | null>(null)
   // The panes of the open project as last seen, to notice one that has just been written.
   const seenPanes = useRef<{ project: string; written: Record<string, number> } | null>(null)
   // Panes written while the reader was in the conversation in the margin. Their tabs are marked, not opened.
@@ -298,15 +300,41 @@ export function App() {
     }
   }
 
-  async function openContext() {
-    setError(null)
-    const opened = await window.mate.openContext()
+  function enter(opened: { dir: string; projects: string[] } | null) {
     if (!opened) return
     setContextDir(opened.dir)
     setProjects(opened.projects)
     setView(null)
     setReading(null)
     setQuery('')
+    setFounding(null)
+  }
+
+  async function openContext() {
+    setError(null)
+    enter(await window.mate.openContext())
+  }
+
+  async function newContext() {
+    setError(null)
+    try {
+      enter(await window.mate.newContext())
+    } catch (caught) {
+      setError(reason(caught, 'Could not start the context.'))
+    }
+  }
+
+  async function newProject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!founding?.trim() || !(await leaveEditor())) return
+    try {
+      const { made, projects: all } = await window.mate.createProject(founding)
+      setFounding(null)
+      setProjects(all)
+      await openProject(made)
+    } catch (caught) {
+      setError(reason(caught, 'Could not start the project.'))
+    }
   }
 
   /** What was typed is saved before the page shows something else. A save that failed keeps the page, once. */
@@ -759,10 +787,12 @@ export function App() {
         <div className="scroll">
           {/* With no context there is one thing to do. With one, its name heads the rail, and another is a small step away. */}
           {!contextDir && <button className="wide" onClick={openContext}>Open context</button>}
+          {!contextDir && <button className="wide quiet" title="A new folder with a shelf, a dropbox and room for projects" onClick={newContext}>New context…</button>}
           {contextDir && (
             <div className="context">
               <h2 title={contextDir}>{contextName}</h2>
               <button className="quiet" title="Open another context" onClick={openContext}>Open…</button>
+              <button className="quiet" title="Start a new context, in a folder of its own" onClick={newContext}>New…</button>
             </div>
           )}
           {contextDir && (
@@ -807,7 +837,7 @@ export function App() {
                 </details>
               )}
               <h2>Projects</h2>
-              {projects.length === 0 && <p className="meta hint">No projects in this folder.</p>}
+              {projects.length === 0 && <p className="meta hint">No projects here yet.</p>}
               <ul className="projects">
                 {projects.map((name) => (
                   <li key={name}>
@@ -851,6 +881,23 @@ export function App() {
                   </li>
                 ))}
               </ul>
+              <div className="tree-new project-new">
+                {founding === null ? (
+                  <button className="row" onClick={() => setFounding('')}>+ New project</button>
+                ) : (
+                  <form onSubmit={newProject}>
+                    <input
+                      autoFocus
+                      value={founding}
+                      placeholder="Name of the project"
+                      aria-label="Name of the new project"
+                      onChange={(event) => setFounding(event.target.value)}
+                      onKeyDown={(event) => event.key === 'Escape' && setFounding(null)}
+                      onBlur={() => founding.trim() === '' && setFounding(null)}
+                    />
+                  </form>
+                )}
+              </div>
             </>
           )}
         </div>

@@ -49,6 +49,49 @@ export async function listProjects(contextDir: string): Promise<string[]> {
   return listDirs(path.join(contextDir, 'projects'))
 }
 
+/** A name the reader gives a draft or a project. It is a file name, so nothing that could be a path. */
+const NAME = /^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,80}$/u
+
+/**
+ * Start a context in a folder that is not there yet: a shelf, a dropbox and the projects, all
+ * empty. A folder that is there is never made over. It is opened, as any folder can be.
+ */
+export async function createContext(dir: string): Promise<void> {
+  try {
+    await mkdir(dir)
+  } catch {
+    throw new Error('Something of that name is already there. Open it instead.')
+  }
+  for (const each of ['shelf', 'dropbox', 'projects']) await mkdir(path.join(dir, each))
+}
+
+/** What a new project starts with. The two files steer it, and say only what they are for. */
+const STARTS = [
+  ['intents.md', '# Intents\n\nWhich way this project leans. An intent is never finished.\n'],
+  ['principles.md', '# Principles\n\nThe rules of engagement for this project. They are not traded away to finish faster.\n']
+]
+
+/** Start a project in the context: its folder, a place for its drafts, and the two files that steer it. */
+export async function createProject(contextDir: string, name: string): Promise<string> {
+  const title = String(name).trim()
+  if (!NAME.test(title)) throw new Error('Name the project with letters and numbers. Spaces, dots, dashes and underscores may follow.')
+  await mkdir(path.join(contextDir, 'projects'), { recursive: true })
+  // A projects folder that is a link to somewhere else is not written into.
+  const dir = path.join(await realInside(contextDir, 'projects'), title)
+  try {
+    await mkdir(dir)
+  } catch {
+    throw new Error('A project of that name is already there.')
+  }
+  await mkdir(path.join(dir, 'draft'))
+  for (const [file, text] of STARTS) {
+    await writeFile(path.join(dir, file), text, { flag: 'wx' })
+    // An agent may be working in the context. These are not its files.
+    mateWrote(contextDir, `projects/${title}/${file}`, Buffer.from(text))
+  }
+  return title
+}
+
 async function listMarkdown(dir: string): Promise<string[]> {
   if (!existsSync(dir)) return []
   const entries = await readdir(dir, { withFileTypes: true })
@@ -182,9 +225,7 @@ export function writeDraft(contextDir: string, project: string, file: string, ba
 /** Start a new draft in a project: a file with its title and nothing else. An existing file is never written over. */
 export async function createDraft(contextDir: string, project: string, name: string): Promise<DocumentView> {
   const title = String(name).trim().replace(/\.md$/i, '')
-  if (!/^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,80}$/u.test(title)) {
-    throw new Error('Name the draft with letters and numbers. Spaces, dots, dashes and underscores may follow.')
-  }
+  if (!NAME.test(title)) throw new Error('Name the draft with letters and numbers. Spaces, dots, dashes and underscores may follow.')
   const projectDir = resolveInside(contextDir, 'projects', project)
   if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
   const file = `${title}.md`
