@@ -306,6 +306,12 @@ export function Agent(props: {
           {!session.planApproved && planned && !approving && (
             <button onClick={() => send(true)}>Approve the plan</button>
           )}
+          {/* The last turn was cut off when the app was closed. The agent is asked to take it up again. */}
+          {!session.running && session.messages.at(-1)?.cut && (
+            <button onClick={() => void act(() => window.mate.sendMessage(project, session.id, 'Go on from where you were cut off.', false))}>
+              Go on
+            </button>
+          )}
           <button className="primary" title="⌘↵" disabled={!text.trim()} onClick={() => send(false)}>
             Send
           </button>

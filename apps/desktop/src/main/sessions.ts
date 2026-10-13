@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import readline from 'node:readline'
@@ -9,13 +9,16 @@ import { Acp, type Ask, type Models } from './acp'
 import { AGENTS, SSH, agentEnvironment, isHost, isModel, sshArgs, type AgentKind } from './agents'
 import { resolveInside } from './context'
 import { placeOf } from './contextIndex'
-import { changesSince, insidePath, mateWrote, put, takeSnapshot, watching, type Change, type Snapshot } from './guard'
+import { changesSince, fingerprints, insidePath, mateWrote, put, takeSnapshot, watching, type Change, type Snapshot } from './guard'
 import { changedParts, diffLines, type DiffLine } from '../shared/diff'
 import { EFFORTS } from '../shared/effort'
 import { isTrusted } from './trust'
 
-/** `waiting`: sent while the agent was working, and not yet given to it. */
-export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[]; waiting?: boolean }
+/**
+ * `waiting`: sent while the agent was working, and not yet given to it.
+ * `cut`: Mate's note that the turn before it was cut off, because the app was closed. The reader can ask the agent to go on.
+ */
+export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[]; waiting?: boolean; cut?: boolean }
 
 /** A file the agent changed and Mate let through. `backup` names the bytes from before. Null: there was no file. */
 export type Kept = { path: string; backup: string | null; reverted: boolean }
@@ -190,9 +193,67 @@ export async function loadSession(contextDir: string, project: string, id: strin
   // from the file would be written over when the turn ends.
   const live = turns.get(id)?.session
   if (live) return live
-  const session = JSON.parse(await readFile(path.join(folder(contextDir, project, id), 'session.json'), 'utf8')) as Session
+  const read = JSON.parse(await readFile(path.join(folder(contextDir, project, id), 'session.json'), 'utf8')) as Session
   // A session written before agents could be on another machine has neither field.
-  return { ...session, host: session.host ?? null, sent: session.sent ?? {}, queue: session.queue ?? [], running: false, asks: [] }
+  const session = { ...read, host: read.host ?? null, sent: read.sent ?? {}, queue: read.queue ?? [], running: false, asks: [] }
+  await cutOff(contextDir, session)
+  return session
+}
+
+/**
+ * A turn is written down before the agent starts: which process runs it, and a mark for every file
+ * of the context as it was. The note is taken away when the turn has ended and the guard has been
+ * through the folder. One that is still there, with its process gone, is a turn the app did not
+ * live to end.
+ */
+const claimOf = (contextDir: string, session: Session) => path.join(folder(contextDir, session.project, session.id), 'turn.json')
+
+async function claim(contextDir: string, session: Session, snapshot: Snapshot): Promise<void> {
+  // The reader's message is on disk before the agent does anything, so a turn that is cut off does not take it along.
+  await saveSession(contextDir, session)
+  // ponytail: a mark for every file, written each turn. Fine for thousands of files. Mark only what changed when that is slow.
+  await writeFile(claimOf(contextDir, session), JSON.stringify({ pid: process.pid, files: fingerprints(snapshot) }))
+}
+
+const alive = (pid: unknown): boolean => {
+  if (typeof pid !== 'number' || pid === process.pid) return false
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (failed) {
+    return (failed as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
+
+/**
+ * Say so in the session when its last turn was cut off. The guard never looked at what that turn
+ * changed, and the copies from before it are gone with the app, so nothing can be put back. The
+ * reader is told which files are not as they were.
+ */
+async function cutOff(contextDir: string, session: Session): Promise<void> {
+  const file = claimOf(contextDir, session)
+  const left = await readFile(file, 'utf8').then((text) => JSON.parse(text) as { pid?: unknown; files?: Record<string, string> }, () => null)
+  // No turn was open, or another Mate on this computer is in the middle of it.
+  if (!left || alive(left.pid)) return
+  const before = left.files && typeof left.files === 'object' ? left.files : {}
+  const now = fingerprints(await takeSnapshot(contextDir))
+  const changed = [...new Set([...Object.keys(before), ...Object.keys(now)])].filter((each) => before[each] !== now[each]).sort()
+  // The answer the agent had begun is not kept while it is written.
+  const last = session.messages.at(-1)
+  if (last?.role === 'agent' && !last.text.trim() && last.tools.length === 0) session.messages.pop()
+  const named = changed.slice(0, 12).join(', ') + (changed.length > 12 ? `, and ${changed.length - 12} more` : '')
+  session.messages.push({
+    role: 'mate',
+    cut: true,
+    tools: [],
+    text:
+      'Mate was closed while the agent was working, so this turn was cut off. What the agent had answered so far is lost.\n\n' +
+      (changed.length > 0
+        ? `These files are not as they were when the turn began, and Mate has not checked what changed them: ${named}. Nothing was put back.`
+        : 'No file of the context has changed since the turn began.')
+  })
+  await saveSession(contextDir, session)
+  await rm(file, { force: true })
 }
 
 /** The sessions of a project, the newest first. */
@@ -469,6 +530,7 @@ async function begin(
       : '[The plan is not approved yet. Read and propose. Do not edit any file.]'
     const projectDir = resolveInside(contextDir, 'projects', project)
     snapshot = await takeSnapshot(contextDir)
+    await claim(contextDir, session, snapshot)
     // An agent on another machine is sent the files. One on this machine reads them itself.
     const files = session.host ? pack(snapshot, session.sent) : ''
     // The agent that stayed thinks with a model the reader chose, and the reader has given the choice
@@ -519,6 +581,7 @@ async function begin(
       live.delete(id)
     }
     session.messages.splice(session.messages.indexOf(answer), 1)
+    await rm(claimOf(contextDir, session), { force: true }).catch(() => {})
     release()
     settle(session)
     throw caught
@@ -589,6 +652,8 @@ async function begin(
     const earlier = conversation(session)
     for (const each of session.messages) delete each.waiting
     if (waited.some((each) => each.approve)) session.planApproved = true
+    // The guard has been through the folder. The turn is no longer one that could be cut off.
+    await rm(claimOf(contextDir, session), { force: true }).catch(() => {})
     if (waited.length === 0) {
       release()
       await saveSession(contextDir, session).catch(() => {})
@@ -690,6 +755,16 @@ export const isBusy = (contextDir: string): boolean => busy.has(contextDir)
 
 export function stopTurn(id: string): void {
   running.get(id)?.kill()
+}
+
+/**
+ * The app is closing. No agent goes on working with nobody to look at what it does: the ones in a
+ * turn are stopped, and the ones that stayed between turns are sent away. The turn that was open
+ * is found cut off when the app is next opened.
+ */
+export function stopAllTurns(): void {
+  for (const child of running.values()) child.kill()
+  for (const agent of live.values()) agent.close()
 }
 
 /** What a change did, or would do: the lines taken out and put in. A `note` when there is nothing to show as lines. */

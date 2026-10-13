@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import { chmod, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { AGENTS, SSH, listAgents, sshArgs } from '../src/main/agents.ts'
-import { changesSince, put, takeSnapshot } from '../src/main/guard.ts'
+import { changesSince, fingerprints, put, takeSnapshot } from '../src/main/guard.ts'
 import { compare, listSessions, loadSession, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
 import { isTrusted, keepTrustIn, setTrusted } from '../src/main/trust.ts'
 
@@ -306,6 +307,10 @@ console.log(JSON.stringify({ type: 'text', text: 'Done.' }))
     const session = await startSession(root, 'review', 'hermes')
     const other = await startSession(root, 'sibling', 'hermes')
     const first = await sendMessage(root, 'review', session.id, 'Plan it.', false, () => {})
+    // The turn is written down while it runs, with the reader's message, in case the app does not live to end it.
+    const note = path.join(root, '.sessions/review', session.id, 'turn.json')
+    assert.equal(JSON.parse(await readFile(note, 'utf8')).pid, process.pid)
+    assert.equal(JSON.parse(await readFile(path.join(path.dirname(note), 'session.json'), 'utf8')).messages[0].text, 'Plan it.')
 
     // Two more while it works: an approval, and a remark. Neither stops the turn.
     const approval = await sendMessage(root, 'review', session.id, '', true, () => {})
@@ -319,6 +324,7 @@ console.log(JSON.stringify({ type: 'text', text: 'Done.' }))
     await assert.rejects(sendMessage(root, 'sibling', other.id, 'Me too.', false, () => {}), /Another agent is working/)
 
     const done = await first.finished
+    assert.equal(existsSync(note), false)
     const asked = (await readFile(log, 'utf8')).trim().split('\n').map((line) => JSON.parse(line))
     assert.equal(asked.length, 2)
     assert.match(asked[0].prompt, /not approved yet[\s\S]*Plan it\.$/)
@@ -412,5 +418,40 @@ console.log(JSON.stringify({ type: 'text', text: 'Done.' }))
     AGENTS.hermes.command = command
     await rm(root, { recursive: true, force: true })
     await rm(stub, { force: true })
+  }
+})
+
+test('a turn the app did not live to end is said to be cut off, with the files that are not as they were', async () => {
+  const root = await context()
+  try {
+    const session = await startSession(root, 'review', 'hermes')
+    const dir = path.join(root, '.sessions/review', session.id)
+    // As the app leaves it when it is closed in the middle of a turn: the reader's message, an answer not begun,
+    // and the note of the turn, written by a process that is gone.
+    const saved = JSON.parse(await readFile(path.join(dir, 'session.json'), 'utf8'))
+    saved.messages.push({ role: 'you', text: 'Tidy it.', tools: [] }, { role: 'agent', text: '', tools: [] })
+    saved.running = true
+    await writeFile(path.join(dir, 'session.json'), JSON.stringify(saved))
+    const gone = spawnSync(process.execPath, ['-e', '']).pid
+    await writeFile(path.join(dir, 'turn.json'), JSON.stringify({ pid: gone, files: fingerprints(await takeSnapshot(root)) }))
+    // What the agent did before the app closed. Nobody looked at it.
+    await writeFile(path.join(root, 'shelf/classification.md'), 'Changed by the agent.\n')
+    await writeFile(path.join(root, 'projects/review/draft/new.md'), 'New.\n')
+
+    const back = await loadSession(root, 'review', session.id)
+    assert.equal(back.running, false)
+    assert.deepEqual(back.messages.map((each) => each.role), ['you', 'mate'])
+    assert.equal(back.messages[1].cut, true)
+    assert.match(back.messages[1].text, /cut off[\s\S]*: projects\/review\/draft\/new\.md, shelf\/classification\.md\. Nothing was put back\./)
+    assert.equal(existsSync(path.join(dir, 'turn.json')), false)
+    // It is said once.
+    assert.equal((await loadSession(root, 'review', session.id)).messages.length, 2)
+
+    // A note written by a process that is alive is another Mate in the middle of that turn. It is left alone.
+    await writeFile(path.join(dir, 'turn.json'), JSON.stringify({ pid: process.ppid, files: {} }))
+    assert.equal((await loadSession(root, 'review', session.id)).messages.length, 2)
+    assert.equal(existsSync(path.join(dir, 'turn.json')), true)
+  } finally {
+    await rm(root, { recursive: true, force: true })
   }
 })

@@ -43,6 +43,7 @@ import {
   sendMessage,
   settleHeld,
   startSession,
+  stopAllTurns,
   stopTurn,
   tuneSession,
   type Invited,
@@ -497,6 +498,7 @@ app.whenReady().then(() => {
 })
 
 app.on('before-quit', stopAllScripts)
+app.on('before-quit', stopAllTurns)
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

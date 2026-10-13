@@ -106,6 +106,10 @@ For contributors:
 
 ### Changed
 
+- A turn that was running when the app closed is no longer lost without
+  a word. Your message is kept, the session says the turn was cut off
+  and which files changed in it without being checked, and *Go on* asks
+  the agent to take it up again. Closing the app now stops its agents.
 - A page, a pane or an answer that cannot be drawn says so in its place,
   and the rest of the window goes on working. Before, one such fault
   left the whole window blank.

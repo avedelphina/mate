@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { lstat, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
@@ -57,6 +57,13 @@ export async function takeSnapshot(contextDir: string): Promise<Snapshot> {
   }
   return snapshot
 }
+
+/**
+ * A snapshot as it is written down: a mark for each file, not the file. It says later which files
+ * are no longer as they were. It cannot put one back.
+ */
+export const fingerprints = (snapshot: Snapshot): Record<string, string> =>
+  Object.fromEntries([...snapshot].map(([file, bytes]) => [file, createHash('sha256').update(bytes).digest('hex').slice(0, 16)]))
 
 /** What is different in the folder now. */
 export async function changesSince(contextDir: string, before: Snapshot): Promise<Change[]> {

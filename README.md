@@ -299,10 +299,12 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
   that turn.
 - **One agent works in a context at a time.** A script does not run
   while an agent is working there.
-- **A running turn is lost if the app quits.** Its session survives, and
-  messages that were waiting go with your next message. An agent that
-  stayed in a trusted context is started again and given the conversation
-  so far.
+- **A turn is cut off if the app quits.** The agent is stopped. When you
+  open the session again it says so, names the files that changed in
+  that turn and were not checked, and offers *Go on*. What the agent had
+  answered so far is lost, and nothing is put back. If the app is killed
+  or crashes, the agent may go on working for a while with nothing
+  checking it: look at the files the session names.
 - **Trust changes Hermes only.** Claude and Codex keep their limits in
   every context, and take their model from their own settings.
 - **No thinking effort in a trusted context.** Hermes 0.21.5 cannot be
