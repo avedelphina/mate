@@ -741,8 +741,11 @@ off, where a command line cannot turn them on again: it does not act as
 Node, it takes no Node options from the environment, and it takes no
 inspector. It starts only the archive it was packed with.
 
-The app keeps its data in the same folder installed or not, so trust and
-approved instruction files are the same in both. See
+Run from a checkout, the app has another name, Mate Dev, and with it
+another folder for its data. A checkout can be driven through a debugging
+port, and whoever drives it could use what it holds: the contexts the
+reader trusts, the instruction files they approved, the token of the MCP
+endpoint. So the two share none of these. See
 [../apps/desktop/README.md](../apps/desktop/README.md) for the commands.
 
 ## What is deliberately absent

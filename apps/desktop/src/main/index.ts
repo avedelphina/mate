@@ -49,8 +49,10 @@ import {
   type Session
 } from './sessions'
 
-// The name in the menu bar. Without this it is the package name.
-app.setName('Mate')
+// The name in the menu bar, and of the folder the app keeps its own data in. Run from a checkout it
+// has a name of its own: a checkout can be driven from outside, so it does not share the trusted
+// contexts, the approved instruction files or the token of the app that is installed.
+app.setName(app.isPackaged ? 'Mate' : 'Mate Dev')
 
 /** The context each window has open, by the id of its page. A window knows nothing of another's. */
 const contexts = new Map<number, string>()

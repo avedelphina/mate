@@ -87,6 +87,12 @@ contexts the reader trusts; `pins.json`, the instruction files they
 approved; `mcp-token`, the token of the local MCP endpoint. Nothing in a
 context can change these.
 
+Run from a checkout, the app is called Mate Dev and keeps its data in a
+folder of that name beside the other. A checkout can be driven through a
+debugging port, so it does not share the trust, the approvals or the
+token of the app that is installed. A context you trusted in one is not
+trusted in the other.
+
 ## Testing
 
 `pnpm test` runs every `tests/*.test.ts` file. The tests use real files in
@@ -141,9 +147,9 @@ An installed app differs from a checkout in three ways, all on purpose:
   the installed app.
 - It fetches no update. A new version is a new disk image.
 
-It keeps its data where `pnpm dev` does (on macOS,
-`~/Library/Application Support/Mate/`), so the contexts you trusted in
-one are trusted in the other.
+It keeps its data in a folder of its own (on macOS,
+`~/Library/Application Support/Mate/`). `pnpm dev` uses another: see
+"Layout" above.
 
 `pnpm icon` draws `build/icon.icns` again from `build/icon.svg`. Run it
 when the drawing changes, and commit both.

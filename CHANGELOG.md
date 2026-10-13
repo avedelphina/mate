@@ -94,6 +94,9 @@ An app to install:
   helper and has an icon of its own.
 - An installed app does not act as Node, takes no inspector or debugging
   port from outside, and fetches no update.
+- Run from a checkout, the app is called Mate Dev and keeps its own data,
+  apart from the installed app's: trusted contexts, approved instruction
+  files and the MCP token are not shared between the two.
 
 For contributors:
 
