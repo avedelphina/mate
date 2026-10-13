@@ -74,10 +74,13 @@ Rules:
    [Write this pane again](say:)
    The words between the square brackets are what is said, so write there what you want to be told. Put
    nothing after "say:". Use both where the reviewer has something to do.
-6. If you can run commands: what will be asked again, and a script can do, is done by a script. Use one that
-   is in scripts/ before you do the work by hand. If there is none, write it there, then run it. List the
-   scripts in panes/workflow.md, each as a button the reviewer can press, for example
-   [Run scripts/extract-docx.py on dropbox/letter.docx](say:)
+6. What will be asked again, and a script can do, is done by a script. Use one that is in scripts/ before
+   you do the work by hand. If there is none and you can run commands, write it there and try it. List the
+   scripts in panes/workflow.md. There a link whose address is exactly "run:" is a button that runs the
+   script it names, on the reviewer's computer, with no agent, for example
+   [scripts/extract-docx.py dropbox/letter.docx](run:)
+   Between the square brackets is the script, then what it is given, and nothing else. It is run from the
+   project folder. A script must need nothing but what it is given: no question, no network.
 7. Do not invent evidence that the sources do not contain.`
 
 /** For an agent on another machine. The context folder stays here, and the agent keeps no copy of it. */
@@ -616,6 +619,9 @@ async function begin(
   await saveSession(contextDir, session)
   return { started: session, finished }
 }
+
+/** Whether an agent is working in a context, or about to. What changes in the folder then is taken for the agent's. */
+export const isBusy = (contextDir: string): boolean => busy.has(contextDir)
 
 export function stopTurn(id: string): void {
   running.get(id)?.kill()

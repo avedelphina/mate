@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { existsSync } from 'node:fs'
-import { cp, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -20,11 +20,11 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.rail h2')?.textContent === 'example'`, 'the context is open')
     await app.press('.rail .row', 'document-review')
     await app.until(`document.querySelectorAll('.projects .tree .row').length > 0`, 'the project is open')
-    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review*', 'Agent', 'tasks'])
+    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review*', 'Agent', 'tasks', 'workflow'])
     // Every file of the project is in the tree, those in folded folders too. The draft is the one on the page.
     assert.deepEqual(
       (await app.page<string[]>(names('.projects .tree .row'))).sort(),
-      ['README.md', 'README.md', 'document.md*', 'intents.md', 'principles.md', 'tasks.md']
+      ['README.md', 'README.md', 'count-words.py', 'document.md*', 'intents.md', 'principles.md', 'tasks.md', 'workflow.md']
     )
 
     // Select a passage, comment on it, and find the comment in the file under the passage.
@@ -118,7 +118,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     // Another file of the project is read on the page, and the project stays open beside it.
     await app.press('.projects .tree .row', 'intents.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('intents.md')`, 'the file on the page')
-    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review*', 'Agent', 'tasks'])
+    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review*', 'Agent', 'tasks', 'workflow'])
 
     // A pane is a tab of the margin. One that is written while the project is open is put on show.
     await app.press('.margin .tabs button', 'tasks')
@@ -143,7 +143,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await writeFile(path.join(project, 'panes/deadlines.md'), '# Deadlines\n\n- 20 October: legal\n')
     await app.page(`window.dispatchEvent(new Event('focus'))`)
     await app.until(`document.querySelector('.margin .pane h1')?.textContent.includes('Deadlines')`, 'the new pane on show')
-    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review', 'Agent', 'deadlines*', 'tasks'])
+    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review', 'Agent', 'deadlines*', 'tasks', 'workflow'])
 
     // A file Mate cannot draw has a card with what can be done with it. Its text is taken out by the agent, when asked.
     await writeFile(path.join(project, 'dropbox/scan.pdf'), 'not a real pdf')
@@ -169,11 +169,48 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.match(await app.page<string>(`document.querySelector('.trust').textContent`), /This context is not trusted/)
     await app.press('.talk-move button', 'Open in the page')
     await app.until(`!!document.querySelector('.center .talk-page .invite')`, 'the conversation on the page')
-    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review', 'deadlines*', 'tasks'])
+    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review', 'deadlines*', 'tasks', 'workflow'])
+
+    // A script is not run in a context the reader has not trusted.
+    await app.press('.margin .tabs button', 'workflow')
+    await app.page(`document.querySelector('.margin .pane .run').click()`)
+    await app.until(`document.querySelector('.error')?.textContent.includes('only in a context you trust')`, 'the reader is told why it did not run')
+    assert.equal(await app.page(`document.querySelectorAll('.ran').length`), 0)
 
     // The app kept its own data in the folder it was given, not in the reader's.
     assert.ok((await readdir(app.userData)).length > 0)
     assert.equal(existsSync(path.join(app.userData, 'trusted.json')), false)
+  } finally {
+    await app.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('in a context the reader trusts, a script of the project runs from its button, with no agent', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-e2e-'))
+  const context = path.join(root, 'example')
+  await cp(path.resolve(import.meta.dirname, '../../../../contexts/_example'), context, { recursive: true })
+  // The reader trusted this folder on an earlier day: that is what the app finds in its data folder.
+  const app = await launch(context, { 'trusted.json': JSON.stringify([await realpath(context)]) })
+  try {
+    await app.until(`document.querySelector('.rail h2')?.textContent === 'example'`, 'the context is open')
+    await app.press('.rail .row', 'document-review')
+    await app.until(`[...document.querySelectorAll('.margin .tabs button')].some((each) => each.textContent === 'workflow')`, 'the workflow pane')
+
+    // The button reads the script and what it is given. Pressing it runs that, and shows what it printed.
+    await app.press('.margin .tabs button', 'workflow')
+    assert.equal(await app.page(`document.querySelector('.margin .pane .run').innerText`), 'scripts/count-words.py draft/document.md')
+    await app.page(`document.querySelector('.margin .pane .run').click()`)
+    await app.until(`!!document.querySelector('.margin .ran pre')`, 'what the script printed')
+    assert.match(await app.page<string>(`document.querySelector('.margin .ran pre').textContent`), /^draft\/document\.md: \d+ words\n$/)
+    assert.match(await app.page<string>(`document.querySelector('.margin .ran .meta span').textContent`), /^scripts\/count-words\.py draft\/document\.md: done, [\d.]+ s$/)
+
+    // A script has a card of its own in the tree, and runs from there too, given nothing.
+    await app.press('.projects .tree .row', 'count-words.py')
+    await app.until(`document.querySelector('.source strong')?.textContent === 'count-words.py'`, 'the card of the script')
+    await app.press('.source .acts button', 'Run it')
+    await app.until(`!!document.querySelector('.source .ran pre')`, 'what the script printed, on its card')
+    assert.match(await app.page<string>(`document.querySelector('.source .ran pre').textContent`), /^draft\/document\.md: \d+ words\n$/)
   } finally {
     await app.close()
     await rm(root, { recursive: true, force: true })

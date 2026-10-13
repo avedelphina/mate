@@ -12,6 +12,10 @@ unfinished.
 - `principles.md` — rules of engagement. Not traded away to finish faster.
 - `draft/` — the working copy and the comments on it.
 - `dropbox/` — intake that belongs to this effort, not to the whole context.
+- `scripts/` — what is done the same way each time, as a script. A button
+  in the workflow pane runs one, written as
+  `[scripts/NAME and what it is given](run:)`. No agent is asked. It runs
+  only in a context you trust.
 - `panes/` — what an agent gathered to show you beside the draft: tasks,
   deadlines, mail. One file is one pane. A pane is not a source. You can
   tick a task in it, and press a line written as `[words](say:)` to say

@@ -25,6 +25,7 @@ import {
 } from './context'
 import { refreshIndex, searchIndex } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
+import { runScript, stopAllScripts, stopScript } from './scripts'
 import { approve, describe, instructionFiles, keepPinsIn, unapproved } from './pins'
 import { isTrusted, keepTrustIn, setTrusted } from './trust'
 import { answerAsk, compare, gate, listSessions, revertChange, sendMessage, settleHeld, startSession, stopTurn, type Invited, type Session } from './sessions'
@@ -383,6 +384,11 @@ app.whenReady().then(() => {
     compare(requireContext(event), project, id, which === 'held' ? 'held' : 'kept', Number(index))
   )
 
+  // The reader presses a button, and a script of the project runs: no agent, and nothing off this computer.
+  // scripts.ts checks that the reader trusts the context, and that the file is one of the project's scripts.
+  ipcMain.handle('script:run', (event, project: string, line: string) => runScript(requireContext(event), project, String(line)))
+  ipcMain.handle('script:stop', (event) => stopScript(requireContext(event)))
+
   ipcMain.handle('assist:check', () => checkAssist(assistHelper))
 
   // The text goes back to the window for the reader to accept. This handler writes nothing.
@@ -396,6 +402,8 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
+
+app.on('before-quit', stopAllScripts)
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

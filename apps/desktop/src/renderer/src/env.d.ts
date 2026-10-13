@@ -89,6 +89,9 @@ export type Session = {
   asks?: Ask[]
 }
 
+/** What running a script came to. `output` is what it printed. `code` is null when it could not be started or was stopped. */
+export type Ran = { line: string; code: number | null; output: string; seconds: number; stopped: boolean }
+
 /** `present`: the helper is on this machine. `available`: the model behind it can answer now. */
 export type AssistState = { present: boolean; available: boolean; reason: string }
 
@@ -151,6 +154,10 @@ export type MateApi = {
   isTrusted: () => Promise<boolean>
   /** Asks the reader in a system dialog before it gives trust. Returns what holds afterwards. */
   setTrusted: (yes: boolean) => Promise<boolean>
+  /** Run a script of the project: `scripts/NAME`, then what it is given. Only in a context the reader trusts. No agent. */
+  runScript: (project: string, line: string) => Promise<Ran>
+  /** Stop the script that is running in this context. */
+  stopScript: () => Promise<void>
   checkAssist: () => Promise<AssistState>
   runAssist: (task: 'rewrite' | 'note', passage: string, note: string) => Promise<string>
 }

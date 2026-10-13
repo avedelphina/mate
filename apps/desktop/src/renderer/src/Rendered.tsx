@@ -48,8 +48,10 @@ export function Rendered(props: {
   onTick?: (at: number) => void
   /** With this, a link written as `[words](say:)` is a button, and pressing it says its own words. */
   onSay?: (words: string) => void
+  /** With this, a link written as `[scripts/NAME and what it is given](run:)` is a button that runs that script. */
+  onRun?: (line: string) => void
 }) {
-  const { text, passages = [], active = null, onPick, onTick, onSay } = props
+  const { text, passages = [], active = null, onPick, onTick, onSay, onRun } = props
   const pieces = useMemo(() => renderMarkdown(text), [text])
   /** The words of a piece as the reader sees them. */
   const shown = (piece: Piece): string => ('tag' in piece ? piece.children.map(shown).join('') : piece.hidden ? '' : text.slice(piece.from, piece.to))
@@ -74,6 +76,11 @@ export function Rendered(props: {
       // The button reads what it says. Nothing is said that the reader does not see.
       if (onSay && rest.className === 'link' && rest.title === 'say:') {
         const act = { className: 'say', title: 'Say this to the agent', role: 'button', ...pressable(() => onSay(shown(piece))) }
+        return createElement(tag, { key: index, ...act }, children.map(draw))
+      }
+      // The button reads the script and what it is given. That line is what runs.
+      if (onRun && rest.className === 'link' && rest.title === 'run:') {
+        const act = { className: 'say run', title: 'Run this script here. No agent is asked.', role: 'button', ...pressable(() => onRun(shown(piece))) }
         return createElement(tag, { key: index, ...act }, children.map(draw))
       }
       return createElement(tag, { key: index, ...rest }, children.map(draw))

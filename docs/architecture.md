@@ -48,6 +48,7 @@ preload as CommonJS. Leave that as it is.
 | What the assist is asked | `src/main/assist.ts` |
 | What is indexed, how a search ranks | `src/main/contextIndex.ts` |
 | Publishing a draft, and taking a shelf document down | `publish` and `takeDown` in `src/main/context.ts` |
+| Running a script of a project | `src/main/scripts.ts` |
 | What a pane is, and how it is read | `readProject` in `src/main/context.ts`, then `App.tsx` |
 | The tree of a project's files | `listFiles` in `src/main/context.ts`, then `Tree.tsx` |
 | How an agent is started and its output read | `src/main/agents.ts` |
@@ -339,8 +340,40 @@ markdown. No program of the agent's is run for either.
   somewhere else cannot hide an order behind a harmless name. Words over
   300 characters are not said this way.
 
+- **Run a script.** A link written as
+  `[scripts/NAME and what it is given](run:)` is a button that runs that
+  script. See "Scripts".
+
 Apart from that a pane is read, not reviewed: no comment is written into
 it, and it is not typed in.
+
+## Scripts
+
+What is done the same way each time is a script: a file in the project's
+`scripts/` folder. An agent writes it once. After that it runs with no
+agent and nothing off the computer, when the reader presses its button
+in a pane, or Run it on the script's card in the tree.
+
+`scripts.ts` is the whole of it. A script is a program with the reader's
+rights, so:
+
+- It runs only in a context the reader trusts. Main checks that, not the
+  window.
+- Only a file in `scripts/` of the open project is run. A link there
+  that points out of the context is not followed.
+- It runs as the line on the button says: the file, then what it is
+  given. There is no shell in between, so nothing it is given is read as
+  a command. A `.py`, `.sh`, `.js` or `.mjs` file is started with
+  `python3`, `sh` or `node`. Any other file must be one the system can
+  start itself.
+- It runs in the project folder, one at a time in a context, and not
+  while an agent is working there, since the guard would take what it
+  changes for the agent's. It is stopped after five minutes, or when the
+  reader presses Stop, together with what it started.
+
+What it printed is shown under the button, with whether it failed. What
+it changed in the folder is just changed: no copy is kept and there is
+no Revert, as when the reader types. The guard is for agents.
 
 ## Agents
 
@@ -383,6 +416,9 @@ its skills, the reader's connections, commands. So the reader can ask for
 work Mate has no feature for, such as next month's spreadsheet made from
 the ones already in the folder. Trust does not change Claude, Codex, or
 an agent on another machine.
+
+A trusted context is also the only place where a script of a project
+runs from its button. See "Scripts".
 
 Such an agent is not started once for each turn. It is started as
 `hermes acp` and stays, and Mate speaks the Agent Client Protocol with

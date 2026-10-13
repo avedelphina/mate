@@ -167,6 +167,9 @@ Tools: `mate_project`, `mate_read`, `mate_search`, `mate_comments`,
   Mate asks for each folder in a system dialog and keeps the answer
   outside the folder. It still checks what changes inside the context,
   and it does not see what the agent does outside it.
+- A script in a project's `scripts/` folder runs when you press its
+  button, with no agent, and only in a context you marked as trusted. It
+  is a program with your rights.
 - Files that an agent reads as its instructions, such as `AGENTS.md`, are
   shown to you before an agent starts, when they are new or have changed
   since you last approved them.

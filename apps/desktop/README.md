@@ -53,6 +53,7 @@ src/
     trust.ts        the contexts the reader trusts
     acp.ts          an agent that stays: asks, and takes a message mid-turn
     pins.ts         the instruction files the reader approved
+    scripts.ts      runs a script of a project, with no agent
   preload/
     index.ts        window.mate: the only bridge from the window to main
   renderer/src/

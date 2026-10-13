@@ -206,6 +206,11 @@ details .prose h2, details .prose h3, .pane h2, .pane h3 { font-size: 1em; }
 .pane .box:hover::before { color: var(--accent); }
 .say { display: inline-block; margin: 2px 0; padding: 3px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); font: 12.5px/1.5 var(--ui); cursor: pointer; }
 .say:hover { background: var(--hover); }
+/* A button that runs a script, and what the script printed. */
+.run::before { content: '▸ '; color: var(--accent); }
+.ran { margin: 8px 0 0; }
+.ran p { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 4px; overflow-wrap: anywhere; }
+.ran pre { max-height: 20em; margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--hover); font: 11.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow: auto; overflow-wrap: anywhere; }
 /* A pane is as wide as the margin. A table that is wider scrolls on its own. */
 .pane .table { display: block; overflow-x: auto; }
 

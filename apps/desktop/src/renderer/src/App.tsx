@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type FormEvent } from 'react'
 import { Agent } from './Agent'
-import type { AssistState, DocumentView, FileView, Hit, Kind } from './env'
+import type { AssistState, DocumentView, FileView, Hit, Kind, Ran } from './env'
 import { Rendered, type Passage } from './Rendered'
 import { Tree } from './Tree'
 import './styles.css'
@@ -136,6 +136,8 @@ export function App() {
   // Where the agent is drawn. Each is there only while its place is on show.
   const [pageSlot, setPageSlot] = useState<HTMLElement | null>(null)
   const [marginSlot, setMarginSlot] = useState<HTMLElement | null>(null)
+  // The script that was last run, where its button is, and what it came to. `result` is null while it runs.
+  const [ran, setRan] = useState<{ at: string; line: string; result: Ran | null } | null>(null)
   // Files the reader is deciding about: each leaves by one of the exits, or is let be.
   const [sources, setSources] = useState<Source[]>([])
   // The session that is open with the agent, when there is one. A pane can say something to it.
@@ -581,6 +583,46 @@ export function App() {
     }
   }
 
+  /** Run a script of the project, as the line on its button says. No agent is asked. `at` is where the button is. */
+  function run(at: string, heard: string) {
+    const line = heard.replace(/\s+/g, ' ').trim()
+    if (!view || !line || ran?.result === null) return
+    const { project: inProject, file: inFile } = view
+    setError(null)
+    setRan({ at, line, result: null })
+    window.mate.runScript(inProject, line).then(
+      (result) => {
+        setRan({ at, line, result })
+        // The script may have written files. Show what the folder holds now.
+        window.mate.openProject(inProject, inFile ?? undefined).then((next) => setView((now) => (now?.project === inProject ? next : now)), () => {})
+      },
+      (caught) => {
+        setRan(null)
+        setError(reason(caught, 'Could not run that script.'))
+      }
+    )
+  }
+
+  /** What the script at this place is doing, or came to, with what it printed. */
+  const outcome = (at: string) =>
+    ran?.at === at && (
+      <div className="ran">
+        <p className="meta">
+          <span>
+            {ran.result === null
+              ? `Running ${ran.line}…`
+              : `${ran.line}: ${ran.result.stopped ? 'stopped' : ran.result.code === 0 ? 'done' : `failed${ran.result.code === null ? '' : ` (${ran.result.code})`}`}, ${ran.result.seconds} s`}
+          </span>
+          {ran.result === null ? (
+            <button className="quiet" onClick={() => void window.mate.stopScript()}>Stop</button>
+          ) : (
+            <button className="quiet" onClick={() => setRan(null)}>Close</button>
+          )}
+        </p>
+        {ran.result?.output && <pre>{ran.result.output}</pre>}
+      </div>
+    )
+
   const settled = (source: Source) => setSources((all) => all.filter((each) => each !== source))
 
   /** The reader chooses files in the dialog of the system. Each then leaves by one of the exits. */
@@ -850,13 +892,19 @@ export function App() {
                       {source.id ? 'Pull it into draft/' : 'Pull it into draft/…'}
                     </button>
                   )}
-                  {!source.markdown && (
+                  {!source.markdown && !source.where.startsWith('scripts/') && (
                     <button title="Said to the agent in the open session. Mate reads no such file itself." onClick={() => void extract(source)}>
                       Ask the agent to extract its text into draft/
                     </button>
                   )}
+                  {source.inContext && source.where.startsWith('scripts/') && (
+                    <button title="Run this script here, given nothing. No agent is asked." onClick={() => run(`card:${source.where}`, source.where)}>
+                      Run it
+                    </button>
+                  )}
                   <button className="quiet" onClick={() => settled(source)}>Close</button>
                 </p>
+                {outcome(`card:${source.where}`)}
               </div>
             ))}
           {onPage ? (
@@ -1001,8 +1049,14 @@ export function App() {
               {said?.pane === pane.name && <p className="meta asof">Said to the agent: “{said.words}”</p>}
               {/* The reader can act on a pane in two ways, and Mate draws both: tick a task, press a line that says its own words. */}
               <div className="prose pane">
-                <Rendered text={pane.text} onTick={(at) => tick(pane.name, pane.text, at)} onSay={(words) => say(pane.name, words)} />
+                <Rendered
+                  text={pane.text}
+                  onTick={(at) => tick(pane.name, pane.text, at)}
+                  onSay={(words) => say(pane.name, words)}
+                  onRun={(line) => run(`pane:${pane.name}`, line)}
+                />
               </div>
+              {outcome(`pane:${pane.name}`)}
             </>
           )}
           {view && shown === 'review' && file !== null && !reading && (

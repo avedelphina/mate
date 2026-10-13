@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -11,9 +11,11 @@ import path from 'node:path'
  *
  * Clicks are made in the page, not with the mouse, so they work while the window is covered.
  */
-export async function launch(contextDir: string) {
+export async function launch(contextDir: string, kept: Record<string, string> = {}) {
   const app = path.resolve(import.meta.dirname, '../..')
   const userData = await mkdtemp(path.join(tmpdir(), 'mate-e2e-data-'))
+  // What the app is to find in its data folder, as if the reader had said it on an earlier day.
+  for (const [name, text] of Object.entries(kept)) await writeFile(path.join(userData, name), text)
   // Required from Node, the electron package is the path of its program.
   const electron = createRequire(import.meta.url)('electron') as unknown as string
   const env = { ...process.env }

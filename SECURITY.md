@@ -46,7 +46,9 @@ they show that the model is broken, for example:
 - a way for a context to become trusted without the reader's answer in the
   system dialog;
 - a way for an agent on this computer to start with instruction files the
-  reader has not approved.
+  reader has not approved;
+- a way to run a script in a context the reader has not trusted, or to
+  run a file that is not in the `scripts/` folder of the open project.
 
 ## What is not in scope
 
@@ -56,6 +58,8 @@ they show that the model is broken, for example:
 - A context that you chose to trust. A context folder can contain hooks and
   scripts, and Mate does not run them, but opening a context you do not
   trust is a decision you make.
+- What a script does once you run it in a context you marked as trusted.
+  It is a program with your rights.
 - What an agent does in a context you marked as trusted in Mate. There
   Hermes runs as it does in your own terminal, and Mate limits nothing
   outside the context folder.

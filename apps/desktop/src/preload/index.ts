@@ -57,6 +57,8 @@ contextBridge.exposeInMainWorld('mate', {
   },
   isTrusted: (): Promise<boolean> => ipcRenderer.invoke('trust:get'),
   setTrusted: (yes: boolean): Promise<boolean> => ipcRenderer.invoke('trust:set', yes),
+  runScript: (project: string, line: string) => ipcRenderer.invoke('script:run', project, line),
+  stopScript: () => ipcRenderer.invoke('script:stop'),
   checkAssist: () => ipcRenderer.invoke('assist:check'),
   runAssist: (task: 'rewrite' | 'note', passage: string, note: string) =>
     ipcRenderer.invoke('assist:run', task, passage, note)
