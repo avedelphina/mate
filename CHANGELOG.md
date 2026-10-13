@@ -5,7 +5,7 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.4.0] - 2026-10-13
 
 Mate becomes a place to work in a project, not only to review a draft.
 You write the draft and publish it, bring sources in, let an agent show
