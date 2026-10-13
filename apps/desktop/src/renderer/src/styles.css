@@ -62,6 +62,11 @@ body { font: 13px/1.5 var(--ui); color: var(--ink); background: var(--page); -we
 [data-platform='mac'] .rail .bar { padding-left: 82px; }
 .scroll { flex: 1; min-height: 0; overflow: auto; padding: 4px 16px 24px; }
 .rail .scroll { padding: 4px 6px 16px; }
+.rail-foot { flex: none; display: flex; align-items: center; gap: 6px; min-height: 26px; padding: 6px 8px; border-top: 1px solid var(--line); font-size: 12px; }
+.rail-foot button { flex: none; padding: 2px 8px; font-size: 12px; }
+.rail-foot .meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-foot form { flex: 1; }
+.rail-foot input { width: 100%; box-sizing: border-box; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); font-size: 12.5px; }
 
 button, input, textarea { font: inherit; color: inherit; }
 button { padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); cursor: pointer; }

@@ -111,6 +111,10 @@ export type MateApi = {
   shapeContext: () => Promise<Opened>
   /** Make the open context a git repository, where it is in none. Nothing is committed, and nothing connects. */
   trackContext: () => Promise<Opened>
+  /** How many files of the context differ from the last commit. Only in a context the reader trusts. */
+  countChanges: () => Promise<number>
+  /** Put what has changed in the context into one commit. Gives the number of files. Only in a trusted context. */
+  commit: (message: string) => Promise<number>
   /** A context in a folder that is not there yet. The reader names it and says where, in a dialog of the system. */
   newContext: () => Promise<Opened | null>
   /** A project in the open context: its folder, a place for drafts, its intents and its principles. */

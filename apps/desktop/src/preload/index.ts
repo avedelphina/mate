@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld('mate', {
   openContext: () => ipcRenderer.invoke('context:open'),
   shapeContext: () => ipcRenderer.invoke('context:shape'),
   trackContext: () => ipcRenderer.invoke('context:track'),
+  countChanges: (): Promise<number> => ipcRenderer.invoke('context:changes'),
+  commit: (message: string): Promise<number> => ipcRenderer.invoke('context:commit', message),
   newContext: () => ipcRenderer.invoke('context:create'),
   currentContext: () => ipcRenderer.invoke('context:current'),
   searchContext: (query: string) => ipcRenderer.invoke('context:search', query),

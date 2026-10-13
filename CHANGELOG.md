@@ -26,6 +26,11 @@ Starting out:
   git repository can get one (*Start a repository*). That runs
   `git init` and nothing else: nothing is committed, and nothing
   connects anywhere.
+- *Commit…* at the foot of the rail puts what has changed in the context
+  into one git commit, in your words. It is your act, like publishing:
+  nothing is committed for you. Only in a context you trust, because a
+  commit starts the hooks of the repository. Mate adds no remote and
+  never pushes or pulls.
 
 Writing and publishing:
 

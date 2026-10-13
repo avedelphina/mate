@@ -1,10 +1,10 @@
-import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { lstat, mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { insertComment, readDocument, retype, type Thread } from '../shared/comments'
 import { placeOf, type Place } from './contextIndex'
+import { inRepository } from './git'
 import { mateWrote } from './guard'
 
 /**
@@ -85,29 +85,6 @@ export async function createContext(dir: string): Promise<void> {
 /** Give a folder that is there the shape of a context. What is in it stays as it is. */
 export async function shapeContext(dir: string): Promise<void> {
   for (const each of SHAPE) await mkdir(path.join(dir, each), { recursive: true })
-}
-
-/** Whether a folder is in a git repository. The folders are looked at. Git is not asked. */
-export function inRepository(dir: string): boolean {
-  for (let at = path.resolve(dir); ; at = path.dirname(at)) {
-    if (existsSync(path.join(at, '.git'))) return true
-    if (at === path.dirname(at)) return false
-  }
-}
-
-/**
- * Make the context a git repository, so that it has a history and a way to another computer.
- * This is the only thing Mate does with git, and only where there is no repository: git then
- * reads nothing a context could have brought with it, such as a hook or a config. Nothing is
- * committed, and nothing connects anywhere.
- */
-export async function startRepository(dir: string, env: NodeJS.ProcessEnv): Promise<void> {
-  if (inRepository(dir)) throw new Error('This folder is in a git repository already.')
-  await new Promise<void>((resolve, reject) =>
-    execFile('git', ['init'], { cwd: dir, env }, (failed) =>
-      failed ? reject(new Error('Git could not start a repository here. Is git on this computer?')) : resolve()
-    )
-  )
 }
 
 /** What a new project starts with. The two files steer it, and say only what they are for. */

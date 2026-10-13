@@ -55,6 +55,7 @@ src/
     acp.ts          an agent that stays: asks, takes a message mid-turn, is told a model
     pins.ts         the instruction files the reader approved
     scripts.ts      runs a script of a project, with no agent
+    git.ts          starts a repository, and commits what changed in the context
   preload/
     index.ts        window.mate: the only bridge from the window to main
   renderer/src/
@@ -96,8 +97,9 @@ that print what the real tool prints). They do not start Electron.
 on a copy of `contexts/_example` with a data folder of its own, and drives
 the window: a comment into the file, the tree, a pane, the conversation
 on the page, a project started from the rail, a git repository started
-for the context, and, in a context marked as trusted for the test, a
-script run from its button. That one step needs `git` on the PATH. There is no test framework. `tests/e2e/drive.ts` asks
+for the context and a commit refused there, and, in a context marked as
+trusted for the test, a script run from its button and a commit made.
+The git steps need `git` on the PATH. There is no test framework. `tests/e2e/drive.ts` asks
 Electron for a debugging port and speaks to the page over it with what
 Node has. Clicks are made in the page and not with the mouse, so the test
 works while its window is covered. It starts no agent.

@@ -62,6 +62,7 @@ Where a change goes:
 | Reading or writing a draft, publishing, the dropbox | `apps/desktop/src/main/context.ts` |
 | Panes, and what the reader can press in one | `src/main/context.ts`, then `src/renderer/src/Rendered.tsx` |
 | Running a script of a project | `src/main/scripts.ts` |
+| Starting a repository, and committing | `src/main/git.ts` |
 | A new capability for the window | `src/main/index.ts`, then `src/preload/index.ts`, then `src/renderer/src/env.d.ts` |
 | How markdown is drawn | `src/renderer/src/markdown.ts` |
 | Search and the index | `src/main/contextIndex.ts` |

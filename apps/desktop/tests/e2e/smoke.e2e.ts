@@ -197,6 +197,11 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelectorAll('.rail .ask').length === 0`, 'nothing left to ask')
     assert.equal(existsSync(path.join(context, '.git/HEAD')), true)
 
+    // Committing starts what the repository names, so it is not done in a context the reader has not trusted.
+    await app.press('.rail-foot button', 'Commit…')
+    await app.until(`document.querySelector('.error')?.textContent.includes('commits only in a context you trust')`, 'the reader is told why nothing was committed')
+    assert.equal(existsSync(path.join(context, '.git/index')), false)
+
     // The app kept its own data in the folder it was given, not in the reader's.
     assert.ok((await readdir(app.userData)).length > 0)
     assert.equal(existsSync(path.join(app.userData, 'trusted.json')), false)
@@ -210,6 +215,8 @@ test('in a context the reader trusts, a script of the project runs from its butt
   const root = await mkdtemp(path.join(tmpdir(), 'mate-e2e-'))
   const context = path.join(root, 'example')
   await cp(path.resolve(import.meta.dirname, '../../../../contexts/_example'), context, { recursive: true })
+  // A commit says who made it. The test is nobody in particular, whoever runs it.
+  Object.assign(process.env, { GIT_AUTHOR_NAME: 'Reader', GIT_AUTHOR_EMAIL: 'reader@example.com', GIT_COMMITTER_NAME: 'Reader', GIT_COMMITTER_EMAIL: 'reader@example.com' })
   // The reader trusted this folder on an earlier day: that is what the app finds in its data folder.
   const app = await launch(context, { 'trusted.json': JSON.stringify([await realpath(context)]) })
   try {
@@ -243,6 +250,24 @@ test('in a context the reader trusts, a script of the project runs from its butt
     await app.press('.source .acts button', 'Run it')
     await app.until(`!!document.querySelector('.source .ran pre')`, 'what the script printed, on its card')
     assert.match(await app.page<string>(`document.querySelector('.source .ran pre').textContent`), /^draft\/document\.md: \d+ words\n$/)
+
+    // Here the reader commits. A repository is started, and what is in the context goes into one commit, in their words.
+    await app.press('.rail .ask button', 'Start a repository')
+    await app.until(`!!document.querySelector('.rail-foot button')`, 'the way to commit')
+    await app.press('.rail-foot button', 'Commit…')
+    await app.until(`!!document.querySelector('.rail-foot input')`, 'the words of the commit are asked for')
+    assert.match(await app.page<string>(`document.querySelector('.rail-foot input').placeholder`), /^What changed, in \d+ files$/)
+    await app.page(`(() => {
+      const input = document.querySelector('.rail-foot input')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'The example, as it came')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.form.requestSubmit()
+    })()`)
+    await app.until(`/^Committed \\d+ files\\.$/.test(document.querySelector('.rail-foot .meta')?.textContent ?? '')`, 'the commit is made')
+    assert.equal(await readFile(path.join(context, '.git/COMMIT_EDITMSG'), 'utf8'), 'The example, as it came\n')
+    // With nothing changed since, there is nothing to commit, and the reader is told so.
+    await app.press('.rail-foot button', 'Commit…')
+    await app.until(`document.querySelector('.rail-foot .meta')?.textContent === 'Nothing has changed since the last commit.'`, 'nothing to commit')
   } finally {
     await app.close()
     await rm(root, { recursive: true, force: true })

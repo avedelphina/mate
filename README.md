@@ -21,8 +21,8 @@ draft. Nothing is copied into a database, and nothing needs a server.
   Deleting Mate loses no work. Anyone who does not run Mate can read the
   comments, because they are HTML comments in the text.
 - **Git is the sync.** Mate keeps no second copy of a document and has no
-  accounts. Commit, push, and pull as you already do. Mate starts the
-  repository if you ask, and does nothing else with git.
+  accounts. Mate starts the repository if you ask and commits when you
+  say so. Push and pull as you already do.
 - **A reference is not a proposal.** The `shelf/` folder is what is true
   now. A draft in a project is a proposal until someone publishes it.
 - **An agent proposes; you decide.** An agent plans before it writes, and
@@ -50,6 +50,9 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   principles. A folder you already have can be opened and made a context
   where it stands, and Mate offers to start a git repository for a
   context that is in none.
+- **Commit.** *Commit…* at the foot of the rail puts what has changed in
+  the context into one git commit, in your words. Nothing is committed
+  for you. Only in a [context you trust](#a-context-you-trust).
 - **Write the draft.** *Edit* turns the page into the text of the file,
   to type in. Comments stay with their lines, and a save never writes
   over what an agent or another program wrote in the meantime. *New
@@ -209,6 +212,8 @@ context can make it trusted. In a trusted context:
   once* or *Deny*), and a message you send while it works is taken into
   the turn.
 - A script of a project runs from its button.
+- *Commit…* commits. A commit starts the hooks of the repository, and
+  those are programs from the folder, like a script.
 
 Trust does not change Claude, Codex, or an agent on another machine. It
 does not change who decides either: the plan comes first, a change
@@ -266,10 +271,11 @@ Tools: `mate_project`, `mate_read`, `mate_search`, `mate_comments`,
   it shows. No program from a context runs in the window.
 - Publishing is confirmed in a system dialog that the page cannot press.
   No agent can publish.
-- The one git command Mate runs is `git init`, when you press *Start a
-  repository*, and only in a folder that is in no repository. Git in a
-  folder from someone else can run that folder's hooks, so Mate never
-  runs it there. It adds no remote, commits nothing, and pushes nothing.
+- Git starts programs a repository names: its hooks, and what its config
+  says. So Mate runs it in two cases only. *Start a repository* runs
+  `git init` where there is no repository, in any context. *Commit…*
+  runs in a context you marked as trusted, and nowhere else. Mate adds no
+  remote, and never pushes or pulls.
 - The list of models is asked of Hermes only when you open the choice,
   because Hermes may look its models up on the network.
 - The renderer is sandboxed (`sandbox`, `contextIsolation`, no
@@ -308,9 +314,12 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
   minutes.
 - **What a publish replaced is kept but not shown.** It is in
   `shelf/.history/`, to be read with any other tool.
-- **No remote from Mate.** Connecting a context to a repository
-  elsewhere, and the first push, are done with git: in a terminal, or by
-  an agent in a context you trust.
+- **No remote, no push, no pull from Mate.** Connecting a context to a
+  repository elsewhere, and moving commits, are done with git: in a
+  terminal, or by an agent in a context you trust.
+- **A commit takes everything that changed in the context.** There is no
+  choosing of files and no look at the difference before it. For that,
+  use git.
 - **The intents and the principles are not typed in Mate.** A new project
   gets both files with a line each. Write them in any editor.
 - **Mate draws markdown and nothing else.** A Word file, a spreadsheet or

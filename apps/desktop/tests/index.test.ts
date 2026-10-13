@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
+import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { createContext, createProject, describeContext, listProjects, readProject, shapeContext, startRepository, tickPane } from '../src/main/context.ts'
+import { createContext, createProject, describeContext, listProjects, readProject, shapeContext, tickPane } from '../src/main/context.ts'
+import { commitContext, startRepository, uncommitted } from '../src/main/git.ts'
 import { placeOf, refreshIndex, searchIndex } from '../src/main/contextIndex.ts'
 import { insertComment } from '../src/shared/comments.ts'
 
@@ -231,6 +233,41 @@ test('a folder that is opened is made a context where it stands, and a repositor
     assert.equal((await describeContext(inner)).tracked, true)
     await assert.rejects(startRepository(inner, process.env), /in a git repository already/)
     assert.equal(existsSync(path.join(inner, '.git')), false)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a commit takes what has changed in the context, in the words given, and nothing beside the context', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-commit-'))
+  // The words of a commit and who made it, without the settings of whoever runs the test.
+  const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_AUTHOR_NAME: 'Reader', GIT_AUTHOR_EMAIL: 'reader@example.com', GIT_COMMITTER_NAME: 'Reader', GIT_COMMITTER_EMAIL: 'reader@example.com' }
+  const log = (dir: string) => new Promise<string>((resolve) => execFile('git', ['log', '--format=%s', '--name-only'], { cwd: dir, env }, (_failed, out) => resolve(out.trim())))
+  try {
+    // A repository that holds more than the context: something beside it is changed, and staged.
+    const dir = path.join(root, 'work')
+    await createContext(dir)
+    await startRepository(root, env)
+    await writeFile(path.join(root, 'beside.txt'), 'Not the context.\n')
+    await new Promise((resolve) => execFile('git', ['add', 'beside.txt'], { cwd: root, env }, resolve))
+    await createProject(dir, 'letter')
+    assert.equal(await uncommitted(dir, env), 2)
+
+    // The first commit of the repository. The words are one value, whatever they begin with.
+    await assert.rejects(commitContext(dir, '  ', env), /Say what changed/)
+    assert.equal(await commitContext(dir, '--amend the letter', env), 2)
+    assert.equal(await log(root), '--amend the letter\n\nwork/projects/letter/intents.md\nwork/projects/letter/principles.md')
+    assert.equal(await uncommitted(dir, env), 0)
+    await assert.rejects(commitContext(dir, 'Again', env), /Nothing has changed/)
+
+    // A changed file and a new one are both taken. What Mate keeps for itself is not: it ignores itself.
+    await writeFile(path.join(dir, 'projects/letter/intents.md'), '# Intents\n\nBe brief.\n')
+    await writeFile(path.join(dir, 'shelf/terms.md'), 'Terms.\n')
+    await mkdir(path.join(dir, '.indexes'))
+    await writeFile(path.join(dir, '.indexes/.gitignore'), '*\n')
+    await writeFile(path.join(dir, '.indexes/context.json'), '{}')
+    assert.equal(await commitContext(dir, 'Terms on the shelf', env), 2)
+    assert.match(await log(root), /^Terms on the shelf\n\nwork\/projects\/letter\/intents.md\nwork\/shelf\/terms.md\n/)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

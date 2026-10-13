@@ -159,6 +159,10 @@ export function App() {
   const [founding, setFounding] = useState<string | null>(null)
   // What the open folder still lacks: the shape of a context, and a git repository around it.
   const [lacks, setLacks] = useState({ shape: false, git: false })
+  // A commit the reader is putting into words: how many files it would take, and the words so far.
+  const [committing, setCommitting] = useState<{ files: number; words: string } | null>(null)
+  // What came of the last commit, or why there was none.
+  const [committed, setCommitted] = useState<string | null>(null)
   // The panes of the open project as last seen, to notice one that has just been written.
   const seenPanes = useRef<{ project: string; written: Record<string, number> } | null>(null)
   // Panes written while the reader was in the conversation in the margin. Their tabs are marked, not opened.
@@ -312,6 +316,36 @@ export function App() {
     setReading(null)
     setQuery('')
     setFounding(null)
+    setCommitting(null)
+    setCommitted(null)
+  }
+
+  const files = (count: number) => (count === 1 ? '1 file' : `${count} files`)
+
+  /** The reader goes to commit. How much there is to commit is asked now, so it is never an old number. */
+  async function startCommit() {
+    setError(null)
+    setCommitted(null)
+    if (!(await leaveEditor())) return
+    try {
+      const count = await window.mate.countChanges()
+      if (count === 0) setCommitted('Nothing has changed since the last commit.')
+      else setCommitting({ files: count, words: '' })
+    } catch (caught) {
+      setError(reason(caught, 'Could not ask git what has changed.'))
+    }
+  }
+
+  async function commit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!committing?.words.trim()) return
+    try {
+      const count = await window.mate.commit(committing.words)
+      setCommitting(null)
+      setCommitted(`Committed ${files(count)}.`)
+    } catch (caught) {
+      setError(reason(caught, 'Git did not commit.'))
+    }
   }
 
   async function openContext() {
@@ -932,6 +966,31 @@ export function App() {
             </>
           )}
         </div>
+        {/* Git is the history of a context. A commit is the reader's act, like publishing: nothing is committed for them. */}
+        {contextDir && !lacks.git && (
+          <footer className="rail-foot">
+            {committing === null ? (
+              <>
+                <button className="quiet" title="Put what has changed in this context into one git commit" onClick={() => void startCommit()}>
+                  Commit…
+                </button>
+                {committed && <span className="meta" role="status">{committed}</span>}
+              </>
+            ) : (
+              <form onSubmit={commit}>
+                <input
+                  autoFocus
+                  value={committing.words}
+                  placeholder={`What changed, in ${files(committing.files)}`}
+                  aria-label="What this commit is"
+                  onChange={(event) => setCommitting({ ...committing, words: event.target.value })}
+                  onKeyDown={(event) => event.key === 'Escape' && setCommitting(null)}
+                  onBlur={() => committing.words.trim() === '' && setCommitting(null)}
+                />
+              </form>
+            )}
+          </footer>
+        )}
       </aside>
       <main className="center">
         <header className="bar">

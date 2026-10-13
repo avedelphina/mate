@@ -19,7 +19,8 @@ Every call has this shape. The whole of what the window can ask for:
 
 | What | Channels | In main |
 |---|---|---|
-| The context | `context:open`, `context:create`, `context:shape`, `context:track`, `context:current`, `context:search` | the folder dialog, `createContext` after a dialog of the system, `shapeContext`, `startRepository`, the projects, the index |
+| The context | `context:open`, `context:create`, `context:shape`, `context:current`, `context:search` | the folder dialog, `createContext` after a dialog of the system, `shapeContext`, the projects, the index |
+| Git | `context:track`, `context:changes`, `context:commit` | `startRepository`, `uncommitted`, `commitContext` in `git.ts` |
 | A file | `file:read`, `file:reveal` | a file that is read and not reviewed; a file shown in the file manager |
 | A project | `project:open`, `project:create` | `readProject`: the draft, its comments, the panes, the tree; `createProject` |
 | Comments | `comment:add`, `comment:reply`, `comment:apply`, `comment:anchor` | `insertComment`, `addReply`, `applySuggestion`, `anchorComment` |
@@ -65,6 +66,7 @@ preload as CommonJS. Leave that as it is.
 | Publishing a draft, and taking a shelf document down | `publish` and `takeDown` in `src/main/context.ts` |
 | How a file comes in, and the exits of a dropbox | `pullIn`, `noteSource` and `copySource` in `src/main/context.ts` |
 | Running a script of a project | `src/main/scripts.ts` |
+| Starting a repository, and committing | `src/main/git.ts`, and who may in `src/main/index.ts` |
 | What a run button leaves open, and how it is filled | `src/shared/run.ts` |
 | What a pane is, and how it is read | `readProject` in `src/main/context.ts`, then `App.tsx` |
 | What the reader can press in a pane | `tickPane` in `src/main/context.ts`, then `Rendered.tsx` |
@@ -312,23 +314,7 @@ folders where the folder stands, and what is in it stays as it is.
 
 A context that is in no git repository has no history and no way to
 another computer, and git is the only sync Mate has. The rail says that
-too, and offers to start a repository. `startRepository` runs `git init`
-in the context folder. It is the one thing Mate does with git, and it is
-kept that narrow on purpose:
-
-- Whether a folder is in a repository is seen by looking for `.git` in
-  it and in the folders above it. Git is not asked.
-- Git is run only where there is none. In a repository that came with a
-  context, git reads that folder's config and runs its hooks, and a
-  context must not be able to run a program. A repository that is new
-  holds nothing but what git put there.
-- Nothing is committed, no remote is added, nothing is pushed. A remote
-  is of use only with a push and a pull, and those bring credentials,
-  conflicts and the hooks again. They stay with git: in a terminal, or
-  with an agent in a context the reader trusts.
-- It is not started while an agent works in the context. The guard
-  watches `.git/config` and the hooks, and would take the new ones for
-  the agent's.
+too, and offers to start a repository. See "Git".
 
 A project is started from the rail, by its name. `createProject` makes
 `projects/<name>/` with a `draft/` folder, `intents.md` and
@@ -337,6 +323,51 @@ so an agent that reads them is told nothing the reader did not write.
 The name is a file name: letters and numbers first, and nothing that
 could be a path. A project of that name is never written over, and a
 `projects/` folder that is a link to somewhere else is not written into.
+
+## Git
+
+Git is how a context has a history and moves between computers. Mate
+does two things with it, and `git.ts` is the whole of both.
+
+- **Start a repository.** `startRepository` runs `git init` in the
+  context folder, when the reader presses the button.
+- **Commit.** `commitContext` puts what has changed in the context into
+  one commit, in the reader's words. The foot of the rail has the button.
+  How many files there are is asked of git when the reader goes to
+  commit, and is not kept.
+
+A commit is the reader's act, like publishing. Nothing is committed for
+them, at no moment and by no rule: a commit made on its own would take
+text that is half written, or what an agent has just changed and the
+reader has not looked at.
+
+Git starts programs a repository names: its hooks, and whatever its
+config says, such as a filter or a signing program. A context must not
+be able to run a program, so:
+
+- Whether a folder is in a repository is seen by looking for `.git` in
+  it and in the folders above it. Git is not asked.
+- `git init` is run only where there is no repository. A new one holds
+  nothing but what git put there, so this is done in any context.
+- Everything else, counting what has changed and committing, is done
+  only in a context the reader trusts. Main checks that, as it does for
+  a script. Switching the hooks off for one command would not be enough:
+  the config can name other programs, under names Mate cannot know.
+- Neither is done while an agent works in the context. The guard watches
+  `.git/config` and the hooks, and a commit in the middle of a turn
+  would take what the agent is in the middle of.
+
+A commit takes the context and nothing beside it. In a repository that
+holds more than the context, what else was changed or staged there is
+left as it was. What Mate keeps for itself, `.indexes/` and `.sessions/`,
+ignores itself and is not committed.
+
+No remote is added, and nothing is pushed or pulled. Those bring
+credentials and conflicts, and they are what git's own tools are for: a
+terminal, or an agent in a trusted context.
+
+The copy for Revert is not git. A change by an agent is put back from
+the copy Mate took before it, whether or not anything was ever committed.
 
 ## The files of a project
 
@@ -711,7 +742,8 @@ approved instruction files are the same in both. See
 ## What is deliberately absent
 
 No mail and no issues of Mate's own: an agent shows them in a pane, and
-Mate connects to neither. No git operations but one: a repository is
-started where there is none, when the reader asks. No program from a context
+Mate connects to neither. Of git, only a repository started and a commit
+made, when the reader says so: no remote, no push, no pull, and no commit
+made on its own. No program from a context
 that runs in the window: a pane is markdown, and Mate draws its buttons.
 No update that fetches itself.

@@ -61,8 +61,9 @@ they show that the model is broken, for example:
   to reach an agent's command line as an option;
 - a way to make the installed app act as Node, load code that was not
   packed with it, or be driven through a debugging port;
-- a way to make Mate run git in a folder that is in a repository
-  already, or run any git command but `git init`.
+- a way to make Mate run git in a repository of a context the reader has
+  not trusted, or make a commit the reader did not ask for, or reach a
+  remote.
 
 ## What is not in scope
 
@@ -75,7 +76,8 @@ they show that the model is broken, for example:
   but opening such a folder, and asking an agent to work in it, is a
   decision you make.
 - What a script does once you run it in a context you marked as trusted.
-  It is a program with your rights.
+  It is a program with your rights. The same holds for the hooks of a
+  repository when you commit there.
 - What an agent does in a context you marked as trusted in Mate. There
   Hermes runs as it does in your own terminal, and Mate limits nothing
   outside the context folder.

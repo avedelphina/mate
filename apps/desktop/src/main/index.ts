@@ -5,6 +5,7 @@ import path from 'node:path'
 import { addReply, anchorComment, applySuggestion } from '../shared/comments'
 import { agentEnvironment, listAgents } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
+import { commitContext, inRepository, startRepository, uncommitted } from './git'
 import {
   addComment,
   copySource,
@@ -13,7 +14,6 @@ import {
   createProject,
   describeContext,
   editDraft,
-  inRepository,
   listShelf,
   noteSource,
   placeOnDisk,
@@ -23,7 +23,6 @@ import {
   readProject,
   shapeContext,
   shelfPath,
-  startRepository,
   takeDown,
   tickPane,
   writeDraft
@@ -228,13 +227,37 @@ app.whenReady().then(() => {
     return describeContext(contextDir)
   })
 
-  // The one thing Mate does with git: a repository where there is none. See startRepository.
+  // A repository where there is none. Git reads nothing of the context for that, so it is done in any context.
   ipcMain.handle('context:track', async (event) => {
     const contextDir = requireContext(event)
     // The guard would take the new files of the repository for the agent's, and put them back.
     if (isBusy(contextDir)) throw new Error('An agent is working in this context. Start the repository when it has finished.')
     if (!inRepository(contextDir)) await startRepository(contextDir, agentEnvironment())
     return describeContext(contextDir)
+  })
+
+  // Anything else git does starts what the repository names: its hooks, and what its config says.
+  // That is a program from the context, so it is for a context the reader trusts, like a script.
+  const mayUseGit = (contextDir: string): void => {
+    if (!inRepository(contextDir)) throw new Error('This context is in no git repository.')
+    if (!isTrusted(contextDir)) {
+      throw new Error('Mate commits only in a context you trust: a repository can name programs that git then starts. Trust this context in the Agent tab, or commit in a terminal.')
+    }
+  }
+
+  // How much there is to commit. Asked when the reader goes to commit, not kept.
+  ipcMain.handle('context:changes', (event) => {
+    const contextDir = requireContext(event)
+    mayUseGit(contextDir)
+    return uncommitted(contextDir, agentEnvironment())
+  })
+
+  ipcMain.handle('context:commit', (event, message: string) => {
+    const contextDir = requireContext(event)
+    mayUseGit(contextDir)
+    // What an agent is in the middle of is not what the reader means to keep.
+    if (isBusy(contextDir)) throw new Error('An agent is working in this context. Commit when it has finished.')
+    return commitContext(contextDir, String(message), agentEnvironment())
   })
 
   // A context that is not there yet. The reader names it and says where in a dialog of the system:
