@@ -27,20 +27,32 @@ test('a PDF and a Word file are read as text, found by search, and read in place
     }
     await word('Draft reports are archived for twelve months.\n')
     await writeFile(path.join(root, 'projects/a/dropbox/broken.pdf'), 'not a pdf')
+    // The same policy as a scanner gives it: pictures of the pages, with no text in them.
+    await copyFile(path.join(import.meta.dirname, 'fixtures/scanned.pdf'), path.join(root, 'projects/a/dropbox/scanned.pdf'))
 
     const left: number[] = []
-    assert.equal(await refreshTwins(root, HELPER, (count) => left.push(count)), 3)
-    assert.deepEqual(left, [3, 2, 1, 0])
+    assert.equal(await refreshTwins(root, HELPER, (count) => left.push(count)), 4)
+    assert.deepEqual(left, [4, 3, 2, 1, 0])
+    // A scanned page is read off its picture.
+    assert.match(await readFile(path.join(root, '.indexes/text/projects/a/dropbox/scanned.pdf.txt'), 'utf8'), /Každý dokument musí mít stupeň důvěrnosti/)
     const twin = (relative: string) => readFile(path.join(root, '.indexes/text', `${relative}.txt`), 'utf8')
     assert.match(await twin('shelf/classification.pdf'), /Každý dokument musí mít stupeň důvěrnosti/)
     assert.match(await twin('projects/a/draft/report.docx'), /archived for twelve months/)
     // What cannot be read has an empty text, so it is not tried again until it changes.
     assert.equal(await twin('projects/a/dropbox/broken.pdf'), '')
     assert.equal(await refreshTwins(root, HELPER), 0)
+    // Twins made by another version of Mate are all made again, once.
+    await writeFile(path.join(root, '.indexes/text/.version'), '1')
+    assert.equal(await refreshTwins(root, HELPER), 4)
+    assert.equal(await refreshTwins(root, HELPER), 0)
 
     // Search finds the words, by the file they are in, and says what kind of file that is.
     const index = await refreshIndex(root)
-    assert.deepEqual([...new Set(searchIndex(index, 'důvěrnosti').map((hit) => `${hit.kind} ${hit.path}`))], ['shelf shelf/classification.pdf'])
+    // The shelf comes first. The scan says the same, and is found by its words too.
+    assert.deepEqual([...new Set(searchIndex(index, 'důvěrnosti').map((hit) => `${hit.kind} ${hit.path}`))], [
+      'shelf shelf/classification.pdf',
+      'material projects/a/dropbox/scanned.pdf'
+    ])
     assert.deepEqual([...new Set(searchIndex(index, 'archived').map((hit) => `${hit.kind} ${hit.path}`))], ['draft projects/a/draft/report.docx'])
 
     // The window and agents read the text in place of the file. The twin itself is not a document.
@@ -58,7 +70,7 @@ test('a PDF and a Word file are read as text, found by search, and read in place
     await rm(path.join(root, 'shelf/classification.pdf'))
     assert.equal(await refreshTwins(root, HELPER), 1)
     assert.equal(existsSync(path.join(root, '.indexes/text/shelf/classification.pdf.txt')), false)
-    assert.deepEqual(searchIndex(await refreshIndex(root), 'důvěrnosti'), [])
+    assert.deepEqual([...new Set(searchIndex(await refreshIndex(root), 'důvěrnosti').map((hit) => hit.path))], ['projects/a/dropbox/scanned.pdf'])
   } finally {
     await rm(root, { recursive: true, force: true })
   }

@@ -12,6 +12,7 @@
 import Foundation
 import FoundationModels
 import PDFKit
+import Vision
 
 func answer(_ value: [String: Any]) -> Never {
   let data = (try? JSONSerialization.data(withJSONObject: value)) ?? Data("{}".utf8)
@@ -20,14 +21,42 @@ func answer(_ value: [String: Any]) -> Never {
   exit(0)
 }
 
-// With --pdf it takes the bytes of a PDF on stdin and gives its text, with PDFKit. It needs no
-// model, and is never given a path: what it reads is only what it is handed.
-//   stdout  {"text": "..."}  or  {"error": "..."}
+// With --pdf it takes the bytes of a PDF on stdin and gives its text, with PDFKit. A page with no
+// text is a picture of one, as a scanner makes it: its text is read off the picture by Vision, on
+// this Mac. It needs no model of Mate's, and is never given a path: it reads only what it is handed.
+//   stdout  {"text": "...", "recognised": pages read off a picture}  or  {"error": "..."}
+func recognise(_ page: PDFPage) -> String {
+  let bounds = page.bounds(for: .mediaBox)
+  // Three times the size of the page. At twice, the marks over Czech letters were lost: ě, ř, í.
+  // It still takes a fraction of a second a page.
+  let picture = page.thumbnail(of: CGSize(width: bounds.width * 3, height: bounds.height * 3), for: .mediaBox)
+  guard let image = picture.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return "" }
+  let request = VNRecognizeTextRequest()
+  request.recognitionLevel = .accurate
+  // There is no Slovak model. The Czech one reads Slovak but for a letter or two, such as Ľ.
+  request.recognitionLanguages = ["cs-CZ", "en-US"]
+  request.usesLanguageCorrection = true
+  try? VNImageRequestHandler(cgImage: image).perform([request])
+  return (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
+}
+
 if CommandLine.arguments.contains("--pdf") {
   let bytes = FileHandle.standardInput.readDataToEndOfFile()
   guard let document = PDFDocument(data: bytes) else { answer(["error": "This is not a PDF that can be read."]) }
   if document.isLocked { answer(["error": "This PDF is locked."]) }
-  answer(["text": document.string ?? ""])
+  var pages: [String] = []
+  var recognised = 0
+  for index in 0..<document.pageCount {
+    guard let page = document.page(at: index) else { continue }
+    let own = page.string ?? ""
+    if !own.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      pages.append(own)
+    } else {
+      pages.append(recognise(page))
+      recognised += 1
+    }
+  }
+  answer(["text": pages.joined(separator: "\n\n"), "recognised": recognised])
 }
 
 let checking = CommandLine.arguments.contains("--check")

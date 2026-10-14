@@ -15,13 +15,16 @@ import { isTwinned, twinOf } from '../shared/twin'
  */
 
 // ponytail: PDF and what textutil reads. Slides and spreadsheets wait for a tool that comes with
-// the system; a scanned PDF has no text until there is OCR.
+// the system. A scanned page is read off its picture, in Czech and English: there is no Slovak model.
 const MAX_SOURCE = 50 * 1024 * 1024
 const MAX_TEXT = 2 * 1024 * 1024
+// What a twin is made with. When it changes, every twin is made again: twins made before scans
+// were read hold nothing for a scan, and their files have not changed since.
+const VERSION = '2'
 
-const run = (command: string, args: string[], input?: Buffer) =>
+const run = (command: string, args: string[], input?: Buffer, seconds = 60) =>
   new Promise<string>((resolve, reject) => {
-    const child = execFile(command, args, { timeout: 60_000, maxBuffer: 8 * MAX_TEXT, encoding: 'utf8' }, (failed, out) =>
+    const child = execFile(command, args, { timeout: seconds * 1000, maxBuffer: 8 * MAX_TEXT, encoding: 'utf8' }, (failed, out) =>
       failed ? reject(failed) : resolve(out)
     )
     child.stdin?.on('error', () => {})
@@ -35,7 +38,8 @@ const run = (command: string, args: string[], input?: Buffer) =>
  */
 export async function extract(file: string, helper: string): Promise<string> {
   if (file.toLowerCase().endsWith('.pdf')) {
-    const answer = JSON.parse(await run(helper, ['--pdf'], await readFile(file))) as { text?: unknown; error?: unknown }
+    // A scan is read off its pictures, a fraction of a second a page, and the first takes longer while the model loads.
+    const answer = JSON.parse(await run(helper, ['--pdf'], await readFile(file), 600)) as { text?: unknown; error?: unknown }
     if (typeof answer.text !== 'string') throw new Error(String(answer.error ?? 'The helper read no text.'))
     return answer.text
   }
@@ -74,11 +78,13 @@ async function twins(dir: string, base = ''): Promise<string[]> {
 export async function refreshTwins(contextDir: string, helper: string, left: (count: number) => void = () => {}): Promise<number> {
   if (process.platform !== 'darwin') return 0
   const sources = await walk(contextDir)
+  const marked = path.join(contextDir, '.indexes', 'text', '.version')
+  const current = (await readFile(marked, 'utf8').catch(() => '')).trim() === VERSION
   const due: string[] = []
   for (const relative of sources) {
     const twin = await stat(path.join(contextDir, twinOf(relative))).catch(() => null)
     const source = await stat(path.join(contextDir, relative))
-    if (source.size <= MAX_SOURCE && (!twin || twin.mtimeMs < source.mtimeMs)) due.push(relative)
+    if (source.size <= MAX_SOURCE && (!current || !twin || twin.mtimeMs < source.mtimeMs)) due.push(relative)
   }
   let changed = 0
   for (const [done, relative] of due.entries()) {
@@ -98,6 +104,10 @@ export async function refreshTwins(contextDir: string, helper: string, left: (co
     changed++
   }
   left(0)
+  if (!current) {
+    await mkdir(path.dirname(marked), { recursive: true })
+    await writeFile(marked, VERSION)
+  }
   const wanted = new Set(sources)
   for (const relative of await twins(path.join(contextDir, '.indexes', 'text'))) {
     if (wanted.has(relative)) continue

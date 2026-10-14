@@ -15,7 +15,9 @@ then, minor versions may change behaviour.
   policy on the shelf reads on the page with *Show the original*, the
   shelf lists them, and agents are told where their text is. Nothing
   leaves the computer.
-
+- Scanned PDFs are read too. A page with no text is read off its picture
+  on your Mac, with Apple's Vision, in Czech and English. Slovak reads
+  well but for a letter or two.
 - Search by meaning. With Ollama and its `bge-m3` model on your Mac, the
   search also lists the passages close to your question in meaning, in
   other words or another language: an English question finds the Czech

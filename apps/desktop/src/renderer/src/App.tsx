@@ -1209,7 +1209,7 @@ export function App() {
             <div className="page talk-page" ref={setPageSlot} />
           ) : reading ? (
             <div className="page prose">
-              {reading.twin && !reading.text.trim() && <p className="meta">Mate found no text in this file. It may be a scan, or locked.</p>}
+              {reading.twin && !reading.text.trim() && <p className="meta">Mate found no text in this file. It may be locked, or hold pictures with no words in them.</p>}
               <Boundary what="This file" of={reading.text}>
                 <Rendered text={reading.text} passages={passages} />
               </Boundary>

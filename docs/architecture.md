@@ -294,7 +294,11 @@ out once and keeps it: the *twin* of `shelf/policy.pdf` is
 - **What takes the text out.** The tools of the system, each in a process
   of its own, and nothing leaves the computer. A PDF is handed as bytes
   to Mate's helper, which asks PDFKit; the helper is never given a path.
-  A Word, RTF, ODT or HTML file goes to `textutil`. Both come with macOS.
+  A page with no text is a picture of one, as a scanner makes it: the
+  helper draws it at three times its size and reads the text off the
+  picture with Vision, about a fifth of a second a page once its model
+  is loaded. A Word, RTF, ODT or HTML file goes to `textutil`. All of
+  these come with macOS.
   On another system nothing is twinned. No program in a file runs: these
   tools read text, they do not open the file in its program.
 - **When.** In the background, when a context is opened and at every
@@ -303,8 +307,8 @@ out once and keeps it: the *twin* of `shelf/policy.pdf` is
   when its file is newer, and taken away when its file is gone.
 - **What it is.** A helper, like the index: plain text, in a folder that
   ignores itself in git. Deleting it loses nothing. A file that cannot be
-  read, such as a locked or scanned PDF, gets an empty twin, so it is not
-  tried again until it changes.
+  read, such as a locked PDF, gets an empty twin, so it is not tried
+  again until it changes.
 - **Who reads it.** The index takes a twin in as the text of its file, so
   a hit names the PDF or the Word file and its kind, such as the shelf.
   The window reads a twin in place of its file, with Show the original.
@@ -312,8 +316,9 @@ out once and keeps it: the *twin* of `shelf/policy.pdf` is
   for its file. Only the twin is read: a file of another kind is still
   shown only in the file manager.
 
-Limits. A scanned PDF has no text until there is OCR. Slides and
-spreadsheets have no twin yet. A twin is plain text: headings, tables and
+Limits. A scan is read in Czech and English: Vision has no Slovak
+model, and the Czech one reads Slovak but for a letter or two, such as
+Ľ. Handwriting is not read. Slides and spreadsheets have no twin yet. A twin is plain text: headings, tables and
 pictures are gone. Up to 50 MB a file, 2 MB of text.
 
 ## Search by meaning

@@ -76,7 +76,8 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   answers from the passage it finds.
 - **PDF and Word files are read and found.** Mate takes the text out of
   every PDF and Word file in the context, with the Mac's own tools, and
-  keeps it as a helper in `.indexes/text/`. Search finds what they say, a
+  keeps it as a helper in `.indexes/text/`. A scanned PDF is read off its
+  pages. Search finds what they say, a
   policy on the shelf reads on the page, and agents are told where the
   text is. Nothing leaves the computer.
 - **Search.** A search box indexes the whole context. Each hit says what
@@ -347,9 +348,10 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
 - **The intents and the principles are not typed in Mate.** A new project
   gets both files with a line each. Write them in any editor.
 - **Mate draws markdown and nothing else.** A PDF or a Word file is read
-  as its plain text, without headings, tables or pictures. A scanned PDF
-  has no text. Slides and spreadsheets are named in the tree and opened
-  by you, in their own program. Text is taken out on a Mac only.
+  as its plain text, without headings, tables or pictures. A scanned page
+  is read off its picture, in Czech and English; Slovak reads well but
+  for a letter or two. Slides and spreadsheets are named in the tree and
+  opened by you, in their own program. Text is taken out on a Mac only.
 - **Over SSH an edit replaces the whole file.**
 - **Search by meaning needs Ollama and `bge-m3`,** about 1.2 GB. The first
   time, a large context takes a while to learn: about 75 ms a passage.
