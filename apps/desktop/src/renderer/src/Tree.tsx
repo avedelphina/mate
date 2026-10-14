@@ -1,3 +1,5 @@
+import { isTwinned } from '../../shared/twin'
+
 /**
  * The files of the open project, as folders that fold. `paths` are counted from the project
  * folder. Mate draws markdown and nothing else. Any other file is shown where it lies on the
@@ -9,8 +11,10 @@ export function Tree(props: {
   current: string | null
   onOpen: (path: string) => void
   onReveal: (path: string) => void
+  /** The folder that starts unfolded: in a project, its drafts. */
+  unfolded?: string
 }) {
-  const { paths, base = '', current, onOpen, onReveal } = props
+  const { paths, base = '', current, onOpen, onReveal, unfolded = 'draft' } = props
   const manager = document.documentElement.dataset.platform === 'mac' ? 'Finder' : 'the file manager'
   const isFile = (name: string) => paths.includes(base + name)
   // What is directly in this folder: a file, or the folder that something deeper is in.
@@ -25,8 +29,8 @@ export function Tree(props: {
           return (
             <li key={name}>
               <button
-                className={current === full ? 'row active' : markdown ? 'row' : 'row other'}
-                title={markdown ? undefined : `Not markdown, so Mate does not draw it. Click to show it in ${manager}.`}
+                className={current === full ? 'row active' : markdown || isTwinned(name) ? 'row' : 'row other'}
+                title={markdown ? undefined : isTwinned(name) ? 'Mate reads its text.' : `Not markdown, so Mate does not draw it. Click to show it in ${manager}.`}
                 onClick={() => (markdown ? onOpen(full) : onReveal(full))}
               >
                 {name}
@@ -37,9 +41,9 @@ export function Tree(props: {
         return (
           <li key={name}>
             {/* The draft is what the project is for, so its folder starts unfolded. The reader folds the rest. */}
-            <details open={full === 'draft'}>
+            <details open={full === unfolded}>
               <summary>{name}</summary>
-              <Tree paths={paths.filter((each) => each.startsWith(`${full}/`))} base={`${full}/`} current={current} onOpen={onOpen} onReveal={onReveal} />
+              <Tree paths={paths.filter((each) => each.startsWith(`${full}/`))} base={`${full}/`} current={current} onOpen={onOpen} onReveal={onReveal} unfolded={unfolded} />
             </details>
           </li>
         )

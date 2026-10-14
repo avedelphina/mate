@@ -9,6 +9,8 @@ then, minor versions may change behaviour.
 
 ### Added
 
+- The rail lists what is in the context that is neither on the shelf nor
+  in a project, under *Context*: its own dropbox, and any other file.
 - Rename a context by clicking its name in the rail, and a project with
   *Rename project…* under it, or from ⌘K. The folder is renamed where it
   stands, with everything in it. A project's sessions go with it, and a

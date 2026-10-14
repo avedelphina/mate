@@ -65,6 +65,9 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   note with its path, so a search finds it. For a Word file or a PDF, one
   button asks the agent to take its text out into a draft. Mate reads no
   such file itself.
+- **The files of a context.** The rail lists the shelf, then under
+  *Context* the rest of the context that is not a project, such as its
+  own dropbox.
 - **The files of a project.** The rail shows them as a tree. A draft
   opens for review, any other markdown file opens to be read, and a file
   Mate cannot draw is shown in the file manager.

@@ -164,6 +164,8 @@ export function App() {
   const [renaming, setRenaming] = useState<{ what: 'context' | 'project'; name: string } | null>(null)
   // A context renamed in another window is followed here.
   useEffect(() => window.mate.onMoved((opened) => take(opened)), [])
+  // The files of the context outside the shelf and the projects: its dropbox, and whatever else is in it.
+  const [loose, setLoose] = useState<string[]>([])
   // How many PDF and Word files are still to be read, so that search finds them. A search is made again when they are.
   const [readingLeft, setReadingLeft] = useState(0)
   useEffect(() => window.mate.onReading(setReadingLeft), [])
@@ -236,10 +238,11 @@ export function App() {
     }
   }, [project, file, readingPath])
 
-  // The shelf is listed with the context, and again when the window is come back to.
+  // The shelf and the other files of the context are listed with it, and again when the window is come back to.
   useEffect(() => {
-    if (!contextDir) return setShelf([])
-    const list = () => window.mate.listShelf().then(setShelf, () => setShelf([]))
+    if (!contextDir) return (setShelf([]), setLoose([]))
+    const list = () =>
+      Promise.all([window.mate.listShelf().then(setShelf, () => setShelf([])), window.mate.listContextFiles().then(setLoose, () => setLoose([]))])
     void list()
     window.addEventListener('focus', list)
     return () => window.removeEventListener('focus', list)
@@ -1032,13 +1035,26 @@ export function App() {
               )}
               {/* What is true now, for every project. A document is read from here, and taken down from the page. */}
               {shelf.length > 0 && (
-                <details className="shelf">
+                <details className="section shelf">
                   <summary>Shelf</summary>
                   <Tree
                     paths={shelf}
                     current={reading?.kind === 'shelf' ? reading.path.slice('shelf/'.length) : null}
                     onOpen={(path) => void read(`shelf/${path}`)}
                     onReveal={(path) => isTwinned(path) && void read(`shelf/${path}`)}
+                  />
+                </details>
+              )}
+              {/* What else is in the context: its dropbox, and anything that is not a project. Read here, or shown in Finder. */}
+              {loose.length > 0 && (
+                <details className="section context-files">
+                  <summary>Context</summary>
+                  <Tree
+                    paths={loose}
+                    current={reading && reading.project === null && reading.kind !== 'shelf' ? reading.path : null}
+                    unfolded="dropbox"
+                    onOpen={(path) => void read(path)}
+                    onReveal={(path) => (isTwinned(path) ? void read(path) : void window.mate.revealFile(path))}
                   />
                 </details>
               )}

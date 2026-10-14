@@ -343,6 +343,14 @@ export async function listShelf(contextDir: string): Promise<string[]> {
   return (await listFiles(shelf)).filter((each) => each.toLowerCase().endsWith('.md') || isTwinned(each))
 }
 
+/**
+ * The files of the context that are neither on the shelf nor in a project: its dropbox, and whatever
+ * else lies in it. Hidden names are left out, and a link is not followed.
+ */
+export async function listContextFiles(contextDir: string): Promise<string[]> {
+  return (await listFiles(contextDir)).filter((each) => !each.startsWith('projects/') && !each.startsWith('shelf/'))
+}
+
 /** Where a name puts a document on the shelf, from the context folder. It throws on a name that is not one. */
 export const shelfPath = (name: string) => ['shelf', ...shelfName(name)].join('/')
 

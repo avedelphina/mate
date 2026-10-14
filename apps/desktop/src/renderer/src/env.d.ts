@@ -137,6 +137,8 @@ export type MateApi = {
   tickPane: (project: string, name: string, base: string, at: number, draft?: string) => Promise<DocumentView>
   /** The documents of the shelf, by their path from the shelf folder. */
   listShelf: () => Promise<string[]>
+  /** The files of the context outside the shelf and the projects: its dropbox, and anything else in it. */
+  listContextFiles: () => Promise<string[]>
   /** Copy a shelf document into a project's drafts, to work on. The shelf keeps its own. */
   takeDown: (project: string, path: string) => Promise<DocumentView>
   /** Let the reader choose files in the system dialog. Each comes back with a number that stands for its path. */

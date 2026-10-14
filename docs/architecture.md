@@ -500,6 +500,12 @@ files are in the tree.
 
 The tree changes no file. It is a way to reach them.
 
+Above the projects, the rail lists the rest of the context the same way:
+the shelf, and under Context whatever is neither on the shelf nor in a
+project, such as the context's own dropbox. A markdown file there opens
+to be read, a PDF or a Word file as its text, and anything else is shown
+in the file manager.
+
 ## Panes
 
 A project can show more than its draft. A markdown file in the project's

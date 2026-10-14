@@ -18,6 +18,7 @@ import {
   renameProject,
   describeContext,
   editDraft,
+  listContextFiles,
   listShelf,
   noteSource,
   placeOnDisk,
@@ -462,6 +463,7 @@ app.whenReady().then(() => {
   ipcMain.handle('draft:create', (event, project: string, name: string) => createDraft(requireContext(event), project, String(name)))
 
   ipcMain.handle('shelf:list', (event) => listShelf(requireContext(event)))
+  ipcMain.handle('context:files', (event) => listContextFiles(requireContext(event)))
 
   // A shelf document is taken down into a project as a copy to work on. The shelf keeps its own.
   ipcMain.handle('shelf:take', (event, project: string, relative: string) => takeDown(requireContext(event), project, String(relative)))

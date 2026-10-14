@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('mate', {
   tickPane: (project: string, name: string, base: string, at: number, draft?: string) =>
     ipcRenderer.invoke('pane:tick', project, name, base, at, draft),
   listShelf: () => ipcRenderer.invoke('shelf:list'),
+  listContextFiles: (): Promise<string[]> => ipcRenderer.invoke('context:files'),
   takeDown: (project: string, path: string) => ipcRenderer.invoke('shelf:take', project, path),
   pickSources: (near?: string) => ipcRenderer.invoke('source:pick', near),
   noteSource: (project: string, source: string) => ipcRenderer.invoke('source:note', project, source),
