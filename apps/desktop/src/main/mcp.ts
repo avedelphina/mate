@@ -5,6 +5,7 @@ import path from 'node:path'
 import { addReply, readDocument } from '../shared/comments'
 import { addComment, editDraft, readContextFile, realInside } from './context'
 import { placeOf, refreshIndex, searchIndex, type Kind } from './contextIndex'
+import { meaningRuns, searchMeaning } from './meaning'
 import { judge, loadSession, saveSession, type Session } from './sessions'
 import { isTwinned } from '../shared/twin'
 
@@ -12,6 +13,10 @@ import { isTwinned } from '../shared/twin'
  * The door for an agent the reader runs themselves. It speaks the Model Context Protocol over
  * HTTP, on this computer only. Mate starts no agent here: whoever holds the token comes in, and
  * works in the one session the reader has opened for it.
+ *
+ * An agent Mate starts and that stays between turns is given a door of its own: a token for its
+ * session that only reads. It can search the context, by meaning too, and read what it finds. It
+ * writes, as before, with its own tools, and the guard rules on that.
  *
  * Every tool goes through the same rule as an invited agent's edits. Nothing here writes a file
  * that `judge` in sessions.ts would hold.
@@ -77,7 +82,11 @@ const tool = (name: string, description: string, properties: Json = {}, required
 export const TOOLS = [
   tool('mate_project', 'Call this first. The rules, your project, the state of the plan, and every file of the context with what it is.'),
   tool('mate_read', 'The text of one file of the context, and whether it is the shelf or a proposal.', { path: text }),
-  tool('mate_search', 'Search the whole context. Each hit says whether it is on the shelf or in a proposal.', { query: text }),
+  tool(
+    'mate_search',
+    'Search the whole context, by words, and by meaning where this computer can: a question in other words or in another language finds the passage that answers it, with its text. Each hit says whether it is on the shelf or in a proposal, and where in the file.',
+    { query: text }
+  ),
   tool('mate_comments', 'The review comments on a draft: who said what about which passage, and the replies.', { path: text }),
   tool(
     'mate_comment',
@@ -93,6 +102,9 @@ export const TOOLS = [
     text
   })
 ]
+
+/** The tools of a door that only reads. */
+const READING = ['mate_project', 'mate_read', 'mate_search', 'mate_comments']
 
 /** A path inside the context, as its parts. Nothing hidden, nothing that climbs out. */
 function partsOf(relative: unknown): string[] {
@@ -134,11 +146,25 @@ async function run(binding: Binding, session: Session, name: string, input: Json
       return `[${LABEL[place.kind]}${place.project ? ` of project ${place.project}` : ''}] ${parts.join('/')}\n\n${raw}`
     }
     case 'mate_search': {
-      const hits = searchIndex(await refreshIndex(contextDir), String(input.query ?? ''))
-      if (hits.length === 0) return 'Nothing in the context matches.'
-      return hits
-        .map((hit) => `[${hit.thread ? 'comment in a ' : ''}${LABEL[hit.kind]}] ${hit.path}: ${hit.before}${hit.match}${hit.after}`)
-        .join('\n')
+      const query = String(input.query ?? '')
+      const index = await refreshIndex(contextDir)
+      const hits = searchIndex(index, query)
+      const words = hits.map((hit) => `[${hit.thread ? 'comment in a ' : ''}${LABEL[hit.kind]}] ${hit.path}: ${hit.before}${hit.match}${hit.after}`)
+      // By meaning where this computer has the model. The whole passage goes with each, to be read and cited.
+      const close = (await meaningRuns.missing()) ? [] : await searchMeaning(contextDir, index, query, meaningRuns.embed)
+      const texts = new Map(index.files.map((file) => [file.path, file.text]))
+      const meant = close.map(
+        (hit) =>
+          `[${LABEL[hit.kind]}${hit.project ? ` of project ${hit.project}` : ''}] ${hit.path}, characters ${hit.start} to ${hit.start! + hit.length}:\n` +
+          (texts.get(hit.path) ?? '').slice(hit.start!, hit.start! + hit.length).trim()
+      )
+      if (words.length === 0 && meant.length === 0) return 'Nothing in the context matches.'
+      return [
+        words.length > 0 ? `By words:\n${words.join('\n')}` : 'Nothing matches by words.',
+        meant.length > 0 && `Close in meaning, the closest first:\n\n${meant.join('\n\n')}`
+      ]
+        .filter(Boolean)
+        .join('\n\n')
     }
     case 'mate_comments': {
       const raw = await readFile(await realInside(contextDir, ...partsOf(input.path)), 'utf8')
@@ -206,11 +232,15 @@ export function callTool(
   name: string,
   input: Json,
   who: string,
-  changed: (binding: Binding, session: Session) => void
+  changed: (binding: Binding, session: Session) => void,
+  reading = false
 ): Promise<string> {
   const call = queue.then(async () => {
     if (!binding) throw new Error('No project is open for you. Ask the reviewer to open a session for their own agent in Mate.')
+    if (reading && !READING.includes(name)) throw new Error('This door only reads. Write with your own tools.')
     const session = await loadSession(binding.contextDir, binding.project, binding.id)
+    // An agent Mate started says its own steps. Nothing of the session is written here.
+    if (reading) return run(binding, session, name, input, who)
     try {
       return await run(binding, session, name, input, who)
     } finally {
@@ -232,7 +262,8 @@ export async function answer(
   message: Json,
   binding: () => Binding | null,
   changed: (binding: Binding, session: Session) => void,
-  who: { name: string }
+  who: { name: string },
+  reading = false
 ): Promise<Json | null> {
   if (message.id === undefined || message.id === null) return null
   const reply = (result: Json) => ({ jsonrpc: '2.0', id: message.id, result })
@@ -248,10 +279,10 @@ export async function answer(
     case 'ping':
       return reply({})
     case 'tools/list':
-      return reply({ tools: TOOLS })
+      return reply({ tools: reading ? TOOLS.filter((each) => READING.includes(each.name)) : TOOLS })
     case 'tools/call':
       try {
-        const said = await callTool(binding(), String(message.params?.name), message.params?.arguments ?? {}, who.name, changed)
+        const said = await callTool(binding(), String(message.params?.name), message.params?.arguments ?? {}, who.name, changed, reading)
         return reply({ content: [{ type: 'text', text: said }] })
       } catch (caught) {
         return reply({ content: [{ type: 'text', text: (caught as Error).message }], isError: true })
@@ -272,6 +303,8 @@ export function startMcp(options: {
   token: string
   binding: () => Binding | null
   changed: (binding: Binding, session: Session) => void
+  /** The session a token that only reads leads to, or null when it leads nowhere. */
+  guest?: (token: string) => Binding | null
 }): Promise<{ port: number; close: () => void }> {
   const who = { name: 'agent' }
   const expected = Buffer.from(`Bearer ${options.token}`)
@@ -282,7 +315,9 @@ export function startMcp(options: {
     }
     const given = Buffer.from(request.headers.authorization ?? '')
     if (request.headers.origin) return send(403)
-    if (given.length !== expected.length || !timingSafeEqual(given, expected)) return send(401)
+    const owner = given.length === expected.length && timingSafeEqual(given, expected)
+    const guest = owner ? null : (options.guest?.(String(request.headers.authorization ?? '').replace(/^Bearer /, '')) ?? null)
+    if (!owner && !guest) return send(401)
     if (new URL(request.url ?? '/', 'http://127.0.0.1').pathname !== '/mcp') return send(404)
     if (request.method !== 'POST') return send(405)
 
@@ -299,7 +334,7 @@ export function startMcp(options: {
         const messages: Json[] = Array.isArray(body) ? body : [body]
         const replies: Json[] = []
         for (const message of messages) {
-          const reply = await answer(message, options.binding, options.changed, who)
+          const reply = guest ? await answer(message, () => guest, options.changed, { name: 'agent' }, true) : await answer(message, options.binding, options.changed, who)
           if (reply) replies.push(reply)
         }
         if (replies.length === 0) return send(202)

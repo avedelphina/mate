@@ -22,6 +22,10 @@ then, minor versions may change behaviour.
   or Slovak passage that answers it. A hit opens its file at the passage.
   It runs on your computer only, in the background, and only a file that
   changed is learned again.
+- Agents search by meaning too. Mate's `mate_search` tool gives the
+  passages close in meaning, whole, with their file and place. Hermes in
+  a trusted context is handed a door of its own when it starts, for its
+  session, that only reads: it finds the policy passage and cites it.
 
 ### Changed
 

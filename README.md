@@ -72,6 +72,8 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   question in meaning, in other words or another language: an English
   question finds the Czech or Slovak passage that answers it. It runs on
   your computer only. Without Ollama, search by words works as before.
+  Hermes in a context you trust searches the same way, through Mate, and
+  answers from the passage it finds.
 - **PDF and Word files are read and found.** Mate takes the text out of
   every PDF and Word file in the context, with the Mac's own tools, and
   keeps it as a helper in `.indexes/text/`. Search finds what they say, a
@@ -351,7 +353,7 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
 - **Over SSH an edit replaces the whole file.**
 - **Search by meaning needs Ollama and `bge-m3`,** about 1.2 GB. The first
   time, a large context takes a while to learn: about 75 ms a passage.
-  Agents cannot search by meaning yet.
+  Among invited agents only Hermes in a trusted context can use it.
 - **Search reads each file whole,** up to 2 MB, and is sized for thousands
   of files, not hundreds of thousands.
 - **Ambiguous passages.** A passage that occurs twice on the same line

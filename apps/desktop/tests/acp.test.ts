@@ -5,7 +5,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { outcome } from '../src/main/acp.ts'
 import { AGENTS } from '../src/main/agents.ts'
-import { answerAsk, attend, listModels, sendMessage, startSession, stopAllTurns, tuneSession, whenIdle, working, type Session } from '../src/main/sessions.ts'
+import { answerAsk, attend, doors, listModels, sendMessage, startSession, stopAllTurns, tuneSession, whenIdle, working, type Session } from '../src/main/sessions.ts'
 import { keepTrustIn, setTrusted } from '../src/main/trust.ts'
 
 test('a yes to an agent is for this once, and a yes it cannot take that way is a no', () => {
@@ -41,6 +41,7 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
   if (message.method === undefined) return answers.get(message.id)?.(message.result)
   const reply = (result) => send({ id: message.id, result })
   if (message.method === 'initialize') return reply({ protocolVersion: 1 })
+  if (message.method === 'session/new') note({ servers: message.params.mcpServers })
   if (message.method === 'session/new') return reply({ sessionId: 's1', models: { currentModelId: 'custom:own', availableModels: [
     { modelId: 'custom:own', name: 'custom · own', description: 'Provider: custom • current' },
     { modelId: 'shop:big/model-1', name: 'big/model-1', description: 'Provider: Shop' }] } })
@@ -91,6 +92,7 @@ test('in a trusted context the agent stays, asks before it acts, and can be told
     AGENTS.hermes.command = path.join(out, 'agent.mjs')
     keepTrustIn(path.join(out, 'trusted.json'))
     setTrusted(root, true)
+    doors.forAgent = async (_context, _project, id) => ({ url: 'http://127.0.0.1:1/mcp', token: `door-for-${id}` })
     const logged = async () => (await readFile(path.join(out, 'log'), 'utf8')).trim().split('\n').map((line) => JSON.parse(line))
     const draft = () => readFile(path.join(root, 'projects/review/draft/document.md'), 'utf8')
 
@@ -128,6 +130,10 @@ test('in a trusted context the agent stays, asks before it acts, and can be told
 
     const log = await logged()
     assert.deepEqual(log.filter((each) => each.started), [{ started: ['acp'] }])
+    // Mate's door for it, which only reads: one MCP server, over HTTP, with the token of this session.
+    assert.deepEqual(log.find((each) => each.servers)!.servers, [
+      { type: 'http', name: 'mate', url: 'http://127.0.0.1:1/mcp', headers: [{ name: 'Authorization', value: `Bearer door-for-${session.id}` }] }
+    ])
     assert.deepEqual(log.filter((each) => each.mode).map((each) => each.mode), ['default', 'accept_edits'])
     const prompts = log.filter((each) => each.prompt).map((each) => each.prompt as string)
     assert.match(prompts[0], /You have been invited[\s\S]*Tidy the draft\.$/)

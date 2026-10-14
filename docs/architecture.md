@@ -343,10 +343,24 @@ to it are found. `meaning.ts` is the whole of it.
   in meaning, the closest first, up to eight. A hit opens its file at the
   passage. A question nothing in the context answers finds nothing.
 
+**Agents search by meaning too.** `mate_search` on the MCP door gives the
+passages close in meaning after the hits by words, each whole, with its
+file and the characters where it is, so the agent can answer from it and
+say where. An agent the reader connects to the door has it. An agent
+Mate starts and that stays between turns, Hermes in a trusted context,
+is handed a door of its own when it starts: a token for its session
+that only reads. With it the agent can see the project, read, search and
+see the comments, and nothing more: it writes with its own tools, as
+before, and the guard rules on that. Its calls are not written into the
+session, since the agent reports its own steps. Such tokens last as long
+as the app; a token only reads a context that whoever runs as the reader
+can read anyway.
+
 Limits. Every passage is compared with the question: fine for some ten
 thousand passages. Close enough is one bar, read off a small test, to be
-tuned on real contexts. Agents do not have search by meaning yet; they
-read the files and the twins.
+tuned on real contexts. An agent started for one turn, such as Hermes in
+a context that is not trusted, or Claude, gets no door: it reads the
+files and the twins.
 
 ## The index and the search
 
@@ -743,6 +757,8 @@ session: the one the reader last opened for their own agent.
 
 The tools are `mate_project`, `mate_read`, `mate_search`, `mate_comments`,
 `mate_comment`, `mate_reply`, `mate_plan`, `mate_status`, and `mate_write`.
+A door that only reads, as Mate hands to an agent it starts, offers the
+first four.
 Reading and searching say whether a file is the shelf or a proposal.
 `mate_comment` and `mate_reply` work on a draft of the session's own
 project only. `mate_write` goes through `judge`, the same function that

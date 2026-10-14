@@ -39,6 +39,7 @@ import {
   attend,
   compare,
   gate,
+  doors,
   isBusy,
   listModels,
   listSessions,
@@ -200,16 +201,34 @@ function doorToken(): string {
   return readFileSync(file, 'utf8').trim()
 }
 
-async function openDoor(binding: Binding): Promise<{ url: string; token: string }> {
-  bound = binding
-  const token = doorToken()
+/**
+ * Tokens of the doors that only read, each for the session of an agent Mate started. They last as
+ * long as the app: a token reads only a context that whoever runs as the reader can read anyway.
+ */
+const guests = new Map<string, Binding>()
+
+/** The door, started the first time something needs it. */
+function startDoor(): Promise<{ port: number }> {
   door ??= startMcp({
     port: Number(process.env.MATE_MCP_PORT) || 41757,
-    token,
+    token: doorToken(),
     binding: () => bound,
-    changed: (at, session) => tell(at.contextDir, session)
+    changed: (at, session) => tell(at.contextDir, session),
+    guest: (token) => guests.get(token) ?? null
   })
-  return { url: `http://127.0.0.1:${(await door).port}/mcp`, token }
+  return door
+}
+
+async function openDoor(binding: Binding): Promise<{ url: string; token: string }> {
+  bound = binding
+  return { url: `http://127.0.0.1:${(await startDoor()).port}/mcp`, token: doorToken() }
+}
+
+// An agent that stays gets a door of its own, for its session, that only reads.
+doors.forAgent = async (contextDir, project, id) => {
+  const token = randomBytes(24).toString('hex')
+  guests.set(token, { contextDir, project, id })
+  return { url: `http://127.0.0.1:${(await startDoor()).port}/mcp`, token }
 }
 
 function requireContext(event: IpcMainInvokeEvent): string {

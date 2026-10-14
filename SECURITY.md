@@ -65,6 +65,8 @@ they show that the model is broken, for example:
   its text out, or to make Mate read a file outside the context;
 - a way to make Mate send the text of a document anywhere but the Ollama
   at `127.0.0.1` on this computer;
+- a way to write through a door Mate handed to an agent it started, or to
+  reach another session or context with its token;
 - a way to make Mate run git in a repository of a context the reader has
   not trusted, or make a commit the reader did not ask for, or reach a
   remote.

@@ -5,8 +5,13 @@ import path from 'node:path'
 import test from 'node:test'
 import { readContextFile } from '../src/main/context.ts'
 import { startMcp, type Binding } from '../src/main/mcp.ts'
+import { meaningRuns, refreshMeaning } from '../src/main/meaning.ts'
+import { refreshIndex } from '../src/main/contextIndex.ts'
 import { loadSession, sendMessage, startSession } from '../src/main/sessions.ts'
 import { parseComments } from '../src/shared/comments.ts'
+
+// No test here asks the Ollama of the computer it runs on. One that needs a model puts a stand-in in.
+meaningRuns.missing = async () => 'There is no model in the tests.'
 
 test("an agent the reader runs comes in over MCP, and keeps the same rules", async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'mate-mcp-'))
@@ -54,7 +59,7 @@ test("an agent the reader runs comes in over MCP, and keeps the same rules", asy
     assert.match(project.text, /Propose a plan first[\s\S]*No plan is approved yet[\s\S]*shelf\/classification\.md \(shelf: the current reference\)/)
     assert.match(project.text, /projects\/review\/draft\/document\.md \(proposal: a draft under review of project review\)/)
     assert.match((await call('mate_read', { path: 'shelf/classification.md' })).text, /^\[shelf: the current reference\] shelf\/classification\.md\n\n# Classification/)
-    assert.match((await call('mate_search', { query: 'public data' })).text, /^\[shelf: the current reference\] shelf\/classification\.md:/)
+    assert.match((await call('mate_search', { query: 'public data' })).text, /^By words:\n\[shelf: the current reference\] shelf\/classification\.md:/)
     for (const path of ['../outside.md', '.sessions/x', '/etc/passwd']) assert.equal((await call('mate_read', { path })).failed, true)
 
     // A link in the context is read only while what it points at is in the context too.
@@ -102,5 +107,51 @@ test("an agent the reader runs comes in over MCP, and keeps the same rules", asy
     door.close()
     await rm(root, { recursive: true, force: true })
     await rm(`${root}-outside.md`, { force: true })
+  }
+})
+
+test('an agent Mate started gets a door that only reads, and searches there by meaning as well as by words', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-guest-'))
+  await mkdir(path.join(root, 'shelf'), { recursive: true })
+  await mkdir(path.join(root, 'projects/review/draft'), { recursive: true })
+  await writeFile(path.join(root, 'shelf/records.md'), '# Záznamy\n\nDůvěrné záznamy se uchovávají deset let.\n')
+  await writeFile(path.join(root, 'projects/review/draft/document.md'), '# Draft\n\nText.\n')
+  const session = await startSession(root, 'review', 'hermes')
+  const guests = new Map<string, Binding>([['guest-token', { contextDir: root, project: 'review', id: session.id }]])
+  const door = await startMcp({ port: 0, token: 'secret', binding: () => null, changed: () => {}, guest: (token) => guests.get(token) ?? null })
+  // A stand-in for the model: one dimension for records, in either language.
+  const runs = { ...meaningRuns }
+  meaningRuns.missing = async () => null
+  meaningRuns.embed = async (texts) => texts.map((text) => [/record|záznam/i.test(text) ? 1 : 0, 0.1])
+  const post = async (body: unknown, token = 'guest-token') =>
+    (await fetch(`http://127.0.0.1:${door.port}/mcp`, { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: JSON.stringify(body) })) as Response
+  const call = async (name: string, args: Record<string, string> = {}) => {
+    const { result } = (await (await post({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } })).json()) as {
+      result: { content: { text: string }[]; isError?: boolean }
+    }
+    return { text: result.content[0].text, failed: result.isError === true }
+  }
+  try {
+    // Its token leads to its own session, and to the tools that read. Any other token leads nowhere.
+    assert.equal((await post({}, 'some-other-token')).status, 401)
+    const listed = (await (await post({ jsonrpc: '2.0', id: 1, method: 'tools/list' })).json()) as { result: { tools: { name: string }[] } }
+    assert.deepEqual(listed.result.tools.map((each) => each.name), ['mate_project', 'mate_read', 'mate_search', 'mate_comments'])
+    assert.deepEqual(await call('mate_write', { path: 'projects/review/draft/document.md', text: 'Mine.' }), {
+      text: 'This door only reads. Write with your own tools.',
+      failed: true
+    })
+    assert.equal(await readFile(path.join(root, 'projects/review/draft/document.md'), 'utf8'), '# Draft\n\nText.\n')
+
+    // An English question with no word of the Czech passage finds it by meaning, whole, with its place.
+    await refreshMeaning(root, await refreshIndex(root), meaningRuns.embed)
+    const found = await call('mate_search', { query: 'how long do we keep records' })
+    assert.equal(found.failed, false)
+    assert.match(found.text, /^Nothing matches by words\.\n\nClose in meaning, the closest first:\n\n\[shelf: the current reference\] shelf\/records\.md, characters 0 to \d+:\n# Záznamy\n\nDůvěrné záznamy se uchovávají deset let\.$/)
+    // What it did is not written into the session: the agent reports its own steps.
+    assert.equal((await loadSession(root, 'review', session.id)).messages.length, 0)
+  } finally {
+    Object.assign(meaningRuns, runs)
+    door.close()
+    await rm(root, { recursive: true, force: true })
   }
 })

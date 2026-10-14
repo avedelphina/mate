@@ -12,6 +12,9 @@ import readline from 'node:readline'
 
 type Json = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
+/** Where an agent reaches Mate's tools over MCP, and the token it shows there. */
+export type Door = { url: string; token: string }
+
 /** Something the agent will not do until the reader has said yes or no. */
 export type Ask = { id: string; title: string; detail: string }
 
@@ -76,7 +79,7 @@ export class Acp {
   /** Settles when the agent has answered and a conversation is open. Until then nothing else is sent. */
   readonly ready: Promise<void>
 
-  private constructor(child: ChildProcess, cwd: string) {
+  private constructor(child: ChildProcess, cwd: string, door: Door | null) {
     this.child = child
     child.stdin?.on('error', () => {})
     child.stderr?.on('data', (chunk: Buffer) => (this.complaint = (this.complaint + chunk.toString()).slice(-600)))
@@ -88,17 +91,20 @@ export class Acp {
     }
     child.on('error', () => end('The agent is not on this computer, or could not be started.'))
     child.on('close', (_code, signal) => end(signal ? 'Stopped.' : `The agent stopped.${this.complaint ? `\n\n${this.complaint.trim()}` : ''}`))
-    this.ready = this.open(cwd)
+    this.ready = this.open(cwd, door)
     // Whoever starts a turn hears of a failure there. Nobody else has to.
     this.ready.catch(() => {})
   }
 
-  /** Start the agent in a folder. It is there at once, to be stopped, and `ready` when it can be spoken to. */
-  static start(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv): Acp {
-    return new Acp(spawn(command, args, { cwd, env }), cwd)
+  /**
+   * Start the agent in a folder. It is there at once, to be stopped, and `ready` when it can be spoken to.
+   * `door` is Mate's door for it, which only reads: the agent gets its tools, search by meaning among them.
+   */
+  static start(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv, door: Door | null = null): Acp {
+    return new Acp(spawn(command, args, { cwd, env }), cwd, door)
   }
 
-  private async open(cwd: string): Promise<void> {
+  private async open(cwd: string, door: Door | null): Promise<void> {
     await this.request('initialize', {
       protocolVersion: 1,
       clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
@@ -106,7 +112,8 @@ export class Acp {
     })
     // ponytail: always a new conversation. `session/load` brings one back, but on Hermes 0.21.5 a
     // loaded session cannot reach a custom provider (401). Load it when that works.
-    const made = await this.request('session/new', { cwd, mcpServers: [] })
+    const mcpServers = door ? [{ type: 'http', name: 'mate', url: door.url, headers: [{ name: 'Authorization', value: `Bearer ${door.token}` }] }] : []
+    const made = await this.request('session/new', { cwd, mcpServers })
     if (typeof made.sessionId !== 'string') throw new Error('The agent opened no conversation.')
     this.sessionId = made.sessionId
     this.models = modelsOf(made.models)

@@ -191,7 +191,12 @@ export async function meaningMissing(): Promise<string | null> {
 }
 
 /** Vectors from Ollama on this computer. Nothing is sent anywhere else. */
-export const ollamaEmbed: Embed = async (texts) => {
+export const ollamaEmbed: Embed = async (texts) => embedWithOllama(texts)
+
+/** What search by meaning runs on, for the tools of an agent. The app uses Ollama; a test puts a stand-in here. */
+export const meaningRuns = { missing: () => meaningMissing(), embed: ((texts) => embedWithOllama(texts)) as Embed }
+
+async function embedWithOllama(texts: string[]): Promise<number[][]> {
   const answer = await fetch(`${OLLAMA}/api/embed`, {
     method: 'POST',
     body: JSON.stringify({ model: MODEL, input: texts }),
