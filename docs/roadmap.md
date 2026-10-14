@@ -174,7 +174,8 @@ The three exits: a file comes in through the file dialog or is dropped on
 the window. A markdown file is pulled into `draft/`. A file that stays
 outside gets a note with its path in the dropbox, which the index reads.
 The text of a file that is not markdown is taken out by the agent, when
-the reader asks with one button: Mate parses no such file.
+the reader asks with one button, into a draft. Mate keeps a plain text
+of every PDF and Word file too, for search and reading: its twin.
 
 Not done yet is the test this step names: one real project taken through
 it, from a source that comes in to a document published.

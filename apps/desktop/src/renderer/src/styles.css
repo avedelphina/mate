@@ -133,7 +133,8 @@ button.wide { width: 100%; }
 
 /* The page, while the reader types in it: the text of the file, in the same place and the same letters. */
 .editor { display: block; width: 100%; box-sizing: border-box; min-height: 70vh; border: 0; outline: 0; background: none; color: inherit; resize: none; field-sizing: content; }
-.bar .acts { display: flex; gap: 2px; margin-left: auto; -webkit-app-region: no-drag; }
+.bar .acts { display: flex; align-items: center; gap: 2px; margin-left: auto; -webkit-app-region: no-drag; }
+.bar .acts > .meta { margin-right: 6px; font-weight: 400; }
 .tree-new { margin: 0 0 6px 13px; padding-left: 4px; border-left: 1px solid var(--line); }
 .tree-new .row { height: 24px; padding: 0 8px 0 24px; border-radius: 5px; color: var(--soft); font-size: 12px; line-height: 24px; }
 .tree-new .row:hover { background: var(--hover); color: var(--ink); }

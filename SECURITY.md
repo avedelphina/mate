@@ -61,6 +61,8 @@ they show that the model is broken, for example:
   to reach an agent's command line as an option;
 - a way to make the installed app act as Node, load code that was not
   packed with it, or be driven through a debugging port;
+- a way for a PDF or a Word file in a context to run code when Mate takes
+  its text out, or to make Mate read a file outside the context;
 - a way to make Mate run git in a repository of a context the reader has
   not trusted, or make a commit the reader did not ask for, or reach a
   remote.

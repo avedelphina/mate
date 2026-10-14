@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type F
 import { Agent } from './Agent'
 import { Boundary } from './Boundary'
 import { Palette, type Act } from './Palette'
+import { isTwinned } from '../../shared/twin'
 import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran } from './env'
 import { Rendered, type Passage } from './Rendered'
 import { Tree } from './Tree'
@@ -159,6 +160,9 @@ export function App() {
   const [naming, setNaming] = useState<string | null>(null)
   // The name of a project that is being started, while the reader types it.
   const [founding, setFounding] = useState<string | null>(null)
+  // How many PDF and Word files are still to be read, so that search finds them. A search is made again when they are.
+  const [readingLeft, setReadingLeft] = useState(0)
+  useEffect(() => window.mate.onReading(setReadingLeft), [])
   // What the open folder still lacks: the shape of a context, and a git repository around it.
   const [lacks, setLacks] = useState({ shape: false, git: false })
   // The list of the palette while it is open: what the window could go to or do when it was opened.
@@ -231,7 +235,7 @@ export function App() {
       current = false
       clearTimeout(timer)
     }
-  }, [contextDir, query])
+  }, [contextDir, query, readingLeft === 0])
 
   // A pane that has just been written is put on show: the agent made it for the reader to see.
   useEffect(() => {
@@ -525,7 +529,7 @@ export function App() {
 
   /** A draft opens as a draft, at the match. Anything else is opened to be read. */
   async function openHit(hit: Hit) {
-    if (hit.kind === 'draft' && hit.project) {
+    if (hit.kind === 'draft' && hit.project && hit.path.toLowerCase().endsWith('.md')) {
       await openProject(hit.project, hit.path.split('/').pop())
       setActive(hit.thread)
     } else {
@@ -899,6 +903,11 @@ export function App() {
               onKeyDown={(event) => event.key === 'Escape' && setQuery('')}
             />
           )}
+          {contextDir && readingLeft > 0 && (
+            <p className="meta hint" role="status">
+              Reading {readingLeft === 1 ? '1 PDF or Word file' : `${readingLeft} PDF and Word files`}, so that search finds what is in them.
+            </p>
+          )}
           {contextDir && hits && (
             <>
               <h2>{hits.length === 0 ? 'No matches' : hits.length === 1 ? '1 match' : `${hits.length} matches`}</h2>
@@ -942,7 +951,7 @@ export function App() {
                     paths={shelf}
                     current={reading?.kind === 'shelf' ? reading.path.slice('shelf/'.length) : null}
                     onOpen={(path) => void read(`shelf/${path}`)}
-                    onReveal={() => {}}
+                    onReveal={(path) => isTwinned(path) && void read(`shelf/${path}`)}
                   />
                 </details>
               )}
@@ -959,9 +968,11 @@ export function App() {
                         paths={view.files}
                         current={inTree}
                         onOpen={openFile}
-                        onReveal={(path) =>
+                        onReveal={(path) => {
+                          // A file Mate cannot draw gets its card, with what can be done with it. A PDF or a Word file is read as its text as well.
                           setSources([{ name: path.split('/').pop()!, where: path, inContext: `projects/${view.project}/${path}`, markdown: false }])
-                        }
+                          if (isTwinned(path)) void read(`projects/${view.project}/${path}`)
+                        }}
                       />
                     )}
                     {view && project === name && (
@@ -1045,7 +1056,15 @@ export function App() {
           {onPage && <button className="quiet move" onClick={toMargin}>Back to the margin</button>}
           {!onPage && reading && <span className={`kind ${reading.kind}`}>{KINDS[reading.kind].label}</span>}
           {!onPage && reading && <span>{reading.path}</span>}
-          {!onPage && reading?.kind === 'shelf' && view && (
+          {!onPage && reading?.twin && (
+            <span className="acts">
+              <span className="meta">Its text, as Mate took it out</span>
+              <button className="quiet" title="The file itself, in the file manager" onClick={() => void window.mate.revealFile(reading.path)}>
+                Show the original
+              </button>
+            </span>
+          )}
+          {!onPage && reading?.kind === 'shelf' && !reading.twin && view && (
             <span className="acts">
               <button className="quiet" title="A copy the project owns. The shelf keeps its own." onClick={() => void takeDown()}>
                 Take a copy into {view.project}
@@ -1080,7 +1099,8 @@ export function App() {
                     onChange={(event) => setPublishing(event.target.value)}
                     onKeyDown={(event) => event.key === 'Escape' && setPublishing(null)}
                   />
-                  <datalist id="shelf-names">{shelf.map((each) => <option key={each} value={each} />)}</datalist>
+                  {/* A draft is published as markdown, so only a markdown document of the shelf is a name to publish over. */}
+                  <datalist id="shelf-names">{shelf.filter((each) => !isTwinned(each)).map((each) => <option key={each} value={each} />)}</datalist>
                   <button className="primary">Publish</button>
                   <button type="button" className="quiet" onClick={() => setPublishing(null)}>Cancel</button>
                 </form>
@@ -1146,6 +1166,7 @@ export function App() {
             <div className="page talk-page" ref={setPageSlot} />
           ) : reading ? (
             <div className="page prose">
+              {reading.twin && !reading.text.trim() && <p className="meta">Mate found no text in this file. It may be a scan, or locked.</p>}
               <Boundary what="This file" of={reading.text}>
                 <Rendered text={reading.text} passages={passages} />
               </Boundary>

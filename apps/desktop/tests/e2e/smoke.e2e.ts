@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { cp, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -228,6 +229,9 @@ test('in a context the reader trusts, a script of the project runs from its butt
   const root = await mkdtemp(path.join(tmpdir(), 'mate-e2e-'))
   const context = path.join(root, 'example')
   await cp(path.resolve(import.meta.dirname, '../../../../contexts/_example'), context, { recursive: true })
+  // A policy on the shelf as Word wrote it. Mate reads its text when the context is opened.
+  await writeFile(path.join(root, 'terms.txt'), 'Suppliers are reviewed every eighteen months.\n')
+  execFileSync('/usr/bin/textutil', ['-convert', 'docx', '-output', path.join(context, 'shelf/terms.docx'), path.join(root, 'terms.txt')])
   // A commit says who made it. The test is nobody in particular, whoever runs it.
   Object.assign(process.env, { GIT_AUTHOR_NAME: 'Reader', GIT_AUTHOR_EMAIL: 'reader@example.com', GIT_COMMITTER_NAME: 'Reader', GIT_COMMITTER_EMAIL: 'reader@example.com' })
   // The reader trusted this folder on an earlier day: that is what the app finds in its data folder.
@@ -263,6 +267,22 @@ test('in a context the reader trusts, a script of the project runs from its butt
     await app.press('.source .acts button', 'Run it')
     await app.until(`!!document.querySelector('.source .ran pre')`, 'what the script printed, on its card')
     assert.match(await app.page<string>(`document.querySelector('.source .ran pre').textContent`), /^draft\/document\.md: \d+ words\n$/)
+
+    // The Word file on the shelf is found by what it says, and read as its text, with a way to the file itself.
+    await app.page(`(() => {
+      const input = document.querySelector('.rail .search')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'eighteen months')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })()`)
+    await app.until(`[...document.querySelectorAll('.rail .hit')].some((each) => each.textContent.includes('terms.docx'))`, 'the Word file among the hits')
+    await app.page(`[...document.querySelectorAll('.rail .hit')].find((each) => each.textContent.includes('terms.docx')).click()`)
+    await app.until(`document.querySelector('.center .bar').textContent.includes('Show the original')`, 'its text on the page')
+    assert.match(await app.page<string>(`document.querySelector('.center .prose').textContent`), /Suppliers are reviewed every eighteen months/)
+    await app.page(`(() => {
+      const input = document.querySelector('.rail .search')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })()`)
 
     // Here the reader commits. A repository is started, and what is in the context goes into one commit, in their words.
     await app.press('.rail .ask button', 'Start a repository')

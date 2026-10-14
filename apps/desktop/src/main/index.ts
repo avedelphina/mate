@@ -6,6 +6,7 @@ import { addReply, anchorComment, applySuggestion } from '../shared/comments'
 import { agentEnvironment, listAgents } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
 import { commitContext, inRepository, startRepository, uncommitted } from './git'
+import { refreshTwins } from './twins'
 import {
   addComment,
   copySource,
@@ -134,6 +135,30 @@ function tell(contextDir: string, session: Session): void {
   }
 }
 
+/** The text twins being made, by context. One run at a time for a context. */
+const reading = new Map<string, Promise<void>>()
+
+/**
+ * Bring the text twins of a context up to date, in the background: nothing waits for it. Its
+ * windows hear how many files are left to read, and the index takes in what was read.
+ */
+function readTwins(contextDir: string): void {
+  if (reading.has(contextDir)) return
+  const say = (left: number) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (contexts.get(window.webContents.id) === contextDir) window.webContents.send('context:reading', left)
+    }
+  }
+  const run = refreshTwins(contextDir, assistHelper, say)
+    .then((changed) => (changed > 0 ? refreshIndex(contextDir).then(() => undefined) : undefined))
+    .catch(() => {})
+    .finally(() => {
+      reading.delete(contextDir)
+      say(0)
+    })
+  reading.set(contextDir, run)
+}
+
 /**
  * The door for an agent the reader runs themselves. It is opened the first time the reader asks
  * for it, not before, and it leads to the one session the reader last opened for such an agent.
@@ -228,6 +253,7 @@ app.whenReady().then(() => {
     contexts.set(event.sender.id, chosen)
     // Built now so that it is there for whatever reads it next. A search brings it up to date again.
     void refreshIndex(chosen).catch(() => {})
+    readTwins(chosen)
     return describeContext(chosen)
   })
 
@@ -280,18 +306,23 @@ app.whenReady().then(() => {
     if (result.canceled || !result.filePath) return null
     await createContext(result.filePath)
     contexts.set(event.sender.id, result.filePath)
+    readTwins(result.filePath)
     return describeContext(result.filePath)
   })
 
   // What a window has open when it starts: the context it inherited, or nothing.
   ipcMain.handle('context:current', async (event) => {
     const dir = contexts.get(event.sender.id)
+    if (dir) readTwins(dir)
     return dir ? describeContext(dir) : null
   })
 
-  ipcMain.handle('context:search', async (event, query: string) =>
-    searchIndex(await refreshIndex(requireContext(event)), query)
-  )
+  // The search is made with what is read so far. A file read since is found by the next one.
+  ipcMain.handle('context:search', async (event, query: string) => {
+    const contextDir = requireContext(event)
+    readTwins(contextDir)
+    return searchIndex(await refreshIndex(contextDir), query)
+  })
 
   ipcMain.handle('file:read', (event, relative: string) => readContextFile(requireContext(event), relative))
 

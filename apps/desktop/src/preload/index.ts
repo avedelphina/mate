@@ -64,6 +64,12 @@ contextBridge.exposeInMainWorld('mate', {
     ipcRenderer.on('session:update', heard)
     return () => ipcRenderer.removeListener('session:update', heard)
   },
+  /** How many PDF and Word files of the context are still to be read. Returns the function that stops listening. */
+  onReading: (listener: (left: number) => void) => {
+    const heard = (_event: unknown, left: number) => listener(left)
+    ipcRenderer.on('context:reading', heard)
+    return () => ipcRenderer.removeListener('context:reading', heard)
+  },
   isTrusted: (): Promise<boolean> => ipcRenderer.invoke('trust:get'),
   setTrusted: (yes: boolean): Promise<boolean> => ipcRenderer.invoke('trust:set', yes),
   runScript: (project: string, line: string) => ipcRenderer.invoke('script:run', project, line),

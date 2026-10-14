@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { readDocument } from '../shared/comments'
+import { isTwinned, twinOf } from '../shared/twin'
 
 /**
  * Where a file stands in the context. The shelf is what is true now. A draft is a proposal.
@@ -41,7 +42,7 @@ export type Hit = Place & {
   thread: string | null
 }
 
-const VERSION = 3
+const VERSION = 4
 // ponytail: one JSON file, held in memory, searched from end to end. Good for some thousands of files.
 // Past that it wants an inverted index, still rebuilt from the files.
 const MAX_BYTES = 2 * 1024 * 1024
@@ -59,14 +60,17 @@ export function placeOf(relative: string): Place {
   return { kind: 'context', project: null }
 }
 
-/** Every markdown file in the context. Hidden folders are skipped, so the index never reads itself. */
+/**
+ * Every markdown file in the context, and every file that has a text twin. Hidden folders are
+ * skipped, so the index never reads itself.
+ */
 async function walk(contextDir: string, base = ''): Promise<string[]> {
   const found: string[] = []
   for (const entry of await readdir(path.join(contextDir, base), { withFileTypes: true })) {
     if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
     const relative = base ? `${base}/${entry.name}` : entry.name
     if (entry.isDirectory()) found.push(...(await walk(contextDir, relative)))
-    else if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) found.push(relative)
+    else if (entry.isFile() && (entry.name.toLowerCase().endsWith('.md') || isTwinned(entry.name))) found.push(relative)
   }
   return found.sort()
 }
@@ -105,19 +109,22 @@ export async function refreshIndex(contextDir: string): Promise<Index> {
   let changed = false
 
   for (const relative of await walk(contextDir)) {
-    const info = await stat(path.join(contextDir, relative))
-    if (info.size > MAX_BYTES) continue
+    // A PDF or a Word file is found by its text twin, once there is one. What is read is the twin.
+    const twin = isTwinned(relative)
+    const read = path.join(contextDir, twin ? twinOf(relative) : relative)
+    const info = await stat(read).catch(() => null)
+    if (!info || info.size > MAX_BYTES) continue
     const old = known.get(relative)
     if (old && old.mtime === info.mtimeMs && old.size === info.size) {
       files.push(old)
       continue
     }
     changed = true
-    const { text, comments } = readDocument(await readFile(path.join(contextDir, relative), 'utf8'))
+    const { text, comments } = twin ? { text: await readFile(read, 'utf8'), comments: [] } : readDocument(await readFile(read, 'utf8'))
     files.push({
       path: relative,
       ...placeOf(relative),
-      title: /^#{1,6}[ \t]+(.+?)[ \t#]*$/m.exec(text)?.[1] ?? path.basename(relative),
+      title: (!twin && /^#{1,6}[ \t]+(.+?)[ \t#]*$/m.exec(text)?.[1]) || path.basename(relative),
       mtime: info.mtimeMs,
       size: info.size,
       text,

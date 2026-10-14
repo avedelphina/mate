@@ -36,7 +36,8 @@ export type DocumentView = {
 export type Kind = 'shelf' | 'draft' | 'project' | 'material' | 'context' | 'pane'
 
 /** A file that is read here and not reviewed: the shelf, a project's intents. */
-export type FileView = { path: string; kind: Kind; project: string | null; text: string }
+/** `twin`: the text was taken out of a PDF or a Word file, and is read in place of it. */
+export type FileView = { path: string; kind: Kind; project: string | null; text: string; twin?: boolean }
 
 /** One place a search matched. `start` is where in the text of the file, or null. `thread` when it is in a comment. */
 export type Hit = {
@@ -178,6 +179,8 @@ export type MateApi = {
   /** A kept change against the copy from before it, or a held change against the file as it is. */
   compare: (project: string, id: string, which: 'kept' | 'held', index: number) => Promise<Compared>
   onSession: (listener: (session: Session) => void) => () => void
+  /** How many PDF and Word files of the open context are still to be read, so that search finds them. */
+  onReading: (listener: (left: number) => void) => () => void
   /** Whether the reader trusts the open context. In a trusted one Hermes runs as it does in a terminal. */
   isTrusted: () => Promise<boolean>
   /** Asks the reader in a system dialog before it gives trust. Returns what holds afterwards. */

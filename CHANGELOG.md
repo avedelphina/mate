@@ -5,6 +5,22 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- PDF and Word files are read and found. Mate takes the text out of every
+  PDF and Word file in a context, with the Mac's own tools, and keeps it
+  in `.indexes/text/` as a text twin. Search finds what they say, a PDF
+  policy on the shelf reads on the page with *Show the original*, the
+  shelf lists them, and agents are told where their text is. Nothing
+  leaves the computer.
+
+### Changed
+
+- The names offered when publishing are the markdown documents of the
+  shelf only.
+
 ## [0.4.0] - 2026-10-13
 
 Mate becomes a place to work in a project, not only to review a draft.

@@ -6,6 +6,7 @@ import { insertComment, readDocument, retype, type Thread } from '../shared/comm
 import { placeOf, type Place } from './contextIndex'
 import { inRepository } from './git'
 import { mateWrote } from './guard'
+import { isTwinned, twinOf } from '../shared/twin'
 
 /**
  * A file in a project's `panes/` folder. An agent writes it to show the reader something beside
@@ -29,13 +30,20 @@ export type DocumentView = {
 }
 
 /** A file of the context that is not under review here: the shelf, a project's intents. Shown, never written. */
-export type FileView = Place & { path: string; text: string }
+/** `twin`: the text was taken out of a PDF or a Word file. The file itself is not shown. */
+export type FileView = Place & { path: string; text: string; twin?: boolean }
 
 export async function readContextFile(contextDir: string, relative: string): Promise<FileView> {
   const parts = relative.split('/')
-  if (!relative.toLowerCase().endsWith('.md') || parts.some((part) => part.startsWith('.'))) {
-    throw new Error('That is not a document of this context.')
+  if (parts.some((part) => part === '' || part.startsWith('.'))) throw new Error('That is not a document of this context.')
+  // A PDF or a Word file is read as its text twin. The file itself must be in the context.
+  if (isTwinned(relative)) {
+    await realInside(contextDir, ...parts)
+    const text = await readFile(path.join(contextDir, twinOf(relative)), 'utf8').catch(() => null)
+    if (text === null) throw new Error('Mate has not read the text of this file yet. Try again in a moment.')
+    return { path: relative, ...placeOf(relative), text, twin: true }
   }
+  if (!relative.toLowerCase().endsWith('.md')) throw new Error('That is not a document of this context.')
   const raw = await readFile(await realInside(contextDir, ...parts), 'utf8')
   return { path: relative, ...placeOf(relative), text: readDocument(raw).text }
 }
@@ -289,7 +297,7 @@ export async function tickPane(contextDir: string, project: string, name: string
 export async function listShelf(contextDir: string): Promise<string[]> {
   const shelf = path.join(contextDir, 'shelf')
   if (!existsSync(shelf)) return []
-  return (await listFiles(shelf)).filter((each) => each.toLowerCase().endsWith('.md'))
+  return (await listFiles(shelf)).filter((each) => each.toLowerCase().endsWith('.md') || isTwinned(each))
 }
 
 /** Where a name puts a document on the shelf, from the context folder. It throws on a name that is not one. */

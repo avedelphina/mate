@@ -67,6 +67,11 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
 - **The files of a project.** The rail shows them as a tree. A draft
   opens for review, any other markdown file opens to be read, and a file
   Mate cannot draw is shown in the file manager.
+- **PDF and Word files are read and found.** Mate takes the text out of
+  every PDF and Word file in the context, with the Mac's own tools, and
+  keeps it as a helper in `.indexes/text/`. Search finds what they say, a
+  policy on the shelf reads on the page, and agents are told where the
+  text is. Nothing leaves the computer.
 - **Search.** A search box indexes the whole context. Each hit says what
   it is: *Shelf* (what is true now), *Proposal*, *Project file*,
   *Material*, or *Pane*. The index lives in `.indexes/` and can be
@@ -331,8 +336,10 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
   use git.
 - **The intents and the principles are not typed in Mate.** A new project
   gets both files with a line each. Write them in any editor.
-- **Mate draws markdown and nothing else.** A Word file, a spreadsheet or
-  a PDF is named in the tree and opened by you, in its own program.
+- **Mate draws markdown and nothing else.** A PDF or a Word file is read
+  as its plain text, without headings, tables or pictures. A scanned PDF
+  has no text. Slides and spreadsheets are named in the tree and opened
+  by you, in their own program. Text is taken out on a Mac only.
 - **Over SSH an edit replaces the whole file.**
 - **Search reads each file whole,** up to 2 MB, and is sized for thousands
   of files, not hundreds of thousands.

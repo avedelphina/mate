@@ -3,9 +3,10 @@ import { readFile } from 'node:fs/promises'
 import http from 'node:http'
 import path from 'node:path'
 import { addReply, readDocument } from '../shared/comments'
-import { addComment, editDraft, realInside } from './context'
+import { addComment, editDraft, readContextFile, realInside } from './context'
 import { placeOf, refreshIndex, searchIndex, type Kind } from './contextIndex'
 import { judge, loadSession, saveSession, type Session } from './sessions'
+import { isTwinned } from '../shared/twin'
 
 /**
  * The door for an agent the reader runs themselves. It speaks the Model Context Protocol over
@@ -121,6 +122,11 @@ async function run(binding: Binding, session: Session, name: string, input: Json
     }
     case 'mate_read': {
       const parts = partsOf(input.path)
+      // A PDF or a Word file is read as its text twin, by the same rule as the window.
+      if (isTwinned(parts.join('/'))) {
+        const twin = await readContextFile(contextDir, parts.join('/'))
+        return `[${LABEL[twin.kind]}${twin.project ? ` of project ${twin.project}` : ''}] ${twin.path}, as text\n\n${twin.text}`
+      }
       // The same rule as readContextFile: a document of the context is markdown.
       if (!parts.at(-1)!.toLowerCase().endsWith('.md')) throw new Error('That is not a document of this context.')
       const place = placeOf(parts.join('/'))

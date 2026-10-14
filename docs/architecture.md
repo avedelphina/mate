@@ -66,6 +66,7 @@ preload as CommonJS. Leave that as it is.
 | Publishing a draft, and taking a shelf document down | `publish` and `takeDown` in `src/main/context.ts` |
 | How a file comes in, and the exits of a dropbox | `pullIn`, `noteSource` and `copySource` in `src/main/context.ts` |
 | Running a script of a project | `src/main/scripts.ts` |
+| Which files have a text twin, and how it is made | `src/shared/twin.ts`, then `src/main/twins.ts`, and `--pdf` in `assist/main.swift` |
 | Starting a repository, and committing | `src/main/git.ts`, and who may in `src/main/index.ts` |
 | What a run button leaves open, and how it is filled | `src/shared/run.ts` |
 | What a pane is, and how it is read | `readProject` in `src/main/context.ts`, then `App.tsx` |
@@ -183,9 +184,11 @@ remembered.
   date. Nothing of what is in the file is read. The note is a document,
   so a search finds the file by its name, and an agent is told of it.
 - *Its text taken out, into a draft.* For a file that is not markdown,
-  such as a Word file or a PDF. Mate reads no such file. The reader asks
-  the agent, with one button, and the agent writes the draft through the
-  guard like any other change.
+  such as a Word file or a PDF. The reader asks the agent, with one
+  button, and the agent writes the draft through the guard like any
+  other change. Mate's own text of the file, its twin (see "Text
+  twins"), is plain text for search and reading. The agent makes a
+  draft of it, with its headings and its form.
 
 A file comes in from outside in two ways. "Add a source" opens the file
 dialog of the system. Or the file is dropped on the window. Either way
@@ -279,10 +282,44 @@ The window reads the draft again when it gets the focus back, because the
 file may have been edited or pulled in the meantime. There is no file
 watcher.
 
+## Text twins
+
+Much of a context is not markdown: policies as PDF, drafts from Word. So
+that search, the page and agents can read them, Mate takes their text
+out once and keeps it: the *twin* of `shelf/policy.pdf` is
+`.indexes/text/shelf/policy.pdf.txt`. `twins.ts` is the whole of it, and
+`src/shared/twin.ts` says which files have one.
+
+- **What takes the text out.** The tools of the system, each in a process
+  of its own, and nothing leaves the computer. A PDF is handed as bytes
+  to Mate's helper, which asks PDFKit; the helper is never given a path.
+  A Word, RTF, ODT or HTML file goes to `textutil`. Both come with macOS.
+  On another system nothing is twinned. No program in a file runs: these
+  tools read text, they do not open the file in its program.
+- **When.** In the background, when a context is opened and at every
+  search. Nothing waits for it. The rail says how many files are still to
+  be read, and the search runs again when they are. A twin is made again
+  when its file is newer, and taken away when its file is gone.
+- **What it is.** A helper, like the index: plain text, in a folder that
+  ignores itself in git. Deleting it loses nothing. A file that cannot be
+  read, such as a locked or scanned PDF, gets an empty twin, so it is not
+  tried again until it changes.
+- **Who reads it.** The index takes a twin in as the text of its file, so
+  a hit names the PDF or the Word file and its kind, such as the shelf.
+  The window reads a twin in place of its file, with Show the original.
+  Agents are told where twins are, and the MCP door reads one when asked
+  for its file. Only the twin is read: a file of another kind is still
+  shown only in the file manager.
+
+Limits. A scanned PDF has no text until there is OCR. Slides and
+spreadsheets have no twin yet. A twin is plain text: headings, tables and
+pictures are gone. Up to 50 MB a file, 2 MB of text.
+
 ## The index and the search
 
 A context has an index: `.indexes/context.json` inside the context folder.
-It holds, for every markdown file in the context, where the file stands,
+It holds, for every markdown file in the context and every file with a
+text twin, where the file stands,
 its title, its text as the page shows it, and the text of its comments.
 `refreshIndex` brings it up to date before every search. It reads a file
 again only when the file's size or time has changed.
@@ -387,10 +424,12 @@ project is the root of its own tree.
 A draft opens for review. Any other markdown file opens to be read, as
 it does from a search. The project stays open while the file is read:
 the margin keeps its tabs, and the agent keeps its session. A file that
-is not markdown is named in the tree, and a click shows it in the file
-manager of the system, for the reader to open with what they have. Mate
-draws markdown and nothing else, and it opens no file itself: opening a
-file that came with a context could run it.
+is not markdown is named in the tree, and a click shows its card, with
+what can be done with it, and Show it in Finder for the reader to open it
+with what they have. A PDF or a Word file is read on the page as well, as
+its text twin. Mate draws markdown and nothing else, and it opens no file
+in the program that made it: opening a file that came with a context
+could run it.
 
 A project with no draft opens too. Its page is empty, and its other
 files are in the tree.

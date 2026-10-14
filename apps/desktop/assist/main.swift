@@ -1,4 +1,4 @@
-// mate-assist: one question to the on-device model, one answer.
+// mate-assist: one question to the on-device model, one answer. And the text of a PDF.
 //
 // Electron cannot call Apple's Foundation Models framework. This helper can.
 // It keeps no state and knows nothing about Mate: the app decides what to ask.
@@ -11,12 +11,23 @@
 
 import Foundation
 import FoundationModels
+import PDFKit
 
 func answer(_ value: [String: Any]) -> Never {
   let data = (try? JSONSerialization.data(withJSONObject: value)) ?? Data("{}".utf8)
   FileHandle.standardOutput.write(data)
   FileHandle.standardOutput.write(Data("\n".utf8))
   exit(0)
+}
+
+// With --pdf it takes the bytes of a PDF on stdin and gives its text, with PDFKit. It needs no
+// model, and is never given a path: what it reads is only what it is handed.
+//   stdout  {"text": "..."}  or  {"error": "..."}
+if CommandLine.arguments.contains("--pdf") {
+  let bytes = FileHandle.standardInput.readDataToEndOfFile()
+  guard let document = PDFDocument(data: bytes) else { answer(["error": "This is not a PDF that can be read."]) }
+  if document.isLocked { answer(["error": "This PDF is locked."]) }
+  answer(["text": document.string ?? ""])
 }
 
 let checking = CommandLine.arguments.contains("--check")
