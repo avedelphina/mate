@@ -56,6 +56,8 @@ src/
     pins.ts         the instruction files the reader approved
     scripts.ts      runs a script of a project, with no agent
     git.ts          starts a repository, and commits what changed in the context
+    twins.ts        the text of PDF and Word files, kept for search and reading
+    meaning.ts      search by meaning: passages, vectors from Ollama's bge-m3
   preload/
     index.ts        window.mate: the only bridge from the window to main
   renderer/src/
@@ -73,6 +75,7 @@ src/
     diff.ts         two texts compared line by line
     run.ts          what a run button leaves open, and how it is filled
     named.ts        which file of a project some words name
+    twin.ts         which files have a text twin, and where it is
     effort.ts       the steps of thinking effort
 assist/
   main.swift        the on-device helper: one question in, one answer out

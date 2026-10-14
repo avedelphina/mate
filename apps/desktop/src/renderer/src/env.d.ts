@@ -179,6 +179,10 @@ export type MateApi = {
   /** A kept change against the copy from before it, or a held change against the file as it is. */
   compare: (project: string, id: string, which: 'kept' | 'held', index: number) => Promise<Compared>
   onSession: (listener: (session: Session) => void) => () => void
+  /** The passages closest in meaning to a question. `missing` says what this computer lacks for it, when it does. */
+  searchMeaning: (query: string) => Promise<{ missing: string | null; hits: Hit[] }>
+  /** How many files of the open context are still to be given their meaning. */
+  onMinding: (listener: (left: number) => void) => () => void
   /** How many PDF and Word files of the open context are still to be read, so that search finds them. */
   onReading: (listener: (left: number) => void) => () => void
   /** Whether the reader trusts the open context. In a trusted one Hermes runs as it does in a terminal. */

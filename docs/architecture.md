@@ -19,7 +19,7 @@ Every call has this shape. The whole of what the window can ask for:
 
 | What | Channels | In main |
 |---|---|---|
-| The context | `context:open`, `context:create`, `context:shape`, `context:current`, `context:search` | the folder dialog, `createContext` after a dialog of the system, `shapeContext`, the projects, the index |
+| The context | `context:open`, `context:create`, `context:shape`, `context:current`, `context:search`, `context:meaning` | the folder dialog, `createContext` after a dialog of the system, `shapeContext`, the projects, the index, `searchMeaning` |
 | Git | `context:track`, `context:changes`, `context:commit` | `startRepository`, `uncommitted`, `commitContext` in `git.ts` |
 | A file | `file:read`, `file:reveal` | a file that is read and not reviewed; a file shown in the file manager |
 | A project | `project:open`, `project:create` | `readProject`: the draft, its comments, the panes, the tree; `createProject` |
@@ -66,6 +66,7 @@ preload as CommonJS. Leave that as it is.
 | Publishing a draft, and taking a shelf document down | `publish` and `takeDown` in `src/main/context.ts` |
 | How a file comes in, and the exits of a dropbox | `pullIn`, `noteSource` and `copySource` in `src/main/context.ts` |
 | Running a script of a project | `src/main/scripts.ts` |
+| Search by meaning: passages, vectors, the model | `src/main/meaning.ts` |
 | Which files have a text twin, and how it is made | `src/shared/twin.ts`, then `src/main/twins.ts`, and `--pdf` in `assist/main.swift` |
 | Starting a repository, and committing | `src/main/git.ts`, and who may in `src/main/index.ts` |
 | What a run button leaves open, and how it is filled | `src/shared/run.ts` |
@@ -314,6 +315,38 @@ out once and keeps it: the *twin* of `shelf/policy.pdf` is
 Limits. A scanned PDF has no text until there is OCR. Slides and
 spreadsheets have no twin yet. A twin is plain text: headings, tables and
 pictures are gone. Up to 50 MB a file, 2 MB of text.
+
+## Search by meaning
+
+Words find what is written in them. A question in other words, or in
+another language, needs the meaning. Each document of a context, PDF and
+Word files by their twins, is cut into passages of about a page, at
+paragraphs. Each passage gets a vector from an embedding model, with the
+title of its document. A question gets one too, and the passages closest
+to it are found. `meaning.ts` is the whole of it.
+
+- **The model** is bge-m3, run by Ollama on this computer. On a test of
+  fifteen questions in English, Czech and Slovak, most of them aimed at a
+  passage in another language, it put the right passage first every
+  time. Apple's on-device model, which needs nothing installed, did so
+  twice. Mate talks only to `127.0.0.1`, so nothing leaves the computer.
+  Without Ollama and the model there is no search by meaning, the search
+  says what is missing, and nothing else changes.
+- **When.** In the background, after the twins: a file gets its vectors
+  again when it changed, and loses them when it is gone. The rail says
+  how many files are left. A passage takes about 75 ms, so a large
+  context takes a while the first time, and seconds after.
+- **What is kept.** `.indexes/meaning.json`: for each file its passages
+  and their vectors, one byte for each dimension. A helper like the
+  index: made again from the files, safe to delete.
+- **What is shown.** Under the hits by words, the passages close enough
+  in meaning, the closest first, up to eight. A hit opens its file at the
+  passage. A question nothing in the context answers finds nothing.
+
+Limits. Every passage is compared with the question: fine for some ten
+thousand passages. Close enough is one bar, read off a small test, to be
+tuned on real contexts. Agents do not have search by meaning yet; they
+read the files and the twins.
 
 ## The index and the search
 

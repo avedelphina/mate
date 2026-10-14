@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('mate', {
   newContext: () => ipcRenderer.invoke('context:create'),
   currentContext: () => ipcRenderer.invoke('context:current'),
   searchContext: (query: string) => ipcRenderer.invoke('context:search', query),
+  searchMeaning: (query: string) => ipcRenderer.invoke('context:meaning', query),
   readFile: (path: string) => ipcRenderer.invoke('file:read', path),
   revealFile: (path: string) => ipcRenderer.invoke('file:reveal', path),
   openProject: (project: string, file?: string) => ipcRenderer.invoke('project:open', project, file),
@@ -69,6 +70,12 @@ contextBridge.exposeInMainWorld('mate', {
     const heard = (_event: unknown, left: number) => listener(left)
     ipcRenderer.on('context:reading', heard)
     return () => ipcRenderer.removeListener('context:reading', heard)
+  },
+  /** How many files are still to be given their meaning. Returns the function that stops listening. */
+  onMinding: (listener: (left: number) => void) => {
+    const heard = (_event: unknown, left: number) => listener(left)
+    ipcRenderer.on('context:minding', heard)
+    return () => ipcRenderer.removeListener('context:minding', heard)
   },
   isTrusted: (): Promise<boolean> => ipcRenderer.invoke('trust:get'),
   setTrusted: (yes: boolean): Promise<boolean> => ipcRenderer.invoke('trust:set', yes),

@@ -16,6 +16,13 @@ then, minor versions may change behaviour.
   shelf lists them, and agents are told where their text is. Nothing
   leaves the computer.
 
+- Search by meaning. With Ollama and its `bge-m3` model on your Mac, the
+  search also lists the passages close to your question in meaning, in
+  other words or another language: an English question finds the Czech
+  or Slovak passage that answers it. A hit opens its file at the passage.
+  It runs on your computer only, in the background, and only a file that
+  changed is learned again.
+
 ### Changed
 
 - The names offered when publishing are the markdown documents of the

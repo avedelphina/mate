@@ -163,6 +163,25 @@ export function App() {
   // How many PDF and Word files are still to be read, so that search finds them. A search is made again when they are.
   const [readingLeft, setReadingLeft] = useState(0)
   useEffect(() => window.mate.onReading(setReadingLeft), [])
+  // The passages closest in meaning to the search, and how many files are still to be given their meaning.
+  const [close, setClose] = useState<{ missing: string | null; hits: Hit[] } | null>(null)
+  const [mindingLeft, setMindingLeft] = useState(0)
+  useEffect(() => window.mate.onMinding(setMindingLeft), [])
+  useEffect(() => {
+    if (!contextDir || !query.trim()) return setClose(null)
+    let current = true
+    // A little later than the words: the question is given a vector first.
+    const timer = setTimeout(() => {
+      window.mate.searchMeaning(query).then(
+        (next) => current && setClose(next),
+        () => current && setClose(null)
+      )
+    }, 350)
+    return () => {
+      current = false
+      clearTimeout(timer)
+    }
+  }, [contextDir, query, mindingLeft === 0])
   // What the open folder still lacks: the shape of a context, and a git repository around it.
   const [lacks, setLacks] = useState({ shape: false, git: false })
   // The list of the palette while it is open: what the window could go to or do when it was opened.
@@ -903,6 +922,11 @@ export function App() {
               onKeyDown={(event) => event.key === 'Escape' && setQuery('')}
             />
           )}
+          {contextDir && mindingLeft > 0 && readingLeft === 0 && (
+            <p className="meta hint" role="status">
+              Learning what {mindingLeft === 1 ? '1 file says' : `${mindingLeft} files say`}, for search by meaning.
+            </p>
+          )}
           {contextDir && readingLeft > 0 && (
             <p className="meta hint" role="status">
               Reading {readingLeft === 1 ? '1 PDF or Word file' : `${readingLeft} PDF and Word files`}, so that search finds what is in them.
@@ -922,6 +946,25 @@ export function App() {
                   </li>
                 ))}
               </ul>
+              {/* What the words do not find, the meaning may: passages close to the question, in any of the languages. */}
+              {close && close.hits.length > 0 && (
+                <>
+                  <h2>Close in meaning</h2>
+                  <ul>
+                    {close.hits.map((hit, index) => (
+                      <li key={index}>
+                        <button className="row hit close" onClick={() => openHit(hit)}>
+                          <span className={`kind ${hit.kind}`}>{KINDS[hit.kind].label}</span>
+                          <span className="where">{hit.title}{hit.project && ` · ${hit.project}`}</span>
+                          <span className="snippet">{hit.match}{hit.after}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {close?.missing && <p className="meta hint">{close.missing}</p>}
+              {close && !close.missing && close.hits.length === 0 && hits.length === 0 && <p className="meta hint">Nothing is close in meaning either.</p>}
             </>
           )}
           {contextDir && !hits && (

@@ -67,6 +67,11 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
 - **The files of a project.** The rail shows them as a tree. A draft
   opens for review, any other markdown file opens to be read, and a file
   Mate cannot draw is shown in the file manager.
+- **Search by meaning.** With Ollama on your Mac and its `bge-m3` model
+  (`ollama pull bge-m3`), the search also finds passages close to your
+  question in meaning, in other words or another language: an English
+  question finds the Czech or Slovak passage that answers it. It runs on
+  your computer only. Without Ollama, search by words works as before.
 - **PDF and Word files are read and found.** Mate takes the text out of
   every PDF and Word file in the context, with the Mac's own tools, and
   keeps it as a helper in `.indexes/text/`. Search finds what they say, a
@@ -280,6 +285,9 @@ Tools: `mate_project`, `mate_read`, `mate_search`, `mate_comments`,
   it shows. No program from a context runs in the window.
 - Publishing is confirmed in a system dialog that the page cannot press.
   No agent can publish.
+- Search by meaning sends the text of the context's documents to Ollama
+  at `127.0.0.1`, on your computer, and nowhere else. It does so only if
+  you have installed Ollama and pulled its `bge-m3` model.
 - Git starts programs a repository names: its hooks, and what its config
   says. So Mate runs it in two cases only. *Start a repository* runs
   `git init` where there is no repository, in any context. *Commit…*
@@ -341,6 +349,9 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
   has no text. Slides and spreadsheets are named in the tree and opened
   by you, in their own program. Text is taken out on a Mac only.
 - **Over SSH an edit replaces the whole file.**
+- **Search by meaning needs Ollama and `bge-m3`,** about 1.2 GB. The first
+  time, a large context takes a while to learn: about 75 ms a passage.
+  Agents cannot search by meaning yet.
 - **Search reads each file whole,** up to 2 MB, and is sized for thousands
   of files, not hundreds of thousands.
 - **Ambiguous passages.** A passage that occurs twice on the same line

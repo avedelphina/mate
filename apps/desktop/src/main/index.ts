@@ -6,6 +6,7 @@ import { addReply, anchorComment, applySuggestion } from '../shared/comments'
 import { agentEnvironment, listAgents } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
 import { commitContext, inRepository, startRepository, uncommitted } from './git'
+import { meaningMissing, ollamaEmbed, refreshMeaning, searchMeaning } from './meaning'
 import { refreshTwins } from './twins'
 import {
   addComment,
@@ -135,8 +136,36 @@ function tell(contextDir: string, session: Session): void {
   }
 }
 
+/** Tell every window of a context something on a channel of its own. */
+function toContext(contextDir: string, channel: string, value: unknown): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (contexts.get(window.webContents.id) === contextDir) window.webContents.send(channel, value)
+  }
+}
+
 /** The text twins being made, by context. One run at a time for a context. */
 const reading = new Map<string, Promise<void>>()
+/** The vectors for search by meaning being made, by context. One run at a time for a context. */
+const minding = new Map<string, Promise<void>>()
+
+/**
+ * Give the passages of a context their vectors, in the background, after its twins: only where
+ * Ollama with the model is on this computer. Its windows hear how many files are left.
+ */
+function learnMeaning(contextDir: string): void {
+  if (minding.has(contextDir)) return
+  const say = (left: number) => toContext(contextDir, 'context:minding', left)
+  const run = (async () => {
+    if (await meaningMissing()) return
+    await refreshMeaning(contextDir, await refreshIndex(contextDir), ollamaEmbed, say)
+  })()
+    .catch(() => {})
+    .finally(() => {
+      minding.delete(contextDir)
+      say(0)
+    })
+  minding.set(contextDir, run)
+}
 
 /**
  * Bring the text twins of a context up to date, in the background: nothing waits for it. Its
@@ -144,17 +173,15 @@ const reading = new Map<string, Promise<void>>()
  */
 function readTwins(contextDir: string): void {
   if (reading.has(contextDir)) return
-  const say = (left: number) => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (contexts.get(window.webContents.id) === contextDir) window.webContents.send('context:reading', left)
-    }
-  }
+  const say = (left: number) => toContext(contextDir, 'context:reading', left)
   const run = refreshTwins(contextDir, assistHelper, say)
     .then((changed) => (changed > 0 ? refreshIndex(contextDir).then(() => undefined) : undefined))
     .catch(() => {})
     .finally(() => {
       reading.delete(contextDir)
       say(0)
+      // What was read is given its meaning next.
+      learnMeaning(contextDir)
     })
   reading.set(contextDir, run)
 }
@@ -322,6 +349,14 @@ app.whenReady().then(() => {
     const contextDir = requireContext(event)
     readTwins(contextDir)
     return searchIndex(await refreshIndex(contextDir), query)
+  })
+
+  // The passages closest in meaning to the question, from what has its vectors so far.
+  ipcMain.handle('context:meaning', async (event, query: string) => {
+    const contextDir = requireContext(event)
+    const missing = await meaningMissing()
+    if (missing) return { missing, hits: [] }
+    return { missing: null, hits: await searchMeaning(contextDir, await refreshIndex(contextDir), String(query), ollamaEmbed) }
   })
 
   ipcMain.handle('file:read', (event, relative: string) => readContextFile(requireContext(event), relative))
