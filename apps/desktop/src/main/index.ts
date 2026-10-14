@@ -1,12 +1,12 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type IpcMainInvokeEvent } from 'electron'
 import { randomBytes } from 'node:crypto'
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { addReply, anchorComment, applySuggestion } from '../shared/comments'
 import { agentEnvironment, listAgents } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
 import { commitContext, inRepository, startRepository, uncommitted } from './git'
-import { meaningMissing, ollamaEmbed, refreshMeaning, searchMeaning } from './meaning'
+import { forgetMeaning, meaningMissing, moveMeaning, ollamaEmbed, refreshMeaning, searchMeaning } from './meaning'
 import { refreshTwins } from './twins'
 import {
   addComment,
@@ -14,6 +14,8 @@ import {
   createContext,
   createDraft,
   createProject,
+  renameContext,
+  renameProject,
   describeContext,
   editDraft,
   listShelf,
@@ -32,14 +34,16 @@ import {
 import { refreshIndex, searchIndex } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
 import { runScript, stopAllScripts, stopScript } from './scripts'
-import { approve, describe, instructionFiles, keepPinsIn, unapproved } from './pins'
-import { isTrusted, keepTrustIn, setTrusted } from './trust'
+import { approve, describe, instructionFiles, keepPinsIn, movePins, unapproved } from './pins'
+import { isTrusted, keepTrustIn, moveTrust, setTrusted } from './trust'
 import {
   answerAsk,
   attend,
   compare,
   gate,
+  closeAgentsIn,
   doors,
+  moveSessions,
   isBusy,
   listModels,
   listSessions,
@@ -391,6 +395,45 @@ app.whenReady().then(() => {
   ipcMain.handle('project:create', async (event, name: string) => {
     const contextDir = requireContext(event)
     const made = await createProject(contextDir, String(name))
+    return { made, context: await describeContext(contextDir) }
+  })
+
+  // A folder is renamed only while nothing works in it: an agent, or Mate reading its files.
+  const still = (contextDir: string): void => {
+    if (isBusy(contextDir)) throw new Error('An agent is working in this context. Rename it when the agent has finished.')
+    if (reading.has(contextDir) || minding.has(contextDir)) {
+      throw new Error('Mate is still reading the files of this context. Rename it when the rail no longer says so.')
+    }
+  }
+
+  ipcMain.handle('context:rename', async (event, name: string) => {
+    const contextDir = requireContext(event)
+    still(contextDir)
+    const was = realpathSync(contextDir)
+    await closeAgentsIn(contextDir)
+    const moved = await renameContext(contextDir, String(name))
+    if (moved === contextDir) return describeContext(contextDir)
+    // Trust and the approved instruction files were given to this folder. They follow it to its new name.
+    moveTrust(was, moved)
+    movePins(was, moved)
+    forgetMeaning(contextDir)
+    for (const [id, dir] of contexts) if (dir === contextDir) contexts.set(id, moved)
+    if (bound?.contextDir === contextDir) bound = { ...bound, contextDir: moved }
+    const opened = await describeContext(moved)
+    // Another window on the same context follows it too.
+    toContext(moved, 'context:moved', opened)
+    readTwins(moved)
+    return opened
+  })
+
+  ipcMain.handle('project:rename', async (event, from: string, name: string) => {
+    const contextDir = requireContext(event)
+    still(contextDir)
+    await closeAgentsIn(contextDir)
+    const made = await renameProject(contextDir, String(from), String(name))
+    await moveSessions(contextDir, String(from), made)
+    await moveMeaning(contextDir, `projects/${from}/`, `projects/${made}/`)
+    if (bound?.contextDir === contextDir && bound.project === from) bound = { ...bound, project: made }
     return { made, context: await describeContext(contextDir) }
   })
 

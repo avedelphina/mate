@@ -160,6 +160,10 @@ export function App() {
   const [naming, setNaming] = useState<string | null>(null)
   // The name of a project that is being started, while the reader types it.
   const [founding, setFounding] = useState<string | null>(null)
+  // The context or the open project being given a new name, while the reader types it.
+  const [renaming, setRenaming] = useState<{ what: 'context' | 'project'; name: string } | null>(null)
+  // A context renamed in another window is followed here.
+  useEffect(() => window.mate.onMoved((opened) => take(opened)), [])
   // How many PDF and Word files are still to be read, so that search finds them. A search is made again when they are.
   const [readingLeft, setReadingLeft] = useState(0)
   useEffect(() => window.mate.onReading(setReadingLeft), [])
@@ -398,6 +402,38 @@ export function App() {
       setError(reason(caught, failed))
     }
   }
+
+  /** Give the context, or the open project, the name the reader typed. Its folder is renamed in place. */
+  async function rename(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!renaming?.name.trim() || !(await leaveEditor())) return
+    try {
+      if (renaming.what === 'context') take(await window.mate.renameContext(renaming.name))
+      else if (view) {
+        const { made, context } = await window.mate.renameProject(view.project, renaming.name)
+        take(context)
+        await openProject(made)
+      }
+      setRenaming(null)
+      setError(null)
+    } catch (caught) {
+      setError(reason(caught, 'Could not rename it.'))
+    }
+  }
+
+  const renameField = (label: string) =>
+    renaming && (
+      <form onSubmit={rename}>
+        <input
+          autoFocus
+          value={renaming.name}
+          aria-label={label}
+          onChange={(event) => setRenaming({ ...renaming, name: event.target.value })}
+          onKeyDown={(event) => event.key === 'Escape' && setRenaming(null)}
+          onBlur={() => setRenaming(null)}
+        />
+      </form>
+    )
 
   async function newProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -858,6 +894,7 @@ export function App() {
       if (file !== null && typing === null && !reading) add('Edit this draft', 'Do', edit)
       if (file !== null && !reading) add('Publish this draft…', 'Do', () => setPublishing(file))
       add('New draft…', 'Do', () => setNaming(''))
+      add('Rename this project…', 'Do', () => setRenaming({ what: 'project', name: view.project }))
       add('Add a source…', 'Do', () => void addSources())
       add(agentOnPage ? 'Put the conversation back in the margin' : 'Open the conversation in the page', 'Do', agentOnPage ? toMargin : toPage)
     }
@@ -865,6 +902,7 @@ export function App() {
     for (const each of projects) if (each !== project) add(each, 'Open project', () => void openProject(each))
     if (contextDir) {
       add('New project…', 'Do', () => setFounding(''))
+      add('Rename this context…', 'Do', () => setRenaming({ what: 'context', name: contextName ?? '' }))
       if (!lacks.git) add('Commit…', 'Do', () => void startCommit())
       add('Search this context', 'Do', () => document.querySelector<HTMLInputElement>('.rail .search')?.focus())
     }
@@ -906,7 +944,13 @@ export function App() {
           {!contextDir && <button className="wide quiet" title="A new folder with a shelf, a dropbox and room for projects" onClick={newContext}>New context…</button>}
           {contextDir && (
             <div className="context">
-              <h2 title={contextDir}>{contextName}</h2>
+              {renaming?.what === 'context' ? (
+                renameField('New name of the context')
+              ) : (
+                <h2 className="renamable" title={`${contextDir}\nClick to rename it.`} onClick={() => setRenaming({ what: 'context', name: contextName ?? '' })}>
+                  {contextName}
+                </h2>
+              )}
               <button className="quiet" title="Open another context" onClick={openContext}>Open…</button>
               <button className="quiet" title="Start a new context, in a folder of its own" onClick={newContext}>New…</button>
             </div>
@@ -1020,11 +1064,16 @@ export function App() {
                     )}
                     {view && project === name && (
                       <div className="tree-new">
-                        {naming === null ? (
+                        {renaming?.what === 'project' ? (
+                          renameField('New name of the project')
+                        ) : naming === null ? (
                           <>
                             <button className="row" onClick={() => setNaming('')}>+ New draft</button>
                             <button className="row" title="A file from outside this context. You choose what becomes of it." onClick={() => void addSources()}>
                               + Add a source
+                            </button>
+                            <button className="row" title="Its folder is renamed, and its sessions go with it" onClick={() => setRenaming({ what: 'project', name: view.project })}>
+                              Rename project…
                             </button>
                           </>
                         ) : (

@@ -783,6 +783,30 @@ export function stopAllTurns(): void {
   for (const agent of live.values()) agent.close()
 }
 
+/**
+ * The agents that stayed between turns in a context are sent away: it is about to be renamed, and
+ * they work in a folder that will not be there. Each is started again, with the conversation so far.
+ */
+export async function closeAgentsIn(contextDir: string): Promise<void> {
+  for (const project of await readdir(path.join(contextDir, '.sessions')).catch(() => [])) {
+    for (const id of await readdir(path.join(contextDir, '.sessions', project)).catch(() => [])) {
+      live.get(id)?.close()
+      live.delete(id)
+    }
+  }
+}
+
+/** A project was renamed. Its sessions go with it, each told the name it now has. */
+export async function moveSessions(contextDir: string, from: string, to: string): Promise<void> {
+  if (from === to || !existsSync(folder(contextDir, from))) return
+  await rename(folder(contextDir, from), folder(contextDir, to))
+  for (const id of await readdir(folder(contextDir, to))) {
+    const file = path.join(folder(contextDir, to, id), 'session.json')
+    const session = JSON.parse(await readFile(file, 'utf8').catch(() => 'null')) as Session | null
+    if (session) await saveSession(contextDir, { ...session, project: to })
+  }
+}
+
 /** How many agents are working. */
 export const working = (): number => turns.size
 

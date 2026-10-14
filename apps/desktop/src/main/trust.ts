@@ -31,6 +31,16 @@ export function keepTrustIn(path: string): void {
 
 export const isTrusted = (contextDir: string): boolean => trusted.has(real(contextDir))
 
+/**
+ * A trusted context was renamed: its trust goes with it. `was` is the real path it had. The old
+ * path is trusted no more, so that another folder made there later is not trusted by mistake.
+ */
+export function moveTrust(was: string, now: string): void {
+  if (!trusted.delete(was)) return
+  trusted.add(real(now))
+  if (file) writeFileSync(file, JSON.stringify([...trusted], null, 2), { mode: 0o600 })
+}
+
 export function setTrusted(contextDir: string, yes: boolean): void {
   if (yes) trusted.add(real(contextDir))
   else trusted.delete(real(contextDir))

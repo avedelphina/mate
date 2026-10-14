@@ -83,6 +83,14 @@ export function unapproved(contextDir: string, now: Record<string, string>): Cha
     .map((each) => ({ path: each, was: was[each] ?? null, is: now[each] ?? null }))
 }
 
+/** A context was renamed: what the reader approved of its instruction files goes with it. `was` is its real path before. */
+export function movePins(was: string, now: string): void {
+  if (!(was in pinned)) return
+  pinned[real(now)] = pinned[was]
+  delete pinned[was]
+  if (file) writeFileSync(file, JSON.stringify(pinned), { mode: 0o600 })
+}
+
 export function approve(contextDir: string, now: Record<string, string>): void {
   pinned[real(contextDir)] = now
   if (file) writeFileSync(file, JSON.stringify(pinned), { mode: 0o600 })

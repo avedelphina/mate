@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 import { lstat, mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { insertComment, readDocument, retype, type Thread } from '../shared/comments'
@@ -93,6 +93,49 @@ export async function createContext(dir: string): Promise<void> {
 /** Give a folder that is there the shape of a context. What is in it stays as it is. */
 export async function shapeContext(dir: string): Promise<void> {
   for (const each of SHAPE) await mkdir(path.join(dir, each), { recursive: true })
+}
+
+/** Whether two paths are one folder: a name changed only in its capitals is the same folder on a Mac. */
+const sameFolder = (a: string, b: string) => {
+  try {
+    const [one, two] = [statSync(a), statSync(b)]
+    return one.dev === two.dev && one.ino === two.ino
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Give a context a new name, where it is. Its folder is renamed, and all that is in it goes with it:
+ * projects, sessions, the helpers. Gives the folder as it is now called.
+ */
+export async function renameContext(contextDir: string, name: string): Promise<string> {
+  const title = String(name).trim()
+  if (!NAME.test(title)) throw new Error('Name the context with letters and numbers. Spaces, dots, dashes and underscores may follow.')
+  const to = path.join(path.dirname(contextDir), title)
+  if (to === contextDir) return contextDir
+  if (existsSync(to) && !sameFolder(to, contextDir)) throw new Error('Something of that name is already there.')
+  await rename(contextDir, to)
+  return to
+}
+
+/**
+ * Give a project of the context a new name. Its folder is renamed, and the text twins of its files
+ * go with it, so nothing is read again. Its sessions are moved by `moveSessions`. Gives the new name.
+ */
+export async function renameProject(contextDir: string, from: string, name: string): Promise<string> {
+  const title = String(name).trim()
+  if (!NAME.test(title)) throw new Error('Name the project with letters and numbers. Spaces, dots, dashes and underscores may follow.')
+  if (!(await listProjects(contextDir)).includes(from)) throw new Error('That project is not in this context.')
+  if (title === from) return from
+  const projects = await realInside(contextDir, 'projects')
+  if (existsSync(path.join(projects, title)) && !sameFolder(path.join(projects, title), path.join(projects, from))) {
+    throw new Error('A project of that name is already there.')
+  }
+  await rename(path.join(projects, from), path.join(projects, title))
+  const twins = path.join(contextDir, '.indexes', 'text', 'projects')
+  if (existsSync(path.join(twins, from))) await rename(path.join(twins, from), path.join(twins, title)).catch(() => {})
+  return title
 }
 
 /** What a new project starts with. The two files steer it, and say only what they are for. */

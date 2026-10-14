@@ -101,6 +101,22 @@ async function save(contextDir: string, stored: Stored): Promise<void> {
   await rename(`${file}.tmp`, file)
 }
 
+/** A folder of the context was renamed. Its passages keep their vectors under the new path, so none is learned again. */
+export async function moveMeaning(contextDir: string, from: string, to: string): Promise<void> {
+  const stored = await load(contextDir)
+  let moved = false
+  for (const name of Object.keys(stored.files)) {
+    if (!name.startsWith(from)) continue
+    stored.files[to + name.slice(from.length)] = stored.files[name]
+    delete stored.files[name]
+    moved = true
+  }
+  if (moved) await save(contextDir, stored)
+}
+
+/** A context was renamed: what was held of it under its old folder is let go. Its file went with it. */
+export const forgetMeaning = (contextDir: string): void => void stores.delete(contextDir)
+
 /**
  * Bring the vectors of a context up to date with its index: the passages of a file that changed
  * are found again and given vectors, and a file that is gone takes its own with it. `left` hears

@@ -121,6 +121,12 @@ export type MateApi = {
   newContext: () => Promise<Opened | null>
   /** A project in the open context: its folder, a place for drafts, its intents and its principles. */
   createProject: (name: string) => Promise<{ made: string; context: Opened }>
+  /** Give the open context a new name. Its folder is renamed, with all that is in it. */
+  renameContext: (name: string) => Promise<Opened>
+  /** Give a project a new name. Its folder and its sessions go with it. */
+  renameProject: (from: string, name: string) => Promise<{ made: string; context: Opened }>
+  /** The open context was renamed, from this window or another. */
+  onMoved: (listener: (opened: Opened) => void) => () => void
   currentContext: () => Promise<Opened | null>
   searchContext: (query: string) => Promise<Hit[]>
   readFile: (path: string) => Promise<FileView>

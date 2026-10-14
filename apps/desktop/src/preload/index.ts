@@ -14,6 +14,14 @@ contextBridge.exposeInMainWorld('mate', {
   revealFile: (path: string) => ipcRenderer.invoke('file:reveal', path),
   openProject: (project: string, file?: string) => ipcRenderer.invoke('project:open', project, file),
   createProject: (name: string) => ipcRenderer.invoke('project:create', name),
+  renameContext: (name: string) => ipcRenderer.invoke('context:rename', name),
+  renameProject: (from: string, name: string) => ipcRenderer.invoke('project:rename', from, name),
+  /** The open context was renamed, from this window or another. Returns the function that stops listening. */
+  onMoved: (listener: (opened: unknown) => void) => {
+    const heard = (_event: unknown, opened: unknown) => listener(opened)
+    ipcRenderer.on('context:moved', heard)
+    return () => ipcRenderer.removeListener('context:moved', heard)
+  },
   tickPane: (project: string, name: string, base: string, at: number, draft?: string) =>
     ipcRenderer.invoke('pane:tick', project, name, base, at, draft),
   listShelf: () => ipcRenderer.invoke('shelf:list'),

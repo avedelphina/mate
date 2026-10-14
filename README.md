@@ -47,7 +47,8 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   project* in the rail makes a project in it, with its intents and its
   principles. A folder you already have can be opened and made a context
   where it stands, and Mate offers to start a git repository for a
-  context that is in none.
+  context that is in none. Click the context's name to rename it;
+  *Rename project…* sits under the open project.
 - **Commit.** *Commit…* at the foot of the rail puts what has changed in
   the context into one git commit, in your words. Nothing is committed
   for you. Only in a [context you trust](#a-context-you-trust).

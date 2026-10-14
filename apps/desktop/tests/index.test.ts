@@ -5,7 +5,10 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { createContext, createProject, describeContext, listProjects, readProject, shapeContext, tickPane } from '../src/main/context.ts'
+import { createContext, createProject, describeContext, listProjects, readProject, renameContext, renameProject, shapeContext, tickPane } from '../src/main/context.ts'
+import { refreshMeaning } from '../src/main/meaning.ts'
+import { moveMeaning } from '../src/main/meaning.ts'
+import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
 import { commitContext, startRepository, uncommitted } from '../src/main/git.ts'
 import { placeOf, refreshIndex, searchIndex } from '../src/main/contextIndex.ts'
 import { insertComment } from '../src/shared/comments.ts'
@@ -268,6 +271,47 @@ test('a commit takes what has changed in the context, in the words given, and no
     await writeFile(path.join(dir, '.indexes/context.json'), '{}')
     assert.equal(await commitContext(dir, 'Terms on the shelf', env), 2)
     assert.match(await log(root), /^Terms on the shelf\n\nwork\/projects\/letter\/intents.md\nwork\/shelf\/terms.md\n/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a context and a project are renamed where they stand, and what belongs to them goes with them', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-rename-'))
+  try {
+    const first = path.join(root, 'Untitled')
+    await createContext(first)
+    await createProject(first, 'Clasification')
+    await writeFile(path.join(first, 'projects/Clasification/draft/scheme.md'), '# Scheme\n\nFour levels.\n')
+    const session = await startSession(first, 'Clasification', 'hermes')
+
+    // The context: its folder takes the name, with all that is in it. A name is never a path, and never another's folder.
+    await mkdir(path.join(root, 'Taken'))
+    await assert.rejects(renameContext(first, 'Taken'), /already there/)
+    for (const name of ['', '../out', 'a/b', '.hidden']) await assert.rejects(renameContext(first, name), /Name the context/)
+    const context = await renameContext(first, 'Client A')
+    assert.equal(context, path.join(root, 'Client A'))
+    assert.equal(existsSync(first), false)
+    assert.deepEqual(await listProjects(context), ['Clasification'])
+    // Only the capitals changed: it is the same folder, and that is no clash.
+    assert.equal(await renameContext(context, 'client a'), path.join(root, 'client a'))
+    const dir = path.join(root, 'client a')
+
+    // The project: its folder, its sessions told their new project, and the vectors of its files, so none is learned again.
+    let asked = 0
+    const embed = async (texts: string[]) => ((asked += texts.length), texts.map(() => [1, 0]))
+    assert.equal(await refreshMeaning(dir, await refreshIndex(dir), embed), 3)
+    await assert.rejects(renameProject(dir, 'Missing', 'Other'), /not in this context/)
+    const made = await renameProject(dir, 'Clasification', 'Classification')
+    assert.equal(made, 'Classification')
+    await moveSessions(dir, 'Clasification', made)
+    await moveMeaning(dir, 'projects/Clasification/', 'projects/Classification/')
+    assert.deepEqual(await listProjects(dir), ['Classification'])
+    assert.equal((await readProject(dir, 'Classification', 'scheme.md')).text, '# Scheme\n\nFour levels.\n')
+    assert.deepEqual((await listSessions(dir, 'Classification')).map((each) => [each.id, each.project]), [[session.id, 'Classification']])
+    asked = 0
+    assert.equal(await refreshMeaning(dir, await refreshIndex(dir), embed), 0)
+    assert.equal(asked, 0)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

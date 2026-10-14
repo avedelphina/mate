@@ -9,6 +9,10 @@ then, minor versions may change behaviour.
 
 ### Added
 
+- Rename a context by clicking its name in the rail, and a project with
+  *Rename project…* under it, or from ⌘K. The folder is renamed where it
+  stands, with everything in it. A project's sessions go with it, and a
+  context keeps its trust and approved instruction files.
 - PDF and Word files are read and found. Mate takes the text out of every
   PDF and Word file in a context, with the Mac's own tools, and keeps it
   in `.indexes/text/` as a text twin. Search finds what they say, a PDF

@@ -464,6 +464,18 @@ terminal, or an agent in a trusted context.
 The copy for Revert is not git. A change by an agent is put back from
 the copy Mate took before it, whether or not anything was ever committed.
 
+A context is renamed by clicking its name in the rail, and the open
+project with Rename project… under it, or from the palette. The folder
+is renamed where it stands, and all that is in it goes with it. For a
+project its sessions are moved and told their new project, and its text
+twins and learned passages move too, so nothing is read or learned
+again. A context keeps its trust and its approved instruction files:
+they were given to the folder, and follow it to its new name. The old
+path is trusted no more. Nothing is renamed while an agent works in the
+context or Mate is still reading its files, and an agent that stayed
+between turns is sent away first: it works in a folder that will not be
+there. It starts again with the conversation so far.
+
 ## The files of a project
 
 The rail lists the files of the open project as a tree, under its name.
