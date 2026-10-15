@@ -5,53 +5,13 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
-
-### Added
-
-- Bring in a project: *Bring in a project…* moves a folder you have, such
-  as a git repository, into the context, after you choose it and say yes
-  in the system's dialogs. Nothing in it is changed. A project with no
-  `draft/` folder has its markdown files as its drafts, where they lie.
-  A project that is a repository of its own keeps its history: the
-  context's commits leave it out, and the guard watches its hooks.
-- The rail lists what is in the context that is neither on the shelf nor
-  in a project, under *Context*: its own dropbox, and any other file.
-- Rename a context by clicking its name in the rail, and a project with
-  *Rename project…* under it, or from ⌘K. The folder is renamed where it
-  stands, with everything in it. A project's sessions go with it, and a
-  context keeps its trust and approved instruction files.
-- PDF and Word files are read and found. Mate takes the text out of every
-  PDF and Word file in a context, with the Mac's own tools, and keeps it
-  in `.indexes/text/` as a text twin. Search finds what they say, a PDF
-  policy on the shelf reads on the page with *Show the original*, the
-  shelf lists them, and agents are told where their text is. Nothing
-  leaves the computer.
-- Scanned PDFs are read too. A page with no text is read off its picture
-  on your Mac, with Apple's Vision, in Czech and English. Slovak reads
-  well but for a letter or two.
-- Search by meaning. With Ollama and its `bge-m3` model on your Mac, the
-  search also lists the passages close to your question in meaning, in
-  other words or another language: an English question finds the Czech
-  or Slovak passage that answers it. A hit opens its file at the passage.
-  It runs on your computer only, in the background, and only a file that
-  changed is learned again.
-- Agents search by meaning too. Mate's `mate_search` tool gives the
-  passages close in meaning, whole, with their file and place. Hermes in
-  a trusted context is handed a door of its own when it starts, for its
-  session, that only reads: it finds the policy passage and cites it.
-
-### Changed
-
-- The names offered when publishing are the markdown documents of the
-  shelf only.
-
-## [0.4.0] - 2026-10-13
+## [0.4.0] - 2026-10-15
 
 Mate becomes a place to work in a project, not only to review a draft.
 You write the draft and publish it, bring sources in, let an agent show
 what it gathered beside the draft, and run what is done the same way each
-time with no agent at all.
+time with no agent at all. PDF and Word files are read, scans included,
+and search finds by meaning across English, Czech and Slovak.
 
 ### Added
 
@@ -72,6 +32,18 @@ Starting out:
   nothing is committed for you. Only in a context you trust, because a
   commit starts the hooks of the repository. Mate adds no remote and
   never pushes or pulls.
+- Bring in a project: *Bring in a project…* moves a folder you have, such
+  as a git repository, into the context, after you choose it and say yes
+  in the system's dialogs. Nothing in it is changed. A project with no
+  `draft/` folder has its markdown files as its drafts, where they lie.
+  A project that is a repository of its own keeps its history: the
+  context's commits leave it out, and the guard watches its hooks.
+- The rail lists what is in the context that is neither on the shelf nor
+  in a project, under *Context*: its own dropbox, and any other file.
+- Rename a context by clicking its name in the rail, and a project with
+  *Rename project…* under it, or from ⌘K. The folder is renamed where it
+  stands, with everything in it. A project's sessions go with it, and a
+  context keeps its trust and approved instruction files.
 
 Writing and publishing:
 
@@ -87,6 +59,28 @@ Writing and publishing:
   It leaves the dropbox by one of three exits: pulled into `draft/`,
   left outside with its path noted, or its text taken out into a draft
   by the agent. Mate itself reads no Word file and no PDF.
+
+Documents of every kind, and search by meaning:
+
+- PDF and Word files are read and found. Mate takes the text out of every
+  PDF and Word file in a context, with the Mac's own tools, and keeps it
+  in `.indexes/text/` as a text twin. Search finds what they say, a PDF
+  policy on the shelf reads on the page with *Show the original*, the
+  shelf lists them, and agents are told where their text is. Nothing
+  leaves the computer.
+- Scanned PDFs are read too. A page with no text is read off its picture
+  on your Mac, with Apple's Vision, in Czech and English. Slovak reads
+  well but for a letter or two.
+- Search by meaning. With Ollama and its `bge-m3` model on your Mac, the
+  search also lists the passages close to your question in meaning, in
+  other words or another language: an English question finds the Czech
+  or Slovak passage that answers it. A hit opens its file at the passage.
+  It runs on your computer only, in the background, and only a file that
+  changed is learned again.
+- Agents search by meaning too. Mate's `mate_search` tool gives the
+  passages close in meaning, whole, with their file and place. Hermes in
+  a trusted context is handed a door of its own when it starts, for its
+  session, that only reads: it finds the policy passage and cites it.
 
 The window:
 
@@ -152,6 +146,8 @@ For contributors:
 
 ### Changed
 
+- The names offered when publishing are the markdown documents of the
+  shelf only.
 - A turn that was running when the app closed is no longer lost without
   a word. Your message is kept, the session says the turn was cut off
   and which files changed in it without being checked, and *Go on* asks
