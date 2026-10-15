@@ -575,7 +575,8 @@ test('the window, on the example context: a comment into the file, the tree, a p
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'princ')
       input.dispatchEvent(new Event('input', { bubbles: true }))
     })()`)
-    await app.until(`document.querySelectorAll('dialog.palette .row').length === 1`, 'the one file by that name')
+    // The file comes first. An action with the same word in its name, such as writing the principles, may follow.
+    await app.until(`document.querySelector('dialog.palette .row span')?.textContent === 'principles.md'`, 'the file by that name')
     await app.page(`document.querySelector('dialog.palette input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`)
     await app.until(`document.querySelector('.center .bar').textContent.includes('principles.md')`, 'the file, open to be read')
     assert.equal(await app.page(`document.querySelector('dialog.palette').open`), false)
@@ -615,6 +616,20 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.row.project.active')?.textContent === 'From kit'`, 'the project from the template, open')
     assert.equal(await readFile(path.join(context, 'projects/From kit/README.md'), 'utf8'), '# From kit\n')
     assert.equal(await readFile(path.join(context, 'projects/From kit/decisions/_template.md'), 'utf8'), '# Decision\n')
+
+    // A project with no intents or principles of its own is steered by the context's. The rail says so, and opens them.
+    await rm(path.join(context, 'projects/From kit/intents.md'))
+    await rm(path.join(context, 'projects/From kit/principles.md'))
+    await writeFile(path.join(context, 'intents.md'), '# The client\n\nConfidential work.\n')
+    await app.press('.projects .row.project', 'document-review')
+    await app.until(`document.querySelector('.row.project.active')?.textContent === 'document-review'`, 'the other project, open')
+    await app.press('.projects .row.project', 'From kit')
+    await app.until(`!!document.querySelector('.steering button[title*="of the context"]')`, "the context's intents in the rail")
+    assert.equal(await app.page(`document.querySelectorAll('.steering button').length`), 1)
+    await app.press('.steering button', 'Intents')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('intents.md') && document.querySelector('.center').textContent.includes('Confidential work.')`, "the context's intents, open")
+    // Nothing is made in the project by looking.
+    assert.equal((await readdir(path.join(context, 'projects/From kit'))).includes('intents.md'), false)
 
     // The context is a context, and it is in no repository. The reader is asked about that, and git starts one.
     assert.deepEqual(await app.page(names('.rail .ask button')), ['Start a repository'])

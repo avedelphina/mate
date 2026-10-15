@@ -482,3 +482,51 @@ test('what git runs in a project that is a repository of its own is never kept f
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('an agent is told what steers its project: its own files, else the context\'s, else that nothing does', { skip: process.platform === 'win32' }, async () => {
+  const root = await context()
+  const command = AGENTS.hermes.command
+  const stub = path.join(root, '..', `${path.basename(root)}-steer.mjs`)
+  const log = path.join(root, '..', `${path.basename(root)}-steer.txt`)
+  try {
+    await writeFile(
+      stub,
+      `#!/usr/bin/env node
+import { appendFileSync, readFileSync } from 'node:fs'
+appendFileSync(${JSON.stringify(log)}, JSON.stringify({ prompt: readFileSync(0, 'utf8') }) + '\\n')
+console.log(JSON.stringify({ type: 'text', text: 'Read.' }))
+`
+    )
+    await chmod(stub, 0o755)
+    AGENTS.hermes.command = stub
+    const told = async (project: string) => {
+      const session = await startSession(root, project, 'hermes')
+      await (await sendMessage(root, project, session.id, 'Look.', false, () => {})).finished
+      const lines = (await readFile(log, 'utf8')).trim().split('\n')
+      return JSON.parse(lines[lines.length - 1]).prompt as string
+    }
+
+    // Its own: `review` has an intents.md and no principles.md.
+    let prompt = await told('review')
+    assert.match(prompt, /Its intents\.md:\n\nStay honest\./)
+    assert.doesNotMatch(prompt, /Nothing steers this project/)
+    assert.doesNotMatch(prompt, /The context's principles\.md/)
+
+    // None of its own, none of the context's: the agent is told so, and not to look.
+    prompt = await told('sibling')
+    assert.match(prompt, /Nothing steers this project: it has no intents\.md or principles\.md, and neither has the context\./)
+
+    // The context's steer a project that has none.
+    await writeFile(path.join(root, 'principles.md'), 'Never send a document outside.\n')
+    prompt = await told('sibling')
+    assert.match(prompt, /The context's principles\.md, which steers this project because it has none of its own:\n\nNever send a document outside\./)
+    assert.doesNotMatch(prompt, /Nothing steers this project/)
+    // The rules say where to look, so an agent is not sent after a file that is not there.
+    assert.match(prompt, /do not look for them/)
+  } finally {
+    AGENTS.hermes.command = command
+    await rm(root, { recursive: true, force: true })
+    await rm(stub, { force: true })
+    await rm(log, { force: true })
+  }
+})

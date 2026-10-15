@@ -5,6 +5,24 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- The context's own intents and principles. A project that has none of
+  its own, such as an imported repository, is steered by the context's,
+  at its root: the rules of the client, written once. A project that has
+  its own keeps them. The rail shows the context's when they are the ones
+  that steer, and says so. Open either to write in it on the page, or
+  start one from ⌘K.
+
+### Fixed
+
+- An agent in a project with no intents or principles, such as an
+  imported repository, was told they exist and went looking for them.
+  It is now told what steers the project, and that nothing does when
+  nothing does.
+
 ## [0.28.0] - 2026-11-11
 
 The rail parts what Mate keeps in a project from the project's own folders.

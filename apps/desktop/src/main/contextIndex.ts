@@ -56,6 +56,8 @@ const MAX_HITS = 60
 export function placeOf(relative: string): Place {
   const parts = relative.split('/')
   if (parts[0] === 'shelf') return { kind: 'shelf', project: null }
+  // The context's own intents and principles steer every project that has none of its own.
+  if (parts.length === 1 && (parts[0] === 'intents.md' || parts[0] === 'principles.md')) return { kind: 'project', project: null }
   if (parts[0] === 'projects' && parts.length > 2) {
     const [, project, ...rest] = parts
     const steers = rest.length === 1 && (rest[0] === 'intents.md' || rest[0] === 'principles.md')

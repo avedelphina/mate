@@ -33,6 +33,8 @@ export type DocumentView = {
   final: string[]
   /** Where the drafts are, from the project folder: `draft/`, or nothing when they are where they lie. */
   draftsIn: string
+  /** For each of the two files that steer: whether the project has its own, and whether the context has one. */
+  steering: Record<'intents.md' | 'principles.md', { own: boolean; context: boolean }>
 }
 
 /**
@@ -190,6 +192,10 @@ export type MateApi = {
   createProject: (name: string, template?: string) => Promise<{ made: string; context: Opened }>
   /** Bring a folder in as a project: chosen and moved in dialogs of the system. Null when the reader did not. */
   importProject: () => Promise<{ made: string; context: Opened } | null>
+  /** The text of a file that steers, in a project or at the context's root, or '' when there is none yet. */
+  readSteeringFile: (scope: 'project' | 'context', project: string | null, name: string) => Promise<string>
+  /** Write one, from the text the reader began with. Refused when it has changed since. */
+  writeSteeringFile: (scope: 'project' | 'context', project: string | null, name: string, base: string, text: string) => Promise<boolean>
   /** Give the open context a new name. Its folder is renamed, with all that is in it. */
   renameContext: (name: string) => Promise<Opened>
   /** Give a project a new name. Its folder and its sessions go with it. */

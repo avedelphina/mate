@@ -28,6 +28,12 @@ export type Binding = { contextDir: string; project: string; id: string }
 
 type Json = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
+/** What a file is, for an agent: the context's own intents or principles are not a project's. */
+const labelOf = (kind: Kind, project: string | null): string =>
+  kind === 'project' && !project
+    ? "the context's own intents or principles: they steer every project that has none of its own"
+    : `${LABEL[kind]}${project ? ` of project ${project}` : ''}`
+
 const LABEL: Record<Kind, string> = {
   shelf: 'shelf: the current reference',
   draft: 'proposal: a draft under review',
@@ -138,7 +144,7 @@ async function run(binding: Binding, session: Session, name: string, input: Json
   switch (name) {
     case 'mate_project': {
       const files = (await refreshIndex(contextDir)).files.map(
-        (file) => `- ${file.path} (${LABEL[file.kind]}${file.project ? ` of project ${file.project}` : ''})`
+        (file) => `- ${file.path} (${labelOf(file.kind, file.project)})`
       )
       const plan = session.planApproved ? 'The plan is approved.' : 'No plan is approved yet.'
       return `${RULES}\n\nYour project is "${session.project}". Its files are under projects/${session.project}/.\n${plan}\n\nThe files of the context:\n${files.join('\n')}`
@@ -148,25 +154,25 @@ async function run(binding: Binding, session: Session, name: string, input: Json
       // A PDF or a Word file is read as its text twin, by the same rule as the window.
       if (isTwinned(parts.join('/'))) {
         const twin = await readContextFile(contextDir, parts.join('/'))
-        return `[${LABEL[twin.kind]}${twin.project ? ` of project ${twin.project}` : ''}] ${twin.path}, as text\n\n${twin.text}`
+        return `[${labelOf(twin.kind, twin.project)}] ${twin.path}, as text\n\n${twin.text}`
       }
       // The same rule as readContextFile: a document of the context is markdown.
       if (!parts.at(-1)!.toLowerCase().endsWith('.md')) throw new Error('That is not a document of this context.')
       const place = placeOf(parts.join('/'))
       const raw = await readFile(await realInside(contextDir, ...parts), 'utf8')
-      return `[${LABEL[place.kind]}${place.project ? ` of project ${place.project}` : ''}] ${parts.join('/')}\n\n${raw}`
+      return `[${labelOf(place.kind, place.project)}] ${parts.join('/')}\n\n${raw}`
     }
     case 'mate_search': {
       const query = String(input.query ?? '')
       const index = await refreshIndex(contextDir)
       const hits = searchIndex(index, query)
-      const words = hits.map((hit) => `[${hit.thread ? 'comment in a ' : ''}${LABEL[hit.kind]}] ${hit.path}: ${hit.before}${hit.match}${hit.after}`)
+      const words = hits.map((hit) => `[${hit.thread ? 'comment in a ' : ''}${labelOf(hit.kind, hit.project)}] ${hit.path}: ${hit.before}${hit.match}${hit.after}`)
       // By meaning where this computer has the model. The whole passage goes with each, to be read and cited.
       const close = (await meaningRuns.missing()) ? [] : await searchMeaning(contextDir, index, query, meaningRuns.embed)
       const texts = new Map(index.files.map((file) => [file.path, file.text]))
       const meant = close.map(
         (hit) =>
-          `[${LABEL[hit.kind]}${hit.project ? ` of project ${hit.project}` : ''}] ${hit.path}, characters ${hit.start} to ${hit.start! + hit.length}:\n` +
+          `[${labelOf(hit.kind, hit.project)}] ${hit.path}, characters ${hit.start} to ${hit.start! + hit.length}:\n` +
           (texts.get(hit.path) ?? '').slice(hit.start!, hit.start! + hit.length).trim()
       )
       if (words.length === 0 && meant.length === 0) return 'Nothing in the context matches.'

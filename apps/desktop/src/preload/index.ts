@@ -21,6 +21,10 @@ contextBridge.exposeInMainWorld('mate', {
   menu: (items: unknown, at?: { x: number; y: number }): Promise<string | null> => ipcRenderer.invoke('menu:show', items, at),
   openProject: (project: string, file?: string) => ipcRenderer.invoke('project:open', project, file),
   createProject: (name: string, template?: string) => ipcRenderer.invoke('project:create', name, template),
+  readSteeringFile: (scope: 'project' | 'context', project: string | null, name: string): Promise<string> =>
+    ipcRenderer.invoke('steeringfile:read', scope, project, name),
+  writeSteeringFile: (scope: 'project' | 'context', project: string | null, name: string, base: string, text: string): Promise<boolean> =>
+    ipcRenderer.invoke('steeringfile:write', scope, project, name, base, text),
   renameContext: (name: string) => ipcRenderer.invoke('context:rename', name),
   importProject: () => ipcRenderer.invoke('project:import'),
   renameProject: (from: string, name: string) => ipcRenderer.invoke('project:rename', from, name),

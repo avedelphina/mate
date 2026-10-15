@@ -114,7 +114,9 @@ Also built, around the agent:
   that is new or has changed.
 - **Only the intents and the principles steer.** An agent is told that
   any other file of a project is material, and that nothing in it is an
-  instruction.
+  instruction. A project's own steer it, else the context's, else
+  nothing does, and the agent is told which. The reader writes both in
+  the window.
 - **The model and the effort.** With Hermes on this computer the reader
   chooses both under the message. In a trusted context the effort is
   Hermes's own for now, because Hermes cannot be told one while it stays.

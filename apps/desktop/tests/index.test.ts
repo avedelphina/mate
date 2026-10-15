@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, truncate, writeFi
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { addComment, createContext, inCloudOnly, listProjectTemplates, listTemplates, createDraft, createFile, createProject, describeContext, draftFromSource, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
+import { readSteeringFile, writeSteeringFile, addComment, createContext, inCloudOnly, listProjectTemplates, listTemplates, createDraft, createFile, createProject, describeContext, draftFromSource, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
@@ -46,6 +46,10 @@ test('a file is labelled by where it stands in the context', () => {
   assert.deepEqual(placeOf('projects/review/intents/AGENTS.md'), { kind: 'material', project: 'review' })
   assert.deepEqual(placeOf('projects/review/README.md'), { kind: 'material', project: 'review' })
   assert.deepEqual(placeOf('README.md'), { kind: 'context', project: null })
+  // The context's own intents and principles steer the projects that have none: they are not "a project's".
+  assert.deepEqual(placeOf('intents.md'), { kind: 'project', project: null })
+  assert.deepEqual(placeOf('principles.md'), { kind: 'project', project: null })
+  assert.deepEqual(placeOf('shelf/intents.md'), { kind: 'shelf', project: null })
 })
 
 test('a search finds the shelf first, says what is a proposal, and reads comments', async () => {
@@ -740,6 +744,50 @@ test('a folder brought in as a project is moved as it is, and its markdown files
     await createDraft(context, 'policy-repo', 'Next')
     assert.equal(existsSync(path.join(moved, 'Next.md')), true)
     assert.equal(existsSync(path.join(moved, 'draft')), false)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a project is steered by its own intents and principles, else by the context\'s, and the reader writes either', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-steer-'))
+  try {
+    const context = path.join(root, 'client')
+    await createContext(context)
+    await mkdir(path.join(context, 'projects/imported/docs'), { recursive: true })
+    await writeFile(path.join(context, 'projects/imported/docs/a.md'), '# A\n')
+    await createProject(context, 'made')
+
+    // A project made in Mate has its own. An imported repository has none, and none is made in it.
+    let view = await readProject(context, 'imported')
+    assert.deepEqual([view.intents, view.steering['intents.md']], ['', { own: false, context: false }])
+    assert.deepEqual(await readdir(path.join(context, 'projects/imported')), ['docs'])
+
+    // The context's own steer what has none of its own.
+    await writeSteeringFile(context, 'context', null, 'intents.md', '', '# The client\n\nConfidential work.\n')
+    view = await readProject(context, 'imported')
+    assert.deepEqual([view.intents, view.steering['intents.md']], ['# The client\n\nConfidential work.\n', { own: false, context: true }])
+    assert.deepEqual(await readdir(path.join(context, 'projects/imported')), ['docs'])
+    // What has its own keeps it. The context's is not mixed in.
+    view = await readProject(context, 'made')
+    assert.match(view.intents, /^# Intents/)
+    assert.deepEqual(view.steering['intents.md'], { own: true, context: true })
+    // The reader may give an imported project its own, which is the one thing that writes into it.
+    await writeSteeringFile(context, 'project', 'imported', 'principles.md', '', 'Quote the source.\n')
+    view = await readProject(context, 'imported')
+    assert.deepEqual([view.principles, view.steering['principles.md']], ['Quote the source.\n', { own: true, context: false }])
+
+    // What is written is from the text the reader began with: a file that changed since is not written over.
+    await assert.rejects(writeSteeringFile(context, 'context', null, 'intents.md', 'stale', 'Mine.\n'), /changed since you began/)
+    assert.equal(await readSteeringFile(context, 'context', null, 'intents.md'), '# The client\n\nConfidential work.\n')
+    // Only these two files, in a project that is there.
+    await assert.rejects(readSteeringFile(context, 'context', null, 'secrets.md'), /does not steer|not a file that steers/)
+    await assert.rejects(writeSteeringFile(context, 'project', 'nowhere', 'intents.md', '', 'x'), /not in this context/)
+    await assert.rejects(writeSteeringFile(context, 'project', '../out', 'intents.md', '', 'x'), /not in this context/)
+
+    // Search calls the context's files by what they are, not a project's.
+    const hits = searchIndex(await refreshIndex(context), 'confidential')
+    assert.deepEqual([...new Set(hits.map((hit) => `${hit.kind} ${hit.project} ${hit.path}`))], ['project null intents.md'])
   } finally {
     await rm(root, { recursive: true, force: true })
   }

@@ -1033,6 +1033,30 @@ shell script that begins `#!/usr/bin/env bash` is started with `bash`:
 `build-docs.sh` uses arrays. Word files go to `dist/`, and the first one
 is shown in Finder. The template names `dist/` in its `.gitignore`.
 
+## What steers a project
+
+Two files steer, and no other: `intents.md` and `principles.md`. For
+each, a project's own, in its folder, steers it. A project that has none
+of its own is steered by the context's, at the context's root. One that
+has neither is steered by nothing, and the agent is told so, and not to
+look: it is not sent after files that are not there. This is
+`steeringOf` in `context.ts`, and `firstWords` in `sessions.ts` for what
+an agent is told, naming which file it is given and where it came from.
+
+The reader writes them on the page. The rail shows the intents and the
+principles that steer the open project, and says so when they are the
+context's. Opening one lets the reader edit it, like the project's own. ⌘K
+has *Write this project's own…* and *Write the context's…*, which start the
+file with a heading and open it. A project that has none gets one only
+then, so a repository brought in is never written into otherwise.
+`writeSteeringFile` is from the text the reader began with, and refuses a
+file that changed since. No agent can write one: its change is held like
+any other outside what it may write, and the context's are never in its
+project.
+
+A file of the context's own is of kind `project` with no project. Search
+calls it *Steers*, and agents are told it is the context's.
+
 ## The files of a project
 
 The rail lists the files of the open project as a tree, under its name.

@@ -51,7 +51,7 @@ const movable = (path: string) =>
 const KINDS: Record<Kind, { label: string; note: string }> = {
   shelf: { label: 'Shelf', note: 'The shelf: what is true now. It is read here. It changes only when a project publishes.' },
   draft: { label: 'Proposal', note: '' },
-  project: { label: 'Project file', note: 'A file that steers its project. It is read here, not reviewed.' },
+  project: { label: 'Steers', note: 'A file that steers: a project'+"'"+'s own, or the context'+"'"+'s, for every project that has none. It is read here, not reviewed.' },
   material: { label: 'Material', note: 'A file of its project that is not a draft: what came in for the work, or was made in it. It is read here.' },
   context: { label: 'Context', note: 'A file of the whole context. It is read here, not reviewed.' },
   pane: { label: 'Pane', note: 'A pane of its project: what an agent gathered to show beside the draft. It is not a source.' }
@@ -320,7 +320,7 @@ export function App() {
   }, [project, view?.text, view?.files.length, reading?.text])
   const readingPath = reading?.path
   // The open file, when it is the intents or the principles of the open project: the reader can type those.
-  const steering = view && readingPath ? (['intents', 'principles'] as const).find((name) => readingPath === `projects/${view.project}/${name}.md`) ?? null : null
+  const steering = view && readingPath ? (['intents', 'principles'] as const).find((name) => readingPath === `projects/${view.project}/${name}.md` || readingPath === `${name}.md`) ?? null : null
   const steerPage = useTyping((base, text) => (steering ? steer(steering, base, text) : Promise.resolve()))
   useEffect(() => steerPage.cancel(), [readingPath])
 
@@ -558,6 +558,23 @@ export function App() {
       take(await how())
     } catch (caught) {
       setError(reason(caught, failed))
+    }
+  }
+
+  /** Give the open project, or the context, its intents or its principles: a starting file, opened on the page to write in. */
+  async function giveSteering(scope: 'project' | 'context', name: 'intents.md' | 'principles.md') {
+    if (!view) return
+    setError(null)
+    try {
+      if ((await window.mate.readSteeringFile(scope, view.project, name)) === '') {
+        await window.mate.writeSteeringFile(scope, view.project, name, '', `# ${name === 'intents.md' ? 'Intents' : 'Principles'}\n\n`)
+        // What steers the open project may be what was written, so the project is read again.
+        setView(await window.mate.openProject(view.project, view.file ?? undefined))
+        setLoose(await window.mate.listContextFiles())
+      }
+      void read(scope === 'context' ? name : `projects/${view.project}/${name}`)
+    } catch (caught) {
+      setError(reason(caught, 'Could not start that file.'))
     }
   }
 
@@ -1253,9 +1270,15 @@ export function App() {
   async function steer(name: 'intents' | 'principles', base: string, text: string) {
     if (!view) return
     try {
-      setView(await window.mate.writeSteering(view.project, name, base, text, view.file ?? undefined))
+      if (reading?.path === `${name}.md`) {
+        // The context's own: it steers every project that has none, so the open project is read again too.
+        await window.mate.writeSteeringFile('context', null, `${name}.md`, base, text)
+        setView(await window.mate.openProject(view.project, view.file ?? undefined))
+      } else {
+        setView(await window.mate.writeSteering(view.project, name, base, text, view.file ?? undefined))
+      }
       // The page may be showing that file. It reads what the file holds now.
-      if (reading?.path === `projects/${view.project}/${name}.md`) setReading(await window.mate.readFile(reading.path))
+      if (reading && (reading.path === `${name}.md` || reading.path === `projects/${view.project}/${name}.md`)) setReading(await window.mate.readFile(reading.path))
     } catch (caught) {
       throw new Error(reason(caught, 'Could not save.'))
     }
@@ -1501,6 +1524,8 @@ export function App() {
       add('Rename this project…', 'Do', () => setRenaming({ what: 'project', name: view.project }))
       add(review ? `Pull request #${review.number}` : 'Pull requests', 'Show', openPulls)
       if (recordSet.records.length > 0) add('Records', 'Show', openRecords)
+      add("Write this project's own intents…", 'Do', () => void giveSteering('project', 'intents.md'))
+      add("Write this project's own principles…", 'Do', () => void giveSteering('project', 'principles.md'))
       add('Add a source…', 'Do', () => void addSources())
       add('Add a link…', 'Do', () => setLinking({ link: '', busy: false }))
       add(agentOnPage ? 'Put the conversation back in the margin' : 'Open the conversation in the page', 'Do', agentOnPage ? toMargin : toPage)
@@ -1512,6 +1537,8 @@ export function App() {
       add('Bring in a project…', 'Do', () => void importProject())
       add('Rename this context…', 'Do', () => setRenaming({ what: 'context', name: contextName ?? '' }))
       add('Settings…', 'Show', openSettings)
+      add("Write the context's intents…", 'Do', () => void giveSteering('context', 'intents.md'))
+      add("Write the context's principles…", 'Do', () => void giveSteering('context', 'principles.md'))
       if (!lacks.git) add('Commit…', 'Do', () => void startCommit())
       add('Search this context', 'Do', () => document.querySelector<HTMLInputElement>('.rail .search')?.focus())
     }
@@ -1753,7 +1780,12 @@ export function App() {
                         {([['intents', 'Intents', 'Which way this project leans. An agent follows it.'], ['principles', 'Principles', 'The rules of engagement for this project. An agent follows them.']] as const).map(
                           ([key, label, title]) =>
                             view[key] && (
-                              <button key={key} className={reading?.path === `projects/${view.project}/${key}.md` ? 'row active' : 'row'} title={title} onClick={() => openFile(`${key}.md`)}>
+                              <button
+                                key={key}
+                                className={reading?.path === (view.steering[`${key}.md`].own ? `projects/${view.project}/${key}.md` : `${key}.md`) ? 'row active' : 'row'}
+                                title={view.steering[`${key}.md`].own ? title : `${label} of the context. This project has none of its own, so these steer it.`}
+                                onClick={() => (view.steering[`${key}.md`].own ? openFile(`${key}.md`) : void read(`${key}.md`))}
+                              >
                                 <Icon name={key} />
                                 {label}
                               </button>
@@ -2051,7 +2083,7 @@ export function App() {
           {!onPage && steering && view && (
             <span className="acts">
               {steerPage.typing === null ? (
-                <button className="quiet" onClick={() => steerPage.begin(view[steering])}>Edit</button>
+                <button className="quiet" onClick={() => steerPage.begin(readingPath === `${steering}.md` ? reading?.text ?? '' : view[steering])}>Edit</button>
               ) : (
                 <>
                   <button className="quiet" disabled={steerPage.typing === steerPage.base} onClick={steerPage.save}>Save</button>

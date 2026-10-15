@@ -17,6 +17,12 @@ import { isTwinned, twinOf } from '../shared/twin'
  */
 export type Pane = { name: string; text: string; written: number }
 
+/** The two files that steer. A project's own are in its folder, the context's at its root. */
+export const STEERING = ['intents.md', 'principles.md'] as const
+export type SteeringName = (typeof STEERING)[number]
+/** For one of them: whether the project has its own, and whether the context has one. */
+export type SteeringState = { own: boolean; context: boolean }
+
 export type DocumentView = {
   project: string
   drafts: string[]
@@ -35,6 +41,8 @@ export type DocumentView = {
   final: string[]
   /** Where the drafts are, from the project folder: `draft/`, or nothing when they are where they lie. */
   draftsIn: string
+  /** What steers the project: its own files, else the context's. `intents` and `principles` above are what is in effect. */
+  steering: Record<SteeringName, SteeringState>
 }
 
 /** A file of the context that is not under review here: the shelf, a project's intents. Shown, never written. */
@@ -467,6 +475,56 @@ async function putDraft(contextDir: string, project: string, file: string, text:
   mateWrote(contextDir, path.relative(contextDir, path.join(home, file)).split(path.sep).join('/'), Buffer.from(text))
 }
 
+/** A steering file as text, or null when there is none. A link out of the context is not read through. */
+async function steeringText(contextDir: string, project: string | null, name: SteeringName): Promise<string | null> {
+  const parts = project === null ? [name] : ['projects', project, name]
+  try {
+    return await readFile(await realInside(contextDir, ...parts), 'utf8')
+  } catch {
+    return null
+  }
+}
+
+/** What steers a project, for each of the two files: its own, else the context's, else nothing. */
+async function steeringOf(contextDir: string, project: string): Promise<{ text: Record<SteeringName, string>; state: Record<SteeringName, SteeringState> }> {
+  const text = { 'intents.md': '', 'principles.md': '' }
+  const state = { 'intents.md': { own: false, context: false }, 'principles.md': { own: false, context: false } }
+  // Side by side: a file still in the cloud is fetched first, and fetches wait less together.
+  await Promise.all(
+    STEERING.map(async (name) => {
+      const [own, context] = await Promise.all([steeringText(contextDir, project, name), steeringText(contextDir, null, name)])
+      state[name] = { own: own !== null, context: context !== null }
+      text[name] = own ?? context ?? ''
+    })
+  )
+  return { text, state }
+}
+
+/** Where a steering file is edited, for the window: its text now, or '' when there is none yet. */
+export async function readSteeringFile(contextDir: string, scope: 'project' | 'context', project: string | null, name: string): Promise<string> {
+  if (!(STEERING as readonly string[]).includes(name)) throw new Error('That is not a file that steers.')
+  if (scope === 'project' && !(project !== null && (await listProjects(contextDir)).includes(project))) throw new Error('That project is not in this context.')
+  return (await steeringText(contextDir, scope === 'project' ? project : null, name as SteeringName)) ?? ''
+}
+
+/**
+ * The reader writes a steering file: a project's own, or the context's. `base` is the text the
+ * reader began from, and a file that has changed since is not written over. The file is made when
+ * there is none. Only the reader reaches this: an agent's change to one is held like any other.
+ */
+export async function writeSteeringFile(contextDir: string, scope: 'project' | 'context', project: string | null, name: string, base: string, text: string): Promise<void> {
+  const now = await readSteeringFile(contextDir, scope, project, name)
+  if (now !== base) throw new Error('This file changed since you began. Nothing was saved. Your text is still in the field.')
+  const parts = scope === 'project' ? ['projects', project!, name] : [name]
+  const target = resolveInside(contextDir, ...parts)
+  // A file that is there must really be in the context: a link is not written through.
+  if (existsSync(target)) await realInside(contextDir, ...parts)
+  const temporary = path.join(path.dirname(target), `.${name}.${randomUUID()}.tmp`)
+  await writeFile(temporary, text)
+  await rename(temporary, target)
+  mateWrote(contextDir, parts.join('/'), Buffer.from(text))
+}
+
 export async function readProject(contextDir: string, project: string, file?: string): Promise<DocumentView> {
   const projectDir = resolveInside(contextDir, 'projects', project)
   // A project with no draft still opens: its other files are there to be read.
@@ -477,16 +535,14 @@ export async function readProject(contextDir: string, project: string, file?: st
   if (file !== undefined && !drafts.includes(file) && !text) throw new Error('That draft is not in this project.')
   // With several drafts the reader picks. Opening the first sorted name would be a guess.
   const chosen = file ?? (drafts.length === 1 ? drafts[0] : null)
-  const steering = (name: string) => (existsSync(path.join(projectDir, name)) ? readFile(path.join(projectDir, name), 'utf8') : '')
   // A pane is read like any file that is not reviewed, so it passes the same path check.
   const names = (await listMarkdown(path.join(projectDir, 'panes'))).filter((name) => !name.startsWith('.'))
   // Read side by side: a file still in the cloud is fetched first, and fetches wait less together.
-  const [document, intents, principles, panes, files, folders, final] = await Promise.all([
+  const [document, steered, panes, files, folders, final] = await Promise.all([
     chosen === null
       ? { text: '', comments: [] }
       : (text ? readWithComments(text) : readFile(path.join(draftDir, chosen), 'utf8')).then(readDocument),
-    steering('intents.md'),
-    steering('principles.md'),
+    steeringOf(contextDir, project),
     Promise.all(
       names.map(async (name) => ({
         name,
@@ -499,7 +555,8 @@ export async function readProject(contextDir: string, project: string, file?: st
     finalOf(draftDir, drafts)
   ])
   const draftsIn = draftDir === projectDir ? '' : 'draft/'
-  return { project, drafts, draftsIn, file: chosen, ...document, intents, principles, panes, files, folders, final }
+  const [intents, principles] = [steered.text['intents.md'], steered.text['principles.md']]
+  return { project, drafts, draftsIn, file: chosen, ...document, intents, principles, steering: steered.state, panes, files, folders, final }
 }
 
 /** Read the draft, change it, and put it back whole. */

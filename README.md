@@ -149,7 +149,7 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   are told where the text is. macOS uses its own tools; Linux uses optional
   external tools. Nothing leaves the computer.
 - **Search.** A search box indexes the whole context. Each hit says what
-  it is: *Shelf* (what is true now), *Proposal*, *Project file*,
+  it is: *Shelf* (what is true now), *Proposal*, *Steers*,
   *Material*, or *Pane*. The index lives in `.indexes/` and can be
   deleted at any time.
 - **Send to project.** When a context has more than one project, a
@@ -207,6 +207,11 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   something, or wants to change a file, and that a new version is ready.
   It names the agent and the project and nothing from a document. A press
   brings Mate forward. *Notifications* in Settings turns it off.
+- **Intents and principles.** A project's own `intents.md` and
+  `principles.md` steer it. A project that has none, such as an imported
+  repository, is steered by the context's, at its root. Open either to
+  write in it on the page, or start one from ⌘K. Nothing is written into
+  a repository you bring in unless you ask for it.
 - **Read-only files.** Shelf files open to be read, not commented on. The
   intents and the principles of a project have a row each at the top of
   the project in the rail. A click opens the file on the page, and *Edit*

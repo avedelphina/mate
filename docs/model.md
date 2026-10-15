@@ -8,13 +8,21 @@ renders them.
 
 **Context.** A world of knowledge. It holds a shelf of what is currently
 true, a dropbox for material that belongs to the world, and the projects
-inside it. It has no intents, no principles, and no actions. You cannot
-work at this level. Opening a context means picking a project.
+inside it. It has no actions: you cannot work at this level, and opening
+a context means picking a project. It may have intents and principles of
+its own, at its root. They are not work. They are the defaults of the
+projects that have none: what holds for the whole client, or the whole
+body of work, such as how confidential it is.
 
 **Project.** The only place work happens. It has its own folder, a working
 copy, a dropbox, intents, and principles. Intents steer and are never
 finished. Principles are the rules of engagement and are not traded away
-to ship faster. Nothing else in the folder steers the project.
+to ship faster. Nothing else in the folder steers the project. A project
+that has none of its own is steered by the context's. One that has its
+own is steered by those alone: the context's are not mixed in. A project
+that has neither is steered by nothing beyond what the reader says, which
+is a state like any other, not a fault. A project brought in from
+elsewhere, such as a repository, keeps its shape and has none.
 
 **Session.** A conversation inside one project. Many sessions per project
 is normal. Sessions do not share a transcript. They share the project

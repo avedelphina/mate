@@ -30,6 +30,8 @@ import {
   createFile,
   moveEntry,
   createProject,
+  readSteeringFile,
+  writeSteeringFile,
   importProject,
   makeFolder,
   readNote,
@@ -607,6 +609,18 @@ app.whenReady().then(() => {
   ipcMain.handle('project:open', (event, project: string, file?: string) =>
     readProject(requireContext(event), project, file)
   )
+
+  // The reader writes the intents or the principles of a project, or of the context.
+  ipcMain.handle('steeringfile:read', (event, scope: string, project: string | null, name: string) =>
+    readSteeringFile(requireContext(event), scope === 'context' ? 'context' : 'project', project === null ? null : String(project), String(name))
+  )
+  ipcMain.handle('steeringfile:write', async (event, scope: string, project: string | null, name: string, base: string, text: string) => {
+    const contextDir = requireContext(event)
+    const kind = scope === 'context' ? 'context' : 'project'
+    await writeSteeringFile(contextDir, kind, project === null ? null : String(project), String(name), String(base), String(text))
+    // What steers every project of the context may have changed, so the open project is read again by the window.
+    return true
+  })
 
   ipcMain.handle('project:create', async (event, name: string, template = '') => {
     const contextDir = requireContext(event)
