@@ -1,0 +1,109 @@
+name: Release
+
+# Merge to main, set the version, then tag the commit and push the tag:
+#   git tag -a v0.5.0 -m "…" && git push origin v0.5.0
+# This checks that the tag is on main, that it matches both package.json files, and that the
+# changelog has a section for it. It then tests, builds, signs and notarises the disk image, checks
+# the result, and only then publishes the GitHub release, with that changelog section as its notes.
+# Nothing goes live if a step before the end fails.
+#
+# Mate fetches no update, so there is no updater feed: the release is the disk image and its notes.
+#
+# Required repository secrets (macOS signing):
+#   CSC_LINK                     base64 of the "Developer ID Application" .p12
+#   CSC_KEY_PASSWORD             password for that .p12
+#   APPLE_ID                     Apple account email
+#   APPLE_APP_SPECIFIC_PASSWORD  app-specific password for notarytool
+#   APPLE_TEAM_ID                10-character Apple Developer Team ID
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Verify the tag is on main and matches the version and the changelog
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME is not on main. Merge first, then tag."
+            exit 1
+          fi
+          version="${GITHUB_REF_NAME#v}"
+          for f in package.json apps/desktop/package.json; do
+            pkg="$(node -p "require('./$f').version")"
+            if [ "$version" != "$pkg" ]; then
+              echo "::error::tag $GITHUB_REF_NAME does not match $f, which says $pkg"
+              exit 1
+            fi
+          done
+          if ! grep -q "^## \[$version\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no section for $version"
+            exit 1
+          fi
+
+  release:
+    runs-on: macos-26
+    needs: prepare
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+
+      # The same checks as CI, on exactly what is being released.
+      - run: pnpm build:assist
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+      - name: Sign and notarise the disk image
+        working-directory: apps/desktop
+        # --publish never: the disk image goes up in the last step, after it is checked. electron-builder.yml
+        # has `publish: null`, since Mate fetches no update.
+        run: pnpm exec electron-builder --mac --arm64 --publish never --config.mac.notarize=true
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Verify signature, notarisation, and that the helper runs from the bundle
+        working-directory: apps/desktop
+        run: |
+          app="release/mac-arm64/Mate.app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          spctl -a -vvv -t install "$app"
+          xcrun stapler validate "$app"
+          # Hardened runtime refuses a helper that is not signed with the app. It would show only as PDFs never read.
+          "$app/Contents/Resources/mate-assist" --pdf < tests/fixtures/classification.pdf | grep -q 'Směrnice o klasifikaci'
+
+      - name: Take the notes from the changelog
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          images=(apps/desktop/release/*.dmg)
+          test "${#images[@]}" -eq 1
+          gh release create "$GITHUB_REF_NAME" "${images[0]}" \
+            --verify-tag --latest \
+            --title "Mate $GITHUB_REF_NAME" \
+            --notes-file notes.md

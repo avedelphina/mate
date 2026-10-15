@@ -5,6 +5,17 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+For contributors:
+
+- CI on every push to `main` and every pull request: the helper, the type
+  check, the unit tests, the build, the end-to-end test, and packing the
+  app. Pushing a tag `vX.Y.Z` signs, notarises and publishes the disk
+  image on GitHub, with the changelog section as the notes.
+
 ## [0.5.0] - 2026-10-27
 
 Sources come in whole, tables are read, and a context can be kept

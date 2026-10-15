@@ -157,6 +157,11 @@ It keeps its data in a folder of its own (on macOS,
 `~/Library/Application Support/Mate/`). `pnpm dev` uses another: see
 "Layout" above.
 
+A tag `vX.Y.Z` on `main` builds, signs, notarises and publishes the
+same disk image on GitHub: see "Continuous integration and releases" in
+[../../CONTRIBUTING.md](../../CONTRIBUTING.md). Locally, `pnpm dist:mac`
+does the same without the publishing.
+
 `pnpm icon` draws `build/icon.icns` again from `build/icon.svg`. Run it
 when the drawing changes, and commit both.
 

@@ -32,7 +32,7 @@ pnpm dev         # run the app
 ```
 
 Run the tests, the type check and the build before you open a pull
-request. The project has no CI yet, so these are run by hand.
+request. CI runs them too, on a Mac: see "Continuous integration" below.
 
 On macOS with Xcode, `pnpm build:assist` also builds the on-device helper.
 It is optional and not needed for any test. `pnpm pack:mac` makes the app
@@ -145,6 +145,37 @@ path you changed. Say so in the PR.
 Agents are tested against stand-ins in the unit tests. If you change how
 an agent is started or how its output is read, try the real tool once and
 say which version you used.
+
+## Continuous integration and releases
+
+`.github/workflows/ci.yml` runs on every push to `main` and every pull
+request, on one macOS runner, since the helper that reads PDFs is Swift
+and the tests that cover it need a Mac:
+
+- `check`: builds the helper, then type check, unit tests and build.
+- `window`: the end-to-end test, on its own so a failure of the runner's
+  display reads as itself.
+- `package`: packs the app unsigned and runs the helper from inside the
+  bundle. On a pull request only when something that can break packaging
+  changed.
+
+`.github/workflows/release.yml` runs when a tag `vX.Y.Z` is pushed. It
+checks that the tag is on `main`, that it matches both `package.json`
+files, and that `CHANGELOG.md` has a section for it. It then tests,
+signs, notarises, checks the signature, the notarisation and that the
+helper runs from the bundle, and only then publishes the GitHub release
+with that changelog section as its notes.
+
+To release:
+
+1. Merge to `main`, set the version in both `package.json` files, and
+   date the changelog's section for it.
+2. `git tag -a vX.Y.Z -m "…"` and `git push origin vX.Y.Z`.
+
+The release needs these repository secrets: `CSC_LINK` (the Developer ID
+Application certificate as a base64 `.p12`), `CSC_KEY_PASSWORD`,
+`APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID`. Without
+them the signing step fails and nothing is published.
 
 ## Licensing
 

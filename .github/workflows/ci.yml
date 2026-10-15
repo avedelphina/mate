@@ -1,0 +1,64 @@
+name: CI
+
+# Mate is a Mac app: the helper that reads PDFs and scans is Swift, built against the macOS 26 SDK,
+# and the tests that cover it need a Mac. So everything runs on one macOS runner.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+
+      # The unit tests read a real PDF through the helper. Without it they skip, which would pass for the wrong reason.
+      - run: pnpm build:assist
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  # A window opens for a few seconds and the built app is driven through it. Apart from `check` so
+  # that a failure here, which is a failure of the runner's display as often as of Mate, reads as itself.
+  window:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm build:assist
+      - run: pnpm test:e2e
+
+  # Packaging is exercised on every push to main, and on a pull request only when something that can
+  # break it changed (macOS minutes are not free). Unsigned: signing and notarising are the release's.
+  package:
+    runs-on: macos-26
+    needs: check
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: changes
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then
+            echo "packaging=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "origin/$GITHUB_BASE_REF...HEAD" \
+            | grep -qE '^(apps/desktop/(electron-builder\.yml|package\.json|build/|assist/)|pnpm-lock\.yaml|\.github/)'; then
+            echo "packaging=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "packaging=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.changes.outputs.packaging == 'true'
+        uses: ./.github/actions/setup
+      - if: steps.changes.outputs.packaging == 'true'
+        run: pnpm pack:mac
+      # The helper must run from inside the bundle: a helper the signature or the hardened runtime
+      # refuses is a PDF that is never read, and nothing else would say so.
+      - if: steps.changes.outputs.packaging == 'true'
+        run: |
+          app="apps/desktop/release/mac-arm64/Mate.app"
+          codesign --verify --deep --strict "$app"
+          "$app/Contents/Resources/mate-assist" --pdf < apps/desktop/tests/fixtures/classification.pdf | grep -q 'Směrnice o klasifikaci'
