@@ -14,6 +14,7 @@ import {
   createContext,
   createDraft,
   createProject,
+  importProject,
   renameContext,
   renameProject,
   describeContext,
@@ -406,6 +407,35 @@ app.whenReady().then(() => {
       throw new Error('Mate is still reading the files of this context. Rename it when the rail no longer says so.')
     }
   }
+
+  // A folder the reader has, often a repository, is brought in as a project. It is moved, as it is,
+  // after the reader has chosen it and said yes in dialogs of the system.
+  ipcMain.handle('project:import', async (event) => {
+    const contextDir = requireContext(event)
+    still(contextDir)
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const pick = { title: 'Bring in a project', buttonLabel: 'Bring In', properties: ['openDirectory' as const] }
+    const picked = await (window ? dialog.showOpenDialog(window, pick) : dialog.showOpenDialog(pick))
+    const from = picked.filePaths[0]
+    if (picked.canceled || !from) return null
+    const name = path.basename(from)
+    const ask = {
+      type: 'question' as const,
+      message: `Move “${name}” into ${path.basename(contextDir)}?`,
+      detail:
+        `It is moved, not copied, to projects/${name}/ in this context, and is no longer at ${from}. ` +
+        'Nothing in it is changed: its files stay where they are in it, and a git repository keeps its history and its remote. ' +
+        'Its markdown files are its drafts.',
+      buttons: ['Move It In', 'Cancel'],
+      defaultId: 0,
+      cancelId: 1
+    }
+    const { response } = await (window ? dialog.showMessageBox(window, ask) : dialog.showMessageBox(ask))
+    if (response !== 0) return null
+    const made = await importProject(contextDir, from)
+    readTwins(contextDir)
+    return { made, context: await describeContext(contextDir) }
+  })
 
   ipcMain.handle('context:rename', async (event, name: string) => {
     const contextDir = requireContext(event)

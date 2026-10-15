@@ -27,6 +27,8 @@ export type DocumentView = {
   panes: Pane[]
   /** Every file of the project, by its path from the project folder. */
   files: string[]
+  /** Where the drafts are, from the project folder: `draft/`, or nothing when they are where they lie. */
+  draftsIn: string
 }
 
 /**
@@ -121,6 +123,8 @@ export type MateApi = {
   newContext: () => Promise<Opened | null>
   /** A project in the open context: its folder, a place for drafts, its intents and its principles. */
   createProject: (name: string) => Promise<{ made: string; context: Opened }>
+  /** Bring a folder in as a project: chosen and moved in dialogs of the system. Null when the reader did not. */
+  importProject: () => Promise<{ made: string; context: Opened } | null>
   /** Give the open context a new name. Its folder is renamed, with all that is in it. */
   renameContext: (name: string) => Promise<Opened>
   /** Give a project a new name. Its folder and its sessions go with it. */

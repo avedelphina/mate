@@ -41,7 +41,8 @@ export function Tree(props: {
         return (
           <li key={name}>
             {/* The draft is what the project is for, so its folder starts unfolded. The reader folds the rest. */}
-            <details open={full === unfolded}>
+            {/* Unfolded too when the file on the page is in it, so the reader sees where it is. */}
+            <details open={full === unfolded || (current?.startsWith(`${full}/`) ?? false)}>
               <summary>{name}</summary>
               <Tree paths={paths.filter((each) => each.startsWith(`${full}/`))} base={`${full}/`} current={current} onOpen={onOpen} onReveal={onReveal} unfolded={unfolded} />
             </details>

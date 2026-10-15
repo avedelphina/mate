@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, statSync } from 'node:fs'
-import { lstat, mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { insertComment, readDocument, retype, type Thread } from '../shared/comments'
 import { placeOf, type Place } from './contextIndex'
@@ -27,6 +27,8 @@ export type DocumentView = {
   panes: Pane[]
   /** Every file of the project, by its path from the project folder. The window draws them as a tree. */
   files: string[]
+  /** Where the drafts are, from the project folder: `draft/`, or nothing when they are where they lie. */
+  draftsIn: string
 }
 
 /** A file of the context that is not under review here: the shelf, a project's intents. Shown, never written. */
@@ -138,6 +140,38 @@ export async function renameProject(contextDir: string, from: string, name: stri
   return title
 }
 
+/**
+ * Bring a folder in as a project of the context, as it is: often a repository the reader already
+ * has. It is moved, not copied, to `projects/<its name>/`, and nothing in it is changed. Its git
+ * history and its remote stay its own. Gives the name of the project.
+ */
+export async function importProject(contextDir: string, from: string): Promise<string> {
+  const source = await realpath(String(from))
+  const here = await realpath(contextDir)
+  const within = (outer: string, inner: string) => {
+    const relative = path.relative(outer, inner)
+    return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+  }
+  if (within(here, source)) throw new Error('That folder is in this context already.')
+  if (within(source, here)) throw new Error('This context is inside that folder. It cannot be brought into itself.')
+  if (!(await stat(source)).isDirectory()) throw new Error('Only a folder can be a project.')
+  const name = path.basename(source)
+  if (!NAME.test(name)) throw new Error('Rename the folder first: letters and numbers, then spaces, dots, dashes and underscores may follow.')
+  await mkdir(path.join(contextDir, 'projects'), { recursive: true })
+  // The projects folder must really be in the context: a link is not moved into.
+  const target = path.join(await realInside(contextDir, 'projects'), name)
+  if (existsSync(target)) throw new Error('A project of that name is already in this context.')
+  try {
+    await rename(source, target)
+  } catch (failed) {
+    if ((failed as NodeJS.ErrnoException).code === 'EXDEV') {
+      throw new Error('That folder is on another disk than the context. Move it beside the context first, or copy it in Finder.')
+    }
+    throw failed
+  }
+  return name
+}
+
 /** What a new project starts with. The two files steer it, and say only what they are for. */
 const STARTS = [
   ['intents.md', '# Intents\n\nWhich way this project leans. An intent is never finished.\n'],
@@ -220,12 +254,48 @@ export async function placeOnDisk(contextDir: string, relative: string): Promise
   return realInside(contextDir, ...parts)
 }
 
+/**
+ * Where a project keeps its drafts. One made in Mate keeps them in its `draft/` folder. One with no
+ * such folder, such as a repository brought in as it is, keeps them where they are: every markdown
+ * file of it is a draft, but the two that steer it and its panes. Mate does not change its shape.
+ */
+export const draftHome = (projectDir: string): string => (existsSync(path.join(projectDir, 'draft')) ? path.join(projectDir, 'draft') : projectDir)
+
+/** The drafts of a project, each named by its path from where the project keeps them. */
+export async function draftsOf(projectDir: string): Promise<string[]> {
+  const home = draftHome(projectDir)
+  if (home !== projectDir) return listMarkdown(home)
+  return (await listFiles(projectDir)).filter(
+    (each) => each.toLowerCase().endsWith('.md') && each !== 'intents.md' && each !== 'principles.md' && !each.startsWith('panes/')
+  )
+}
+
+/** The place of a draft, checked: it must be one the project has. */
+async function draftAt(contextDir: string, project: string, file: string): Promise<{ full: string; relative: string }> {
+  const projectDir = resolveInside(contextDir, 'projects', project)
+  if (!(await draftsOf(projectDir)).includes(file)) throw new Error('That draft is not in this project.')
+  const full = path.join(draftHome(projectDir), file)
+  return { full, relative: path.relative(contextDir, full).split(path.sep).join('/') }
+}
+
+/** Write a new draft where the project keeps its drafts. A file of that name is never written over. */
+async function putDraft(contextDir: string, project: string, file: string, text: string | Buffer, clash: string): Promise<void> {
+  const home = draftHome(resolveInside(contextDir, 'projects', project))
+  await mkdir(home, { recursive: true })
+  try {
+    await writeFile(path.join(home, file), text, { flag: 'wx' })
+  } catch {
+    throw new Error(clash)
+  }
+  mateWrote(contextDir, path.relative(contextDir, path.join(home, file)).split(path.sep).join('/'), Buffer.from(text))
+}
+
 export async function readProject(contextDir: string, project: string, file?: string): Promise<DocumentView> {
   const projectDir = resolveInside(contextDir, 'projects', project)
-  const draftDir = path.join(projectDir, 'draft')
   // A project with no draft still opens: its other files are there to be read.
   if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
-  const drafts = await listMarkdown(draftDir)
+  const draftDir = draftHome(projectDir)
+  const drafts = await draftsOf(projectDir)
   if (file !== undefined && !drafts.includes(file)) throw new Error('That draft is not in this project.')
   // With several drafts the reader picks. Opening the first sorted name would be a guess.
   const chosen = file ?? (drafts.length === 1 ? drafts[0] : null)
@@ -246,7 +316,8 @@ export async function readProject(contextDir: string, project: string, file?: st
       written: (await stat(path.join(projectDir, 'panes', name))).mtimeMs
     }))
   )
-  return { project, drafts, file: chosen, ...document, intents, principles, panes, files: await listFiles(projectDir) }
+  const draftsIn = draftDir === projectDir ? '' : 'draft/'
+  return { project, drafts, draftsIn, file: chosen, ...document, intents, principles, panes, files: await listFiles(projectDir) }
 }
 
 /** Read the draft, change it, and put it back whole. */
@@ -256,14 +327,12 @@ export async function editDraft(
   file: string,
   change: (markdown: string) => string
 ): Promise<DocumentView> {
-  const draftDir = path.join(resolveInside(contextDir, 'projects', project), 'draft')
-  if (!(await listMarkdown(draftDir)).includes(file)) throw new Error('That draft is not in this project.')
-  const documentPath = path.join(draftDir, file)
+  const { full: documentPath, relative } = await draftAt(contextDir, project, file)
   const next = change(await readFile(documentPath, 'utf8'))
-  const temporary = path.join(draftDir, `.${file}.${randomUUID()}.tmp`)
+  const temporary = path.join(path.dirname(documentPath), `.${path.basename(documentPath)}.${randomUUID()}.tmp`)
   await writeFile(temporary, next)
   await rename(temporary, documentPath)
-  mateWrote(contextDir, `projects/${project}/draft/${file}`, Buffer.from(next))
+  mateWrote(contextDir, relative, Buffer.from(next))
   return readProject(contextDir, project, file)
 }
 
@@ -303,13 +372,7 @@ export async function createDraft(contextDir: string, project: string, name: str
   if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
   const file = `${title}.md`
   const text = `# ${title}\n`
-  await mkdir(path.join(projectDir, 'draft'), { recursive: true })
-  try {
-    await writeFile(path.join(projectDir, 'draft', file), text, { flag: 'wx' })
-  } catch {
-    throw new Error('A draft of that name is already there.')
-  }
-  mateWrote(contextDir, `projects/${project}/draft/${file}`, Buffer.from(text))
+  await putDraft(contextDir, project, file, text, 'A draft of that name is already there.')
   return readProject(contextDir, project, file)
 }
 
@@ -373,9 +436,7 @@ function shelfName(name: string): string[] {
  * `shelf/.history/`, as what was true before. It is hidden there, so nothing reads it as current.
  */
 export async function publish(contextDir: string, project: string, file: string, name: string): Promise<{ path: string; replaced: boolean }> {
-  const draftDir = path.join(resolveInside(contextDir, 'projects', project), 'draft')
-  if (!(await listMarkdown(draftDir)).includes(file)) throw new Error('That draft is not in this project.')
-  const raw = await readFile(path.join(draftDir, file), 'utf8')
+  const raw = await readFile((await draftAt(contextDir, project, file)).full, 'utf8')
   const text = Buffer.from(readDocument(raw).text.replace(/\n/g, raw.includes('\r\n') ? '\r\n' : '\n'))
   const parts = shelfName(name)
   const relative = ['shelf', ...parts].join('/')
@@ -414,13 +475,7 @@ export async function takeDown(contextDir: string, project: string, relative: st
   const projectDir = resolveInside(contextDir, 'projects', project)
   if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
   const file = parts[parts.length - 1]
-  await mkdir(path.join(projectDir, 'draft'), { recursive: true })
-  try {
-    await writeFile(path.join(projectDir, 'draft', file), text, { flag: 'wx' })
-  } catch {
-    throw new Error('A draft of that name is already in this project. It was not written over.')
-  }
-  mateWrote(contextDir, `projects/${project}/draft/${file}`, text)
+  await putDraft(contextDir, project, file, text, 'A draft of that name is already in this project. It was not written over.')
   return readProject(contextDir, project, file)
 }
 
@@ -442,13 +497,7 @@ export async function pullIn(contextDir: string, project: string, relative: stri
   if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
   const file = relative.split('/').pop()!
   const text = await readFile(source)
-  await mkdir(path.join(projectDir, 'draft'), { recursive: true })
-  try {
-    await writeFile(path.join(projectDir, 'draft', file), text, { flag: 'wx' })
-  } catch {
-    throw new Error('A draft of that name is already in this project. The file was left in the dropbox.')
-  }
-  mateWrote(contextDir, `projects/${project}/draft/${file}`, text)
+  await putDraft(contextDir, project, file, text, 'A draft of that name is already in this project. The file was left in the dropbox.')
   // It has left the dropbox only once the draft is written.
   await rm(source)
   mateWrote(contextDir, relative, null)
@@ -503,12 +552,6 @@ export async function copySource(contextDir: string, project: string, source: st
   const projectDir = resolveInside(contextDir, 'projects', project)
   if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
   const text = await readFile(source)
-  await mkdir(path.join(projectDir, 'draft'), { recursive: true })
-  try {
-    await writeFile(path.join(projectDir, 'draft', file), text, { flag: 'wx' })
-  } catch {
-    throw new Error('A draft of that name is already in this project. It was not written over.')
-  }
-  mateWrote(contextDir, `projects/${project}/draft/${file}`, text)
+  await putDraft(contextDir, project, file, text, 'A draft of that name is already in this project. It was not written over.')
   return readProject(contextDir, project, file)
 }

@@ -51,6 +51,13 @@ export async function takeSnapshot(contextDir: string): Promise<Snapshot> {
   await walk(contextDir, '.git/hooks', files)
   // `core.hooksPath` here would send git to hooks the walk never sees. Only a real file counts.
   if ((await lstat(path.join(contextDir, '.git/config')).catch(() => null))?.isFile()) files.push('.git/config')
+  // A project can be a repository of its own, brought in as it is. Its hooks and config are watched the same way.
+  for (const project of await readdir(path.join(contextDir, 'projects')).catch(() => [])) {
+    const git = `projects/${project}/.git`
+    if (!(await lstat(path.join(contextDir, git)).catch(() => null))?.isDirectory()) continue
+    await walk(contextDir, `${git}/hooks`, files)
+    if ((await lstat(path.join(contextDir, git, 'config')).catch(() => null))?.isFile()) files.push(`${git}/config`)
+  }
   for (const relative of files) {
     const file = path.join(contextDir, relative)
     if ((await stat(file)).size <= MAX_BYTES) snapshot.set(relative, await readFile(file))

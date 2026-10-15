@@ -67,6 +67,9 @@ they show that the model is broken, for example:
   at `127.0.0.1` on this computer;
 - a way to write through a door Mate handed to an agent it started, or to
   reach another session or context with its token;
+- a way for an agent to change the hooks or the config of a repository
+  in the context, its own or a project's, without the reader approving
+  that file;
 - a way to make Mate run git in a repository of a context the reader has
   not trusted, or make a commit the reader did not ask for, or reach a
   remote.

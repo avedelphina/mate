@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { createContext, createProject, describeContext, listProjects, readProject, renameContext, renameProject, shapeContext, tickPane } from '../src/main/context.ts'
+import { addComment, createContext, createDraft, createProject, describeContext, importProject, listProjects, readProject, renameContext, renameProject, shapeContext, tickPane } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
@@ -131,9 +131,10 @@ test('a project lists the files in its folder, and opens with no draft', async (
     await symlink(path.join(root, 'shelf'), path.join(root, 'projects/review/linked'))
     assert.deepEqual((await readProject(root, 'review')).files, ['draft/document.md', 'dropbox/scans/letter.pdf', 'intents.md'])
 
-    await write('projects/empty/README.md')
+    // A project with nothing to review still opens.
+    await write('projects/empty/notes.txt')
     const empty = await readProject(root, 'empty')
-    assert.deepEqual([empty.drafts, empty.file, empty.text, empty.files], [[], null, '', ['README.md']])
+    assert.deepEqual([empty.drafts, empty.file, empty.text, empty.files], [[], null, '', ['notes.txt']])
     await assert.rejects(readProject(root, 'nowhere'), /not in this context/)
   } finally {
     await rm(root, { recursive: true, force: true })
@@ -269,6 +270,11 @@ test('a commit takes what has changed in the context, in the words given, and no
     await mkdir(path.join(dir, '.indexes'))
     await writeFile(path.join(dir, '.indexes/.gitignore'), '*\n')
     await writeFile(path.join(dir, '.indexes/context.json'), '{}')
+    // A project that is a repository of its own is left to it: the context's commit does not take it in.
+    await mkdir(path.join(dir, 'projects/own'), { recursive: true })
+    await new Promise((resolve) => execFile('git', ['init'], { cwd: path.join(dir, 'projects/own'), env }, resolve))
+    await writeFile(path.join(dir, 'projects/own/notes.md'), 'Its own.\n')
+    assert.equal(await uncommitted(dir, env), 2)
     assert.equal(await commitContext(dir, 'Terms on the shelf', env), 2)
     assert.match(await log(root), /^Terms on the shelf\n\nwork\/projects\/letter\/intents.md\nwork\/shelf\/terms.md\n/)
   } finally {
@@ -312,6 +318,50 @@ test('a context and a project are renamed where they stand, and what belongs to 
     asked = 0
     assert.equal(await refreshMeaning(dir, await refreshIndex(dir), embed), 0)
     assert.equal(asked, 0)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a folder brought in as a project is moved as it is, and its markdown files are its drafts where they lie', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-import-'))
+  const context = path.join(root, 'client')
+  const repo = path.join(root, 'policy-repo')
+  try {
+    await createContext(context)
+    await mkdir(path.join(repo, 'docs'), { recursive: true })
+    await mkdir(path.join(repo, '.git'))
+    await writeFile(path.join(repo, '.git/HEAD'), 'ref: refs/heads/main\n')
+    await writeFile(path.join(repo, 'README.md'), '# Policies\n\nWhat this repository holds.\n')
+    await writeFile(path.join(repo, 'docs/access.md'), '# Access\n\nAdmins use two factors.\n')
+    await writeFile(path.join(repo, 'intents.md'), '# Intents\n')
+
+    // Never into itself, never what holds the context, never a name that could be a path.
+    await assert.rejects(importProject(context, path.join(context, 'shelf')), /in this context already/)
+    await assert.rejects(importProject(context, root), /inside that folder/)
+    assert.equal(await importProject(context, repo), 'policy-repo')
+    assert.equal(existsSync(repo), false)
+    // Nothing in it changed: no draft folder, no files of Mate's. Its repository came with it.
+    const moved = path.join(context, 'projects/policy-repo')
+    assert.deepEqual((await readdir(moved)).sort(), ['.git', 'README.md', 'docs', 'intents.md'])
+    await mkdir(repo)
+    await assert.rejects(importProject(context, repo), /already in this context/)
+
+    // Its drafts are its markdown files where they lie, but the file that steers it.
+    const view = await readProject(context, 'policy-repo')
+    assert.deepEqual([view.drafts, view.draftsIn], [['README.md', 'docs/access.md'], ''])
+    const opened = await readProject(context, 'policy-repo', 'docs/access.md')
+    assert.equal(opened.text, '# Access\n\nAdmins use two factors.\n')
+    // A comment goes into the file where it lies, and search calls it a proposal.
+    const commented = await addComment(context, 'policy-repo', 'docs/access.md', 'Admins use two factors.', 'Which two?', 'you')
+    assert.equal(commented.comments.length, 1)
+    assert.match(await readFile(path.join(moved, 'docs/access.md'), 'utf8'), /@comment/)
+    const hits = searchIndex(await refreshIndex(context), 'two factors')
+    assert.deepEqual([...new Set(hits.map((hit) => `${hit.kind} ${hit.path}`))], ['draft projects/policy-repo/docs/access.md'])
+    // A new draft goes where the others are, and does not make a draft folder.
+    await createDraft(context, 'policy-repo', 'Next')
+    assert.equal(existsSync(path.join(moved, 'Next.md')), true)
+    assert.equal(existsSync(path.join(moved, 'draft')), false)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

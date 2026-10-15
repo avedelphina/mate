@@ -411,6 +411,34 @@ A context that is in no git repository has no history and no way to
 another computer, and git is the only sync Mate has. The rail says that
 too, and offers to start a repository. See "Git".
 
+A folder the reader already has, often a git repository, is brought in
+as a project with Bring in a project…: chosen in the folder dialog of the
+system, then moved after a second dialog that says where to, and that it
+is moved, not copied. `importProject` moves it as it is, to
+`projects/<its name>/`, and writes nothing into it: no `draft/` folder,
+no intents, no principles. A repository keeps its history and its
+remote. Mate adapts to it instead:
+
+- **Its drafts are where they lie.** A project with no `draft/` folder
+  has its markdown files as its drafts, but the two that steer it and its
+  panes. `draftsOf` and `draftHome` in `context.ts` say where a
+  project's drafts are, and every path that reads, writes, comments on or
+  publishes a draft goes through them. A new draft, a document taken
+  down or pulled in, goes where the others are. The index calls such
+  files proposals.
+- **Its repository is its own.** A commit of the context leaves out any
+  project that has a `.git` of its own: its history is not taken into
+  the context's.
+- **What git runs in it is guarded.** The guard watches the hooks and the
+  config of a project's own repository, as it does the context's, and a
+  change to anything under a `.git` folder is held for the reader, plan
+  or no plan.
+
+It is not brought in while an agent works in the context, nor from
+inside the context, nor from a folder that holds it. A folder on another
+disk is not moved: the reader moves or copies it beside the context
+first.
+
 A project is started from the rail, by its name. `createProject` makes
 `projects/<name>/` with a `draft/` folder, `intents.md` and
 `principles.md`. The two files say what they are for and nothing more,

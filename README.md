@@ -49,6 +49,11 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   where it stands, and Mate offers to start a git repository for a
   context that is in none. Click the context's name to rename it;
   *Rename project…* sits under the open project.
+- **Bring in a project.** *Bring in a project…* moves a folder you have,
+  such as a git repository, into the context as a project, as it is.
+  Mate writes nothing into it: its markdown files are its drafts where
+  they lie, and a repository keeps its history and remote. The context's
+  commits leave it out.
 - **Commit.** *Commit…* at the foot of the rail puts what has changed in
   the context into one git commit, in your words. Nothing is committed
   for you. Only in a [context you trust](#a-context-you-trust).

@@ -9,6 +9,12 @@ then, minor versions may change behaviour.
 
 ### Added
 
+- Bring in a project: *Bring in a project…* moves a folder you have, such
+  as a git repository, into the context, after you choose it and say yes
+  in the system's dialogs. Nothing in it is changed. A project with no
+  `draft/` folder has its markdown files as its drafts, where they lie.
+  A project that is a repository of its own keeps its history: the
+  context's commits leave it out, and the guard watches its hooks.
 - The rail lists what is in the context that is neither on the shelf nor
   in a project, under *Context*: its own dropbox, and any other file.
 - Rename a context by clicking its name in the rail, and a project with

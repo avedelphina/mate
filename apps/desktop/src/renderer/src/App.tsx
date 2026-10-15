@@ -438,6 +438,20 @@ export function App() {
       </form>
     )
 
+  /** Bring in a folder the reader has, often a repository, as a project. The system asks which, and asks again before it is moved. */
+  async function importProject() {
+    setError(null)
+    if (!(await leaveEditor())) return
+    try {
+      const brought = await window.mate.importProject()
+      if (!brought) return
+      take(brought.context)
+      await openProject(brought.made)
+    } catch (caught) {
+      setError(reason(caught, 'Could not bring it in.'))
+    }
+  }
+
   async function newProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!founding?.trim() || !(await leaveEditor())) return
@@ -580,15 +594,18 @@ export function App() {
   /** A file picked in the tree of the open project. A draft opens for review. Anything else is read. */
   function openFile(path: string) {
     if (!view) return
-    const [folder, name, ...deeper] = path.split('/')
-    if (folder === 'draft' && deeper.length === 0 && view.drafts.includes(name)) void openProject(view.project, name)
+    // A draft opens for review: in draft/, or where it lies in a project that keeps its drafts there.
+    const draft = path.startsWith(view.draftsIn) ? path.slice(view.draftsIn.length) : null
+    if (draft !== null && view.drafts.includes(draft)) void openProject(view.project, draft)
     else void read(`projects/${view.project}/${path}`)
   }
 
   /** A draft opens as a draft, at the match. Anything else is opened to be read. */
   async function openHit(hit: Hit) {
     if (hit.kind === 'draft' && hit.project && hit.path.toLowerCase().endsWith('.md')) {
-      await openProject(hit.project, hit.path.split('/').pop())
+      // The draft is named from where its project keeps drafts: after draft/, or from the project folder.
+      const inProject = hit.path.split('/').slice(2).join('/')
+      await openProject(hit.project, inProject.startsWith('draft/') ? inProject.slice('draft/'.length) : inProject)
       setActive(hit.thread)
     } else {
       await read(hit.path)
@@ -905,6 +922,7 @@ export function App() {
     for (const each of projects) if (each !== project) add(each, 'Open project', () => void openProject(each))
     if (contextDir) {
       add('New project…', 'Do', () => setFounding(''))
+      add('Bring in a project…', 'Do', () => void importProject())
       add('Rename this context…', 'Do', () => setRenaming({ what: 'context', name: contextName ?? '' }))
       if (!lacks.git) add('Commit…', 'Do', () => void startCommit())
       add('Search this context', 'Do', () => document.querySelector<HTMLInputElement>('.rail .search')?.focus())
@@ -926,7 +944,7 @@ export function App() {
   })
 
   // Where the page is in the tree of the open project, when it is in it at all.
-  const inTree = reading ? (reading.project === project ? reading.path.split('/').slice(2).join('/') : null) : file && `draft/${file}`
+  const inTree = reading ? (reading.project === project ? reading.path.split('/').slice(2).join('/') : null) : file && `${view?.draftsIn ?? ''}${file}`
 
   return (
     <div
@@ -1112,7 +1130,12 @@ export function App() {
               </ul>
               <div className="tree-new project-new">
                 {founding === null ? (
-                  <button className="row" onClick={() => setFounding('')}>+ New project</button>
+                  <>
+                    <button className="row" onClick={() => setFounding('')}>+ New project</button>
+                    <button className="row" title="A folder you have, such as a repository, moved in as it is" onClick={() => void importProject()}>
+                      + Bring in a project…
+                    </button>
+                  </>
                 ) : (
                   <form onSubmit={newProject}>
                     <input

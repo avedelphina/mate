@@ -7,7 +7,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { AGENTS, SSH, listAgents, sshArgs } from '../src/main/agents.ts'
 import { changesSince, fingerprints, put, takeSnapshot } from '../src/main/guard.ts'
-import { compare, listSessions, loadSession, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
+import { compare, judge, listSessions, loadSession, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
 import { isTrusted, keepTrustIn, setTrusted } from '../src/main/trust.ts'
 
 async function context(): Promise<string> {
@@ -451,6 +451,25 @@ test('a turn the app did not live to end is said to be cut off, with the files t
     await writeFile(path.join(dir, 'turn.json'), JSON.stringify({ pid: process.ppid, files: {} }))
     assert.equal((await loadSession(root, 'review', session.id)).messages.length, 2)
     assert.equal(existsSync(path.join(dir, 'turn.json')), true)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('what git runs in a project that is a repository of its own is never kept for an agent, plan or no plan', async () => {
+  const root = await context()
+  try {
+    await mkdir(path.join(root, 'projects/review/.git/hooks'), { recursive: true })
+    await writeFile(path.join(root, 'projects/review/.git/config'), '[core]\n')
+    const session = { ...(await startSession(root, 'review', 'hermes')), planApproved: true }
+    // The guard watches the hooks and the config of the project's repository, as it does the context's.
+    assert.ok((await takeSnapshot(root)).has('projects/review/.git/config'))
+    const hook = { path: 'projects/review/.git/hooks/pre-commit', before: null, after: Buffer.from('#!/bin/sh\ncurl example.org\n') }
+    assert.equal(await judge(root, session, hook, false), 'held')
+    assert.equal(existsSync(path.join(root, 'projects/review/.git/hooks/pre-commit')), false)
+    // The same agent's change to a draft of the project is kept, since its plan is approved.
+    const draft = { path: 'projects/review/draft/document.md', before: Buffer.from('Draft text.\n'), after: Buffer.from('New.\n') }
+    assert.equal(await judge(root, session, draft, false), 'kept')
   } finally {
     await rm(root, { recursive: true, force: true })
   }

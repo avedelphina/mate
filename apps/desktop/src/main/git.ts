@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import { readdir } from 'node:fs/promises'
 import path from 'node:path'
 
 /**
@@ -38,9 +39,18 @@ export async function startRepository(dir: string, env: NodeJS.ProcessEnv): Prom
   })
 }
 
+/**
+ * The projects that are repositories of their own, as git is told to leave them out. Their history
+ * and their remote are theirs: a commit of the context does not take them in.
+ */
+async function ownRepositories(dir: string): Promise<string[]> {
+  const projects = await readdir(path.join(dir, 'projects'), { withFileTypes: true }).catch(() => [])
+  return projects.filter((each) => each.isDirectory() && existsSync(path.join(dir, 'projects', each.name, '.git'))).map((each) => `:(exclude)projects/${each.name}`)
+}
+
 /** How many files of the context differ from the last commit. A new file counts, an ignored one does not. */
 export async function uncommitted(dir: string, env: NodeJS.ProcessEnv): Promise<number> {
-  const said = await git(dir, env, ['status', '--porcelain', '--untracked-files=all', '--', '.'])
+  const said = await git(dir, env, ['status', '--porcelain', '--untracked-files=all', '--', '.', ...(await ownRepositories(dir))])
   return said.split('\n').filter(Boolean).length
 }
 
@@ -54,8 +64,9 @@ export async function commitContext(dir: string, message: string, env: NodeJS.Pr
   if (!said) throw new Error('Say what changed.')
   const changed = await uncommitted(dir, env)
   if (changed === 0) throw new Error('Nothing has changed since the last commit.')
-  await git(dir, env, ['add', '--all', '--', '.'])
+  const leave = await ownRepositories(dir)
+  await git(dir, env, ['add', '--all', '--', '.', ...leave])
   // The words are one value, whatever they begin with.
-  await git(dir, env, ['commit', `--message=${said}`, '--', '.'])
+  await git(dir, env, ['commit', `--message=${said}`, '--', '.', ...leave])
   return changed
 }

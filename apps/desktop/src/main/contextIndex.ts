@@ -135,6 +135,14 @@ export async function refreshIndex(contextDir: string): Promise<Index> {
     })
   }
 
+  // A project with no draft folder keeps its drafts where they lie: its markdown files are proposals.
+  const looseDrafts = new Set(
+    [...new Set(files.filter((file) => file.project).map((file) => file.project!))].filter((project) => !existsSync(path.join(contextDir, 'projects', project, 'draft')))
+  )
+  for (const file of files) {
+    if (file.kind !== 'material' || !file.project || !looseDrafts.has(file.project) || !file.path.toLowerCase().endsWith('.md')) continue
+    file.kind = 'draft'
+  }
   const index = { version: VERSION, files }
   loaded.set(contextDir, index)
   if (changed || files.length !== previous.files.length || !existsSync(file)) {
