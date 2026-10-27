@@ -157,7 +157,8 @@ export async function refreshMeaning(contextDir: string, index: Index, embed: Em
  */
 // ponytail: every passage is compared with the question, one after the other. Fine for some ten
 // thousand passages. Past that it wants an index of the vectors themselves.
-export async function searchMeaning(contextDir: string, index: Index, question: string, embed: Embed): Promise<Hit[]> {
+/** The passages closest in meaning to a question, the closest first: as many as `limit`, each with its whole text. */
+export async function searchMeaning(contextDir: string, index: Index, question: string, embed: Embed, limit = SHOWN): Promise<Hit[]> {
   if (!question.trim()) return []
   const stored = await load(contextDir)
   const [asked] = await embed([question])
@@ -177,7 +178,7 @@ export async function searchMeaning(contextDir: string, index: Index, question: 
   return scored
     .filter((each) => each.score >= CLOSE)
     .sort((a, b) => b.score - a.score)
-    .slice(0, SHOWN)
+    .slice(0, limit)
     .map(({ file, passage }) => {
       const text = file.text.slice(passage.start, passage.end).replace(/\s+/g, ' ').trim()
       return {
@@ -190,7 +191,8 @@ export async function searchMeaning(contextDir: string, index: Index, question: 
         after: text.length > 160 ? '…' : '',
         start: passage.start,
         length: passage.end - passage.start,
-        thread: null
+        thread: null,
+        passage: file.text.slice(passage.start, passage.end)
       }
     })
 }

@@ -4,6 +4,7 @@ import { Boundary } from './Boundary'
 import { Palette, type Act } from './Palette'
 import { isTwinned } from '../../shared/twin'
 import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran } from './env'
+import { Question } from './Question'
 import { Rendered, type Passage } from './Rendered'
 import { Tree } from './Tree'
 import { asked, filled } from '../../shared/run'
@@ -171,6 +172,9 @@ export function App() {
   useEffect(() => window.mate.onReading(setReadingLeft), [])
   // The passages closest in meaning to the search, and how many files are still to be given their meaning.
   const [close, setClose] = useState<{ missing: string | null; hits: Hit[] } | null>(null)
+  // A question on the page: the passages closest to it in meaning, whole. `found` is null while they are looked for.
+  const [inquiry, setInquiry] = useState<{ question: string; found: { missing: string | null; hits: Hit[] } | null } | null>(null)
+  useEffect(() => setInquiry(null), [contextDir])
   const [mindingLeft, setMindingLeft] = useState(0)
   useEffect(() => window.mate.onMinding(setMindingLeft), [])
   useEffect(() => {
@@ -600,6 +604,14 @@ export function App() {
     else void read(`projects/${view.project}/${path}`)
   }
 
+  /** Ask the whole context a question, by meaning. The passages closest to it go on the page, whole. */
+  function ask(question: string) {
+    if (!contextDir || !question.trim()) return
+    const settle = (found: { missing: string | null; hits: Hit[] }) => setInquiry((now) => (now?.question === question ? { question, found } : now))
+    setInquiry({ question, found: null })
+    window.mate.searchMeaning(question, 24).then(settle, (caught) => settle({ missing: reason(caught, 'Could not search by meaning.'), hits: [] }))
+  }
+
   /** A draft opens as a draft, at the match. Anything else is opened to be read. */
   async function openHit(hit: Hit) {
     if (hit.kind === 'draft' && hit.project && hit.path.toLowerCase().endsWith('.md')) {
@@ -1006,7 +1018,11 @@ export function App() {
               placeholder="Search this context"
               aria-label="Search this context"
               onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => event.key === 'Escape' && setQuery('')}
+              title="Enter: the passages closest in meaning, whole, on the page"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setQuery('')
+                if (event.key === 'Enter') ask(query)
+              }}
             />
           )}
           {contextDir && mindingLeft > 0 && readingLeft === 0 && (
@@ -1036,7 +1052,12 @@ export function App() {
               {/* What the words do not find, the meaning may: passages close to the question, in any of the languages. */}
               {close && close.hits.length > 0 && (
                 <>
-                  <h2>Close in meaning</h2>
+                  <h2>
+                    Close in meaning
+                    <button className="quiet see" title="The passages whole, grouped by document, on the page. Enter in the search does the same." onClick={() => ask(query)}>
+                      See them whole
+                    </button>
+                  </h2>
                   <ul>
                     {close.hits.map((hit, index) => (
                       <li key={index}>
@@ -1202,7 +1223,20 @@ export function App() {
         )}
       </aside>
       <main className="center">
-        <header className="bar">
+        {/* A question takes the page. The draft stays as it was beneath it, and is back when the question is closed. */}
+        {inquiry && (
+          <Question
+            question={inquiry.question}
+            found={inquiry.found}
+            label={(hit) => KINDS[hit.kind].label}
+            onOpen={(hit) => {
+              setInquiry(null)
+              void openHit(hit)
+            }}
+            onClose={() => setInquiry(null)}
+          />
+        )}
+        <header className="bar" hidden={inquiry !== null}>
           {onPage && <span className="meta">{view.project}</span>}
           {onPage && <span className="meta">/</span>}
           {onPage && <span>Agent</span>}
@@ -1271,7 +1305,7 @@ export function App() {
             </span>
           )}
         </header>
-        <div className="scroll">
+        <div className="scroll" hidden={inquiry !== null}>
           {/* A file the reader is deciding about. It leaves by one of the exits. There is no exit where it is just remembered. */}
           {view &&
             sources.map((source) => (

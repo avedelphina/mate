@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('mate', {
   newContext: () => ipcRenderer.invoke('context:create'),
   currentContext: () => ipcRenderer.invoke('context:current'),
   searchContext: (query: string) => ipcRenderer.invoke('context:search', query),
-  searchMeaning: (query: string) => ipcRenderer.invoke('context:meaning', query),
+  searchMeaning: (query: string, limit?: number) => ipcRenderer.invoke('context:meaning', query, limit),
   readFile: (path: string) => ipcRenderer.invoke('file:read', path),
   revealFile: (path: string) => ipcRenderer.invoke('file:reveal', path),
   openProject: (project: string, file?: string) => ipcRenderer.invoke('project:open', project, file),

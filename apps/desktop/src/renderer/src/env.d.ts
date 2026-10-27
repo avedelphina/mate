@@ -53,6 +53,8 @@ export type Hit = {
   start: number | null
   length: number
   thread: string | null
+  /** The whole passage, as the file has it, for a hit found by meaning. */
+  passage?: string
 }
 
 /** `mcp` is an agent the reader runs themselves. It comes in over MCP. */
@@ -194,7 +196,7 @@ export type MateApi = {
   compare: (project: string, id: string, which: 'kept' | 'held', index: number) => Promise<Compared>
   onSession: (listener: (session: Session) => void) => () => void
   /** The passages closest in meaning to a question. `missing` says what this computer lacks for it, when it does. */
-  searchMeaning: (query: string) => Promise<{ missing: string | null; hits: Hit[] }>
+  searchMeaning: (query: string, limit?: number) => Promise<{ missing: string | null; hits: Hit[] }>
   /** How many files of the open context are still to be given their meaning. */
   onMinding: (listener: (left: number) => void) => () => void
   /** How many PDF and Word files of the open context are still to be read, so that search finds them. */

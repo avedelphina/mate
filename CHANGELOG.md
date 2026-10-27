@@ -9,6 +9,11 @@ then, minor versions may change behaviour.
 
 ### Added
 
+- Ask the whole context a question: press Enter in the search. The
+  passages closest to it in meaning go on the page, whole, grouped by
+  document, each opening at its place. Nothing is written by a model, so
+  what you read is what the files say, and it works in a private
+  context.
 - A private context can be opened to your own inference endpoint. Set
   its address, model and key in the *Agent* tab, then allow it for a
   context in a system dialog that names the host. Hermes then works

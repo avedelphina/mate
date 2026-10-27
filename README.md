@@ -83,8 +83,11 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   question in meaning, in other words or another language: an English
   question finds the Czech or Slovak passage that answers it. It runs on
   your computer only. Without Ollama, search by words works as before.
-  Hermes in a context you trust searches the same way, through Mate, and
-  answers from the passage it finds.
+  Press Enter in the search to ask the whole context: the passages
+  closest to your question go on the page, whole, grouped by document,
+  each opening at its place. No model writes the answer, so it works in a
+  private context too. Hermes in a context you trust searches the same
+  way, through Mate, and answers from the passage it finds.
 - **PDF and Word files, and tables, are read and found.** Mate takes the
   text out of every PDF, Word file, Excel workbook and CSV file in the
   context, with the Mac's own tools, and keeps it as a helper in

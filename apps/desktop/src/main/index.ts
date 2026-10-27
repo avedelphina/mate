@@ -400,11 +400,13 @@ app.whenReady().then(() => {
   })
 
   // The passages closest in meaning to the question, from what has its vectors so far.
-  ipcMain.handle('context:meaning', async (event, query: string) => {
+  // The rail shows a few passages. A question on the page asks for more: up to 30.
+  ipcMain.handle('context:meaning', async (event, query: string, limit?: number) => {
     const contextDir = requireContext(event)
     const missing = await meaningMissing()
     if (missing) return { missing, hits: [] }
-    return { missing: null, hits: await searchMeaning(contextDir, await refreshIndex(contextDir), String(query), ollamaEmbed) }
+    const many = Math.min(Math.max(Math.floor(Number(limit)) || 8, 1), 30)
+    return { missing: null, hits: await searchMeaning(contextDir, await refreshIndex(contextDir), String(query), ollamaEmbed, many) }
   })
 
   ipcMain.handle('file:read', (event, relative: string) => readContextFile(requireContext(event), relative))

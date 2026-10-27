@@ -403,6 +403,14 @@ to it are found. `meaning.ts` is the whole of it.
 - **What is shown.** Under the hits by words, the passages close enough
   in meaning, the closest first, up to eight. A hit opens its file at the
   passage. A question nothing in the context answers finds nothing.
+- **A question on the page.** Enter in the search, or *See them whole*,
+  asks for up to 24 passages, each with its whole text, and `Question.tsx`
+  puts them on the page in place of the draft, grouped by document in the
+  order of their closest passage, and in each document in the order they
+  come. Each is drawn as markdown and opens its file at its place. Nothing
+  is written by a model, so the reader sees only what the files say, and
+  it works in a private context. The draft stays beneath, as it was, and
+  is back when the question is closed (Esc).
 
 **Agents search by meaning too.** `mate_search` on the MCP door gives the
 passages close in meaning after the hits by words, each whole, with its
