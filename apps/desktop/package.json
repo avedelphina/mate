@@ -1,6 +1,6 @@
 {
   "name": "mate-desktop",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "A desk for a body of work: review markdown in place, with agents that propose and you decide.",
   "author": "Tomas Kracmar",
   "license": "MIT",

@@ -5,11 +5,12 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [0.5.1] - 2026-10-27
+## [0.5.2] - 2026-10-27
 
 The first version you can download: a disk image for a Mac with Apple
-silicon, signed and notarised. The app is the same as 0.5.0: see
-[what each version brought](https://github.com/avedelphina/mate/blob/main/CHANGELOG.md).
+silicon, signed and notarised. It is the app of 0.5.0 on a newer
+Electron. (0.5.1 was tagged, and its release failed while signing, so it
+has no download.)
 
 ### Added
 
@@ -22,10 +23,19 @@ For contributors:
   app. Pushing a tag `vX.Y.Z` signs, notarises and publishes the disk
   image on GitHub, with the changelog section as the notes.
 
+### Changed
+
+- Electron 38 becomes Electron 41. Version 38 no longer gets security
+  fixes, and the window's safety rests on Electron's sandbox. The window,
+  the packed app and the helper inside it were tried on 41.
+
 ### Fixed
 
 - The root `package.json` said 0.4.0 in 0.5.0. Both now name the same
   version, and a release checks that they do.
+- The release workflow imports the signing certificate into a keychain of
+  its own. electron-builder 26.15.3 gave the keychain the password of
+  the certificate file, and signing failed on it.
 
 ## [0.5.0] - 2026-10-27
 
