@@ -9,8 +9,9 @@ invited into a project to read the context, propose a plan, make changes
 that you approve, and show you what it gathered in a pane beside the
 draft. Nothing is copied into a database, and nothing needs a server.
 
-> **Status: early.** Version 0.5.0. Built and driven by hand on macOS. No
-> download yet: you run it from a checkout, or build the app yourself. See
+> **Status: early.** Version 0.5.1. Built and driven by hand on macOS.
+> [Download it](https://github.com/avedelphina/mate/releases/latest) for a
+> Mac with Apple silicon, or run it from a checkout. See
 > [Known limits](#known-limits) and the [changelog](CHANGELOG.md).
 
 ## Why it is built this way
@@ -68,9 +69,9 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
 - **Sources.** *Add a source*, or drop a file on the window. A markdown
   file is pulled into the drafts. A file that stays where it is gets a
   note with its path, so a search finds it. For a Word file or a PDF, one
-  button asks the agent to take its text out into a draft. Mate reads no
-  such file itself. A folder is copied into the project whole, with its
-  folders, so search reads what is in it.
+  button asks the agent to take its text out into a draft, with its
+  headings and its form. A folder is copied into the project whole, with
+  its folders, so search reads what is in it.
 - **The files of a context.** The rail lists the shelf, then under
   *Context* the rest of the context that is not a project, such as its
   own dropbox.
@@ -126,6 +127,13 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   *Add*. Elsewhere the button is shown but off.
 
 ## Quick start
+
+On a Mac with Apple silicon, take the disk image from the
+[latest release](https://github.com/avedelphina/mate/releases/latest),
+open it, and drag Mate to Applications. It is signed and notarised, and
+it fetches no update: a new version is a new download.
+
+To run it from a checkout instead:
 
 Requirements: **Node.js 22 or newer**, **pnpm 10 or newer**. The desktop
 app runs on macOS, Linux, and Windows through Electron, but only macOS has
@@ -320,9 +328,8 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
 
 ## Known limits
 
-- **No download yet.** Run from a checkout with `pnpm dev`, or make the
-  app with `pnpm pack:mac`. That one is for Apple silicon, and nothing
-  has been published.
+- **The download is for Apple silicon.** On an Intel Mac, Linux or
+  Windows, run from a checkout with `pnpm dev`.
 - **Tested on macOS only.** Linux and Windows build, and the review works
   without the on-device assist, but they have not been exercised by hand.
 - **Codex needs its own sign-in** (`codex login`). Until then Mate shows the

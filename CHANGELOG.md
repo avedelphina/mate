@@ -5,9 +5,15 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.5.1] - 2026-10-27
+
+The first version you can download: a disk image for a Mac with Apple
+silicon, signed and notarised. The app is the same as 0.5.0: see
+[what each version brought](https://github.com/avedelphina/mate/blob/main/CHANGELOG.md).
 
 ### Added
+
+- The disk image is on GitHub, with these notes. The README says where.
 
 For contributors:
 
@@ -15,6 +21,11 @@ For contributors:
   check, the unit tests, the build, the end-to-end test, and packing the
   app. Pushing a tag `vX.Y.Z` signs, notarises and publishes the disk
   image on GitHub, with the changelog section as the notes.
+
+### Fixed
+
+- The root `package.json` said 0.4.0 in 0.5.0. Both now name the same
+  version, and a release checks that they do.
 
 ## [0.5.0] - 2026-10-27
 
