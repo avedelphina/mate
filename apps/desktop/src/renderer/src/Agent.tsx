@@ -46,6 +46,11 @@ export function Agent(props: {
   const [trusted, setTrusted] = useState(false)
   // Whether the context is private. Then no agent can be invited, and main refuses one all the same.
   const [kept, setKept] = useState(false)
+  // In a private context: whether Hermes on the reader's own endpoint may read it, and that endpoint.
+  const [opened, setOpened] = useState(false)
+  const [endpoint, setEndpoint] = useState<{ url: string; model: string; hasKey: boolean } | null>(null)
+  // The endpoint form, while it is open: address, model, and a key that is never shown back.
+  const [editing, setEditing] = useState<{ url: string; model: string; key: string } | null>(null)
 
   const session = sessions.find((each) => each.id === open) ?? null
   useEffect(() => onSession(session?.id ?? null), [session?.id])
@@ -63,7 +68,21 @@ export function Agent(props: {
     window.mate.listSessions(project).then(setSessions, () => setSessions([]))
     window.mate.isTrusted().then(setTrusted, () => setTrusted(false))
     window.mate.isPrivate().then(setKept, () => setKept(false))
+    window.mate.isOpened().then(setOpened, () => setOpened(false))
+    window.mate.getEndpoint().then(setEndpoint, () => setEndpoint(null))
   }, [project])
+
+  const saveEndpoint = () =>
+    editing &&
+    window.mate.setEndpoint(editing.url, editing.model, editing.key || undefined).then(
+      (saved) => {
+        setEndpoint(saved)
+        setEditing(null)
+        setError(null)
+        window.mate.isOpened().then(setOpened, () => setOpened(false))
+      },
+      (caught) => setError(reason(caught))
+    )
 
   useEffect(
     () =>
@@ -140,13 +159,16 @@ export function Agent(props: {
           Invite an agent into {project}. It may read the whole context. It plans first, and it writes only in this project.
         </p>
         <p className="invite">
-          {agents.map((agent) => (
+          {/* In a private context only Hermes on the reader's endpoint is offered, and only once it may read it. */}
+          {agents.filter((agent) => (agent.kind === 'private') === kept).map((agent) => (
             <button
               key={agent.label}
-              disabled={!agent.found || kept}
+              disabled={!agent.found || (kept && !(opened && endpoint))}
               title={
                 kept
-                  ? 'This context is private.'
+                  ? opened && endpoint
+                    ? `Hermes in the sandbox of macOS, with your endpoint ${new URL(endpoint.url).host} as its only way out.`
+                    : 'This context is private. Allow your endpoint here first.'
                   : agent.host
                     ? 'On another machine. It has no folder there: Mate sends it the text of the files.'
                     : agent.found
@@ -171,10 +193,70 @@ export function Agent(props: {
           {kept
             ? 'This context is private. No agent works in it, so nothing of it leaves this computer. Search, reading and the comment box still work.'
             : 'An agent sends what it reads to where its model runs.'}
-          <button onClick={() => window.mate.setPrivate(!kept).then(setKept, (caught) => setError(reason(caught)))}>
+          <button
+            onClick={() =>
+              window.mate.setPrivate(!kept).then(
+                (now) => {
+                  setKept(now)
+                  window.mate.isOpened().then(setOpened, () => setOpened(false))
+                },
+                (caught) => setError(reason(caught))
+              )
+            }
+          >
             {kept ? 'Let agents in…' : 'Keep this context private'}
           </button>
         </p>
+        {kept && (
+          <div className="meta hint trust endpoint">
+            {editing ? (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  void saveEndpoint()
+                }}
+              >
+                <label>
+                  Address <input value={editing.url} placeholder="https://your-server/v1" onChange={(event) => setEditing({ ...editing, url: event.target.value })} />
+                </label>
+                <label>
+                  Model <input value={editing.model} placeholder="Qwen/Qwen3.6-35B-A3B-FP8" onChange={(event) => setEditing({ ...editing, model: event.target.value })} />
+                </label>
+                <label>
+                  Key{' '}
+                  <input
+                    type="password"
+                    value={editing.key}
+                    placeholder={endpoint?.hasKey ? 'Saved. Leave empty to keep it.' : 'If the server asks for one'}
+                    onChange={(event) => setEditing({ ...editing, key: event.target.value })}
+                  />
+                </label>
+                <span>
+                  <button type="submit">Save</button>
+                  <button type="button" className="quiet" onClick={() => setEditing(null)}>
+                    Cancel
+                  </button>
+                </span>
+              </form>
+            ) : (
+              <>
+                {endpoint
+                  ? opened
+                    ? `Hermes on your endpoint, ${new URL(endpoint.url).host}, may read this context. It runs in the sandbox of macOS and reaches nothing else.`
+                    : `Your endpoint is ${new URL(endpoint.url).host}, with ${endpoint.model}. It may not read this context.`
+                  : 'An agent can work here on your own inference endpoint, and nowhere else.'}
+                {endpoint && (
+                  <button onClick={() => window.mate.setOpened(!opened).then(setOpened, (caught) => setError(reason(caught)))}>
+                    {opened ? 'Close it to your endpoint' : 'Allow your endpoint here…'}
+                  </button>
+                )}
+                <button className="quiet" onClick={() => setEditing({ url: endpoint?.url ?? '', model: endpoint?.model ?? '', key: '' })}>
+                  {endpoint ? 'Change the endpoint' : 'Set your endpoint'}
+                </button>
+              </>
+            )}
+          </div>
+        )}
         {sessions.length > 0 && <h3>Sessions <span className="count">{sessions.length}</span></h3>}
         {[...sessions]
           .sort((a, b) => b.created.localeCompare(a.created))

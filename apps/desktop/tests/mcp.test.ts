@@ -8,7 +8,7 @@ import { startMcp, type Binding } from '../src/main/mcp.ts'
 import { meaningRuns, refreshMeaning } from '../src/main/meaning.ts'
 import { refreshIndex } from '../src/main/contextIndex.ts'
 import { loadSession, sendMessage, startSession } from '../src/main/sessions.ts'
-import { isPrivate, movePrivacy, setPrivate } from '../src/main/trust.ts'
+import { isPrivate, movePrivacy, setOpenedToEndpoint, setPrivate } from '../src/main/trust.ts'
 import { parseComments } from '../src/shared/comments.ts'
 
 // No test here asks the Ollama of the computer it runs on. One that needs a model puts a stand-in in.
@@ -182,6 +182,15 @@ test('in a private context no agent starts, none is told anything, and the door 
     await assert.rejects(startSession(root, 'review', 'claude'), /This context is private/)
     await assert.rejects(startSession(root, 'review', 'hermes', 'some-host'), /This context is private/)
     await assert.rejects(sendMessage(root, 'review', session.id, 'Read the draft.', false, () => {}), /This context is private/)
+
+    // Opened to the reader's endpoint, it lets in Hermes on that endpoint, and still no other agent, nor the door.
+    await assert.rejects(startSession(root, 'review', 'private'), /This context is private/)
+    setOpenedToEndpoint(root, true)
+    assert.equal((await startSession(root, 'review', 'private')).agent, 'private')
+    await assert.rejects(startSession(root, 'review', 'claude'), /Only Hermes on your own endpoint works in it/)
+    await assert.rejects(sendMessage(root, 'review', session.id, 'Read the draft.', false, () => {}), /Only Hermes on your own endpoint/)
+    assert.match(await read(), /^This context is private\./)
+    setOpenedToEndpoint(root, false)
 
     // Renamed, it stays private, and the name it had is not private any more.
     const renamed = `${root}-renamed`

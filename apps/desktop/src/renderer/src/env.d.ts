@@ -56,7 +56,7 @@ export type Hit = {
 }
 
 /** `mcp` is an agent the reader runs themselves. It comes in over MCP. */
-export type AgentKind = 'claude' | 'codex' | 'hermes' | 'mcp'
+export type AgentKind = 'claude' | 'codex' | 'hermes' | 'private' | 'mcp'
 /** `host` is set for an agent on another machine, reached over SSH. */
 export type AgentInfo = { kind: AgentKind; label: string; found: boolean; host: string | null }
 
@@ -207,6 +207,14 @@ export type MateApi = {
   isPrivate: () => Promise<boolean>
   /** Keeping it private asks nothing. Letting agents in again asks in a system dialog. Returns what holds afterwards. */
   setPrivate: (yes: boolean) => Promise<boolean>
+  /** Whether the open private context may be read by Hermes on the reader's own endpoint. */
+  isOpened: () => Promise<boolean>
+  /** Opening asks in a system dialog that names the host. Returns what holds afterwards. */
+  setOpened: (yes: boolean) => Promise<boolean>
+  /** The reader's endpoint: its address and model, and whether a key is saved. Never the key. */
+  getEndpoint: () => Promise<{ url: string; model: string; hasKey: boolean } | null>
+  /** Save the endpoint. An empty key keeps the saved one, unless the host changed. */
+  setEndpoint: (url: string, model: string, key?: string) => Promise<{ url: string; model: string; hasKey: boolean } | null>
   /** Run a script of the project: `scripts/NAME`, then what it is given. Only in a context the reader trusts. No agent. */
   runScript: (project: string, line: string) => Promise<Ran>
   /** Stop the script that is running in this context. */

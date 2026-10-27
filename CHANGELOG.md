@@ -5,6 +5,18 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- A private context can be opened to your own inference endpoint. Set
+  its address, model and key in the *Agent* tab, then allow it for a
+  context in a system dialog that names the host. Hermes then works
+  there, in the macOS sandbox: it reaches only Mate, which passes its
+  requests to your endpoint and adds the key. It never sees the key, and
+  it does not use your own Hermes profile, which may fall back to the
+  cloud.
+
 ## [0.5.2] - 2026-10-27
 
 The first version you can download: a disk image for a Mac with Apple

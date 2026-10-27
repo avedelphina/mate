@@ -297,6 +297,9 @@ details .prose h2, details .prose h3, .pane h2, .pane h3 { font-size: 1em; }
 .invite { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 10px 0; }
 .trust { margin-top: 14px; }
 .trust button { display: block; margin-top: 6px; color: var(--ink); }
+.endpoint label { display: block; margin-top: 6px; }
+.endpoint input { display: block; width: 100%; box-sizing: border-box; margin-top: 2px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); font-size: 12.5px; }
+.endpoint form span { display: flex; gap: 8px; }
 /* The conversation, when it has the page: the same parts with room to read. */
 .bar .move { flex: none; margin-left: auto; -webkit-app-region: no-drag; }
 .talk-move { margin: 0 0 4px; text-align: right; }

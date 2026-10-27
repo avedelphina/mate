@@ -12,7 +12,7 @@ import { placeOf } from './contextIndex'
 import { changesSince, fingerprints, insidePath, mateWrote, put, takeSnapshot, watching, type Change, type Snapshot } from './guard'
 import { changedParts, diffLines, type DiffLine } from '../shared/diff'
 import { EFFORTS } from '../shared/effort'
-import { PRIVATE, isPrivate, isTrusted } from './trust'
+import { isTrusted, privacyAllows, privacyRefusal } from './trust'
 
 /**
  * `waiting`: sent while the agent was working, and not yet given to it.
@@ -276,7 +276,7 @@ export async function startSession(
   agent: Invited,
   host: string | null = null
 ): Promise<Session> {
-  if (isPrivate(contextDir)) throw new Error(PRIVATE)
+  if (!privacyAllows(contextDir, agent, host)) throw new Error(privacyRefusal(contextDir))
   if (agent !== 'mcp' && !AGENTS[agent]) throw new Error('That agent is not one Mate knows.')
   if (host !== null && (agent === 'mcp' || !isHost(host) || !AGENTS[agent].remoteArgs)) {
     throw new Error('That agent cannot be invited from another machine.')
@@ -452,8 +452,6 @@ export async function sendMessage(
   emit: (session: Session) => void,
   wait = false
 ): Promise<{ started: Session; finished: Promise<Session> }> {
-  // A session from before the context was made private stays in the list, and says nothing more to its agent.
-  if (isPrivate(contextDir)) throw new Error(PRIVATE)
   // Two messages sent at the same moment are taken in one after the other, so the second finds the first one's turn.
   const before = entering.get(id) ?? Promise.resolve()
   let taken!: () => void
@@ -461,6 +459,8 @@ export async function sendMessage(
   await before
   try {
     const session = await loadSession(contextDir, project, id)
+    // A session from before the context was made private stays in the list, and says nothing more to its agent.
+    if (!privacyAllows(contextDir, session.agent, session.host)) throw new Error(privacyRefusal(contextDir))
     const said = text.trim()
     if (!said && !approve) throw new Error('The message is empty.')
     const message = approve ? ['The plan is approved. Go ahead.', said].filter(Boolean).join('\n\n') : said
@@ -590,7 +590,11 @@ async function begin(
         ? spawn(SSH.command, sshArgs(session.host, adapter.command, adapter.remoteArgs!(session.agentSession)), {
             env: agentEnvironment()
           })
-        : spawn(adapter.command, adapter.args(turn), { cwd: projectDir, env: agentEnvironment() })
+        : await (async () => {
+            const env = agentEnvironment()
+            const [command, ...before] = [...((await adapter.within?.(env)) ?? []), adapter.command]
+            return spawn(command, [...before, ...adapter.args(turn)], { cwd: projectDir, env })
+          })()
       running.set(id, child)
       child.stdin?.on('error', () => {})
       child.stdin?.end(prompt)

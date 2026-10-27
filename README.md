@@ -117,7 +117,10 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   the page*). See [Agents](#agents) below.
 - **Private contexts.** *Keep this context private* in the *Agent* tab:
   no agent works in it, so nothing of it leaves your Mac. Everything else
-  still works. Letting agents in again asks in a system dialog.
+  still works. Letting agents in again asks in a system dialog. A private
+  context can be opened to Hermes on your own inference endpoint: it then
+  runs in the macOS sandbox, and its text goes to that server and to
+  nowhere else.
 - **Windows.** *File → New Window* opens a second context or document.
   The rail and the margin are as wide as you drag them. **⌘K** opens a
   palette: type part of a file's name to open it, or the name of

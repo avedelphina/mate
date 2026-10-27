@@ -32,7 +32,7 @@ Every call has this shape. The whole of what the window can ask for:
 | Agents | `agents:list`, `mcp:bind` | which agents can be invited; the door for the reader's own |
 | A session | `session:list`, `session:start`, `session:send`, `session:stop`, `session:answer`, `session:revert`, `session:settle`, `session:compare`, `session:models`, `session:tune` | `sessions.ts` |
 | Trust | `trust:get`, `trust:set` | `isTrusted`, and `setTrusted` after a dialog of the system |
-| Privacy | `privacy:get`, `privacy:set` | `isPrivate`, and `setPrivate`: at once to keep a context private, after a dialog of the system to let agents in again |
+| Privacy | `privacy:get`, `privacy:set`, `privacy:opened`, `privacy:open`, `endpoint:get`, `endpoint:set` | `isPrivate`, and `setPrivate`: at once to keep a context private, after a dialog of the system to let agents in again; `setOpenedToEndpoint` after a dialog that names the host; `setEndpoint` in `endpoint.ts` |
 | The assist | `assist:check`, `assist:run` | is the helper here; the helper, once for each question |
 
 `session:update` is the one message that goes the other way: the session
@@ -44,9 +44,10 @@ stays inside the context before reading or writing. Where the reader
 brings in a file from outside the context, they choose it in a dialog of
 the system: see "The shelf: taking down and publishing".
 
-Four things are decided in a dialog of the system, which the page cannot
+Five things are decided in a dialog of the system, which the page cannot
 press: trusting a context, letting agents into a private one again,
-approving instruction files, and publishing.
+opening a private one to the reader's endpoint, approving instruction
+files, and publishing.
 
 `sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`.
 Do not relax these to make a feature easier. A sandboxed window cannot
@@ -77,7 +78,8 @@ preload as CommonJS. Leave that as it is.
 | The tree of a project's files | `listFiles` in `src/main/context.ts`, then `Tree.tsx` |
 | How an agent is started and its output read | `src/main/agents.ts` |
 | Which contexts are trusted, and what trust changes | `src/main/trust.ts`, then `acp` in `src/main/agents.ts` |
-| Which contexts are private, and where an agent is refused there | `src/main/trust.ts`, then `startSession` and `sendMessage` in `src/main/sessions.ts`, and `callTool` in `src/main/mcp.ts` |
+| Which contexts are private, and where an agent is refused there | `privacyAllows` in `src/main/trust.ts`, then `startSession` and `sendMessage` in `src/main/sessions.ts`, and `callTool` in `src/main/mcp.ts` |
+| The reader's own endpoint: the relay, the sandbox, Mate's Hermes profile | `src/main/endpoint.ts`, and `private` in `src/main/agents.ts` |
 | How an agent that stays is spoken to, and what it may ask | `src/main/acp.ts` |
 | The model and the thinking effort of a conversation | `listModels` and `tuneSession` in `src/main/sessions.ts`, then `Tune` in `Agent.tsx` |
 | Which files count as instructions, and what the reader approved | `src/main/pins.ts` |
@@ -338,6 +340,42 @@ model, and the Czech one reads Slovak but for a letter or two, such as
 twin yet. A workbook gives the values of its cells: a formula gives the
 value it last had, and a date the number Excel keeps for it. Any other
 twin is plain text: headings, tables and pictures are gone. Up to 50 MB a file, 2 MB of text.
+
+## A private context and the reader's endpoint
+
+A private context lets no agent in. The reader may open one to a single
+agent: Hermes on their own inference endpoint, an OpenAI-compatible
+address such as `https://their-server/v1`. `endpoint.ts` is the whole of
+it, and three things together keep the text from going anywhere else:
+
+- **The sandbox.** Mate starts Hermes under `sandbox-exec`, with a
+  profile that denies every connection out but one: Mate's relay, on a
+  port of `127.0.0.1`. Not the internet, not another port of this
+  computer. The sandbox cannot allow one remote host, only this computer
+  or every host, so the relay names the endpoint.
+- **The relay.** A server in Mate, on `127.0.0.1`, that passes requests
+  under `/v1` to the endpoint the reader set, and to nothing else. It
+  needs a token that Hermes holds, refuses a request with an `Origin`
+  header, and adds the endpoint's key itself. Hermes never sees the key.
+- **Mate's own Hermes profile.** `mate-private`, in Hermes's profiles,
+  written again before every turn: the relay as its only provider, no
+  fallback providers, no plugins, no memory, file tools only. The
+  reader's own profile may fall back to a provider in the cloud.
+
+The key is kept in `endpoint.json` in the app's data folder, sealed by
+Electron's `safeStorage` (the macOS keychain). The window is told the
+address, the model, and whether a key is saved, never the key. The
+address must be https, unless it is on this computer.
+
+Saving the endpoint asks nothing. Opening a private context to it asks in
+a dialog of the system that names the host. A new host closes every
+context that was opened to the old one. Closing a context to the
+endpoint, or making it not private, closes it again.
+
+Limits. macOS only: `sandbox-exec` is deprecated by Apple, and still
+works. Hermes needs a model with tool calls and a window of 64,000 tokens
+or more. The agent is Hermes alone; Claude and Codex are not offered in a
+private context.
 
 ## Search by meaning
 

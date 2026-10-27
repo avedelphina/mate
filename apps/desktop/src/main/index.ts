@@ -1,4 +1,5 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage, shell, type IpcMainInvokeEvent } from 'electron'
+import { endpointView, keepEndpointIn, setEndpoint, stopRelay } from './endpoint'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -38,7 +39,22 @@ import { refreshIndex, searchIndex } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
 import { runScript, stopAllScripts, stopScript } from './scripts'
 import { approve, describe, instructionFiles, keepPinsIn, movePins, unapproved } from './pins'
-import { PRIVATE, isPrivate, isTrusted, keepPrivacyIn, keepTrustIn, movePrivacy, moveTrust, setPrivate, setTrusted } from './trust'
+import {
+  PRIVATE,
+  closeAllToEndpoint,
+  isOpenedToEndpoint,
+  isPrivate,
+  isTrusted,
+  keepOpenedIn,
+  keepPrivacyIn,
+  keepTrustIn,
+  moveOpened,
+  movePrivacy,
+  moveTrust,
+  setOpenedToEndpoint,
+  setPrivate,
+  setTrusted
+} from './trust'
 import {
   answerAsk,
   attend,
@@ -273,6 +289,11 @@ function setMenu(): void {
 app.whenReady().then(() => {
   keepTrustIn(path.join(app.getPath('userData'), 'trusted.json'))
   keepPrivacyIn(path.join(app.getPath('userData'), 'private.json'))
+  keepOpenedIn(path.join(app.getPath('userData'), 'opened.json'))
+  keepEndpointIn(path.join(app.getPath('userData'), 'endpoint.json'), {
+    encrypt: (text) => safeStorage.encryptString(text),
+    decrypt: (sealed) => safeStorage.decryptString(sealed)
+  })
   keepPinsIn(path.join(app.getPath('userData'), 'pins.json'))
 
   // Before an agent starts: has what the context tells it changed since the reader last saw it?
@@ -449,6 +470,7 @@ app.whenReady().then(() => {
     // Trust, privacy and the approved instruction files were given to this folder. They follow it to its new name.
     moveTrust(was, moved)
     movePrivacy(was, moved)
+    moveOpened(was, moved)
     movePins(was, moved)
     forgetMeaning(contextDir)
     for (const [id, dir] of contexts) if (dir === contextDir) contexts.set(id, moved)
@@ -688,7 +710,52 @@ app.whenReady().then(() => {
       if (response !== 1) return true
     }
     setPrivate(contextDir, yes === true)
+    // Made private again later, it starts closed to the endpoint too: the reader opens it again, by name.
+    if (yes !== true) setOpenedToEndpoint(contextDir, false)
     return isPrivate(contextDir)
+  })
+
+  // The reader's endpoint: what the window may know of it, never the key.
+  ipcMain.handle('endpoint:get', () => endpointView())
+
+  // A new host is not trusted with the contexts that were opened to the old one: each is opened again, by name.
+  ipcMain.handle('endpoint:set', (_event, url: string, model: string, key?: string) => {
+    if (setEndpoint(String(url), String(model), typeof key === 'string' && key ? key : undefined)) closeAllToEndpoint()
+    return endpointView()
+  })
+
+  ipcMain.handle('privacy:opened', (event) => isOpenedToEndpoint(requireContext(event)))
+
+  // The text of a private context may go to the reader's endpoint only after they say so in a dialog of
+  // the system, which names the host. Closing it again asks nothing.
+  ipcMain.handle('privacy:open', async (event, yes: boolean) => {
+    const contextDir = requireContext(event)
+    if (!isPrivate(contextDir)) throw new Error('Keep this context private first.')
+    if (yes === true) {
+      const endpoint = endpointView()
+      if (!endpoint) throw new Error('Set your endpoint first.')
+      const host = new URL(endpoint.url).host
+      const window = BrowserWindow.fromWebContents(event.sender)
+      const options = {
+        type: 'warning' as const,
+        buttons: ['Cancel', `Allow ${host}`],
+        defaultId: 0,
+        cancelId: 0,
+        message: `Let Hermes send this private context to ${host}?`,
+        detail:
+          `${contextDir}\n\n` +
+          `What Hermes reads here goes to ${endpoint.url}, to the model ${endpoint.model}, and to nowhere else: ` +
+          'Hermes runs in the sandbox of macOS and reaches only Mate, which passes its requests to that address. ' +
+          'Allow it only if you control that server, or trust who does.'
+      }
+      const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+      if (response !== 1) return false
+    } else if (isBusy(contextDir)) {
+      throw new Error('An agent is working in this context. Close it to the endpoint when the agent has finished.')
+    }
+    setOpenedToEndpoint(contextDir, yes === true)
+    if (yes !== true) await closeAgentsIn(contextDir)
+    return isOpenedToEndpoint(contextDir)
   })
 
   // What a kept or a held change is, as lines. It reads and writes nothing else.
@@ -728,6 +795,7 @@ app.on('before-quit', (event) => {
     return
   }
   stopAllScripts()
+  stopRelay()
   stopAllTurns()
 })
 
