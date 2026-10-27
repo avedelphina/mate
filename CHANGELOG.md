@@ -13,6 +13,10 @@ then, minor versions may change behaviour.
   The folder is copied into the project whole, with its folders, and
   search reads what is in it, by meaning too. Hidden files and links are
   left out.
+- Tables are read. Each sheet of an Excel workbook (`.xlsx`) becomes a
+  table, and a CSV or TSV file is read as it is. Search finds what they
+  hold, by meaning too, the page shows them, and agents read them. A CSV
+  that Excel wrote on a Czech or Slovak system reads right.
 
 ## [0.4.0] - 2026-10-15
 

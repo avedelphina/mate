@@ -306,8 +306,12 @@ out once and keeps it: the *twin* of `shelf/policy.pdf` is
   A page with no text is a picture of one, as a scanner makes it: the
   helper draws it at three times its size and reads the text off the
   picture with Vision, about a fifth of a second a page once its model
-  is loaded. A Word, RTF, ODT or HTML file goes to `textutil`. All of
-  these come with macOS.
+  is loaded. A Word, RTF, ODT or HTML file goes to `textutil`. An Excel
+  workbook is a zip of XML files: `unzip` gives its parts, and each sheet
+  becomes a markdown table under its name, so the page draws it as a
+  table. Columns empty all the way down are left out. A CSV or TSV file
+  is its own text: UTF-8, or else Windows-1250, which is what Excel
+  writes on a Czech or Slovak system. All of these tools come with macOS.
   On another system nothing is twinned. No program in a file runs: these
   tools read text, they do not open the file in its program.
 - **When.** In the background, when a context is opened and at every
@@ -327,8 +331,10 @@ out once and keeps it: the *twin* of `shelf/policy.pdf` is
 
 Limits. A scan is read in Czech and English: Vision has no Slovak
 model, and the Czech one reads Slovak but for a letter or two, such as
-Ľ. Handwriting is not read. Slides and spreadsheets have no twin yet. A twin is plain text: headings, tables and
-pictures are gone. Up to 50 MB a file, 2 MB of text.
+Ľ. Handwriting is not read. Slides, `.xls` and Numbers files have no
+twin yet. A workbook gives the values of its cells: a formula gives the
+value it last had, and a date the number Excel keeps for it. Any other
+twin is plain text: headings, tables and pictures are gone. Up to 50 MB a file, 2 MB of text.
 
 ## Search by meaning
 

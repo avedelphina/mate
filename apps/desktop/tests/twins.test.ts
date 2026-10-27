@@ -75,3 +75,50 @@ test('a PDF and a Word file are read as text, found by search, and read in place
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('a workbook is read sheet by sheet as tables, and a CSV as its text, in the encoding it was written in', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-tables-'))
+  try {
+    const book = path.join(root, 'book')
+    await mkdir(path.join(book, 'xl/_rels'), { recursive: true })
+    await mkdir(path.join(book, 'xl/worksheets'))
+    // The second sheet in the file is the first in the workbook: the order is the workbook's.
+    await writeFile(
+      path.join(book, 'xl/workbook.xml'),
+      '<workbook><sheets><sheet name="Rozpočet &amp; plán" sheetId="2" r:id="rId2"/><sheet name="Empty" sheetId="1" r:id="rId1"/></sheets></workbook>'
+    )
+    await writeFile(
+      path.join(book, 'xl/_rels/workbook.xml.rels'),
+      '<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/><Relationship Target="/xl/worksheets/sheet2.xml" Id="rId2"/></Relationships>'
+    )
+    await writeFile(path.join(book, 'xl/sharedStrings.xml'), '<sst><si><t>Položka</t></si><si><r><t>Cena</t></r><r><t xml:space="preserve"> v Kč</t></r></si><si><t>Licence a|b</t></si></sst>')
+    await writeFile(path.join(book, 'xl/worksheets/sheet1.xml'), '<worksheet><sheetData/></worksheet>')
+    await writeFile(
+      path.join(book, 'xl/worksheets/sheet2.xml'),
+      '<worksheet><sheetData>' +
+        '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="D1" t="s"><v>1</v></c></row>' +
+        '<row r="2"/>' +
+        '<row r="3"><c r="A3" t="s"><v>2</v></c><c r="B3" s="1"/><c r="D3"><f>SUM(X1:X9)</f><v>1200.5</v></c></row>' +
+        '<row r="4"><c r="A4" t="inlineStr"><is><t>Server\nnový</t></is></c><c r="D4" t="b"><v>1</v></c></row>' +
+        '</sheetData></worksheet>'
+    )
+    await mkdir(path.join(root, 'projects/a/tables'), { recursive: true })
+    execFileSync('/usr/bin/zip', ['-qr', path.join(root, 'projects/a/tables/budget.xlsx'), 'xl'], { cwd: book })
+    await rm(book, { recursive: true })
+    // As Excel on a Czech system writes a CSV: Windows-1250, with semicolons. ě, é and ň are one byte each.
+    await writeFile(path.join(root, 'projects/a/tables/places.csv'), Buffer.from('M\xecsto;Lid\xe9\nPlze\xf2;170000\n', 'latin1'))
+
+    assert.equal(await refreshTwins(root, '/no/helper'), 2)
+    // Columns empty all the way down are left out, and a row with nothing in it.
+    assert.equal(
+      await readFile(path.join(root, '.indexes/text/projects/a/tables/budget.xlsx.txt'), 'utf8'),
+      '## Rozpočet & plán\n\n| Položka | Cena v Kč |\n| --- | --- |\n| Licence a\\|b | 1200.5 |\n| Server nový | TRUE |\n'
+    )
+    assert.equal(await readFile(path.join(root, '.indexes/text/projects/a/tables/places.csv.txt'), 'utf8'), 'Město;Lidé\nPlzeň;170000\n')
+    const found = async (query: string) => searchIndex(await refreshIndex(root), query).map((hit) => hit.path)
+    assert.deepEqual(await found('Licence'), ['projects/a/tables/budget.xlsx'])
+    assert.deepEqual(await found('Plzeň'), ['projects/a/tables/places.csv'])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})

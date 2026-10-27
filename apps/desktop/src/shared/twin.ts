@@ -1,9 +1,9 @@
 /**
  * The kinds of file whose text Mate takes out and keeps, so that search, the page and agents can
- * read them: PDF, and what the system's text converter reads, Word among it. The text of one is
+ * read them: PDF, what the system's text converter reads, Word among it, and tables. The text of one is
  * its twin, kept in `.indexes/text/` under the file's own path with `.txt` added.
  */
-export const TWINNED = ['.pdf', '.docx', '.doc', '.rtf', '.odt', '.html', '.htm', '.webarchive']
+export const TWINNED = ['.pdf', '.docx', '.doc', '.rtf', '.odt', '.html', '.htm', '.webarchive', '.xlsx', '.csv', '.tsv']
 
 export const isTwinned = (path: string): boolean => {
   const lower = path.toLowerCase()
