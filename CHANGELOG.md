@@ -5,6 +5,15 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- *Add a source* takes a folder too, and so does a drop on the window.
+  The folder is copied into the project whole, with its folders, and
+  search reads what is in it, by meaning too. Hidden files and links are
+  left out.
+
 ## [0.4.0] - 2026-10-15
 
 Mate becomes a place to work in a project, not only to review a draft.

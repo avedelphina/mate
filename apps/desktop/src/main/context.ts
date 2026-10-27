@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, statSync } from 'node:fs'
-import { lstat, mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { cp, lstat, mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { insertComment, readDocument, retype, type Thread } from '../shared/comments'
 import { placeOf, type Place } from './contextIndex'
@@ -140,6 +140,12 @@ export async function renameProject(contextDir: string, from: string, name: stri
   return title
 }
 
+/** Whether `inner` is `outer` or lies in it. Both are real paths. */
+const within = (outer: string, inner: string): boolean => {
+  const relative = path.relative(outer, inner)
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+}
+
 /**
  * Bring a folder in as a project of the context, as it is: often a repository the reader already
  * has. It is moved, not copied, to `projects/<its name>/`, and nothing in it is changed. Its git
@@ -148,10 +154,6 @@ export async function renameProject(contextDir: string, from: string, name: stri
 export async function importProject(contextDir: string, from: string): Promise<string> {
   const source = await realpath(String(from))
   const here = await realpath(contextDir)
-  const within = (outer: string, inner: string) => {
-    const relative = path.relative(outer, inner)
-    return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
-  }
   if (within(here, source)) throw new Error('That folder is in this context already.')
   if (within(source, here)) throw new Error('This context is inside that folder. It cannot be brought into itself.')
   if (!(await stat(source)).isDirectory()) throw new Error('Only a folder can be a project.')
@@ -554,4 +556,37 @@ export async function copySource(contextDir: string, project: string, source: st
   const text = await readFile(source)
   await putDraft(contextDir, project, file, text, 'A draft of that name is already in this project. It was not written over.')
   return readProject(contextDir, project, file)
+}
+
+/** The folders a project keeps for itself. A folder copied in does not take one of their names. */
+const KEPT = new Set(['draft', 'dropbox', 'panes', 'scripts'])
+
+/**
+ * Copy a folder from outside the context into a project, as it is: all its files and folders, as
+ * material of the project. The text twins and search by meaning then read it. The path is one the
+ * reader chose in the file dialog of the system. Hidden files and links are left out: a link could
+ * lead out of the context, and what is under a `.git` folder is never kept for an agent.
+ */
+export async function copyFolder(contextDir: string, project: string, source: string): Promise<string> {
+  const from = path.isAbsolute(String(source)) ? await realpath(source).catch(() => '') : ''
+  if (!from || !(await stat(from)).isDirectory()) throw new Error('That is not a folder on this computer.')
+  const here = await realpath(contextDir)
+  if (within(here, from)) throw new Error('That folder is in this context already.')
+  if (within(from, here)) throw new Error('This context is inside that folder. It cannot be copied into itself.')
+  const name = path.basename(from)
+  if (name.startsWith('.')) throw new Error('That folder is hidden. Mate leaves hidden files out.')
+  if (KEPT.has(name)) throw new Error(`Rename the folder first. A project keeps ${name}/ for itself.`)
+  const target = path.join(await realInside(contextDir, 'projects', project), name)
+  if (existsSync(target)) throw new Error('A file or folder of that name is already in this project.')
+  await cp(from, target, {
+    recursive: true,
+    errorOnExist: true,
+    force: false,
+    filter: async (each) => {
+      if (each !== from && path.basename(each).startsWith('.')) return false
+      const info = await lstat(each)
+      return info.isDirectory() || info.isFile()
+    }
+  })
+  return `projects/${project}/${name}`
 }

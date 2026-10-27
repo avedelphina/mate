@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { copySource, listShelf, noteSource, publish, pullIn, readProject, takeDown } from '../src/main/context.ts'
+import { copyFolder, copySource, listShelf, noteSource, publish, pullIn, readProject, takeDown } from '../src/main/context.ts'
 import { refreshIndex, searchIndex } from '../src/main/contextIndex.ts'
 
 async function context(): Promise<string> {
@@ -152,6 +152,40 @@ test('a file outside the context is noted by where it lies, or copied in when it
     assert.equal(await readFile(path.join(outside, 'memo.md'), 'utf8'), '# Memo\n')
     await assert.rejects(copySource(root, 'review', path.join(outside, 'memo.md')), /already in this project/)
     await assert.rejects(copySource(root, 'review', path.join(outside, 'contract.pdf')), /not a document Mate can open/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+    await rm(outside, { recursive: true, force: true })
+  }
+})
+
+test('a folder from outside is copied into a project whole, with its folders, as material', async () => {
+  const root = await context()
+  const outside = `${root}-papers`
+  try {
+    await mkdir(path.join(outside, 'cz/2024'), { recursive: true })
+    await mkdir(path.join(outside, '.git'))
+    await writeFile(path.join(outside, 'cz/2024/zakon.pdf'), 'pdf')
+    await writeFile(path.join(outside, 'cz/notes.md'), '# Poznámky\n')
+    await writeFile(path.join(outside, '.git/config'), '[core]\n')
+    await writeFile(path.join(outside, '.DS_Store'), '')
+    await symlink('/etc/hosts', path.join(outside, 'hosts'))
+
+    assert.equal(await copyFolder(root, 'review', outside), `projects/review/${path.basename(outside)}`)
+    const copied = path.join(root, 'projects/review', path.basename(outside))
+    assert.deepEqual((await readdir(copied, { recursive: true })).sort(), ['cz', 'cz/2024', 'cz/2024/zakon.pdf', 'cz/notes.md'])
+    // It is material: the project keeps it where it was put, and a search finds it.
+    assert.deepEqual([...new Set(searchIndex(await refreshIndex(root), 'Poznámky').map((hit) => `${hit.kind} ${hit.path}`))], [
+      `material projects/review/${path.basename(outside)}/cz/notes.md`
+    ])
+
+    await assert.rejects(copyFolder(root, 'review', outside), /already in this project/)
+    await assert.rejects(copyFolder(root, 'review', path.join(outside, 'cz/notes.md')), /not a folder/)
+    await assert.rejects(copyFolder(root, 'review', 'cz'), /not a folder/)
+    await assert.rejects(copyFolder(root, 'review', path.join(root, 'shelf')), /in this context already/)
+    await assert.rejects(copyFolder(root, 'review', path.dirname(root)), /cannot be copied into itself/)
+    await mkdir(path.join(outside, 'draft'))
+    await assert.rejects(copyFolder(root, 'review', path.join(outside, 'draft')), /keeps draft\/ for itself/)
+    await assert.rejects(copyFolder(root, 'review', path.join(outside, '.git')), /hidden/)
   } finally {
     await rm(root, { recursive: true, force: true })
     await rm(outside, { recursive: true, force: true })

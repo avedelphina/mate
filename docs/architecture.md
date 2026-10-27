@@ -26,7 +26,7 @@ Every call has this shape. The whole of what the window can ask for:
 | Comments | `comment:add`, `comment:reply`, `comment:apply`, `comment:anchor` | `insertComment`, `addReply`, `applySuggestion`, `anchorComment` |
 | A draft | `draft:write`, `draft:create`, `draft:publish` | `writeDraft`, `createDraft`, and `publish` after a dialog of the system |
 | The shelf | `shelf:list`, `shelf:take` | `listShelf`, `takeDown` |
-| Sources | `source:pick`, `source:note`, `source:pull`, `dropbox:pull` | the file dialog, `noteSource`, `copySource`, `pullIn` |
+| Sources | `source:pick`, `source:note`, `source:pull`, `source:copy`, `dropbox:pull` | the file dialog, `noteSource`, `copySource`, `copyFolder`, `pullIn` |
 | A pane | `pane:tick` | `tickPane` |
 | A script | `script:run`, `script:stop` | `runScript`, `stopScript` |
 | Agents | `agents:list`, `mcp:bind` | which agents can be invited; the door for the reader's own |
@@ -64,7 +64,7 @@ preload as CommonJS. Leave that as it is.
 | What the assist is asked | `src/main/assist.ts` |
 | What is indexed, how a search ranks | `src/main/contextIndex.ts` |
 | Publishing a draft, and taking a shelf document down | `publish` and `takeDown` in `src/main/context.ts` |
-| How a file comes in, and the exits of a dropbox | `pullIn`, `noteSource` and `copySource` in `src/main/context.ts` |
+| How a file comes in, and the exits of a dropbox | `pullIn`, `noteSource`, `copySource` and `copyFolder` in `src/main/context.ts` |
 | Running a script of a project | `src/main/scripts.ts` |
 | Search by meaning: passages, vectors, the model | `src/main/meaning.ts` |
 | Which files have a text twin, and how it is made | `src/shared/twin.ts`, then `src/main/twins.ts`, and `--pdf` in `assist/main.swift` |
@@ -191,8 +191,17 @@ remembered.
   twins"), is plain text for search and reading. The agent makes a
   draft of it, with its headings and its form.
 
-A file comes in from outside in two ways. "Add a source" opens the file
-dialog of the system. Or the file is dropped on the window. Either way
+A folder from outside has one exit of its own. `copyFolder` copies it
+into the project whole, with its folders, under its own name, as
+material: the text twins and search by meaning then read it. Hidden
+files and links are left out, so no `.git` folder comes in and nothing
+leads out of the context. A folder named like one the project keeps for
+itself (`draft`, `dropbox`, `panes`, `scripts`) is refused, and so is
+one while an agent works, whose turn would take its files for the
+agent's.
+
+A file or a folder comes in from outside in two ways. "Add a source"
+opens the file dialog of the system. Or the file is dropped on the window. Either way
 the window shows a card for it, with the exits that fit. A file of the
 project that Mate cannot draw has the same card, with "Show it in
 Finder" in place of the first exit.

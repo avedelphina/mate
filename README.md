@@ -69,7 +69,8 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   file is pulled into the drafts. A file that stays where it is gets a
   note with its path, so a search finds it. For a Word file or a PDF, one
   button asks the agent to take its text out into a draft. Mate reads no
-  such file itself.
+  such file itself. A folder is copied into the project whole, with its
+  folders, so search reads what is in it.
 - **The files of a context.** The rail lists the shelf, then under
   *Context* the rest of the context that is not a project, such as its
   own dropbox.

@@ -10,6 +10,7 @@ import { forgetMeaning, meaningMissing, moveMeaning, ollamaEmbed, refreshMeaning
 import { refreshTwins } from './twins'
 import {
   addComment,
+  copyFolder,
   copySource,
   createContext,
   createDraft,
@@ -505,7 +506,7 @@ app.whenReady().then(() => {
     requireContext(event)
     const window = BrowserWindow.fromWebContents(event.sender)
     const options = {
-      properties: ['openFile' as const, 'multiSelections' as const],
+      properties: ['openFile' as const, 'openDirectory' as const, 'multiSelections' as const],
       ...(typeof near === 'string' && path.isAbsolute(near) ? { defaultPath: near } : {})
     }
     const result = await (window ? dialog.showOpenDialog(window, options) : dialog.showOpenDialog(options))
@@ -514,7 +515,8 @@ app.whenReady().then(() => {
       : result.filePaths.map((each) => {
           const id = randomBytes(8).toString('hex')
           chosen.set(id, each)
-          return { id, name: path.basename(each), where: each, markdown: each.toLowerCase().endsWith('.md') }
+          const folder = statSync(each).isDirectory()
+          return { id, name: path.basename(each), where: each, markdown: !folder && each.toLowerCase().endsWith('.md'), folder }
         })
   })
 
@@ -528,6 +530,18 @@ app.whenReady().then(() => {
     const source = chosen.get(String(id))
     if (!source) throw new Error('Choose the file with Add a source first.')
     return copySource(requireContext(event), project, source)
+  })
+
+  // A folder is copied in whole, so only one the reader chose in the dialog is. While an agent works,
+  // its files would be taken for the agent's.
+  ipcMain.handle('source:copy', async (event, project: string, id: string) => {
+    const contextDir = requireContext(event)
+    const source = chosen.get(String(id))
+    if (!source) throw new Error('Choose the folder with Add a source first.')
+    if (isBusy(contextDir)) throw new Error('An agent is working in this context. Copy the folder in when it has finished.')
+    const copied = await copyFolder(contextDir, project, source)
+    readTwins(contextDir)
+    return copied
   })
 
   // A document in a dropbox is pulled into the project's drafts. It leaves the dropbox.

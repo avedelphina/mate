@@ -40,7 +40,7 @@ const KINDS: Record<Kind, { label: string; note: string }> = {
  * the project that Mate cannot draw. `id` stands for a path the reader chose in the system dialog.
  * `inContext` is its path from the context folder, when it is in it.
  */
-type Source = { name: string; where: string; id?: string; inContext?: string; markdown: boolean }
+type Source = { name: string; where: string; id?: string; inContext?: string; markdown: boolean; folder?: boolean }
 
 // How wide the rail and the margin may be. styles.css keeps the page at 320px or more, whatever these say.
 const COLUMNS = {
@@ -830,7 +830,7 @@ export function App() {
 
   const settled = (source: Source) => setSources((all) => all.filter((each) => each !== source))
 
-  /** The reader chooses files in the dialog of the system. Each then leaves by one of the exits. */
+  /** The reader chooses files and folders in the dialog of the system. Each then leaves by one of the exits. */
   async function addSources() {
     try {
       const picked = await window.mate.pickSources()
@@ -843,7 +843,12 @@ export function App() {
   /** A file dropped on the window comes in the same way. The window learns where it lies, and cannot read it. */
   function dropped(event: DragEvent<HTMLDivElement>) {
     event.preventDefault()
-    const files = [...event.dataTransfer.files].map((each) => ({ name: each.name, where: window.mate.pathOf(each), markdown: /\.md$/i.test(each.name) }))
+    const files = [...event.dataTransfer.items].flatMap((each) => {
+      const file = each.kind === 'file' ? each.getAsFile() : null
+      if (!file) return []
+      const folder = !!each.webkitGetAsEntry()?.isDirectory
+      return [{ name: file.name, where: window.mate.pathOf(file), markdown: !folder && /\.md$/i.test(file.name), folder }]
+    })
     if (files.length === 0) return
     if (!view) return setError('Open a project first. A file that comes in belongs to a project.')
     setSources(files.filter((each) => each.where))
@@ -880,6 +885,23 @@ export function App() {
       setView(pulled)
     } catch (caught) {
       setError(reason(caught, 'Could not pull that file in.'))
+    }
+  }
+
+  /**
+   * The exit for a folder: a copy of the whole of it in the project, as material, which search then
+   * reads. As with a document, a folder that was dropped is chosen once more in the dialog.
+   */
+  async function copyFolder(source: Source) {
+    if (!view) return
+    try {
+      const id = source.id ?? (await window.mate.pickSources(source.where)).find((each) => each.folder)?.id
+      if (!id) return
+      await window.mate.copyFolder(view.project, id)
+      settled(source)
+      setView(await window.mate.openProject(view.project, view.file ?? undefined))
+    } catch (caught) {
+      setError(reason(caught, 'Could not copy that folder in.'))
     }
   }
 
@@ -1103,7 +1125,7 @@ export function App() {
                         ) : naming === null ? (
                           <>
                             <button className="row" onClick={() => setNaming('')}>+ New draft</button>
-                            <button className="row" title="A file from outside this context. You choose what becomes of it." onClick={() => void addSources()}>
+                            <button className="row" title="A file or a folder from outside this context. You choose what becomes of it." onClick={() => void addSources()}>
                               + Add a source
                             </button>
                             <button className="row" title="Its folder is renamed, and its sessions go with it" onClick={() => setRenaming({ what: 'project', name: view.project })}>
@@ -1265,6 +1287,13 @@ export function App() {
                     >
                       Show it in {document.documentElement.dataset.platform === 'mac' ? 'Finder' : 'the file manager'}
                     </button>
+                  ) : source.folder ? (
+                    <button
+                      title={`A copy of the whole folder in projects/${view.project}/, as material. Search reads it.${source.id ? '' : ' You choose the folder once more, in the dialog of the system.'}`}
+                      onClick={() => void copyFolder(source)}
+                    >
+                      {source.id ? 'Copy it into this project, with its folders' : 'Copy it into this project, with its folders…'}
+                    </button>
                   ) : (
                     <button title="The file stays where it is. A note in the dropbox says where." onClick={() => void noteSource(source)}>
                       Leave it there, and note its path
@@ -1278,7 +1307,7 @@ export function App() {
                       {source.id ? 'Pull it into draft/' : 'Pull it into draft/…'}
                     </button>
                   )}
-                  {!source.markdown && !source.where.startsWith('scripts/') && (
+                  {!source.markdown && !source.folder && !source.where.startsWith('scripts/') && (
                     <button title="Said to the agent in the open session. Mate reads no such file itself." onClick={() => void extract(source)}>
                       Ask the agent to extract its text into draft/
                     </button>

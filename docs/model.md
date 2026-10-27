@@ -46,7 +46,9 @@ keeps its own, and stays what is true.
 - `dropbox/` is intake. A file leaves it by one of three exits. It stays
   outside and its path is noted. It is pulled into the drafts. Or its
   text is taken out into a draft. There is no fourth exit, where
-  something is just remembered.
+  something is just remembered. A folder from outside has one exit of
+  its own: it is copied into the project whole, with its folders, as
+  material.
 - `panes/` holds what an agent gathered to show beside the draft: tasks,
   deadlines, mail. A pane is shown. It is not cited, and it is not a
   source.
