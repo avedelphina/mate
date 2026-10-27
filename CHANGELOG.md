@@ -5,7 +5,12 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.5.0] - 2026-10-27
+
+Sources come in whole, tables are read, and a context can be kept
+private. A folder of material is copied into a project with all its
+folders, an Excel workbook or a CSV file is read like a PDF, and in a
+private context no agent works, so nothing of it leaves your Mac.
 
 ### Added
 

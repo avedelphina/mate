@@ -9,7 +9,7 @@ invited into a project to read the context, propose a plan, make changes
 that you approve, and show you what it gathered in a pane beside the
 draft. Nothing is copied into a database, and nothing needs a server.
 
-> **Status: early.** Version 0.4.0. Built and driven by hand on macOS. No
+> **Status: early.** Version 0.5.0. Built and driven by hand on macOS. No
 > download yet: you run it from a checkout, or build the app yourself. See
 > [Known limits](#known-limits) and the [changelog](CHANGELOG.md).
 
