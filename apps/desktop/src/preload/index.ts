@@ -90,6 +90,8 @@ contextBridge.exposeInMainWorld('mate', {
   },
   isTrusted: (): Promise<boolean> => ipcRenderer.invoke('trust:get'),
   setTrusted: (yes: boolean): Promise<boolean> => ipcRenderer.invoke('trust:set', yes),
+  isPrivate: (): Promise<boolean> => ipcRenderer.invoke('privacy:get'),
+  setPrivate: (yes: boolean): Promise<boolean> => ipcRenderer.invoke('privacy:set', yes),
   runScript: (project: string, line: string) => ipcRenderer.invoke('script:run', project, line),
   stopScript: () => ipcRenderer.invoke('script:stop'),
   checkAssist: () => ipcRenderer.invoke('assist:check'),

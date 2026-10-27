@@ -172,6 +172,13 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`!!document.querySelector('.center .talk-page .invite')`, 'the conversation on the page')
     assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review', 'deadlines*', 'tasks', 'workflow'])
 
+    // Kept private, the context lets no agent in. That asks nothing, and is kept in the app's own data, not in the folder.
+    await app.press('.private button', 'Keep this context private')
+    await app.until(`document.querySelector('.private')?.textContent.startsWith('This context is private.')`, 'the context is private')
+    assert.equal(await app.page(`[...document.querySelectorAll('.invite button')].every((each) => each.disabled)`), true)
+    assert.equal(JSON.parse(await readFile(path.join(app.userData, 'private.json'), 'utf8')).length, 1)
+    assert.equal(await app.page(`document.querySelector('.private button').textContent`), 'Let agents in…')
+
     // A script is not run in a context the reader has not trusted.
     await app.press('.margin .tabs button', 'workflow')
     await app.page(`document.querySelector('.margin .pane .run').click()`)

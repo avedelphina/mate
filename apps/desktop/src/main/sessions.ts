@@ -12,7 +12,7 @@ import { placeOf } from './contextIndex'
 import { changesSince, fingerprints, insidePath, mateWrote, put, takeSnapshot, watching, type Change, type Snapshot } from './guard'
 import { changedParts, diffLines, type DiffLine } from '../shared/diff'
 import { EFFORTS } from '../shared/effort'
-import { isTrusted } from './trust'
+import { PRIVATE, isPrivate, isTrusted } from './trust'
 
 /**
  * `waiting`: sent while the agent was working, and not yet given to it.
@@ -276,6 +276,7 @@ export async function startSession(
   agent: Invited,
   host: string | null = null
 ): Promise<Session> {
+  if (isPrivate(contextDir)) throw new Error(PRIVATE)
   if (agent !== 'mcp' && !AGENTS[agent]) throw new Error('That agent is not one Mate knows.')
   if (host !== null && (agent === 'mcp' || !isHost(host) || !AGENTS[agent].remoteArgs)) {
     throw new Error('That agent cannot be invited from another machine.')
@@ -451,6 +452,8 @@ export async function sendMessage(
   emit: (session: Session) => void,
   wait = false
 ): Promise<{ started: Session; finished: Promise<Session> }> {
+  // A session from before the context was made private stays in the list, and says nothing more to its agent.
+  if (isPrivate(contextDir)) throw new Error(PRIVATE)
   // Two messages sent at the same moment are taken in one after the other, so the second finds the first one's turn.
   const before = entering.get(id) ?? Promise.resolve()
   let taken!: () => void
@@ -789,7 +792,8 @@ export function stopAllTurns(): void {
 
 /**
  * The agents that stayed between turns in a context are sent away: it is about to be renamed, and
- * they work in a folder that will not be there. Each is started again, with the conversation so far.
+ * they work in a folder that will not be there, or it is now kept private. Each is started again,
+ * with the conversation so far, when it is next told something.
  */
 export async function closeAgentsIn(contextDir: string): Promise<void> {
   for (const project of await readdir(path.join(contextDir, '.sessions')).catch(() => [])) {

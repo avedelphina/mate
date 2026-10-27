@@ -38,7 +38,7 @@ import { refreshIndex, searchIndex } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
 import { runScript, stopAllScripts, stopScript } from './scripts'
 import { approve, describe, instructionFiles, keepPinsIn, movePins, unapproved } from './pins'
-import { isTrusted, keepTrustIn, moveTrust, setTrusted } from './trust'
+import { PRIVATE, isPrivate, isTrusted, keepPrivacyIn, keepTrustIn, movePrivacy, moveTrust, setPrivate, setTrusted } from './trust'
 import {
   answerAsk,
   attend,
@@ -272,6 +272,7 @@ function setMenu(): void {
 
 app.whenReady().then(() => {
   keepTrustIn(path.join(app.getPath('userData'), 'trusted.json'))
+  keepPrivacyIn(path.join(app.getPath('userData'), 'private.json'))
   keepPinsIn(path.join(app.getPath('userData'), 'pins.json'))
 
   // Before an agent starts: has what the context tells it changed since the reader last saw it?
@@ -445,8 +446,9 @@ app.whenReady().then(() => {
     await closeAgentsIn(contextDir)
     const moved = await renameContext(contextDir, String(name))
     if (moved === contextDir) return describeContext(contextDir)
-    // Trust and the approved instruction files were given to this folder. They follow it to its new name.
+    // Trust, privacy and the approved instruction files were given to this folder. They follow it to its new name.
     moveTrust(was, moved)
+    movePrivacy(was, moved)
     movePins(was, moved)
     forgetMeaning(contextDir)
     for (const [id, dir] of contexts) if (dir === contextDir) contexts.set(id, moved)
@@ -589,7 +591,11 @@ app.whenReady().then(() => {
 
   ipcMain.handle('agents:list', () => [...listAgents(), { kind: 'mcp', label: 'Your own agent', found: true, host: null }])
 
-  ipcMain.handle('mcp:bind', (event, project: string, id: string) => openDoor({ contextDir: requireContext(event), project, id }))
+  ipcMain.handle('mcp:bind', (event, project: string, id: string) => {
+    const contextDir = requireContext(event)
+    if (isPrivate(contextDir)) throw new Error(PRIVATE)
+    return openDoor({ contextDir, project, id })
+  })
 
   ipcMain.handle('session:list', (event, project: string) => listSessions(requireContext(event), project))
 
@@ -653,6 +659,36 @@ app.whenReady().then(() => {
     }
     setTrusted(contextDir, yes === true)
     return isTrusted(contextDir)
+  })
+
+  ipcMain.handle('privacy:get', (event) => isPrivate(requireContext(event)))
+
+  // Keeping a context private asks nothing: it only takes away. The agents left idle in it are stopped. Letting
+  // agents in again is asked in a dialog of the system, which the page cannot press, since its text may then leave.
+  ipcMain.handle('privacy:set', async (event, yes: boolean) => {
+    const contextDir = requireContext(event)
+    if (yes === true) {
+      if (isBusy(contextDir)) throw new Error('An agent is working in this context. Keep it private when the agent has finished.')
+      await closeAgentsIn(contextDir)
+    } else {
+      const window = BrowserWindow.fromWebContents(event.sender)
+      const options = {
+        type: 'warning' as const,
+        buttons: ['Cancel', 'Let Agents In'],
+        defaultId: 0,
+        cancelId: 0,
+        message: 'Let agents work in this context again?',
+        detail:
+          `${contextDir}\n\n` +
+          'An agent you invite sends what it reads here off this computer: to where its model runs, such as Anthropic, ' +
+          'OpenAI or OpenRouter, or to another machine over SSH. ' +
+          'Your own agent can come in through the door again.'
+      }
+      const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+      if (response !== 1) return true
+    }
+    setPrivate(contextDir, yes === true)
+    return isPrivate(contextDir)
   })
 
   // What a kept or a held change is, as lines. It reads and writes nothing else.

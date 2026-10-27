@@ -203,6 +203,10 @@ export type MateApi = {
   isTrusted: () => Promise<boolean>
   /** Asks the reader in a system dialog before it gives trust. Returns what holds afterwards. */
   setTrusted: (yes: boolean) => Promise<boolean>
+  /** Whether the open context is private: no agent works in it, so nothing of it leaves this computer. */
+  isPrivate: () => Promise<boolean>
+  /** Keeping it private asks nothing. Letting agents in again asks in a system dialog. Returns what holds afterwards. */
+  setPrivate: (yes: boolean) => Promise<boolean>
   /** Run a script of the project: `scripts/NAME`, then what it is given. Only in a context the reader trusts. No agent. */
   runScript: (project: string, line: string) => Promise<Ran>
   /** Stop the script that is running in this context. */

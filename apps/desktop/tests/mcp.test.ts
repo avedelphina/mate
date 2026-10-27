@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -8,6 +8,7 @@ import { startMcp, type Binding } from '../src/main/mcp.ts'
 import { meaningRuns, refreshMeaning } from '../src/main/meaning.ts'
 import { refreshIndex } from '../src/main/contextIndex.ts'
 import { loadSession, sendMessage, startSession } from '../src/main/sessions.ts'
+import { isPrivate, movePrivacy, setPrivate } from '../src/main/trust.ts'
 import { parseComments } from '../src/shared/comments.ts'
 
 // No test here asks the Ollama of the computer it runs on. One that needs a model puts a stand-in in.
@@ -151,6 +152,49 @@ test('an agent Mate started gets a door that only reads, and searches there by m
     assert.equal((await loadSession(root, 'review', session.id)).messages.length, 0)
   } finally {
     Object.assign(meaningRuns, runs)
+    door.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('in a private context no agent starts, none is told anything, and the door gives nothing more', async () => {
+  // Its real path, as main has it when a context is renamed: the temporary folder is behind a link on a Mac.
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'mate-private-')))
+  await mkdir(path.join(root, 'projects/review/draft'), { recursive: true })
+  await writeFile(path.join(root, 'projects/review/draft/document.md'), '# Draft\n\nConfidential text.\n')
+  // An agent that came in before the context was made private.
+  const session = await startSession(root, 'review', 'mcp')
+  const bound: Binding = { contextDir: root, project: 'review', id: session.id }
+  const door = await startMcp({ port: 0, token: 'secret', binding: () => bound, changed: () => {} })
+  const read = async () => {
+    const response = await fetch(`http://127.0.0.1:${door.port}/mcp`, {
+      method: 'POST',
+      headers: { authorization: 'Bearer secret' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'mate_read', arguments: { path: 'projects/review/draft/document.md' } } })
+    })
+    return ((await response.json()) as { result: { content: { text: string }[] } }).result.content[0].text
+  }
+  try {
+    assert.match(await read(), /Confidential text/)
+    setPrivate(root, true)
+    assert.equal(isPrivate(root), true)
+    assert.match(await read(), /^This context is private\./)
+    await assert.rejects(startSession(root, 'review', 'claude'), /This context is private/)
+    await assert.rejects(startSession(root, 'review', 'hermes', 'some-host'), /This context is private/)
+    await assert.rejects(sendMessage(root, 'review', session.id, 'Read the draft.', false, () => {}), /This context is private/)
+
+    // Renamed, it stays private, and the name it had is not private any more.
+    const renamed = `${root}-renamed`
+    await rename(root, renamed)
+    movePrivacy(root, renamed)
+    assert.deepEqual([isPrivate(renamed), isPrivate(root)], [true, false])
+    await rename(renamed, root)
+    movePrivacy(renamed, root)
+
+    setPrivate(root, false)
+    assert.match(await read(), /Confidential text/)
+  } finally {
+    setPrivate(root, false)
     door.close()
     await rm(root, { recursive: true, force: true })
   }

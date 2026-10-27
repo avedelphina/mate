@@ -44,6 +44,8 @@ export function Agent(props: {
   const [compared, setCompared] = useState<({ key: string } & Compared) | null>(null)
   // Whether the reader trusts this context. It decides what an invited Hermes may use.
   const [trusted, setTrusted] = useState(false)
+  // Whether the context is private. Then no agent can be invited, and main refuses one all the same.
+  const [kept, setKept] = useState(false)
 
   const session = sessions.find((each) => each.id === open) ?? null
   useEffect(() => onSession(session?.id ?? null), [session?.id])
@@ -60,6 +62,7 @@ export function Agent(props: {
     setOpen(null)
     window.mate.listSessions(project).then(setSessions, () => setSessions([]))
     window.mate.isTrusted().then(setTrusted, () => setTrusted(false))
+    window.mate.isPrivate().then(setKept, () => setKept(false))
   }, [project])
 
   useEffect(
@@ -140,13 +143,15 @@ export function Agent(props: {
           {agents.map((agent) => (
             <button
               key={agent.label}
-              disabled={!agent.found}
+              disabled={!agent.found || kept}
               title={
-                agent.host
-                  ? 'On another machine. It has no folder there: Mate sends it the text of the files.'
-                  : agent.found
-                    ? undefined
-                    : `${agent.label} was not found on this computer.`
+                kept
+                  ? 'This context is private.'
+                  : agent.host
+                    ? 'On another machine. It has no folder there: Mate sends it the text of the files.'
+                    : agent.found
+                      ? undefined
+                      : `${agent.label} was not found on this computer.`
               }
               onClick={() => invite(agent)}
             >
@@ -160,6 +165,14 @@ export function Agent(props: {
             : 'This context is not trusted. An agent gets tools for files and nothing else.'}
           <button onClick={() => window.mate.setTrusted(!trusted).then(setTrusted, (caught) => setError(reason(caught)))}>
             {trusted ? 'Stop trusting' : 'Trust this context…'}
+          </button>
+        </p>
+        <p className="meta hint trust private">
+          {kept
+            ? 'This context is private. No agent works in it, so nothing of it leaves this computer. Search, reading and the comment box still work.'
+            : 'An agent sends what it reads to where its model runs.'}
+          <button onClick={() => window.mate.setPrivate(!kept).then(setKept, (caught) => setError(reason(caught)))}>
+            {kept ? 'Let agents in…' : 'Keep this context private'}
           </button>
         </p>
         {sessions.length > 0 && <h3>Sessions <span className="count">{sessions.length}</span></h3>}

@@ -17,6 +17,11 @@ then, minor versions may change behaviour.
   table, and a CSV or TSV file is read as it is. Search finds what they
   hold, by meaning too, the page shows them, and agents read them. A CSV
   that Excel wrote on a Czech or Slovak system reads right.
+- A context can be kept private, from the *Agent* tab. Then no agent
+  works in it, so nothing of it leaves your Mac: none can be invited,
+  one that was is told nothing more, and the door for your own agent
+  gives nothing. Search, reading and the comment box still work. Letting
+  agents in again asks in a system dialog.
 
 ## [0.4.0] - 2026-10-15
 

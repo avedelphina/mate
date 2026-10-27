@@ -89,6 +89,16 @@ reader knows.
 Trust does not change who decides. The plan still comes first. A change
 outside the project is still held. Only the reader publishes.
 
+## Privacy
+
+A context can be kept private. Then no agent works in it, so nothing of
+it leaves the computer. Everything else still works there: search, by
+meaning too, the text of PDF, Word and Excel files, scripts, commits, and
+the comment box, which asks the model on this Mac. The answer is kept
+outside the folder, like trust. Keeping a context private asks nothing.
+Letting agents in again is the reader's to say, in a dialog of the
+system.
+
 ## What this repository does not contain
 
 `apps/desktop` is a window onto this tree. It opens a context, opens a

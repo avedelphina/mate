@@ -8,6 +8,7 @@ import { placeOf, refreshIndex, searchIndex, type Kind } from './contextIndex'
 import { meaningRuns, searchMeaning } from './meaning'
 import { judge, loadSession, saveSession, type Session } from './sessions'
 import { isTwinned } from '../shared/twin'
+import { PRIVATE, isPrivate } from './trust'
 
 /**
  * The door for an agent the reader runs themselves. It speaks the Model Context Protocol over
@@ -239,6 +240,8 @@ export function callTool(
 ): Promise<string> {
   const call = queue.then(async () => {
     if (!binding) throw new Error('No project is open for you. Ask the reviewer to open a session for their own agent in Mate.')
+    // Every call through either door, asked each time: an agent already in when the context was made private gets nothing more.
+    if (isPrivate(binding.contextDir)) throw new Error(PRIVATE)
     if (reading && !READING.includes(name)) throw new Error('This door only reads. Write with your own tools.')
     const session = await loadSession(binding.contextDir, binding.project, binding.id)
     // An agent Mate started says its own steps. Nothing of the session is written here.

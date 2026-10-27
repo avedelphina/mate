@@ -32,6 +32,7 @@ Every call has this shape. The whole of what the window can ask for:
 | Agents | `agents:list`, `mcp:bind` | which agents can be invited; the door for the reader's own |
 | A session | `session:list`, `session:start`, `session:send`, `session:stop`, `session:answer`, `session:revert`, `session:settle`, `session:compare`, `session:models`, `session:tune` | `sessions.ts` |
 | Trust | `trust:get`, `trust:set` | `isTrusted`, and `setTrusted` after a dialog of the system |
+| Privacy | `privacy:get`, `privacy:set` | `isPrivate`, and `setPrivate`: at once to keep a context private, after a dialog of the system to let agents in again |
 | The assist | `assist:check`, `assist:run` | is the helper here; the helper, once for each question |
 
 `session:update` is the one message that goes the other way: the session
@@ -43,8 +44,9 @@ stays inside the context before reading or writing. Where the reader
 brings in a file from outside the context, they choose it in a dialog of
 the system: see "The shelf: taking down and publishing".
 
-Three things are decided in a dialog of the system, which the page cannot
-press: trusting a context, approving instruction files, and publishing.
+Four things are decided in a dialog of the system, which the page cannot
+press: trusting a context, letting agents into a private one again,
+approving instruction files, and publishing.
 
 `sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`.
 Do not relax these to make a feature easier. A sandboxed window cannot
@@ -75,6 +77,7 @@ preload as CommonJS. Leave that as it is.
 | The tree of a project's files | `listFiles` in `src/main/context.ts`, then `Tree.tsx` |
 | How an agent is started and its output read | `src/main/agents.ts` |
 | Which contexts are trusted, and what trust changes | `src/main/trust.ts`, then `acp` in `src/main/agents.ts` |
+| Which contexts are private, and where an agent is refused there | `src/main/trust.ts`, then `startSession` and `sendMessage` in `src/main/sessions.ts`, and `callTool` in `src/main/mcp.ts` |
 | How an agent that stays is spoken to, and what it may ask | `src/main/acp.ts` |
 | The model and the thinking effort of a conversation | `listModels` and `tuneSession` in `src/main/sessions.ts`, then `Tune` in `Agent.tsx` |
 | Which files count as instructions, and what the reader approved | `src/main/pins.ts` |
