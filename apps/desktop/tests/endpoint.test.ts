@@ -3,6 +3,7 @@ import { execFile, execFileSync } from 'node:child_process'
 import { promisify } from 'node:util'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import http from 'node:http'
+import net from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -100,6 +101,13 @@ test('in the Linux sandbox, a program reaches only Mate through the Unix-socket 
   const dir = await mkdtemp(path.join(tmpdir(), 'mate-linux-endpoint-'))
   const upstream = await listen((_request, response) => response.end('relay'))
   const other = await listen((_request, response) => response.end('other'))
+  // A Unix socket on the host, as the D-Bus bus or an ssh connection is: no network, and still a way out.
+  const outside = path.join(dir, 'outside.sock')
+  const host = net.createServer((client) => client.end('open'))
+  await new Promise<void>((resolve) => host.listen(outside, resolve))
+  // The one folder the sandbox may write to, as the context is. The checkout is seen, and only read.
+  const writable = await mkdtemp(path.join(tmpdir(), 'mate-linux-writable-'))
+  const probe = path.join(process.cwd(), '.sandbox-probe')
   try {
     keepEndpointIn(path.join(dir, 'endpoint.json'), seal)
     setEndpoint(`http://127.0.0.1:${upstream.port}/v1`, 'qwen')
@@ -115,16 +123,34 @@ def reach(url, data=None, headers={}):
 relay = reach('http://127.0.0.1:${linuxRelay.port}/v1/chat/completions', b'{}', {'Authorization': 'Bearer ${token}', 'Content-Type': 'application/json'})
 other = reach('http://127.0.0.1:${other.port}')
 outside = reach('https://example.org')
-print(relay, other, outside)
+import socket
+def unix(path):
+    try:
+        s = socket.socket(socket.AF_UNIX)
+        s.settimeout(3)
+        s.connect(path)
+        return 'open'
+    except Exception:
+        return 'blocked'
+def write(path):
+    try:
+        open(path, 'w').write('x')
+        return 'written'
+    except Exception:
+        return 'blocked'
+print(relay, other, outside, unix('${outside}'), write('${path.join(writable, 'note.txt')}'), write('${probe}'))
 `
-    const args = [...linuxSandbox(socket), 'python3', '-c', script]
+    const args = [...linuxSandbox(socket, [writable]), 'python3', '-c', script]
     const { stdout } = await promisify(execFile)(args[0], args.slice(1), { timeout: 30_000 })
-    assert.equal(stdout.trim(), 'relay blocked blocked')
+    assert.equal(stdout.trim(), 'relay blocked blocked blocked written blocked')
   } finally {
     stopRelay()
     upstream.close()
     other.close()
+    host.close()
+    await rm(probe, { force: true })
     await rm(dir, { recursive: true, force: true })
+    await rm(writable, { recursive: true, force: true })
   }
 })
 

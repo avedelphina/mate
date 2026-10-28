@@ -371,9 +371,14 @@ it, and three things together keep the text from going anywhere else:
   but Mate's TCP relay on `127.0.0.1`. Linux runs Hermes under Bubblewrap
   with `--unshare-net`: it has no network device but loopback. A small
   Python bridge in the sandbox listens there and forwards only to Mate's
-  relay over a Unix socket shared from the host. It cannot reach another
-  local or remote server. The bridge is `assist/linux-relay.py`, packaged
-  with Mate; Bubblewrap and Python are external dependencies.
+  relay over a Unix socket shared from the host. A Unix socket is not
+  network, so `--unshare-net` alone would leave every one on the host
+  open: the D-Bus session bus, an ssh connection, a Docker socket. So the
+  system is seen read-only, `/tmp`, `/run`, `/var/tmp`, `~/.ssh` and
+  `~/.gnupg` are empty, the variables that name such sockets are dropped,
+  and only the context, `~/.hermes` and the relay's socket are there to
+  write to or reach. The bridge is `assist/linux-relay.py`, packaged with
+  Mate; Bubblewrap and Python are external dependencies.
 - **The relay.** A server in Mate, on TCP and a Unix socket, that passes
   requests under `/v1` to the endpoint the reader set, and to nothing
   else. It needs a token that Hermes holds, refuses a request with an
@@ -395,7 +400,11 @@ context that was opened to the old one. Closing a context to the
 endpoint, or making it not private, closes it again.
 
 Limits. `sandbox-exec` is deprecated by Apple, and still works. Linux
-needs Bubblewrap with user namespaces permitted by the system. Hermes
+needs Bubblewrap with user namespaces permitted by the system. There a
+Unix socket elsewhere under the home stays reachable; hiding the home
+and binding back what Hermes needs would close that. Hermes writes only
+to `~/.hermes` there: a version that writes elsewhere under the home
+fails. Hermes
 needs a model with tool calls and a window of 64,000 tokens or more. The
 agent is Hermes alone; Claude and Codex are not offered in a private
 context.

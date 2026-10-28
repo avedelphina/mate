@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, writeFileSync } from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import http from 'node:http'
 import os from 'node:os'
@@ -192,13 +192,43 @@ export function profileConfig(port: number, token: string, model: string): strin
 export const linuxRelay = { helper: 'assist/linux-relay.py', port: 41759 }
 
 /** No network namespace of its own can reach the host's TCP relay, so Linux uses its Unix socket. */
-export function linuxSandbox(socket: string): string[] {
+// A Unix socket is not network: `--unshare-net` alone leaves every one on the host open, and the D-Bus
+// session bus, an ssh connection socket or a Docker socket is a way out. So the system is seen read-only,
+// the folders that hold such sockets are empty, and only the context, Hermes's own folder and the relay's
+// socket are there to write to or reach. A socket on a read-only mount can still be connected to, so
+// read-only is not enough for those folders: they are hidden.
+// ponytail: a socket elsewhere under the home stays reachable. Hide the whole home and bind back only
+// what Hermes needs, or filter connect() with seccomp, if one turns up.
+const HIDDEN = ['/tmp', '/run', '/var/tmp', path.join(os.homedir(), '.ssh'), path.join(os.homedir(), '.gnupg')]
+const POINTERS = ['DBUS_SESSION_BUS_ADDRESS', 'SSH_AUTH_SOCK', 'GPG_AGENT_INFO', 'DISPLAY', 'WAYLAND_DISPLAY', 'XDG_RUNTIME_DIR']
+
+/** A folder that is there, and not a link: bwrap would mount on what a link points at. */
+const isFolder = (where: string): boolean => {
+  try {
+    const info = lstatSync(where)
+    return info.isDirectory() && !info.isSymbolicLink()
+  } catch {
+    return false
+  }
+}
+
+/** The command that encloses Hermes on Linux. `writable`: the context, and Hermes's own folder. */
+export function linuxSandbox(socket: string, writable: string[] = []): string[] {
   return [
     'bwrap',
-    '--dev-bind',
+    '--ro-bind',
     '/',
     '/',
+    '--dev',
+    '/dev',
+    '--proc',
+    '/proc',
+    ...HIDDEN.filter(isFolder).flatMap((where) => ['--tmpfs', where]),
+    ...[...writable.filter(isFolder), path.dirname(socket)].flatMap((where) => ['--bind', where, where]),
+    ...POINTERS.flatMap((name) => ['--unsetenv', name]),
     '--unshare-net',
+    '--unshare-ipc',
+    '--new-session',
     '--die-with-parent',
     '--',
     'python3',
@@ -212,7 +242,7 @@ export function linuxSandbox(socket: string): string[] {
 }
 
 /** Before a private turn: the relay runs, the profile names it, and the command encloses Hermes. */
-export async function preparePrivate(env: NodeJS.ProcessEnv): Promise<string[]> {
+export async function preparePrivate(env: NodeJS.ProcessEnv, contextDir: string): Promise<string[]> {
   if (!stored) throw new Error('Set your endpoint first, in the Agent tab.')
   const running = await startRelay()
   const linux = process.platform === 'linux'
@@ -226,7 +256,7 @@ export async function preparePrivate(env: NodeJS.ProcessEnv): Promise<string[]> 
   }
   await mkdir(dir, { recursive: true })
   await writeFile(path.join(dir, 'config.yaml'), profileConfig(port, running.token, stored.model), { mode: 0o600 })
-  if (linux) return linuxSandbox(running.socket)
+  if (linux) return linuxSandbox(running.socket, [contextDir, path.dirname(path.dirname(dir))])
   if (process.platform === 'darwin') return ['/usr/bin/sandbox-exec', '-p', sandboxProfile(running.port)]
   throw new Error('Hermes on your endpoint needs the macOS sandbox, or Bubblewrap on Linux.')
 }

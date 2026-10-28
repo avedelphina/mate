@@ -54,7 +54,7 @@ type Adapter = {
   /** One line of the agent's output. A line that is not an event gives nothing. */
   read(line: string): AgentEvent[]
   /** What the agent runs inside, set up first: the words of the command line before its own. */
-  within?(env: NodeJS.ProcessEnv): Promise<string[]>
+  within?(env: NodeJS.ProcessEnv, turn: Turn): Promise<string[]>
 }
 
 type Json = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -203,7 +203,7 @@ export const AGENTS: Record<AgentKind, Adapter> = {
     label: 'Hermes on your endpoint',
     command: 'hermes',
     args: (turn) => ['-p', PROFILE, ...AGENTS.hermes.args({ ...turn, model: undefined, effort: undefined })],
-    within: (env) => preparePrivate(env),
+    within: (env, turn) => preparePrivate(env, turn.contextDir),
     read: (line) => AGENTS.hermes.read(line)
   }
 }
