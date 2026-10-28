@@ -30,22 +30,32 @@ test('the window, on the example context: a comment into the file, the tree, a p
 
     // Select a passage, comment on it, and find the comment in the file under the passage.
     const passage = 'The shelf copy stays as it was until you publish.'
-    await app.page(`(() => {
-      const page = document.querySelector('.page')
-      const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT)
-      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        const at = node.data.indexOf(${JSON.stringify(passage)})
-        if (at < 0) continue
-        const range = document.createRange()
-        range.setStart(node, at)
-        range.setEnd(node, at + ${passage.length})
-        getSelection().removeAllRanges()
-        getSelection().addRange(range)
-        page.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
-        return true
-      }
-      throw new Error('The passage is not on the page.')
-    })()`)
+    const select = () =>
+      app.page(`(() => {
+        const page = document.querySelector('.page')
+        const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT)
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const at = node.data.indexOf(${JSON.stringify(passage)})
+          if (at < 0) continue
+          const range = document.createRange()
+          range.setStart(node, at)
+          range.setEnd(node, at + ${passage.length})
+          getSelection().removeAllRanges()
+          getSelection().addRange(range)
+          page.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+          return true
+        }
+        throw new Error('The passage is not on the page.')
+      })()`)
+    // What else is near the passage goes on the page as a question, and the draft is back on Esc.
+    await select()
+    await app.until(`!!document.querySelector('.popover.menu')`, 'the menu under the selection')
+    await app.press('.popover.menu button', 'Near it')
+    await app.until(`document.querySelector('.center .question h1')?.textContent === 'Near “${passage}”'`, 'what is near it, on the page')
+    await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
+    await app.until(`!document.querySelector('.center .question') && !document.querySelector('.popover')`, 'the draft again, with no menu')
+
+    await select()
     await app.until(`!!document.querySelector('.popover.menu')`, 'the menu under the selection')
     await app.press('.popover.menu button', 'Comment')
     await app.until(`!!document.querySelector('.composer textarea[aria-label="Note"]')`, 'the form for the note')

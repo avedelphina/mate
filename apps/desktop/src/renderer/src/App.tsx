@@ -604,12 +604,28 @@ export function App() {
     else void read(`projects/${view.project}/${path}`)
   }
 
-  /** Ask the whole context a question, by meaning. The passages closest to it go on the page, whole. */
-  function ask(question: string) {
+  /**
+   * Ask the whole context a question, by meaning. The passages closest to it go on the page, whole.
+   * `heading` is what the page says was asked, when it is not the words themselves. `leave` is a
+   * stretch of a file not to be shown: the passage that was asked about finds itself first.
+   */
+  function ask(question: string, heading = question, leave?: { path: string; start: number; end: number }) {
     if (!contextDir || !question.trim()) return
-    const settle = (found: { missing: string | null; hits: Hit[] }) => setInquiry((now) => (now?.question === question ? { question, found } : now))
-    setInquiry({ question, found: null })
+    const outside = (hit: Hit) => !leave || hit.path !== leave.path || hit.start === null || hit.start >= leave.end || hit.start + hit.length <= leave.start
+    // A pane is what an agent gathered to show, not a source: the page shows only what the files of the context say.
+    const source = (hit: Hit) => hit.kind !== 'pane' && outside(hit)
+    const settle = (found: { missing: string | null; hits: Hit[] }) =>
+      setInquiry((now) => (now?.question === heading ? { question: heading, found: { ...found, hits: found.hits.filter(source) } } : now))
+    setInquiry({ question: heading, found: null })
     window.mate.searchMeaning(question, 24).then(settle, (caught) => settle({ missing: reason(caught, 'Could not search by meaning.'), hits: [] }))
+  }
+
+  /** What else in the context is close in meaning to the passage the reader selected: notes, the shelf, other drafts. */
+  function nearSelection() {
+    if (!view || file === null || !anchor) return
+    const clip = anchor.length > 90 ? `${anchor.slice(0, 90).trimEnd()}…` : anchor
+    ask(anchor, `Near “${clip}”`, { path: `projects/${view.project}/${view.draftsIn ?? ''}${file}`, start: from, end: from + anchor.length })
+    clearComment()
   }
 
   /** A draft opens as a draft, at the match. Anything else is opened to be read. */
@@ -1402,6 +1418,9 @@ export function App() {
               <button className="quiet" onClick={() => compose('comment')}>Comment</button>
               <button className="quiet" onClick={() => compose('rewrite')}>Rewrite</button>
               <button className="quiet" onClick={() => compose('remove')}>Remove</button>
+              <button className="quiet" title="What else in this context is close to this passage in meaning: notes, the shelf, other drafts" onClick={nearSelection}>
+                Near it
+              </button>
             </div>
           )}
           {popover && composing && (

@@ -409,8 +409,19 @@ to it are found. `meaning.ts` is the whole of it.
   order of their closest passage, and in each document in the order they
   come. Each is drawn as markdown and opens its file at its place. Nothing
   is written by a model, so the reader sees only what the files say, and
-  it works in a private context. The draft stays beneath, as it was, and
-  is back when the question is closed (Esc).
+  it works in a private context. Panes are left out: a pane is not a
+  source.
+
+Limits of asking this way. A passage that matters can score under the
+bar: a draft that shares a budget with an agency scored 0.42 against the
+rule on suppliers, and a passage of no use 0.43. Down there the model
+cannot tell them apart, and a lower bar only brings more of no use. A
+reranking model, or the reader's own endpoint judging the closest
+thirty, would tell them apart; neither is built. The draft stays beneath, as it was, and is back when the
+  question is closed (Esc).
+- **Near a passage.** *Near it*, in the menu under a selection in a
+  draft, asks the same with the selected text as the question, and
+  leaves out the passage itself, which would find itself first.
 
 **Agents search by meaning too.** `mate_search` on the MCP door gives the
 passages close in meaning after the hits by words, each whole, with its

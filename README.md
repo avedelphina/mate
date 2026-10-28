@@ -85,8 +85,10 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   your computer only. Without Ollama, search by words works as before.
   Press Enter in the search to ask the whole context: the passages
   closest to your question go on the page, whole, grouped by document,
-  each opening at its place. No model writes the answer, so it works in a
-  private context too. Hermes in a context you trust searches the same
+  each opening at its place. Select a passage in a draft and choose
+  *Near it* to see what your notes, the shelf and other drafts say close
+  to it. No model writes the answer, so it works in a private context
+  too. Hermes in a context you trust searches the same
   way, through Mate, and answers from the passage it finds.
 - **PDF and Word files, and tables, are read and found.** Mate takes the
   text out of every PDF, Word file, Excel workbook and CSV file in the

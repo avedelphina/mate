@@ -14,6 +14,9 @@ then, minor versions may change behaviour.
   document, each opening at its place. Nothing is written by a model, so
   what you read is what the files say, and it works in a private
   context.
+- *Near it*, under a passage you select in a draft: what else in the
+  context says something close to it, in any of the languages, on the
+  page the same way. Panes are left out, since they are not sources.
 - A private context can be opened to your own inference endpoint. Set
   its address, model and key in the *Agent* tab, then allow it for a
   context in a system dialog that names the host. Hermes then works
