@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from 'react'
 import { Agent } from './Agent'
 import { Boundary } from './Boundary'
 import { Palette, type Act } from './Palette'
+import { fileNamed } from '../../shared/named'
 import { isTwinned } from '../../shared/twin'
 import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran } from './env'
 import { Question, type Judged } from './Question'
@@ -613,6 +614,30 @@ export function App() {
     }
   }
 
+  /**
+   * A file of the project that is not markdown, picked in the tree. If it is text, such as a CSV or
+   * an XML config, it opens for review like a draft, its comments kept beside it: main tells text by
+   * its bytes. Any other gets its card, with what can be done with it.
+   */
+  async function openText(path: string) {
+    if (!view) return
+    const project = view.project
+    if (!(await leaveEditor())) return
+    try {
+      const next = await window.mate.openProject(project, path)
+      setError(null)
+      setNotice(null)
+      setPublishing(null)
+      setActive(null)
+      setReading(null)
+      setFound(null)
+      clearComment()
+      setView(next)
+    } catch {
+      setSources([{ name: path.split('/').pop()!, where: path, inContext: `projects/${project}/${path}`, markdown: false }])
+    }
+  }
+
   /** A file picked in the tree of the open project. A draft opens for review. Anything else is read. */
   function openFile(path: string) {
     if (!view) return
@@ -664,6 +689,13 @@ export function App() {
 
   /** A draft opens as a draft, at the match. Anything else is opened to be read. */
   async function openHit(hit: Hit) {
+    // A comment kept beside a file opens that file, with the comment's thread active.
+    const beside = hit.thread ? /^projects\/([^/]+)\/(.+)\.comments\.md$/.exec(hit.path) : null
+    if (beside && view?.project === beside[1]) {
+      await openText(beside[2])
+      setActive(hit.thread)
+      return
+    }
     if (hit.kind === 'draft' && hit.project && hit.path.toLowerCase().endsWith('.md')) {
       // The draft is named from where its project keeps drafts: after draft/, or from the project folder.
       const inProject = hit.path.split('/').slice(2).join('/')
@@ -750,6 +782,33 @@ export function App() {
     )
     if (anchored) clearComment()
   }
+
+  /**
+   * The words of a comment or a reply, with what they name. [[a file]] opens it when it names one file
+   * of the project. A #tag searches the context for it, so every comment that has it is found.
+   */
+  const note = (words: string): ReactNode[] =>
+    words.split(/(\[\[[^\]\n]+\]\]|(?<![\p{L}\p{N}_&/:#])#[\p{L}\p{N}_-]+)/u).map((part, at) => {
+      if (at % 2 === 0) return part
+      if (part.startsWith('[[')) {
+        const path = view ? fileNamed(part.slice(2, -2).split('|')[0], view.project, view.files) : null
+        if (!path) return part
+        const open = () => (path.toLowerCase().endsWith('.md') || isTwinned(path) ? openFile(path) : void openText(path))
+        return (
+          <button key={at} className="named" title={`Open ${path}`} onClick={(event) => (event.stopPropagation(), open())}>
+            {part}
+          </button>
+        )
+      }
+      return (
+        <button key={at} className="tag" title={`Every comment and passage with ${part}`} onClick={(event) => (event.stopPropagation(), setQuery(part))}>
+          {part}
+        </button>
+      )
+    })
+
+  // The open document is a file of the project that is not markdown: it is drawn as it is, and is not published.
+  const textFile = file !== null && !file.toLowerCase().endsWith('.md')
 
   const passages: Passage[] = []
   // The threads belong to the draft. A file that is only read has none.
@@ -996,7 +1055,7 @@ export function App() {
       if (!agentOnPage) add('Agent', 'Show', () => setTab('agent'))
       for (const each of view.panes) add(each.name.replace(/\.md$/, ''), 'Show pane', () => setTab(`pane:${each.name}`))
       if (file !== null && typing === null && !reading) add('Edit this draft', 'Do', edit)
-      if (file !== null && !reading) add('Publish this draft…', 'Do', () => setPublishing(file))
+      if (file !== null && !reading && !textFile) add('Publish this draft…', 'Do', () => setPublishing(file))
       add('New draft…', 'Do', () => setNaming(''))
       add('Rename this project…', 'Do', () => setRenaming({ what: 'project', name: view.project }))
       add('Add a source…', 'Do', () => void addSources())
@@ -1029,7 +1088,7 @@ export function App() {
   })
 
   // Where the page is in the tree of the open project, when it is in it at all.
-  const inTree = reading ? (reading.project === project ? reading.path.split('/').slice(2).join('/') : null) : file && `${view?.draftsIn ?? ''}${file}`
+  const inTree = reading ? (reading.project === project ? reading.path.split('/').slice(2).join('/') : null) : file && (textFile ? file : `${view?.draftsIn ?? ''}${file}`)
 
   return (
     <div
@@ -1186,6 +1245,8 @@ export function App() {
                         current={inTree}
                         onOpen={openFile}
                         onReveal={(path) => {
+                          // A file of text opens for review. A script has its card, to run it.
+                          if (!isTwinned(path) && !path.startsWith('scripts/')) return void openText(path)
                           // A file Mate cannot draw gets its card, with what can be done with it. A PDF or a Word file is read as its text as well.
                           setSources([{ name: path.split('/').pop()!, where: path, inContext: `projects/${view.project}/${path}`, markdown: false }])
                           if (isTwinned(path)) void read(`projects/${view.project}/${path}`)
@@ -1356,7 +1417,7 @@ export function App() {
               ) : typing === null ? (
                 <>
                   <button className="quiet" onClick={edit}>Edit</button>
-                  <button className="quiet" title="Make this draft a document of the shelf" onClick={() => setPublishing(file)}>Publish…</button>
+                  {!textFile && <button className="quiet" title="Make this draft a document of the shelf" onClick={() => setPublishing(file)}>Publish…</button>}
                 </>
               ) : (
                 <>
@@ -1454,7 +1515,7 @@ export function App() {
           ) : (
             <div className="page prose" ref={page} onMouseUp={pickPassage}>
               <Boundary what="This draft" of={view.text}>
-                <Rendered text={view.text} passages={passages} active={active} onPick={setActive} />
+                <Rendered text={view.text} passages={passages} active={active} onPick={setActive} plain={textFile} />
               </Boundary>
             </div>
           )}
@@ -1603,7 +1664,7 @@ export function App() {
                         {thread.suggestion ? <ins>{thread.suggestion}</ins> : <span className="meta">(remove)</span>}
                       </p>
                     )}
-                    {thread.text && <p className="note">{thread.text}</p>}
+                    {thread.text && <p className="note">{note(thread.text)}</p>}
                     <p className="meta">
                       {thread.author}
                       {unanchored && <span className="pill warn">Unanchored</span>}
@@ -1622,7 +1683,7 @@ export function App() {
                     )}
                     {thread.replies.map((reply, replyIndex) => (
                       <div className="reply" key={replyIndex}>
-                        <p className="note">{reply.text}</p>
+                        <p className="note">{note(reply.text)}</p>
                         <p className="meta">{reply.author}</p>
                       </div>
                     ))}

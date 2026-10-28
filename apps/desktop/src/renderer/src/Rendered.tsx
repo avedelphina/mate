@@ -52,9 +52,11 @@ export function Rendered(props: {
   onRun?: (line: string) => void
   /** With this, words written as code open what they name. It gives the way to open it, or null when they name nothing. */
   onName?: (words: string) => (() => void) | null
+  /** A file that is not markdown: its text as it is, in one block, with the same marks. */
+  plain?: boolean
 }) {
-  const { text, passages = [], active = null, onPick, onTick, onSay, onRun, onName } = props
-  const pieces = useMemo(() => renderMarkdown(text), [text])
+  const { text, passages = [], active = null, onPick, onTick, onSay, onRun, onName, plain = false } = props
+  const pieces = useMemo(() => (plain ? [] : renderMarkdown(text)), [text, plain])
   /** The words of a piece as the reader sees them. */
   const shown = (piece: Piece): string => ('tag' in piece ? piece.children.map(shown).join('') : piece.hidden ? '' : text.slice(piece.from, piece.to))
   // Pressed with the mouse, or with the space bar or Enter when it has the focus.
@@ -93,5 +95,6 @@ export function Rendered(props: {
     if (piece.hidden) return <span key={index} className="syntax">{text.slice(piece.from, piece.to)}</span>
     return <Fragment key={index}>{marked(text, piece.from, piece.to, passages, active, onPick)}</Fragment>
   }
+  if (plain) return <pre className="plain">{marked(text, 0, text.length, passages, active, onPick)}</pre>
   return <>{pieces.map(draw)}</>
 }

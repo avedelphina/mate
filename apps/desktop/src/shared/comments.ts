@@ -345,3 +345,55 @@ export function retype(markdown: string, next: string): string {
   if (!wanted.endsWith('\n') && !text.endsWith('\n') && typedEnd && out.endsWith(eol)) out = out.slice(0, -eol.length)
   return out
 }
+
+/**
+ * A file that is not markdown keeps its comments beside it, in NAME.comments.md: the markers alone,
+ * each naming the line of the file it sits under. A marker in the file itself would break a CSV, a
+ * JSON file or a log, and show in every other tool. Put back between the file's lines, the markers
+ * read as a draft's do, and every function above works on the two together.
+ */
+export function combine(body: string, side: string): string {
+  const markers = scan(side)
+  if (markers.length === 0) return body
+  const eol = eolOf(body)
+  // The lines of the file, each with its line ending.
+  const lines = body.match(/[^\n]*\n|[^\n]+$/g) ?? []
+  const under = new Map<number, Stored[]>()
+  for (const { value } of markers) {
+    // A marker whose line is gone is put after the last line, and its comment is found by its quote.
+    const line = Math.min(Math.max(Math.floor(Number(value.line)) || lines.length, 0), lines.length)
+    under.set(line, [...(under.get(line) ?? []), value])
+  }
+  let out = ''
+  for (let i = 0; i <= lines.length; i += 1) {
+    if (i > 0) out += lines[i - 1]
+    for (const value of under.get(i) ?? []) {
+      if (out && !out.endsWith('\n')) out += eol
+      out += write(value) + eol
+    }
+  }
+  return out
+}
+
+/** The file and its side file again, from the two together. Each marker notes the line it sits under. */
+export function separate(combined: string, name: string): { body: string; side: string } {
+  const { markers, spans } = strip(combined)
+  let body = ''
+  let from = 0
+  const kept: Stored[] = []
+  markers.forEach((marker, k) => {
+    body += combined.slice(from, spans[k].start)
+    from = spans[k].end
+    kept.push({ ...marker.value, line: (body.match(/\n/g) ?? []).length + (body && !body.endsWith('\n') ? 1 : 0) })
+  })
+  body += combined.slice(from)
+  const side = [
+    `# Comments on ${name}`,
+    '',
+    `Written by Mate. Each comment quotes a passage of ${name} and names the line it sits under. ${name} itself is not changed by a comment.`,
+    '',
+    ...kept.map(write),
+    ''
+  ].join('\n')
+  return { body, side }
+}

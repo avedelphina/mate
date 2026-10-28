@@ -30,7 +30,7 @@ export function Tree(props: {
             <li key={name}>
               <button
                 className={current === full ? 'row active' : markdown || isTwinned(name) ? 'row' : 'row other'}
-                title={markdown ? undefined : isTwinned(name) ? 'Mate reads its text.' : `Not markdown, so Mate does not draw it. Click to show it in ${manager}.`}
+                title={markdown ? undefined : isTwinned(name) ? 'Mate reads its text.' : `A file of text opens to be reviewed, its comments kept beside it. Any other is shown with what can be done with it, or in ${manager}.`}
                 onClick={() => (markdown ? onOpen(full) : onReveal(full))}
               >
                 {name}

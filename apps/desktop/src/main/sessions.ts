@@ -82,7 +82,9 @@ Rules:
    file and why. Mate puts back any edit made outside this project until the reviewer approves that one file.
 3. Propose a plan first, then stop. Edit files only after the reviewer has approved the plan.
 4. A line of the form <!-- @comment{...} --> in a draft is a review comment. Leave such lines exactly as
-   they are, unless you are asked to answer one.
+   they are, unless you are asked to answer one. A file that is not markdown, such as a CSV or an XML
+   config, keeps its comments beside it, in NAME.comments.md: each quotes a passage of NAME ("anchor")
+   and names the line it sits under. Read it with the file.
 5. To show the reviewer something that is not the draft, such as tasks or deadlines, write it as markdown
    to panes/SHORT-NAME.md. Say in it where each thing comes from. Write the file again to bring it up to date.
    In a pane the reviewer can tick a task written as "- [ ]", which changes the file. And a link whose
@@ -124,7 +126,9 @@ Rules:
    </mate-file>
    Mate writes it if the rules allow it, and holds it for the reviewer if they do not.
 5. A line of the form <!-- @comment{...} --> in a draft is a review comment. Keep such lines exactly as
-   they are, unless you are asked to answer one.
+   they are, unless you are asked to answer one. A file that is not markdown, such as a CSV or an XML
+   config, keeps its comments beside it, in NAME.comments.md: each quotes a passage of NAME ("anchor")
+   and names the line it sits under. Read it with the file.
 6. To show the reviewer something that is not the draft, such as tasks or deadlines, give it as a file
    at projects/NAME/panes/SHORT-NAME.md. Say in it where each thing comes from.
    In a pane the reviewer can tick a task written as "- [ ]", which changes the file. And a link whose

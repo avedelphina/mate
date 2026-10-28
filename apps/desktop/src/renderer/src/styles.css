@@ -176,6 +176,8 @@ button.wide { width: 100%; }
 .prose code, .prose pre, .raw { font: 0.86em/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .prose code { padding: 0.1em 0.35em; border-radius: 4px; background: var(--hover); }
 .prose pre { padding: 12px 14px; border-radius: 8px; background: var(--hover); overflow-x: auto; white-space: pre; }
+/* A file that is not markdown, drawn as it is: long lines wrap, so a comment's mark stays in view. */
+.prose pre.plain { padding: 0; background: none; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.6; }
 .prose pre.meta, .raw, .prose s { color: var(--soft); }
 .prose div.raw { white-space: pre-wrap; }
 .rule { margin: 1.8em 0; border-top: 1px solid var(--line); }
@@ -382,3 +384,8 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 .settings form { max-width: 460px; font: 14px var(--ui); }
 .settings form button[type=submit] { padding: 4px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); }
 .settings form button[type=submit]:disabled { color: var(--soft); }
+
+/* In a comment: a file it names, and its tags. */
+.note .named { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; cursor: pointer; }
+.note .tag { margin: 0 1px; padding: 0 6px; border: 0; border-radius: 9px; background: var(--hover); color: var(--ink); font: 12px/1.6 var(--ui); cursor: pointer; }
+.note .tag:hover { background: var(--line); }

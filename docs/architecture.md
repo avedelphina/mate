@@ -60,6 +60,7 @@ preload as CommonJS. Leave that as it is.
 | Change | File |
 |---|---|
 | Comment marker format | `apps/desktop/src/shared/comments.ts` |
+| Comments on a file that is not markdown, kept beside it | `combine` and `separate` in `src/shared/comments.ts`, then `textFileAt` and `editDraft` in `src/main/context.ts` |
 | Reading a project, writing the draft, path check | `apps/desktop/src/main/context.ts` |
 | Typing in a draft without losing a comment | `retype` in `src/shared/comments.ts`, then `writeDraft` in `src/main/context.ts` |
 | A new capability the window can call | `src/main/index.ts`, then `src/preload/index.ts`, then `src/renderer/src/env.d.ts` |
@@ -120,6 +121,37 @@ marker carries is written back as it was found.
 to that line, never between the line and its first marker. Ids count up
 from the highest id already in the file. A `-->` inside a note is written
 as `--\u003e`, so the marker stays one HTML comment for every other reader.
+
+## Comments on a file that is not markdown
+
+A file of a project that is text and not markdown, such as an XML config,
+a CSV or a log, is reviewed like a draft. Text is told by the bytes, not
+the name: UTF-8 with no zero byte, up to 2 MB. Scripts are left to their
+card. Such a file is named by its path in the project, which a draft's
+name, always markdown, cannot be, and it is drawn as it is, in one
+block, with the comments' marks (`plain` in `Rendered.tsx`). It is not
+published.
+
+A marker in the file itself would break a CSV or a JSON file and show in
+every other tool, so the comments are kept beside it, in
+`NAME.comments.md`: the markers alone, each with a `line` field naming
+the line of the file it sits under. `combine` in `comments.ts` puts them
+back between the file's lines, and every function of the markers works
+on the two together as on a draft; `separate` takes them out again and
+gives the file back to the byte. In `editDraft`, a comment, a reply or a
+new anchor writes only the side file. The file itself is written when
+what it says changed: a suggestion applied, or the reader typing in it.
+A marker whose line is gone is put after the last line, and its comment
+is found by its quote, as in a draft.
+
+The side file is a markdown file of the project: agents are told what it
+is and read it with the file, and the search finds it, so a comment's
+`#tag` finds every comment that has it. It is not a draft of its own.
+
+In the margin, the words of a comment or a reply name things: `[[a
+file]]` opens it when it names one file of the project (`fileNamed`, as
+in an agent's answer), and a `#tag` searches the context for it. A
+search hit in a side file opens the file it comments on, at its thread.
 
 ## The text and the anchor
 

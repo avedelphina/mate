@@ -40,6 +40,11 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   *Comment*, *Rewrite*, or *Remove*. A rewrite is a suggested replacement
   with an **Apply** button. Threads sit in the margin with replies. A
   comment whose passage has changed is kept and shown as unanchored.
+  Any text file of a project, such as an XML config, a CSV or a log, is
+  reviewed the same way; its comments are kept beside it in
+  `NAME.comments.md`, and the file changes only when you apply a
+  suggestion. In a comment, `[[a file]]` opens that file and a `#tag`
+  finds every comment that has it.
 - **Markdown, drawn.** Headings, lists, tables, code, and task lists are
   drawn. The markup stays in the text and is hidden, so the page is the
   file, character for character.

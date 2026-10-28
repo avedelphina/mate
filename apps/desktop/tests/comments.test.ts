@@ -4,15 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { addComment, createDraft, placeOnDisk, readProject, resolveInside, writeDraft } from '../src/main/context.ts'
-import {
-  addReply,
-  anchorComment,
-  applySuggestion,
-  insertComment,
-  parseComments,
-  readDocument,
-  retype
-} from '../src/shared/comments.ts'
+import { addReply, anchorComment, applySuggestion, combine, insertComment, parseComments, readDocument, retype, separate } from '../src/shared/comments.ts'
 
 test('a comment is written on the line after the sentence it quotes', () => {
   const next = insertComment('Alpha stays.\nBeta changes.\n', 'Beta changes.', 'Say why.', 'ada')
@@ -226,4 +218,23 @@ test('a draft is saved from what the reader began with, and a new draft never wr
   } finally {
     await rm(root, { recursive: true, force: true })
   }
+})
+
+test('a file that is not markdown keeps its comments beside it, and is given back to the byte', () => {
+  const xml = '<Sysmon schemaversion="4.90">\r\n  <EventFiltering>\r\n    <ProcessCreate onmatch="exclude"/>\r\n  </EventFiltering>\r\n</Sysmon>'
+  // No comments yet: the two together are the file.
+  assert.equal(combine(xml, ''), xml)
+  const commented = insertComment(combine(xml, ''), '<ProcessCreate onmatch="exclude"/>', 'Why exclude everything?', 'you')
+  const { body, side } = separate(commented, 'sysmon.xml')
+  // The file is as it was, to the byte: its Windows line endings, and its last line without one.
+  assert.equal(body, xml)
+  assert.match(side, /^# Comments on sysmon\.xml\n\n.*\n\n<!-- @comment\{.*"line":3.*\} -->\n$/)
+  // Put together again, the comment is under its line and finds its quote.
+  const again = readDocument(combine(xml, side))
+  assert.equal(again.text, xml.replace(/\r\n/g, '\n'))
+  assert.equal(again.comments[0].text, 'Why exclude everything?')
+  assert.equal(again.comments[0].start, again.text.indexOf('<ProcessCreate'))
+  // A line that is gone puts the marker at the end, and the quote still finds its place.
+  const moved = readDocument(combine('<Sysmon>\n    <ProcessCreate onmatch="exclude"/>\n</Sysmon>\n', side))
+  assert.equal(moved.comments[0].start, moved.text.indexOf('<ProcessCreate'))
 })

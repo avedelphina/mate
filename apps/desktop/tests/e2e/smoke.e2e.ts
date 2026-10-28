@@ -31,16 +31,16 @@ test('the window, on the example context: a comment into the file, the tree, a p
 
     // Select a passage, comment on it, and find the comment in the file under the passage.
     const passage = 'The shelf copy stays as it was until you publish.'
-    const select = () =>
+    const select = (words = passage) =>
       app.page(`(() => {
         const page = document.querySelector('.page')
         const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT)
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-          const at = node.data.indexOf(${JSON.stringify(passage)})
+          const at = node.data.indexOf(${JSON.stringify(words)})
           if (at < 0) continue
           const range = document.createRange()
           range.setStart(node, at)
-          range.setEnd(node, at + ${passage.length})
+          range.setEnd(node, at + ${words.length})
           getSelection().removeAllRanges()
           getSelection().addRange(range)
           page.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
@@ -69,6 +69,30 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelectorAll('.thread').length === 2`, 'the new thread in the margin')
     const draft = (await readFile(path.join(project, 'draft/document.md'), 'utf8')).split('\n')
     assert.match(draft[draft.indexOf(passage) + 1], /^<!-- @comment\{.*"text":"Said by the test\.".*\} -->$/)
+
+    // A file of text that is not markdown is reviewed too, drawn as it is. Its comment goes beside it, and it stays as it was.
+    const xml = '<Sysmon schemaversion="4.90">\n  <ProcessCreate onmatch="exclude"/>\n</Sysmon>\n'
+    await writeFile(path.join(project, 'sysmon.xml'), xml)
+    await app.page(`window.dispatchEvent(new Event('focus'))`)
+    await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'sysmon.xml')`, 'the XML in the tree')
+    await app.press('.projects .tree .row', 'sysmon.xml')
+    await app.until(`document.querySelector('.page pre.plain')?.textContent === ${JSON.stringify(xml)}`, 'the XML on the page, as it is')
+    assert.equal(await app.page(`[...document.querySelectorAll('.center .bar button')].some((each) => each.textContent.startsWith('Publish'))`), false)
+    await select('<ProcessCreate onmatch="exclude"/>')
+    await app.until(`!!document.querySelector('.popover.menu')`, 'the menu under the selection')
+    await app.press('.popover.menu button', 'Comment')
+    await app.until(`!!document.querySelector('.composer textarea[aria-label="Note"]')`, 'the form for the note')
+    await app.page(`(() => {
+      const note = document.querySelector('.composer textarea[aria-label="Note"]')
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(note, 'Too wide. #detection')
+      note.dispatchEvent(new Event('input', { bubbles: true }))
+    })()`)
+    await app.press('.composer footer button', 'Add to the file')
+    await app.until(`document.querySelector('.thread .note .tag')?.textContent === '#detection'`, 'the comment, with its tag')
+    assert.equal(await readFile(path.join(project, 'sysmon.xml'), 'utf8'), xml)
+    assert.match(await readFile(path.join(project, 'sysmon.xml.comments.md'), 'utf8'), /"text":"Too wide\. #detection".*"line":2/)
+    await app.press('.projects .tree .row', 'document.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 
     // Type in the draft. The file gets the new text, and each comment stays under its passage.
     await app.press('.center .bar button', 'Edit')

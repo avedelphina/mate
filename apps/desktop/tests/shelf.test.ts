@@ -3,7 +3,8 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { copyFolder, copySource, listShelf, noteSource, publish, pullIn, readProject, takeDown } from '../src/main/context.ts'
+import { addComment, copyFolder, copySource, editDraft, listShelf, noteSource, publish, pullIn, readProject, takeDown } from '../src/main/context.ts'
+import { addReply, applySuggestion } from '../src/shared/comments.ts'
 import { refreshIndex, searchIndex } from '../src/main/contextIndex.ts'
 
 async function context(): Promise<string> {
@@ -189,5 +190,47 @@ test('a folder from outside is copied into a project whole, with its folders, as
   } finally {
     await rm(root, { recursive: true, force: true })
     await rm(outside, { recursive: true, force: true })
+  }
+})
+
+test('a text file of a project is reviewed like a draft, and a comment changes only the file beside it', async () => {
+  const root = await context()
+  try {
+    const xml = '<Sysmon schemaversion="4.90">\n  <EventFiltering>\n    <ProcessCreate onmatch="exclude"/>\n  </EventFiltering>\n</Sysmon>\n'
+    const file = path.join(root, 'projects/review/config/sysmon.xml')
+    await mkdir(path.dirname(file), { recursive: true })
+    await writeFile(file, xml)
+    await writeFile(path.join(root, 'projects/review/config/picture.bin'), Buffer.from([1, 0, 2]))
+    await mkdir(path.join(root, 'projects/review/scripts'))
+    await writeFile(path.join(root, 'projects/review/scripts/count.py'), 'print(1)\n')
+
+    // It opens as a document of the project, named by its path there.
+    const opened = await readProject(root, 'review', 'config/sysmon.xml')
+    assert.deepEqual([opened.file, opened.text, opened.comments.length], ['config/sysmon.xml', xml, 0])
+    // A file that is not text, or a script, is not.
+    for (const not of ['config/picture.bin', 'scripts/count.py', 'config/missing.xml', '../sibling/x.xml']) {
+      await assert.rejects(readProject(root, 'review', not), /not in this project/)
+    }
+
+    // A comment is written beside the file, and the file is as it was, to the byte.
+    const commented = await addComment(root, 'review', 'config/sysmon.xml', '<ProcessCreate onmatch="exclude"/>', 'Why exclude everything? #detection', 'you')
+    assert.equal(commented.comments[0].text, 'Why exclude everything? #detection')
+    assert.equal(await readFile(file, 'utf8'), xml)
+    assert.match(await readFile(`${file}.comments.md`, 'utf8'), /^# Comments on sysmon\.xml\n/)
+    // The file beside it is not a draft of its own, and a reply goes there too.
+    assert.deepEqual(commented.drafts, ['policy.md'])
+    await editDraft(root, 'review', 'config/sysmon.xml', (text) => addReply(text, '1', 'It logs nothing.', 'ada'))
+    assert.equal(await readFile(file, 'utf8'), xml)
+    assert.deepEqual((await readProject(root, 'review', 'config/sysmon.xml')).comments[0].replies.map((reply) => reply.text), ['It logs nothing.'])
+
+    // Applying a suggestion changes the file itself, and the comment stays beside it, resolved.
+    await addComment(root, 'review', 'config/sysmon.xml', 'onmatch="exclude"', '', 'you', 0, 'onmatch="include"')
+    await editDraft(root, 'review', 'config/sysmon.xml', (text) => applySuggestion(text, '2'))
+    assert.equal(await readFile(file, 'utf8'), xml.replace('exclude', 'include'))
+    assert.equal((await readProject(root, 'review', 'config/sysmon.xml')).comments.length, 2)
+    // A search finds the comment, and its tag, in the file beside it.
+    assert.ok(searchIndex(await refreshIndex(root), 'detection').some((hit) => hit.path === 'projects/review/config/sysmon.xml.comments.md'))
+  } finally {
+    await rm(root, { recursive: true, force: true })
   }
 })

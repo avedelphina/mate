@@ -7,6 +7,16 @@ then, minor versions may change behaviour.
 
 ## [Unreleased]
 
+### Added
+
+- Review any text file of a project, not only markdown: an XML config,
+  a CSV, a log, a JSON file. It is drawn as it is, and you comment on it
+  as on a draft. The comments are kept beside it, in
+  `NAME.comments.md`, so the file stays as it was until you apply a
+  suggestion. Agents are told the file beside it holds the comments.
+- In a comment or a reply, `[[a file]]` opens that file of the project,
+  and a `#tag` searches for every comment and passage that has it.
+
 ## [0.7.0] - 2026-10-28
 
 Mate now runs on Linux, with local tools in place of the Mac's native

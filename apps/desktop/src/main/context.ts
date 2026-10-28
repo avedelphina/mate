@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, statSync } from 'node:fs'
 import { cp, lstat, mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { insertComment, readDocument, retype, type Thread } from '../shared/comments'
+import { combine, insertComment, parseComments, readDocument, retype, separate, type Thread } from '../shared/comments'
 import { placeOf, type Place } from './contextIndex'
 import { inRepository } from './git'
 import { mateWrote } from './guard'
@@ -266,10 +266,46 @@ export const draftHome = (projectDir: string): string => (existsSync(path.join(p
 /** The drafts of a project, each named by its path from where the project keeps them. */
 export async function draftsOf(projectDir: string): Promise<string[]> {
   const home = draftHome(projectDir)
-  if (home !== projectDir) return listMarkdown(home)
+  // The comments on a file that is not markdown are kept beside it. They are not a draft of their own.
+  const beside = (name: string) => name.toLowerCase().endsWith('.comments.md') && existsSync(path.join(home, name.slice(0, -'.comments.md'.length)))
+  if (home !== projectDir) return (await listMarkdown(home)).filter((each) => !beside(each))
   return (await listFiles(projectDir)).filter(
-    (each) => each.toLowerCase().endsWith('.md') && each !== 'intents.md' && each !== 'principles.md' && !each.startsWith('panes/')
+    (each) =>
+      each.toLowerCase().endsWith('.md') && each !== 'intents.md' && each !== 'principles.md' && !each.startsWith('panes/') && !beside(each)
   )
+}
+
+// ponytail: a text file is read whole to be reviewed. Past this, it is a data file, not a document.
+const MAX_TEXT_FILE = 2 * 1024 * 1024
+
+/**
+ * A file of the project that is text and not markdown, such as a CSV, an XML config or a log. It is
+ * reviewed like a draft, named by its path in the project, and its comments are kept beside it in
+ * NAME.comments.md, so the file itself changes only when the reader applies a suggestion or types
+ * in it. Text is told by its bytes, not its name: UTF-8, and no zero byte.
+ */
+async function textFileAt(contextDir: string, project: string, file: string): Promise<{ full: string; side: string; relative: string } | null> {
+  const name = String(file)
+  if (name.toLowerCase().endsWith('.md') || isTwinned(name)) return null
+  const parts = name.split('/')
+  // A script is run from its card, not reviewed.
+  if (parts.some((part) => part === '' || part.startsWith('.')) || parts[0] === 'scripts') return null
+  const full = await realInside(contextDir, 'projects', project, ...parts).catch(() => null)
+  const info = full ? await stat(full).catch(() => null) : null
+  if (!full || !info?.isFile() || info.size > MAX_TEXT_FILE) return null
+  const bytes = await readFile(full)
+  if (bytes.includes(0)) return null
+  try {
+    new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    return null
+  }
+  return { full, side: `${full}.comments.md`, relative: `projects/${project}/${name}` }
+}
+
+/** A text file and the comments beside it, put together as a draft reads. */
+async function readWithComments(text: { full: string; side: string }): Promise<string> {
+  return combine(await readFile(text.full, 'utf8'), await readFile(text.side, 'utf8').catch(() => ''))
 }
 
 /** The place of a draft, checked: it must be one the project has. */
@@ -298,11 +334,14 @@ export async function readProject(contextDir: string, project: string, file?: st
   if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
   const draftDir = draftHome(projectDir)
   const drafts = await draftsOf(projectDir)
-  if (file !== undefined && !drafts.includes(file)) throw new Error('That draft is not in this project.')
+  const text = file !== undefined && !drafts.includes(file) ? await textFileAt(contextDir, project, file) : null
+  if (file !== undefined && !drafts.includes(file) && !text) throw new Error('That draft is not in this project.')
   // With several drafts the reader picks. Opening the first sorted name would be a guess.
   const chosen = file ?? (drafts.length === 1 ? drafts[0] : null)
   const document =
-    chosen === null ? { text: '', comments: [] } : readDocument(await readFile(path.join(draftDir, chosen), 'utf8'))
+    chosen === null
+      ? { text: '', comments: [] }
+      : readDocument(text ? await readWithComments(text) : await readFile(path.join(draftDir, chosen), 'utf8'))
   const intents = existsSync(path.join(projectDir, 'intents.md'))
     ? await readFile(path.join(projectDir, 'intents.md'), 'utf8')
     : ''
@@ -323,12 +362,31 @@ export async function readProject(contextDir: string, project: string, file?: st
 }
 
 /** Read the draft, change it, and put it back whole. */
+/** Write a file of the context by a temporary file and a rename, never in place. */
+async function replace(contextDir: string, full: string, relative: string, text: string): Promise<void> {
+  const temporary = path.join(path.dirname(full), `.${path.basename(full)}.${randomUUID()}.tmp`)
+  await writeFile(temporary, text)
+  await rename(temporary, full)
+  mateWrote(contextDir, relative, Buffer.from(text))
+}
+
 export async function editDraft(
   contextDir: string,
   project: string,
   file: string,
   change: (markdown: string) => string
 ): Promise<DocumentView> {
+  const projectDir = resolveInside(contextDir, 'projects', project)
+  const text = (await draftsOf(projectDir)).includes(file) ? null : await textFileAt(contextDir, project, file)
+  if (text) {
+    const combined = await readWithComments(text)
+    const next = change(combined)
+    const { body, side } = separate(next, path.basename(text.full))
+    // A comment changes only the file beside it. The file is written when what it says changed.
+    if (readDocument(next).text !== readDocument(combined).text) await replace(contextDir, text.full, `${text.relative}`, body)
+    if (parseComments(next).length > 0 || existsSync(text.side)) await replace(contextDir, text.side, `${text.relative}.comments.md`, side)
+    return readProject(contextDir, project, file)
+  }
   const { full: documentPath, relative } = await draftAt(contextDir, project, file)
   const next = change(await readFile(documentPath, 'utf8'))
   const temporary = path.join(path.dirname(documentPath), `.${path.basename(documentPath)}.${randomUUID()}.tmp`)

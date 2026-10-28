@@ -55,6 +55,8 @@ Rules:
 4. mate_write replaces a whole file. It is written only inside your project, and only after the plan is
    approved. Anything else is held for the reviewer.
 5. A line of the form <!-- @comment{...} --> in a draft is a review comment. Keep such lines exactly as they are.
+   A file that is not markdown, such as a CSV or an XML config, keeps its comments beside it, in
+   NAME.comments.md: each quotes a passage of NAME ("anchor") and names the line it sits under.
 6. To show the reviewer something that is not the draft, such as tasks, deadlines, or mail you can reach,
    write it as markdown with mate_write to projects/NAME/panes/SHORT-NAME.md. Say in it where each thing
    comes from and when you fetched it. Write the file again to bring it up to date.
