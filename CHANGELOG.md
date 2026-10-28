@@ -23,6 +23,11 @@ then, minor versions may change behaviour.
   only picks the ones that answer it. The page shows those passages, the
   files' own text, the most relevant first. Not in a private context that
   is not opened to your endpoint.
+- A settings page: *Mate → Settings…* (⌘,), or the palette. Your
+  endpoint is set there, and the page lists the contexts you trust and
+  the private ones, with a way to take trust or the endpoint away, and
+  says whether search by meaning and the comment box's helper are ready
+  on this Mac.
 - A private context can be opened to your own inference endpoint. Set
   its address, model and key in the *Agent* tab, then allow it for a
   context in a system dialog that names the host. Hermes then works

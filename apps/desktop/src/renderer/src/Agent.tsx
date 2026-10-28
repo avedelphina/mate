@@ -30,8 +30,11 @@ export function Agent(props: {
   /** The files of the project, and how one is opened: a file an agent names in its answer opens from there. */
   files: string[]
   onOpen: (path: string) => void
+  /** The settings page, where the endpoint is set. What it shows is read again when the page closes. */
+  onSettings: () => void
+  settingsOpen: boolean
 }) {
-  const { project, onChanged, into, onSession, files, onOpen } = props
+  const { project, onChanged, into, onSession, files, onOpen, onSettings, settingsOpen } = props
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [open, setOpen] = useState<string | null>(null)
@@ -49,8 +52,6 @@ export function Agent(props: {
   // In a private context: whether Hermes on the reader's own endpoint may read it, and that endpoint.
   const [opened, setOpened] = useState(false)
   const [endpoint, setEndpoint] = useState<{ url: string; model: string; hasKey: boolean } | null>(null)
-  // The endpoint form, while it is open: address, model, and a key that is never shown back.
-  const [editing, setEditing] = useState<{ url: string; model: string; key: string } | null>(null)
 
   const session = sessions.find((each) => each.id === open) ?? null
   useEffect(() => onSession(session?.id ?? null), [session?.id])
@@ -66,23 +67,16 @@ export function Agent(props: {
   useEffect(() => {
     setOpen(null)
     window.mate.listSessions(project).then(setSessions, () => setSessions([]))
+  }, [project])
+
+  // What may be changed on the settings page is read again when it closes.
+  useEffect(() => {
     window.mate.isTrusted().then(setTrusted, () => setTrusted(false))
     window.mate.isPrivate().then(setKept, () => setKept(false))
     window.mate.isOpened().then(setOpened, () => setOpened(false))
     window.mate.getEndpoint().then(setEndpoint, () => setEndpoint(null))
-  }, [project])
+  }, [project, settingsOpen])
 
-  const saveEndpoint = () =>
-    editing &&
-    window.mate.setEndpoint(editing.url, editing.model, editing.key || undefined).then(
-      (saved) => {
-        setEndpoint(saved)
-        setEditing(null)
-        setError(null)
-        window.mate.isOpened().then(setOpened, () => setOpened(false))
-      },
-      (caught) => setError(reason(caught))
-    )
 
   useEffect(
     () =>
@@ -210,36 +204,7 @@ export function Agent(props: {
         {/* The endpoint is set here in any context: it judges questions in any, and works as an agent only in a private one opened to it. */}
         {(
           <div className="meta hint trust endpoint">
-            {editing ? (
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  void saveEndpoint()
-                }}
-              >
-                <label>
-                  Address <input value={editing.url} placeholder="https://your-server/v1" onChange={(event) => setEditing({ ...editing, url: event.target.value })} />
-                </label>
-                <label>
-                  Model <input value={editing.model} placeholder="Qwen/Qwen3.6-35B-A3B-FP8" onChange={(event) => setEditing({ ...editing, model: event.target.value })} />
-                </label>
-                <label>
-                  Key{' '}
-                  <input
-                    type="password"
-                    value={editing.key}
-                    placeholder={endpoint?.hasKey ? 'Saved. Leave empty to keep it.' : 'If the server asks for one'}
-                    onChange={(event) => setEditing({ ...editing, key: event.target.value })}
-                  />
-                </label>
-                <span>
-                  <button type="submit">Save</button>
-                  <button type="button" className="quiet" onClick={() => setEditing(null)}>
-                    Cancel
-                  </button>
-                </span>
-              </form>
-            ) : (
+            {(
               <>
                 {endpoint
                   ? !kept
@@ -255,8 +220,8 @@ export function Agent(props: {
                     {opened ? 'Close it to your endpoint' : 'Allow your endpoint here…'}
                   </button>
                 )}
-                <button className="quiet" onClick={() => setEditing({ url: endpoint?.url ?? '', model: endpoint?.model ?? '', key: '' })}>
-                  {endpoint ? 'Change the endpoint' : 'Set your endpoint'}
+                <button className="quiet" onClick={onSettings}>
+                  {endpoint ? 'Change the endpoint…' : 'Set your endpoint…'}
                 </button>
               </>
             )}

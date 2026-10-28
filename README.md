@@ -128,6 +128,10 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   context can be opened to Hermes on your own inference endpoint: it then
   runs in the macOS sandbox, and its text goes to that server and to
   nowhere else.
+- **Settings.** *Mate → Settings…* (⌘,): your endpoint, the contexts you
+  trust, the private ones, and what this Mac has for search by meaning
+  and the comment box. They are kept between starts, in the app's data
+  folder.
 - **Windows.** *File → New Window* opens a second context or document.
   The rail and the margin are as wide as you drag them. **⌘K** opens a
   palette: type part of a file's name to open it, or the name of

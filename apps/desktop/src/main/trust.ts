@@ -37,6 +37,7 @@ function listOf() {
       }
     },
     has: (contextDir: string): boolean => listed.has(real(contextDir)),
+    all: (): string[] => [...listed].sort(),
     /**
      * A listed context was renamed: it stays listed under its new name. `was` is the real path it
      * had. The old path is listed no more, so that another folder made there later is not listed by mistake.
@@ -63,12 +64,14 @@ export const keepTrustIn = trusted.keepIn
 export const isTrusted = trusted.has
 export const moveTrust = trusted.move
 export const setTrusted = trusted.set
+export const trustedContexts = trusted.all
 
 const kept = listOf()
 export const keepPrivacyIn = kept.keepIn
 export const isPrivate = kept.has
 export const movePrivacy = kept.move
 export const setPrivate = kept.set
+export const privateContexts = kept.all
 
 // The private contexts that the reader's own endpoint may read, through Hermes in the sandbox. See endpoint.ts.
 const opened = listOf()

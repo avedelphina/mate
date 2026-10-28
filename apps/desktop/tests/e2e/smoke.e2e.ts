@@ -188,20 +188,25 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.equal(await app.page(`[...document.querySelectorAll('.invite button')].every((each) => each.disabled)`), true)
     assert.equal(JSON.parse(await readFile(path.join(app.userData, 'private.json'), 'utf8')).length, 1)
     assert.equal(await app.page(`document.querySelector('.private button').textContent`), 'Let agents in…')
-    // A private context can name the reader's own endpoint. Saving it asks nothing; letting it read the context asks the system.
-    await app.press('.endpoint button', 'Set your endpoint')
+    // The reader's endpoint is set on the settings page, opened from here. Saving it asks nothing; letting it read
+    // the context asks the system. The page lists this context as private, and the Agent tab knows the endpoint after.
+    await app.press('.endpoint button', 'Set your endpoint…')
+    await app.until(`document.querySelector('.center .settings h1')?.textContent === 'Settings'`, 'the settings page')
     await app.page(`(() => {
       const set = (at, text) => {
-        const input = document.querySelectorAll('.endpoint input')[at]
+        const input = document.querySelectorAll('.settings .endpoint input')[at]
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, text)
         input.dispatchEvent(new Event('input', { bubbles: true }))
       }
       set(0, 'https://llm.example.org/v1')
       set(1, 'Qwen/Qwen3.6-35B-A3B-FP8')
     })()`)
-    await app.press('.endpoint button', 'Save')
-    await app.until(`document.querySelector('.endpoint')?.textContent.includes('Your endpoint is llm.example.org')`, 'the endpoint, saved')
-    assert.deepEqual(await app.page(`[...document.querySelectorAll('.endpoint button')].map((each) => each.textContent)`), ['Allow your endpoint here…', 'Change the endpoint'])
+    await app.press('.settings .endpoint button', 'Save')
+    await app.until(`document.querySelector('.settings .endpoint')?.textContent.includes('Saved: llm.example.org.')`, 'the endpoint, saved')
+    assert.equal(await app.page(`[...document.querySelectorAll('.settings li .dir')].some((each) => each.textContent.endsWith('/example'))`), true)
+    await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
+    await app.until(`!document.querySelector('.center .settings') && document.querySelector('.endpoint')?.textContent.includes('Your endpoint is llm.example.org')`, 'the Agent tab, with the endpoint')
+    assert.deepEqual(await app.page(`[...document.querySelectorAll('.endpoint button')].map((each) => each.textContent)`), ['Allow your endpoint here…', 'Change the endpoint…'])
     assert.equal(JSON.parse(await readFile(path.join(app.userData, 'endpoint.json'), 'utf8')).url, 'https://llm.example.org/v1')
 
     // A script is not run in a context the reader has not trusted.

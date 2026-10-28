@@ -6,6 +6,7 @@ import { isTwinned } from '../../shared/twin'
 import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran } from './env'
 import { Question, type Judged } from './Question'
 import { Rendered, type Passage } from './Rendered'
+import { Settings } from './Settings'
 import { Tree } from './Tree'
 import { asked, filled } from '../../shared/run'
 import './styles.css'
@@ -185,6 +186,13 @@ export function App() {
   // What the reader's endpoint picked of the passages, for the question on the page, and whether it may be asked here.
   const [judged, setJudged] = useState<(Judged & { for: string }) | null>(null)
   const [judgeHost, setJudgeHost] = useState<string | null>(null)
+  // The settings page, in the center like a question. Settings… in the app menu opens it.
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const openSettings = () => {
+    setInquiry(null)
+    setSettingsOpen(true)
+  }
+  useEffect(() => window.mate.onSettings(openSettings), [])
   const [mindingLeft, setMindingLeft] = useState(0)
   useEffect(() => window.mate.onMinding(setMindingLeft), [])
   useEffect(() => {
@@ -626,6 +634,7 @@ export function App() {
     const source = (hit: Hit) => hit.kind !== 'pane' && outside(hit)
     const settle = (found: { missing: string | null; hits: Hit[] }) =>
       setInquiry((now) => (now?.question === heading ? { ...now, found: { ...found, hits: found.hits.filter(source) } } : now))
+    setSettingsOpen(false)
     setInquiry({ question: heading, query: question, keep: source, leave, found: null })
     setJudged(null)
     window.mate.judgingHost().then(setJudgeHost, () => setJudgeHost(null))
@@ -999,6 +1008,7 @@ export function App() {
       add('New project…', 'Do', () => setFounding(''))
       add('Bring in a project…', 'Do', () => void importProject())
       add('Rename this context…', 'Do', () => setRenaming({ what: 'context', name: contextName ?? '' }))
+      add('Settings…', 'Show', openSettings)
       if (!lacks.git) add('Commit…', 'Do', () => void startCommit())
       add('Search this context', 'Do', () => document.querySelector<HTMLInputElement>('.rail .search')?.focus())
     }
@@ -1264,6 +1274,11 @@ export function App() {
         )}
       </aside>
       <main className="center">
+        {settingsOpen && (
+          <Settings
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
         {/* A question takes the page. The draft stays as it was beneath it, and is back when the question is closed. */}
         {inquiry && (
           <Question
@@ -1281,7 +1296,7 @@ export function App() {
             onClose={() => setInquiry(null)}
           />
         )}
-        <header className="bar" hidden={inquiry !== null}>
+        <header className="bar" hidden={inquiry !== null || settingsOpen}>
           {onPage && <span className="meta">{view.project}</span>}
           {onPage && <span className="meta">/</span>}
           {onPage && <span>Agent</span>}
@@ -1350,7 +1365,7 @@ export function App() {
             </span>
           )}
         </header>
-        <div className="scroll" hidden={inquiry !== null}>
+        <div className="scroll" hidden={inquiry !== null || settingsOpen}>
           {/* A file the reader is deciding about. It leaves by one of the exits. There is no exit where it is just remembered. */}
           {view &&
             sources.map((source) => (
@@ -1636,6 +1651,8 @@ export function App() {
           onSession={setSessionOpen}
           files={view.files}
           onOpen={openFile}
+          onSettings={openSettings}
+          settingsOpen={settingsOpen}
         />
       )}
     </div>

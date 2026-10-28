@@ -85,6 +85,15 @@ contextBridge.exposeInMainWorld('mate', {
     return () => ipcRenderer.removeListener('context:reading', heard)
   },
   /** How many files are still to be given their meaning. Returns the function that stops listening. */
+  onSettings: (listener: () => void) => {
+    const heard = () => listener()
+    ipcRenderer.on('settings:open', heard)
+    return () => ipcRenderer.removeListener('settings:open', heard)
+  },
+  settings: () => ipcRenderer.invoke('settings:get'),
+  untrust: (dir: string) => ipcRenderer.invoke('settings:untrust', dir),
+  closeToEndpoint: (dir: string) => ipcRenderer.invoke('settings:close', dir),
+  revealSettings: () => ipcRenderer.invoke('settings:reveal'),
   onMinding: (listener: (left: number) => void) => {
     const heard = (_event: unknown, left: number) => listener(left)
     ipcRenderer.on('context:minding', heard)

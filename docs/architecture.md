@@ -34,6 +34,7 @@ Every call has this shape. The whole of what the window can ask for:
 | Trust | `trust:get`, `trust:set` | `isTrusted`, and `setTrusted` after a dialog of the system |
 | Privacy | `privacy:get`, `privacy:set`, `privacy:opened`, `privacy:open`, `endpoint:get`, `endpoint:set` | `isPrivate`, and `setPrivate`: at once to keep a context private, after a dialog of the system to let agents in again; `setOpenedToEndpoint` after a dialog that names the host; `setEndpoint` in `endpoint.ts` |
 | The assist | `assist:check`, `assist:run` | is the helper here; the helper, once for each question |
+| Settings | `settings:get`, `settings:untrust`, `settings:close`, `settings:reveal`, and `settings:open` from the menu | the lists of `trust.ts`, `endpointView`, `meaningMissing`, `checkAssist`; only what takes away |
 
 `session:update` is the one message that goes the other way: the session
 as the agent goes on.
@@ -340,6 +341,24 @@ model, and the Czech one reads Slovak but for a letter or two, such as
 twin yet. A workbook gives the values of its cells: a formula gives the
 value it last had, and a date the number Excel keeps for it. Any other
 twin is plain text: headings, tables and pictures are gone. Up to 50 MB a file, 2 MB of text.
+
+## Settings
+
+What the reader has set is kept in the app's data folder, one small file
+each: `trusted.json`, `private.json`, `opened.json`, `endpoint.json`
+(the key sealed by the keychain) and `pins.json`. It stays from one
+start to the next; the installed Mate and Mate Dev keep separate
+folders. A context is known in these by its real path.
+
+*Settings…* in the app menu (⌘,), or in the palette, puts them on one
+page in the center, like a question: the endpoint, with its form; the
+contexts trusted; the private contexts, and which are open to the
+endpoint; whether search by meaning and the comment box's helper can be
+had on this Mac; and the folder, to show in Finder. From the page a
+setting can only be taken away: *Stop trusting*, *Close it to your
+endpoint*. Trusting a context, or letting an agent or the endpoint into a
+private one, is done in that context, behind a dialog of the system. A
+folder the window names is acted on only when main holds it already.
 
 ## A private context and the reader's endpoint
 

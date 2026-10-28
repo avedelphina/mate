@@ -53,6 +53,8 @@ import {
   moveTrust,
   privacyAllows,
   privacyRefusal,
+  privateContexts,
+  trustedContexts,
   setOpenedToEndpoint,
   setPrivate,
   setTrusted
@@ -265,12 +267,38 @@ function requireContext(event: IpcMainInvokeEvent): string {
 /** Electron's own menu has no New Window. The rest is the standard set, which the Edit shortcuts need. */
 function setMenu(): void {
   const mac = process.platform === 'darwin'
+  const settings = {
+    label: 'Settings…',
+    accelerator: 'CmdOrCtrl+,',
+    click: () => (BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0])?.webContents.send('settings:open')
+  }
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
-      ...(mac ? [{ role: 'appMenu' as const }] : []),
+      // The app menu of a Mac, spelled out to hold Settings where a Mac keeps it.
+      ...(mac
+        ? [
+            {
+              label: app.name,
+              submenu: [
+                { role: 'about' as const },
+                { type: 'separator' as const },
+                settings,
+                { type: 'separator' as const },
+                { role: 'services' as const },
+                { type: 'separator' as const },
+                { role: 'hide' as const },
+                { role: 'hideOthers' as const },
+                { role: 'unhide' as const },
+                { type: 'separator' as const },
+                { role: 'quit' as const }
+              ]
+            }
+          ]
+        : []),
       {
         label: 'File',
         submenu: [
+          ...(mac ? [] : [settings, { type: 'separator' as const }]),
           {
             id: 'new-window',
             label: 'New Window',
@@ -753,6 +781,30 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('privacy:opened', (event) => isOpenedToEndpoint(requireContext(event)))
+
+  // Everything the reader has set, in one place, and what this Mac has. No key, ever.
+  ipcMain.handle('settings:get', async () => ({
+    folder: app.getPath('userData'),
+    endpoint: endpointView(),
+    trusted: trustedContexts(),
+    private: privateContexts().map((dir) => ({ dir, opened: isOpenedToEndpoint(dir) })),
+    meaning: await meaningMissing(),
+    assist: await checkAssist(assistHelper)
+  }))
+
+  // From the settings only what takes away, and only for a context on the list. A path the window names
+  // is acted on only when main holds it already: nothing can be trusted or opened from here.
+  ipcMain.handle('settings:untrust', (_event, dir: string) => {
+    if (!trustedContexts().includes(String(dir))) throw new Error('That context is not trusted.')
+    setTrusted(String(dir), false)
+  })
+  ipcMain.handle('settings:close', async (_event, dir: string) => {
+    if (!privateContexts().includes(String(dir)) || !isOpenedToEndpoint(String(dir))) throw new Error('That context is not open to your endpoint.')
+    if (isBusy(String(dir))) throw new Error('An agent is working in that context. Close it to the endpoint when the agent has finished.')
+    setOpenedToEndpoint(String(dir), false)
+    await closeAgentsIn(String(dir))
+  })
+  ipcMain.handle('settings:reveal', () => shell.openPath(app.getPath('userData')))
 
   // The text of a private context may go to the reader's endpoint only after they say so in a dialog of
   // the system, which names the host. Closing it again asks nothing.

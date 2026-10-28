@@ -369,3 +369,16 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 .question .summary p { margin: 0 0 8px; }
 .question .summary .judge { margin-top: 4px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); font: 13px var(--ui); }
 .question .summary .judge:hover { border-color: var(--accent); }
+
+/* The settings page. */
+.settings > h1 { margin: 0.6em 0 0.2em; font-size: 1.5em; font-weight: 600; }
+.settings section { margin-top: 28px; }
+.settings h2 { margin: 0 0 4px; font: 600 15px/1.4 var(--ui); }
+.settings .meta { font-size: 14px; }
+.settings ul { margin: 8px 0 0; padding: 0; list-style: none; font: 14px/1.6 var(--ui); }
+.settings li { padding: 4px 0; }
+.settings li button { margin-left: 8px; color: var(--soft); }
+.settings .dir { font: 13px var(--mono, ui-monospace, monospace); overflow-wrap: anywhere; }
+.settings form { max-width: 460px; font: 14px var(--ui); }
+.settings form button[type=submit] { padding: 4px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); }
+.settings form button[type=submit]:disabled { color: var(--soft); }

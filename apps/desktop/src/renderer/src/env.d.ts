@@ -42,6 +42,17 @@ export type Kind = 'shelf' | 'draft' | 'project' | 'material' | 'context' | 'pan
 export type FileView = { path: string; kind: Kind; project: string | null; text: string; twin?: boolean }
 
 /** One place a search matched. `start` is where in the text of the file, or null. `thread` when it is in a comment. */
+/** What the settings page shows. Folders are as main holds them: real paths. */
+export type Settings = {
+  folder: string
+  endpoint: { url: string; model: string; hasKey: boolean } | null
+  trusted: string[]
+  private: { dir: string; opened: boolean }[]
+  /** Null when search by meaning can be had here, else what is missing. */
+  meaning: string | null
+  assist: AssistState
+}
+
 export type Hit = {
   path: string
   kind: Kind
@@ -205,6 +216,16 @@ export type MateApi = {
   onMinding: (listener: (left: number) => void) => () => void
   /** How many PDF and Word files of the open context are still to be read, so that search finds them. */
   onReading: (listener: (left: number) => void) => () => void
+  /** Settings… in the app menu. */
+  onSettings: (listener: () => void) => () => void
+  /** Everything the reader has set, and what this Mac has. Never the key. */
+  settings: () => Promise<Settings>
+  /** Trust no more a context on the list. Taking away asks nothing. */
+  untrust: (dir: string) => Promise<void>
+  /** Close a private context on the list to the reader's endpoint. */
+  closeToEndpoint: (dir: string) => Promise<void>
+  /** The folder the settings are kept in, in the file manager. */
+  revealSettings: () => Promise<string>
   /** Whether the reader trusts the open context. In a trusted one Hermes runs as it does in a terminal. */
   isTrusted: () => Promise<boolean>
   /** Asks the reader in a system dialog before it gives trust. Returns what holds afterwards. */
