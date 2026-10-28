@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
-import { existsSync, lstatSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import http from 'node:http'
 import os from 'node:os'
@@ -187,6 +187,8 @@ export function profileConfig(port: number, token: string, model: string): strin
     `    default_model: ${JSON.stringify(model)}`,
     '    transport: chat_completions',
     'fallback_providers: []',
+    'gateway:',
+    '  standalone: true',
     'toolsets:',
     '  - file',
     'plugins:',
@@ -205,13 +207,10 @@ export const linuxRelay = { helper: 'assist/linux-relay.py', port: 41759 }
 
 /** No network namespace of its own can reach the host's TCP relay, so Linux uses its Unix socket. */
 // A Unix socket is not network: `--unshare-net` alone leaves every one on the host open, and the D-Bus
-// session bus, an ssh connection socket or a Docker socket is a way out. So the system is seen read-only,
-// the folders that hold such sockets are empty, and only the context, Hermes's own folder and the relay's
-// socket are there to write to or reach. A socket on a read-only mount can still be connected to, so
-// read-only is not enough for those folders: they are hidden.
-// ponytail: a socket elsewhere under the home stays reachable. Hide the whole home and bind back only
-// what Hermes needs, or filter connect() with seccomp, if one turns up.
-const HIDDEN = ['/tmp', '/run', '/var/tmp', path.join(os.homedir(), '.ssh'), path.join(os.homedir(), '.gnupg')]
+// session bus, an ssh connection socket or a Docker socket is a way out. Home and the common socket folders
+// are empty. Only the context, the private Hermes profile and its runtime, and the relay are bound back.
+// Current Hermes needs its own gateway socket, so a syscall filter cannot close every other Unix socket.
+const HIDDEN = ['/tmp', '/run', '/var/tmp', os.homedir()]
 const POINTERS = ['DBUS_SESSION_BUS_ADDRESS', 'SSH_AUTH_SOCK', 'GPG_AGENT_INFO', 'DISPLAY', 'WAYLAND_DISPLAY', 'XDG_RUNTIME_DIR']
 
 /** A folder that is there, and not a link: bwrap would mount on what a link points at. */
@@ -224,8 +223,25 @@ const isFolder = (where: string): boolean => {
   }
 }
 
-/** The command that encloses Hermes on Linux. `writable`: the context, and Hermes's own folder. */
-export function linuxSandbox(socket: string, writable: string[] = []): string[] {
+/** Socket files brought in with a context are replaced by /dev/null, without following directory links. */
+function socketsIn(root: string): string[] {
+  const found: string[] = []
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const where = path.join(dir, entry.name)
+      if (entry.isDirectory()) walk(where)
+      else if (entry.isSocket()) found.push(where)
+    }
+  }
+  try {
+    walk(root)
+  } catch {}
+  return found
+}
+
+/** The command that encloses Hermes on Linux. Only `writable` folders may change; `readable` is bound back. */
+export function linuxSandbox(socket: string, writable: string[] = [], readable: string[] = []): string[] {
+  const helper = path.resolve(linuxRelay.helper)
   return [
     'bwrap',
     '--ro-bind',
@@ -236,7 +252,14 @@ export function linuxSandbox(socket: string, writable: string[] = []): string[] 
     '--proc',
     '/proc',
     ...HIDDEN.filter(isFolder).flatMap((where) => ['--tmpfs', where]),
-    ...[...writable.filter(isFolder), path.dirname(socket)].flatMap((where) => ['--bind', where, where]),
+    ...[...writable.filter(isFolder), path.dirname(socket)].flatMap((where) => ['--dir', path.dirname(where), '--bind', where, where]),
+    ...readable.filter(isFolder).flatMap((where) => ['--dir', path.dirname(where), '--ro-bind', where, where]),
+    ...socketsIn(writable[0] ?? '').flatMap((where) => ['--ro-bind', '/dev/null', where]),
+    '--dir',
+    path.dirname(helper),
+    '--ro-bind',
+    helper,
+    helper,
     ...POINTERS.flatMap((name) => ['--unsetenv', name]),
     '--unshare-net',
     '--unshare-ipc',
@@ -244,7 +267,7 @@ export function linuxSandbox(socket: string, writable: string[] = []): string[] 
     '--die-with-parent',
     '--',
     'python3',
-    linuxRelay.helper,
+    helper,
     '--socket',
     socket,
     '--port',
@@ -268,7 +291,14 @@ export async function preparePrivate(env: NodeJS.ProcessEnv, contextDir: string)
   }
   await mkdir(dir, { recursive: true })
   await writeFile(path.join(dir, 'config.yaml'), profileConfig(port, running.token, stored.model), { mode: 0o600 })
-  if (linux) return linuxSandbox(running.socket, [contextDir, path.dirname(path.dirname(dir))])
+  if (linux) {
+    env.HERMES_GATEWAY_LOCK_DIR = path.join(dir, 'gateway-locks')
+    const home = `${os.homedir()}${path.sep}`
+    const pathFolders = (env.PATH ?? '').split(path.delimiter).filter((where) => where.startsWith(home))
+    const runtime = ['hermes-agent', 'tools'].map((each) => path.join(os.homedir(), '.hermes', each))
+    const installs = path.join(os.homedir(), '.hermes', 'installs')
+    return linuxSandbox(running.socket, [contextDir, dir, installs], [...pathFolders, ...runtime])
+  }
   if (process.platform === 'darwin') return ['/usr/bin/sandbox-exec', '-p', sandboxProfile(running.port)]
   throw new Error('Hermes on your endpoint needs the macOS sandbox, or Bubblewrap on Linux.')
 }

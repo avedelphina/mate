@@ -4,7 +4,7 @@ import { promisify } from 'node:util'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import http from 'node:http'
 import net from 'node:net'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { checkEndpoint, endpointView, judgeOnEndpoint, keepEndpointIn, keyRefusal, linuxRelay, linuxSandbox, picked, profileConfig, sandboxProfile, setEndpoint, startRelay, stopRelay } from '../src/main/endpoint.ts'
@@ -101,12 +101,16 @@ test('in the Linux sandbox, a program reaches only Mate through the Unix-socket 
   const dir = await mkdtemp(path.join(tmpdir(), 'mate-linux-endpoint-'))
   const upstream = await listen((_request, response) => response.end('relay'))
   const other = await listen((_request, response) => response.end('other'))
-  // A Unix socket on the host, as the D-Bus bus or an ssh connection is: no network, and still a way out.
-  const outside = path.join(dir, 'outside.sock')
+  const writable = await mkdtemp(path.join(tmpdir(), 'mate-linux-writable-'))
+  // A socket in the writable context is masked, and one under home is hidden. Both would be a way out.
+  const outside = path.join(writable, 'outside.sock')
   const host = net.createServer((client) => client.end('open'))
   await new Promise<void>((resolve) => host.listen(outside, resolve))
-  // The one folder the sandbox may write to, as the context is. The checkout is seen, and only read.
-  const writable = await mkdtemp(path.join(tmpdir(), 'mate-linux-writable-'))
+  const home = await mkdtemp(path.join(homedir(), 'mate-linux-home-'))
+  const homeSocket = path.join(home, 'home.sock')
+  const homeHost = net.createServer((client) => client.end('open'))
+  await new Promise<void>((resolve) => homeHost.listen(homeSocket, resolve))
+  // The hidden checkout has an empty stand-in. A write there must not reach the host.
   const probe = path.join(process.cwd(), '.sandbox-probe')
   try {
     keepEndpointIn(path.join(dir, 'endpoint.json'), seal)
@@ -138,17 +142,21 @@ def write(path):
         return 'written'
     except Exception:
         return 'blocked'
-print(relay, other, outside, unix('${outside}'), write('${path.join(writable, 'note.txt')}'), write('${probe}'))
+print(relay, other, outside, unix('${outside}'), unix('${homeSocket}'), write('${path.join(writable, 'note.txt')}'), write('${probe}'))
 `
     const args = [...linuxSandbox(socket, [writable]), 'python3', '-c', script]
     const { stdout } = await promisify(execFile)(args[0], args.slice(1), { timeout: 30_000 })
-    assert.equal(stdout.trim(), 'relay blocked blocked blocked written blocked')
+    assert.equal(stdout.trim(), 'relay blocked blocked blocked blocked written written')
+    await assert.rejects(readFile(probe))
   } finally {
     stopRelay()
     upstream.close()
     other.close()
     host.close()
+    homeHost.close()
+    await rm(outside, { force: true })
     await rm(probe, { force: true })
+    await rm(home, { recursive: true, force: true })
     await rm(dir, { recursive: true, force: true })
     await rm(writable, { recursive: true, force: true })
   }
@@ -159,6 +167,7 @@ test("Mate's Hermes profile has the relay as its only way out", () => {
   assert.match(config, /provider: custom:mate-relay\n/)
   assert.match(config, /api: http:\/\/127\.0\.0\.1:4242\/v1\n/)
   assert.match(config, /fallback_providers: \[\]\n/)
+  assert.match(config, /gateway:\n {2}standalone: true\n/)
   assert.match(config, /toolsets:\n {2}- file\n/)
   assert.match(config, /plugins:\n {2}enabled: \[\]\n/)
   assert.equal(/https?:\/\/(?!127\.0\.0\.1)/.test(config), false)

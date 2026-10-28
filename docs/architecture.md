@@ -378,12 +378,13 @@ it, and three things together keep the text from going anywhere else:
   Python bridge in the sandbox listens there and forwards only to Mate's
   relay over a Unix socket shared from the host. A Unix socket is not
   network, so `--unshare-net` alone would leave every one on the host
-  open: the D-Bus session bus, an ssh connection, a Docker socket. So the
-  system is seen read-only, `/tmp`, `/run`, `/var/tmp`, `~/.ssh` and
-  `~/.gnupg` are empty, the variables that name such sockets are dropped,
-  and only the context, `~/.hermes` and the relay's socket are there to
-  write to or reach. The bridge is `assist/linux-relay.py`, packaged with
-  Mate; Bubblewrap and Python are external dependencies.
+  open: the D-Bus session bus, an ssh connection, a Docker socket. The
+  system is seen read-only, `/tmp`, `/run`, `/var/tmp` and home are empty,
+  and the variables that name such sockets are dropped. Only the context,
+  the `mate-private` profile, Hermes's runtime and the relay's socket are
+  bound back. Socket files already in the context are masked by `/dev/null`.
+  The bridge is `assist/linux-relay.py`, packaged with Mate; Bubblewrap
+  and Python are external dependencies.
 - **The relay.** A server in Mate, on TCP and a Unix socket, that passes
   requests under `/v1` to the endpoint the reader set, and to nothing
   else. It needs a token that Hermes holds, refuses a request with an
@@ -391,8 +392,9 @@ it, and three things together keep the text from going anywhere else:
   Python bridge never see the key.
 - **Mate's own Hermes profile.** `mate-private`, in Hermes's profiles,
   written again before every turn: the relay as its only provider, no
-  fallback providers, no plugins, no memory, file tools only. The
-  reader's own profile may fall back to a provider in the cloud.
+  fallback providers, no plugins, no memory, file tools only. A standalone
+  gateway in that profile keeps current Hermes off the reader's default
+  gateway, which may fall back to a provider in the cloud.
 
 The key is kept in `endpoint.json` in the app's data folder, sealed by
 Electron's `safeStorage` (the system keychain). On Linux a keyring must
@@ -407,14 +409,12 @@ context that was opened to the old one. Closing a context to the
 endpoint, or making it not private, closes it again.
 
 Limits. `sandbox-exec` is deprecated by Apple, and still works. Linux
-needs Bubblewrap with user namespaces permitted by the system. There a
-Unix socket elsewhere under the home stays reachable; hiding the home
-and binding back what Hermes needs would close that. Hermes writes only
-to `~/.hermes` there: a version that writes elsewhere under the home
-fails. Hermes
-needs a model with tool calls and a window of 64,000 tokens or more. The
-agent is Hermes alone; Claude and Codex are not offered in a private
-context.
+needs Bubblewrap with user namespaces permitted by the system. Hermes
+writes only to the `mate-private` profile and its dependency launch locks
+there: a version that writes elsewhere under the home fails. An abstract
+Unix socket has no path to hide or mask and remains a limit. Hermes needs
+a model with tool calls and a window of 64,000 tokens or more. The agent
+is Hermes alone; Claude and Codex are not offered in a private context.
 
 ## Search by meaning
 
