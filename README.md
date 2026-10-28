@@ -177,6 +177,18 @@ sudo apt install poppler-utils tesseract-ocr tesseract-ocr-ces \
 Install only those you want. A missing tool disables only its kind of
 extraction; it is used when you install it and search or reopen the context.
 
+Hermes in a private context runs in a network namespace of its own, which
+Ubuntu 24.04 and later do not let an ordinary user set up. There it stops
+with `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`. To
+allow it for the whole system, which loosens a protection Ubuntu added:
+
+```sh
+sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+```
+
+Or give Bubblewrap an AppArmor profile that permits user namespaces, and
+leave the setting as it is. Everything else in Mate works without either.
+
 To run Mate from a checkout instead:
 
 Requirements: **Node.js 22 or newer**, **pnpm 10 or newer**. The desktop

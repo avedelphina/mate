@@ -29,6 +29,10 @@ jobs:
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup
+      # Ubuntu 24.04 keeps a user namespace from setting up a network of its own, so bwrap --unshare-net
+      # fails with "loopback: Failed RTM_NEWADDR". A reader on such a system makes the same choice: see the README.
+      - name: Let Bubblewrap give Hermes a network namespace of its own
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Install the external tools used by the tests
         run: |
           sudo apt-get update
