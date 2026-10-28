@@ -5,7 +5,11 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.8.0] - 2026-10-28
+
+Review more than markdown. An XML config, a CSV or a log is commented on
+like a draft, with the comments kept beside it, and a comment can link a
+file and carry tags.
 
 ### Added
 
