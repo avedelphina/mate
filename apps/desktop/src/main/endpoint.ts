@@ -27,6 +27,18 @@ export type Seal = { encrypt(text: string): Buffer; decrypt(sealed: Buffer): str
 
 type Stored = { url: string; model: string; key?: string }
 
+/**
+ * Why a key may not be kept here, or null when it may. On Linux without a keyring, Electron falls back
+ * to a store sealed with a password that is the same on every computer: that is no seal at all.
+ */
+export function keyRefusal(platform: string, available: boolean, backend: string): string | null {
+  if (!available) return 'Keep an endpoint key only where the system keychain is available.'
+  if (platform === 'linux' && (backend === 'basic_text' || backend === 'unknown')) {
+    return 'Keep an endpoint key only where a keyring runs, such as GNOME Keyring or KWallet. Without one, the key would be sealed with a password every computer knows.'
+  }
+  return null
+}
+
 /** What the window may know: never the key. */
 export type EndpointView = { url: string; model: string; hasKey: boolean }
 

@@ -7,7 +7,7 @@ import net from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { checkEndpoint, endpointView, judgeOnEndpoint, keepEndpointIn, linuxRelay, linuxSandbox, picked, profileConfig, sandboxProfile, setEndpoint, startRelay, stopRelay } from '../src/main/endpoint.ts'
+import { checkEndpoint, endpointView, judgeOnEndpoint, keepEndpointIn, keyRefusal, linuxRelay, linuxSandbox, picked, profileConfig, sandboxProfile, setEndpoint, startRelay, stopRelay } from '../src/main/endpoint.ts'
 
 // A stand-in for the keychain: anything but the key as it was given.
 const seal = { encrypt: (text: string) => Buffer.from([...text].reverse().join('')), decrypt: (sealed: Buffer) => [...sealed.toString()].reverse().join('') }
@@ -201,4 +201,13 @@ test('the endpoint is asked only to pick, with the key, and its pick comes back 
     upstream.close()
     await rm(dir, { recursive: true, force: true })
   }
+})
+
+test('a key is kept only under a real seal: not on Linux without a keyring', () => {
+  assert.equal(keyRefusal('darwin', true, ''), null)
+  assert.equal(keyRefusal('linux', true, 'gnome_libsecret'), null)
+  assert.equal(keyRefusal('linux', true, 'kwallet5'), null)
+  assert.match(keyRefusal('linux', true, 'basic_text')!, /keyring/)
+  assert.match(keyRefusal('linux', true, 'unknown')!, /keyring/)
+  assert.match(keyRefusal('darwin', false, '')!, /keychain/)
 })

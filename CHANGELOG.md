@@ -19,7 +19,8 @@ then, minor versions may change behaviour.
   it*, endpoint judging and settings. Hermes in a private context runs in
   Bubblewrap and reaches only Mate's endpoint relay: it sees the system
   read-only, and none of the host's Unix sockets, such as the D-Bus bus
-  or an ssh connection.
+  or an ssh connection. An endpoint key is kept only where a keyring
+  runs, such as GNOME Keyring or KWallet.
 - Ubuntu CI checks the window, document extraction and both packages.
   Tagged releases publish the Linux artifacts beside the macOS disk image.
 

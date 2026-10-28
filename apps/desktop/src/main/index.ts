@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage, shell, type IpcMainInvokeEvent } from 'electron'
-import { endpointView, judgeOnEndpoint, keepEndpointIn, linuxRelay, setEndpoint, stopRelay } from './endpoint'
+import { endpointView, judgeOnEndpoint, keepEndpointIn, keyRefusal, linuxRelay, setEndpoint, stopRelay } from './endpoint'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -325,7 +325,8 @@ app.whenReady().then(() => {
   keepOpenedIn(path.join(app.getPath('userData'), 'opened.json'))
   keepEndpointIn(path.join(app.getPath('userData'), 'endpoint.json'), {
     encrypt: (text) => {
-      if (!safeStorage.isEncryptionAvailable()) throw new Error('Keep an endpoint key only where the system keychain is available.')
+      const refusal = keyRefusal(process.platform, safeStorage.isEncryptionAvailable(), process.platform === 'linux' ? safeStorage.getSelectedStorageBackend() : '')
+      if (refusal) throw new Error(refusal)
       return safeStorage.encryptString(text)
     },
     decrypt: (sealed) => safeStorage.decryptString(sealed)

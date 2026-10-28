@@ -390,7 +390,9 @@ it, and three things together keep the text from going anywhere else:
   reader's own profile may fall back to a provider in the cloud.
 
 The key is kept in `endpoint.json` in the app's data folder, sealed by
-Electron's `safeStorage` (the system keychain). The window is told the
+Electron's `safeStorage` (the system keychain). On Linux a keyring must
+run, such as GNOME Keyring or KWallet: without one Electron would seal
+with a password every computer knows, so Mate keeps no key there. The window is told the
 address, the model, and whether a key is saved, never the key. The
 address must be https, unless it is on this computer.
 
