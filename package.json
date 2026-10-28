@@ -1,6 +1,6 @@
 {
   "name": "mate",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "A desk for a body of work: review markdown in place, with agents that propose and you decide.",
   "private": true,
   "license": "MIT",

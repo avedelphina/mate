@@ -6,8 +6,8 @@ Mate is pre-1.0. Only the latest release on `main` receives fixes.
 
 | Version | Supported |
 |---|---|
-| 0.8.x | yes |
-| 0.7.x and earlier | no |
+| 0.9.x | yes |
+| 0.8.x and earlier | no |
 
 ## Reporting a vulnerability
 

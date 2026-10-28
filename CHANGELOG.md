@@ -5,7 +5,11 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.9.0] - 2026-10-28
+
+Read code as code, without an editor inside Mate. Search reads every
+text file, a text file shows its line numbers, your own editor opens it
+at the line, and a trusted context shows what changed in a file.
 
 ### Added
 
