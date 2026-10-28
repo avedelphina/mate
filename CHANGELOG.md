@@ -7,6 +7,11 @@ then, minor versions may change behaviour.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-28
+
+Mate now runs on Linux, with local tools in place of the Mac's native
+helpers and the same review, search, private-endpoint and settings features.
+
 ### Added
 
 - An x86-64 Linux build, as an AppImage and a Debian package. Shortcuts
@@ -18,8 +23,8 @@ then, minor versions may change behaviour.
 - All Mate 0.6.0 features work on Linux: whole-context questions, *Near
   it*, endpoint judging and settings. Hermes in a private context runs in
   Bubblewrap and reaches only Mate's endpoint relay: it sees the system
-  read-only, and none of the host's Unix sockets, such as the D-Bus bus
-  or an ssh connection. An endpoint key is kept only where a keyring
+  read-only, home and common socket folders are hidden, and socket files
+  in the context are masked. An endpoint key is kept only where a keyring
   runs, such as GNOME Keyring or KWallet.
 - Ubuntu CI checks the window, document extraction and both packages.
   Tagged releases publish the Linux artifacts beside the macOS disk image.
