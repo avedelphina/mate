@@ -378,6 +378,11 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
   Mac, ARM Linux or Windows, run from a checkout with `pnpm dev`.
 - **Windows is not exercised.** macOS and Linux are tested; the review
   works without the on-device assist where that is unavailable.
+- **On Linux, LibreOffice reads every Word, RTF and ODT file** of an open
+  context, trusted or not, so search can find its text. A document made
+  to attack LibreOffice would run against it with your rights. Keep
+  LibreOffice up to date, or do not install it if you open contexts from
+  people you do not trust: those files then stay unread.
 - **Codex needs its own sign-in** (`codex login`). Until then Mate shows the
   error from Codex.
 - **The guard works after a turn, not during it.** An agent that writes

@@ -312,7 +312,12 @@ out once and keeps it: the *twin* of `shelf/policy.pdf` is
   read with Vision. Word, RTF, ODT and HTML go to `textutil`. On Linux,
   `pdftotext` reads a PDF, and one without text is rendered by `pdftoppm`
   and read by Tesseract. LibreOffice converts DOC/DOCX, RTF, ODT and HTML
-  in headless mode with an isolated temporary profile. Python's standard
+  in headless mode with an isolated temporary profile. It does so for
+  every such file of every context, trusted or not, as soon as the
+  context is open: a document made to break LibreOffice's parser runs
+  against it with the reader's rights. `textutil` on a Mac does the same
+  job with a far smaller parser. Kept so, by choice: reading only in a
+  trusted context would leave Word files unfound in the rest. Python's standard
   library reads the HTML in a `.webarchive`. On both, an Excel workbook is
   a zip of XML files read by `unzip`, and each sheet becomes a markdown
   table. A CSV or TSV file is its own text: UTF-8, or else Windows-1250.
