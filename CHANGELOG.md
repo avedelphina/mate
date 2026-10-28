@@ -5,6 +5,60 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- An x86-64 Linux build, as an AppImage and a Debian package. Shortcuts
+  use Ctrl. Optional external tools provide functional parity with macOS:
+  Poppler and Tesseract read PDFs and scans, LibreOffice reads Office
+  documents, and Python reads web archives. None is bundled.
+- Writing assist works on Linux through a local Ollama chat model. Mate
+  does not install Ollama or download the model.
+- All Mate 0.6.0 features work on Linux: whole-context questions, *Near
+  it*, endpoint judging and settings. Hermes in a private context runs in
+  Bubblewrap and reaches only Mate's endpoint relay.
+- Ubuntu CI checks the window, document extraction and both packages.
+  Tagged releases publish the Linux artifacts beside the macOS disk image.
+
+## [0.6.0] - 2026-10-28
+
+Ask your library, and keep what is private on a server you control. A
+question to the whole context puts the passages that answer it on the
+page, whole, in English, Czech or Slovak; *Near it* does the same for a
+passage of a draft; and your own inference endpoint can pick which of
+them bear on it. A private context can be opened to that endpoint, and
+to nothing else. Settings are on one page.
+
+### Added
+
+- Ask the whole context a question: press Enter in the search. The
+  passages closest to it in meaning go on the page, whole, grouped by
+  document, each opening at its place. Nothing is written by a model, so
+  what you read is what the files say, and it works in a private
+  context.
+- *Near it*, under a passage you select in a draft: what else in the
+  context says something close to it, in any of the languages, on the
+  page the same way. Panes are left out, since they are not sources.
+- Your own endpoint can judge a question. In the question view, *Ask
+  your-host which of these answer it* sends the question and the thirty
+  passages closest in meaning, under the bar too, to your endpoint, which
+  only picks the ones that bear on it. The page shows those passages, the
+  files' own text, the most relevant first. Not in a private context that
+  is not opened to your endpoint.
+- A settings page: *Mate → Settings…* (⌘,), or the palette. Your
+  endpoint is set there, and the page lists the contexts you trust and
+  the private ones, with a way to take trust or the endpoint away, and
+  says whether search by meaning and the comment box's helper are ready
+  on this Mac.
+- A private context can be opened to your own inference endpoint. Set
+  its address, model and key in *Settings*, then allow it for a
+  context in a system dialog that names the host. Hermes then works
+  there, in the macOS sandbox: it reaches only Mate, which passes its
+  requests to your endpoint and adds the key. It never sees the key, and
+  it does not use your own Hermes profile, which may fall back to the
+  cloud.
+
 ## [0.5.2] - 2026-10-27
 
 The first version you can download: a disk image for a Mac with Apple

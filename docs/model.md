@@ -99,6 +99,12 @@ outside the folder, like trust. Keeping a context private asks nothing.
 Letting agents in again is the reader's to say, in a dialog of the
 system.
 
+A private context can be opened to one agent: Hermes on the reader's own
+inference endpoint, a server they control. Then the text goes to that
+server and to nowhere else. The reader sets the endpoint once, and opens
+each private context to it in a dialog of the system that names the
+host. A new host closes every context that was opened to the old one.
+
 ## What this repository does not contain
 
 `apps/desktop` is a window onto this tree. It opens a context, opens a

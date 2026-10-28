@@ -30,8 +30,11 @@ export function Agent(props: {
   /** The files of the project, and how one is opened: a file an agent names in its answer opens from there. */
   files: string[]
   onOpen: (path: string) => void
+  /** The settings page, where the endpoint is set. What it shows is read again when the page closes. */
+  onSettings: () => void
+  settingsOpen: boolean
 }) {
-  const { project, onChanged, into, onSession, files, onOpen } = props
+  const { project, onChanged, into, onSession, files, onOpen, onSettings, settingsOpen } = props
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [open, setOpen] = useState<string | null>(null)
@@ -46,6 +49,9 @@ export function Agent(props: {
   const [trusted, setTrusted] = useState(false)
   // Whether the context is private. Then no agent can be invited, and main refuses one all the same.
   const [kept, setKept] = useState(false)
+  // In a private context: whether Hermes on the reader's own endpoint may read it, and that endpoint.
+  const [opened, setOpened] = useState(false)
+  const [endpoint, setEndpoint] = useState<{ url: string; model: string; hasKey: boolean } | null>(null)
 
   const session = sessions.find((each) => each.id === open) ?? null
   useEffect(() => onSession(session?.id ?? null), [session?.id])
@@ -61,9 +67,16 @@ export function Agent(props: {
   useEffect(() => {
     setOpen(null)
     window.mate.listSessions(project).then(setSessions, () => setSessions([]))
+  }, [project])
+
+  // What may be changed on the settings page is read again when it closes.
+  useEffect(() => {
     window.mate.isTrusted().then(setTrusted, () => setTrusted(false))
     window.mate.isPrivate().then(setKept, () => setKept(false))
-  }, [project])
+    window.mate.isOpened().then(setOpened, () => setOpened(false))
+    window.mate.getEndpoint().then(setEndpoint, () => setEndpoint(null))
+  }, [project, settingsOpen])
+
 
   useEffect(
     () =>
@@ -140,13 +153,16 @@ export function Agent(props: {
           Invite an agent into {project}. It may read the whole context. It plans first, and it writes only in this project.
         </p>
         <p className="invite">
-          {agents.map((agent) => (
+          {/* In a private context only Hermes on the reader's endpoint is offered, and only once it may read it. */}
+          {agents.filter((agent) => (agent.kind === 'private') === kept).map((agent) => (
             <button
               key={agent.label}
-              disabled={!agent.found || kept}
+              disabled={!agent.found || (kept && !(opened && endpoint))}
               title={
                 kept
-                  ? 'This context is private.'
+                  ? opened && endpoint
+                    ? `Hermes in ${document.documentElement.dataset.platform === 'mac' ? 'the macOS sandbox' : 'Bubblewrap'}, with your endpoint ${new URL(endpoint.url).host} as its only way out.`
+                    : 'This context is private. Allow your endpoint here first.'
                   : agent.host
                     ? 'On another machine. It has no folder there: Mate sends it the text of the files.'
                     : agent.found
@@ -171,10 +187,46 @@ export function Agent(props: {
           {kept
             ? 'This context is private. No agent works in it, so nothing of it leaves this computer. Search, reading and the comment box still work.'
             : 'An agent sends what it reads to where its model runs.'}
-          <button onClick={() => window.mate.setPrivate(!kept).then(setKept, (caught) => setError(reason(caught)))}>
+          <button
+            onClick={() =>
+              window.mate.setPrivate(!kept).then(
+                (now) => {
+                  setKept(now)
+                  window.mate.isOpened().then(setOpened, () => setOpened(false))
+                },
+                (caught) => setError(reason(caught))
+              )
+            }
+          >
             {kept ? 'Let agents in…' : 'Keep this context private'}
           </button>
         </p>
+        {/* The endpoint is set here in any context: it judges questions in any, and works as an agent only in a private one opened to it. */}
+        {(
+          <div className="meta hint trust endpoint">
+            {(
+              <>
+                {endpoint
+                  ? !kept
+                    ? `Your endpoint is ${new URL(endpoint.url).host}, with ${endpoint.model}. It can judge a question here.`
+                    : opened
+                      ? `Hermes on your endpoint, ${new URL(endpoint.url).host}, may read this context. It runs in ${document.documentElement.dataset.platform === 'mac' ? 'the macOS sandbox' : 'Bubblewrap'} and reaches nothing else.`
+                      : `Your endpoint is ${new URL(endpoint.url).host}, with ${endpoint.model}. It may not read this context.`
+                  : kept
+                    ? 'An agent can work here on your own inference endpoint, and nowhere else.'
+                    : 'Your own inference endpoint, a server you control, can judge questions, and work in a private context.'}
+                {endpoint && kept && (
+                  <button onClick={() => window.mate.setOpened(!opened).then(setOpened, (caught) => setError(reason(caught)))}>
+                    {opened ? 'Close it to your endpoint' : 'Allow your endpoint here…'}
+                  </button>
+                )}
+                <button className="quiet" onClick={onSettings}>
+                  {endpoint ? 'Change the endpoint…' : 'Set your endpoint…'}
+                </button>
+              </>
+            )}
+          </div>
+        )}
         {sessions.length > 0 && <h3>Sessions <span className="count">{sessions.length}</span></h3>}
         {[...sessions]
           .sort((a, b) => b.created.localeCompare(a.created))
@@ -341,7 +393,7 @@ export function Agent(props: {
               After this turn
             </button>
           )}
-          <button className="primary" title="⌘↵" disabled={!text.trim()} onClick={() => send(false)}>
+          <button className="primary" title={document.documentElement.dataset.platform === 'mac' ? '⌘↵' : 'Ctrl+Enter'} disabled={!text.trim()} onClick={() => send(false)}>
             Send
           </button>
         </footer>

@@ -9,6 +9,7 @@ import { launch } from './drive.ts'
 
 const names = (selector: string) =>
   `[...document.querySelectorAll(${JSON.stringify(selector)})].map((each) => each.textContent + (each.classList.contains('active') ? '*' : ''))`
+const mac = process.platform === 'darwin'
 
 test('the window, on the example context: a comment into the file, the tree, a pane, the conversation on the page', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'mate-e2e-'))
@@ -30,22 +31,32 @@ test('the window, on the example context: a comment into the file, the tree, a p
 
     // Select a passage, comment on it, and find the comment in the file under the passage.
     const passage = 'The shelf copy stays as it was until you publish.'
-    await app.page(`(() => {
-      const page = document.querySelector('.page')
-      const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT)
-      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        const at = node.data.indexOf(${JSON.stringify(passage)})
-        if (at < 0) continue
-        const range = document.createRange()
-        range.setStart(node, at)
-        range.setEnd(node, at + ${passage.length})
-        getSelection().removeAllRanges()
-        getSelection().addRange(range)
-        page.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
-        return true
-      }
-      throw new Error('The passage is not on the page.')
-    })()`)
+    const select = () =>
+      app.page(`(() => {
+        const page = document.querySelector('.page')
+        const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT)
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const at = node.data.indexOf(${JSON.stringify(passage)})
+          if (at < 0) continue
+          const range = document.createRange()
+          range.setStart(node, at)
+          range.setEnd(node, at + ${passage.length})
+          getSelection().removeAllRanges()
+          getSelection().addRange(range)
+          page.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+          return true
+        }
+        throw new Error('The passage is not on the page.')
+      })()`)
+    // What else is near the passage goes on the page as a question, and the draft is back on Esc.
+    await select()
+    await app.until(`!!document.querySelector('.popover.menu')`, 'the menu under the selection')
+    await app.press('.popover.menu button', 'Near it')
+    await app.until(`document.querySelector('.center .question h1')?.textContent === 'Near “${passage}”'`, 'what is near it, on the page')
+    await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
+    await app.until(`!document.querySelector('.center .question') && !document.querySelector('.popover')`, 'the draft again, with no menu')
+
+    await select()
     await app.until(`!!document.querySelector('.popover.menu')`, 'the menu under the selection')
     await app.press('.popover.menu button', 'Comment')
     await app.until(`!!document.querySelector('.composer textarea[aria-label="Note"]')`, 'the form for the note')
@@ -153,7 +164,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.projects .tree .row', 'scan.pdf')
     await app.until(`document.querySelector('.source strong')?.textContent === 'scan.pdf'`, 'the card of the file')
     assert.deepEqual(await app.page(`[...document.querySelectorAll('.source .acts button')].map((each) => each.textContent.trim())`), [
-      'Show it in Finder',
+      mac ? 'Show it in Finder' : 'Show it in the file manager',
       'Ask the agent to extract its text into draft/',
       'Close'
     ])
@@ -178,6 +189,26 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.equal(await app.page(`[...document.querySelectorAll('.invite button')].every((each) => each.disabled)`), true)
     assert.equal(JSON.parse(await readFile(path.join(app.userData, 'private.json'), 'utf8')).length, 1)
     assert.equal(await app.page(`document.querySelector('.private button').textContent`), 'Let agents in…')
+    // The reader's endpoint is set on the settings page, opened from here. Saving it asks nothing; letting it read
+    // the context asks the system. The page lists this context as private, and the Agent tab knows the endpoint after.
+    await app.press('.endpoint button', 'Set your endpoint…')
+    await app.until(`document.querySelector('.center .settings h1')?.textContent === 'Settings'`, 'the settings page')
+    await app.page(`(() => {
+      const set = (at, text) => {
+        const input = document.querySelectorAll('.settings .endpoint input')[at]
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, text)
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      }
+      set(0, 'https://llm.example.org/v1')
+      set(1, 'Qwen/Qwen3.6-35B-A3B-FP8')
+    })()`)
+    await app.press('.settings .endpoint button', 'Save')
+    await app.until(`document.querySelector('.settings .endpoint')?.textContent.includes('Saved: llm.example.org.')`, 'the endpoint, saved')
+    assert.equal(await app.page(`[...document.querySelectorAll('.settings li .dir')].some((each) => each.textContent.endsWith('/example'))`), true)
+    await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
+    await app.until(`!document.querySelector('.center .settings') && document.querySelector('.endpoint')?.textContent.includes('Your endpoint is llm.example.org')`, 'the Agent tab, with the endpoint')
+    assert.deepEqual(await app.page(`[...document.querySelectorAll('.endpoint button')].map((each) => each.textContent)`), ['Allow your endpoint here…', 'Change the endpoint…'])
+    assert.equal(JSON.parse(await readFile(path.join(app.userData, 'endpoint.json'), 'utf8')).url, 'https://llm.example.org/v1')
 
     // A script is not run in a context the reader has not trusted.
     await app.press('.margin .tabs button', 'workflow')
@@ -186,7 +217,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.equal(await app.page(`document.querySelectorAll('.ran').length`), 0)
 
     // The palette lists what the window can go to or do. A file of the project is found by a part of its name, and opened.
-    await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }))`)
+    await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: ${mac}, ctrlKey: ${!mac}, bubbles: true }))`)
     await app.until(`document.querySelector('dialog.palette')?.open === true`, 'the palette')
     await app.page(`(() => {
       const input = document.querySelector('dialog.palette input')
@@ -236,9 +267,19 @@ test('in a context the reader trusts, a script of the project runs from its butt
   const root = await mkdtemp(path.join(tmpdir(), 'mate-e2e-'))
   const context = path.join(root, 'example')
   await cp(path.resolve(import.meta.dirname, '../../../../contexts/_example'), context, { recursive: true })
-  // A policy on the shelf as Word wrote it. Mate reads its text when the context is opened.
-  await writeFile(path.join(root, 'terms.txt'), 'Suppliers are reviewed every eighteen months.\n')
-  execFileSync('/usr/bin/textutil', ['-convert', 'docx', '-output', path.join(context, 'shelf/terms.docx'), path.join(root, 'terms.txt')])
+  // A policy on the shelf as Word wrote it also checks reading its text.
+  if (process.platform !== 'win32') {
+    await writeFile(path.join(root, 'terms.txt'), 'Suppliers are reviewed every eighteen months.\n')
+    if (mac) {
+      execFileSync('/usr/bin/textutil', ['-convert', 'docx', '-output', path.join(context, 'shelf/terms.docx'), path.join(root, 'terms.txt')])
+    } else {
+      execFileSync(
+        'libreoffice',
+        ['--headless', '--norestore', `-env:UserInstallation=file://${path.join(root, 'libreoffice-profile')}`, '--convert-to', 'docx', '--outdir', path.join(context, 'shelf'), path.join(root, 'terms.txt')],
+        { stdio: 'ignore' }
+      )
+    }
+  }
   // A commit says who made it. The test is nobody in particular, whoever runs it.
   Object.assign(process.env, { GIT_AUTHOR_NAME: 'Reader', GIT_AUTHOR_EMAIL: 'reader@example.com', GIT_COMMITTER_NAME: 'Reader', GIT_COMMITTER_EMAIL: 'reader@example.com' })
   // The reader trusted this folder on an earlier day: that is what the app finds in its data folder.
@@ -275,21 +316,32 @@ test('in a context the reader trusts, a script of the project runs from its butt
     await app.until(`!!document.querySelector('.source .ran pre')`, 'what the script printed, on its card')
     assert.match(await app.page<string>(`document.querySelector('.source .ran pre').textContent`), /^draft\/document\.md: \d+ words\n$/)
 
-    // The Word file on the shelf is found by what it says, and read as its text, with a way to the file itself.
-    await app.page(`(() => {
-      const input = document.querySelector('.rail .search')
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'eighteen months')
-      input.dispatchEvent(new Event('input', { bubbles: true }))
-    })()`)
-    await app.until(`[...document.querySelectorAll('.rail .hit')].some((each) => each.textContent.includes('terms.docx'))`, 'the Word file among the hits')
-    await app.page(`[...document.querySelectorAll('.rail .hit')].find((each) => each.textContent.includes('terms.docx')).click()`)
-    await app.until(`document.querySelector('.center .bar').textContent.includes('Show the original')`, 'its text on the page')
-    assert.match(await app.page<string>(`document.querySelector('.center .prose').textContent`), /Suppliers are reviewed every eighteen months/)
-    await app.page(`(() => {
-      const input = document.querySelector('.rail .search')
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '')
-      input.dispatchEvent(new Event('input', { bubbles: true }))
-    })()`)
+    if (process.platform !== 'win32') {
+      // The Word file on the shelf is found by what it says, and read as its text, with a way to the file itself.
+      await app.page(`(() => {
+        const input = document.querySelector('.rail .search')
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'eighteen months')
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })()`)
+      await app.until(`[...document.querySelectorAll('.rail .hit')].some((each) => each.textContent.includes('terms.docx'))`, 'the Word file among the hits')
+      await app.page(`[...document.querySelectorAll('.rail .hit')].find((each) => each.textContent.includes('terms.docx')).click()`)
+      await app.until(`document.querySelector('.center .bar').textContent.includes('Show the original')`, 'its text on the page')
+      assert.match(await app.page<string>(`document.querySelector('.center .prose').textContent`), /Suppliers are reviewed every eighteen months/)
+      // Enter asks the whole context: the question takes the page, with the passages closest in meaning, or why there are none.
+      // Esc gives the page back as it was.
+      await app.page(`document.querySelector('.rail .search').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`)
+      await app.until(`document.querySelector('.center .question h1')?.textContent === 'eighteen months'`, 'the question on the page')
+      assert.equal(await app.page(`getComputedStyle([...document.querySelectorAll('.center > .scroll')].at(-1)).display`), 'none')
+      await app.until(`!!document.querySelector('.center .question .passage, .center .question .summary, .center .question h1 + p.meta')`, 'the passages, or why there are none')
+      await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
+      await app.until(`!document.querySelector('.center .question')`, 'the question closed')
+      assert.match(await app.page<string>(`document.querySelector('.center .bar').textContent`), /Show the original/)
+      await app.page(`(() => {
+        const input = document.querySelector('.rail .search')
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '')
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })()`)
+    }
 
     // Here the reader commits. A repository is started, and what is in the context goes into one commit, in their words.
     await app.press('.rail .ask button', 'Start a repository')

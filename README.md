@@ -9,10 +9,10 @@ invited into a project to read the context, propose a plan, make changes
 that you approve, and show you what it gathered in a pane beside the
 draft. Nothing is copied into a database, and nothing needs a server.
 
-> **Status: early.** Version 0.5.2. Built and driven by hand on macOS.
+> **Status: early.** Version 0.6.0. Built and driven on macOS and Linux.
 > [Download it](https://github.com/avedelphina/mate/releases/latest) for a
-> Mac with Apple silicon, or run it from a checkout. See
-> [Known limits](#known-limits) and the [changelog](CHANGELOG.md).
+> Mac with Apple silicon or an x86-64 Linux computer, or run it from a
+> checkout. See [Known limits](#known-limits) and the [changelog](CHANGELOG.md).
 
 ## Why it is built this way
 
@@ -78,20 +78,28 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
 - **The files of a project.** The rail shows them as a tree. A draft
   opens for review, any other markdown file opens to be read, and a file
   Mate cannot draw is shown in the file manager.
-- **Search by meaning.** With Ollama on your Mac and its `bge-m3` model
-  (`ollama pull bge-m3`), the search also finds passages close to your
-  question in meaning, in other words or another language: an English
+- **Search by meaning.** With Ollama on your computer and its `bge-m3`
+  model (`ollama pull bge-m3`), the search also finds passages close to
+  your question in meaning, in other words or another language: an English
   question finds the Czech or Slovak passage that answers it. It runs on
   your computer only. Without Ollama, search by words works as before.
-  Hermes in a context you trust searches the same way, through Mate, and
-  answers from the passage it finds.
+  Press Enter in the search to ask the whole context: the passages
+  closest to your question go on the page, whole, grouped by document,
+  each opening at its place. Select a passage in a draft and choose
+  *Near it* to see what your notes, the shelf and other drafts say close
+  to it. No model writes the answer, so it works in a private context
+  too. Where your own endpoint may read the context, it can be asked to
+  pick which of the thirty closest passages answer the question: it only
+  picks, and you still read the files' own text. Hermes in a context you
+  trust searches the same way, through Mate, and answers from the passage
+  it finds.
 - **PDF and Word files, and tables, are read and found.** Mate takes the
   text out of every PDF, Word file, Excel workbook and CSV file in the
-  context, with the Mac's own tools, and keeps it as a helper in
-  `.indexes/text/`. A scanned PDF is read off its pages. Each sheet of a
-  workbook becomes a table. Search finds what they say, a
-  policy on the shelf reads on the page, and agents are told where the
-  text is. Nothing leaves the computer.
+  context and keeps it as a helper in `.indexes/text/`. A scanned PDF is
+  read off its pages. Each sheet of a workbook becomes a table. Search
+  finds what they say, a policy on the shelf reads on the page, and agents
+  are told where the text is. macOS uses its own tools; Linux uses optional
+  external tools. Nothing leaves the computer.
 - **Search.** A search box indexes the whole context. Each hit says what
   it is: *Shelf* (what is true now), *Proposal*, *Project file*,
   *Material*, or *Pane*. The index lives in `.indexes/` and can be
@@ -116,28 +124,64 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   A conversation that is not about a draft can take the page (*Open in
   the page*). See [Agents](#agents) below.
 - **Private contexts.** *Keep this context private* in the *Agent* tab:
-  no agent works in it, so nothing of it leaves your Mac. Everything else
-  still works. Letting agents in again asks in a system dialog.
+  no agent works in it, so nothing of it leaves your computer. Everything
+  else still works. Letting agents in again asks in a system dialog. A
+  private context can be opened to Hermes on your own inference endpoint:
+  it runs in a network sandbox and its text goes only to that server.
+- **Settings.** *Mate → Settings…* (Command/Ctrl+,), or the palette: your
+  endpoint, the contexts you trust, the private ones, and what this
+  computer has for search by meaning and the comment box. Settings are
+  kept between starts in the app's data folder.
 - **Windows.** *File → New Window* opens a second context or document.
-  The rail and the margin are as wide as you drag them. **⌘K** opens a
-  palette: type part of a file's name to open it, or the name of
+  The rail and the margin are as wide as you drag them. **Command/Ctrl+K**
+  opens a palette: type part of a file's name to open it, or the name of
   something to do.
-- **On-device assist (macOS 26+).** Where Apple's on-device model is
-  available, the rewrite and comment forms can draft text. You still press
-  *Add*. Elsewhere the button is shown but off.
+- **On-device assist.** The rewrite and comment forms can draft text with
+  Apple's on-device model on macOS 26+, or a local Ollama chat model on
+  Linux. You still press *Add*. Where the model is unavailable, the button
+  is off and says why.
 
 ## Quick start
 
 On a Mac with Apple silicon, take the disk image from the
 [latest release](https://github.com/avedelphina/mate/releases/latest),
-open it, and drag Mate to Applications. It is signed and notarised, and
-it fetches no update: a new version is a new download.
+open it, and drag Mate to Applications. It is signed and notarised.
 
-To run it from a checkout instead:
+On x86-64 Linux, take the AppImage, make it executable, and run it. On a
+Debian-based system you can install the `.deb` instead. The AppImage needs
+FUSE 2 on systems that do not already provide it. Linux packages are not
+signed. Neither platform fetches an update: a new version is a new download.
+
+Linux document tools are optional and installed separately, so Mate stays
+small. Markdown review needs none of them:
+
+| Capability | External tools on `PATH` |
+|---|---|
+| PDF text | `pdftotext` (Poppler) |
+| Scanned PDF OCR | Poppler's `pdftotext` and `pdftoppm`, plus Tesseract with Czech and English data |
+| DOC/DOCX, RTF, ODT and HTML | LibreOffice |
+| Safari `.webarchive` | Python 3 |
+| Hermes in a private context | Bubblewrap and Python 3 |
+| Writing assist | Ollama with `qwen2.5:3b` (`ollama pull qwen2.5:3b`) |
+
+Saving an endpoint key also needs the system keychain through Electron's
+`safeStorage`; Mate never writes the key as plain text.
+
+On Debian or Ubuntu, this installs the document and sandbox tools:
+
+```sh
+sudo apt install poppler-utils tesseract-ocr tesseract-ocr-ces \
+  tesseract-ocr-eng libreoffice-writer python3 bubblewrap
+```
+
+Install only those you want. A missing tool disables only its kind of
+extraction; it is used when you install it and search or reopen the context.
+
+To run Mate from a checkout instead:
 
 Requirements: **Node.js 22 or newer**, **pnpm 10 or newer**. The desktop
-app runs on macOS, Linux, and Windows through Electron, but only macOS has
-been used so far.
+app runs on macOS, Linux, and Windows through Electron; macOS and Linux
+are tested.
 
 ```sh
 git clone https://github.com/avedelphina/mate.git
@@ -162,6 +206,8 @@ Other commands:
 | `pnpm build:assist` | macOS only. Builds the on-device helper (needs Xcode command line tools and the macOS 26 SDK). |
 | `pnpm pack:mac` | macOS on Apple silicon. Makes `apps/desktop/release/mac-arm64/Mate.app` to try on this Mac. |
 | `pnpm dist:mac` | Makes a signed disk image. It needs a Developer ID certificate: see [apps/desktop/README.md](apps/desktop/README.md). |
+| `pnpm pack:linux` | Linux on x86-64. Makes `apps/desktop/release/linux-unpacked/mate` to try. |
+| `pnpm dist:linux` | Makes an x86-64 AppImage and Debian package in `apps/desktop/release/`. |
 
 The `pnpm-workspace.yaml` file allows build scripts for `electron` and
 `esbuild`. If `node_modules/electron/dist` is missing after an install, see
@@ -328,10 +374,10 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
 
 ## Known limits
 
-- **The download is for Apple silicon.** On an Intel Mac, Linux or
-  Windows, run from a checkout with `pnpm dev`.
-- **Tested on macOS only.** Linux and Windows build, and the review works
-  without the on-device assist, but they have not been exercised by hand.
+- **Downloads are for Apple silicon macOS and x86-64 Linux.** On an Intel
+  Mac, ARM Linux or Windows, run from a checkout with `pnpm dev`.
+- **Windows is not exercised.** macOS and Linux are tested; the review
+  works without the on-device assist where that is unavailable.
 - **Codex needs its own sign-in** (`codex login`). Until then Mate shows the
   error from Codex.
 - **The guard works after a turn, not during it.** An agent that writes
@@ -374,7 +420,8 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
   for a letter or two. A workbook is read as its tables of values: a
   date is the number Excel keeps for it, and a chart is not read. Slides,
   `.xls` and Numbers files are named in the tree and opened by you, in
-  their own program. Text is taken out on a Mac only.
+  their own program. On Linux, PDF, Office and OCR extraction needs the
+  corresponding external tools listed in [Quick start](#quick-start).
 - **Over SSH an edit replaces the whole file.**
 - **Search by meaning needs Ollama and `bge-m3`,** about 1.2 GB. The first
   time, a large context takes a while to learn: about 75 ms a passage.
@@ -383,8 +430,9 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
   of files, not hundreds of thousands.
 - **Ambiguous passages.** A passage that occurs twice on the same line
   cannot be commented on by itself. Select a little more around it.
-- **The on-device assist** needs macOS 26 with Apple Intelligence turned on
-  and the model downloaded.
+- **The on-device assist** needs macOS 26 with Apple Intelligence, or on
+  Linux, Ollama and the configured chat model. The models and their answers
+  differ between platforms. There is no assist on Windows.
 
 ## Documentation
 

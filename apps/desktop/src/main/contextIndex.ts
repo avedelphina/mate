@@ -40,6 +40,8 @@ export type Hit = Place & {
   length: number
   /** Set when the match is in a comment and not in the prose. */
   thread: string | null
+  /** The whole passage, as the file has it, for a hit found by meaning. */
+  passage?: string
 }
 
 const VERSION = 4

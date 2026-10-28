@@ -1,8 +1,10 @@
 {
   "name": "mate-desktop",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "A desk for a body of work: review markdown in place, with agents that propose and you decide.",
   "author": "Tomas Kracmar",
+  "homepage": "https://github.com/avedelphina/mate#readme",
+  "desktopName": "io.github.avedelphina.mate",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -16,7 +18,9 @@
     "test:e2e": "electron-vite build && node --experimental-strip-types --import ./tests/register.mjs --test tests/e2e/*.e2e.ts",
     "icon": "electron build/icon.mjs",
     "pack:mac": "pnpm build:assist && electron-vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --arm64 --dir",
-    "dist:mac": "pnpm build:assist && electron-vite build && electron-builder --mac --arm64"
+    "dist:mac": "pnpm build:assist && electron-vite build && electron-builder --mac --arm64",
+    "pack:linux": "electron-vite build && electron-builder --linux --x64 --dir",
+    "dist:linux": "electron-vite build && electron-builder --linux --x64"
   },
   "devDependencies": {
     "@lezer/markdown": "^1.8.0",

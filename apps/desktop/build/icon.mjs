@@ -1,4 +1,4 @@
-// Draws build/icon.icns from build/icon.svg, with what the Mac and Electron already have.
+// Draws the application icons from build/icon.svg with Electron.
 // Run it with Electron, not with Node: `pnpm icon`. Run it again when the drawing changes.
 import { app, BrowserWindow } from 'electron'
 import { execFileSync } from 'node:child_process'
@@ -30,7 +30,8 @@ app.whenReady().then(async () => {
       writeFileSync(path.join(set, name), full.resize({ width: size * scale, height: size * scale, quality: 'best' }).toPNG())
     }
   }
-  execFileSync('iconutil', ['-c', 'icns', set, '-o', path.join(here, 'icon.icns')])
+  writeFileSync(path.join(here, 'icon.png'), full.toPNG())
+  if (process.platform === 'darwin') execFileSync('iconutil', ['-c', 'icns', set, '-o', path.join(here, 'icon.icns')])
   rmSync(set, { recursive: true, force: true })
   app.quit()
 })

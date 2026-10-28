@@ -4,7 +4,9 @@ import { Boundary } from './Boundary'
 import { Palette, type Act } from './Palette'
 import { isTwinned } from '../../shared/twin'
 import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran } from './env'
+import { Question, type Judged } from './Question'
 import { Rendered, type Passage } from './Rendered'
+import { Settings } from './Settings'
 import { Tree } from './Tree'
 import { asked, filled } from '../../shared/run'
 import './styles.css'
@@ -171,6 +173,26 @@ export function App() {
   useEffect(() => window.mate.onReading(setReadingLeft), [])
   // The passages closest in meaning to the search, and how many files are still to be given their meaning.
   const [close, setClose] = useState<{ missing: string | null; hits: Hit[] } | null>(null)
+  // A question on the page: the passages closest to it in meaning, whole. `found` is null while they are looked for.
+  // `query` is what is searched for, `keep` what of the passages may be shown: the heading may say it otherwise.
+  const [inquiry, setInquiry] = useState<{
+    question: string
+    query: string
+    keep: (hit: Hit) => boolean
+    leave?: { path: string; start: number; end: number }
+    found: { missing: string | null; hits: Hit[] } | null
+  } | null>(null)
+  useEffect(() => setInquiry(null), [contextDir])
+  // What the reader's endpoint picked of the passages, for the question on the page, and whether it may be asked here.
+  const [judged, setJudged] = useState<(Judged & { for: string }) | null>(null)
+  const [judgeHost, setJudgeHost] = useState<string | null>(null)
+  // The settings page, in the center like a question. Settings… in the app menu opens it.
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const openSettings = () => {
+    setInquiry(null)
+    setSettingsOpen(true)
+  }
+  useEffect(() => window.mate.onSettings(openSettings), [])
   const [mindingLeft, setMindingLeft] = useState(0)
   useEffect(() => window.mate.onMinding(setMindingLeft), [])
   useEffect(() => {
@@ -600,6 +622,46 @@ export function App() {
     else void read(`projects/${view.project}/${path}`)
   }
 
+  /**
+   * Ask the whole context a question, by meaning. The passages closest to it go on the page, whole.
+   * `heading` is what the page says was asked, when it is not the words themselves. `leave` is a
+   * stretch of a file not to be shown: the passage that was asked about finds itself first.
+   */
+  function ask(question: string, heading = question, leave?: { path: string; start: number; end: number }) {
+    if (!contextDir || !question.trim()) return
+    const outside = (hit: Hit) => !leave || hit.path !== leave.path || hit.start === null || hit.start >= leave.end || hit.start + hit.length <= leave.start
+    // A pane is what an agent gathered to show, not a source: the page shows only what the files of the context say.
+    const source = (hit: Hit) => hit.kind !== 'pane' && outside(hit)
+    const settle = (found: { missing: string | null; hits: Hit[] }) =>
+      setInquiry((now) => (now?.question === heading ? { ...now, found: { ...found, hits: found.hits.filter(source) } } : now))
+    setSettingsOpen(false)
+    setInquiry({ question: heading, query: question, keep: source, leave, found: null })
+    setJudged(null)
+    window.mate.judgingHost().then(setJudgeHost, () => setJudgeHost(null))
+    window.mate.searchMeaning(question, 24).then(settle, (caught) => settle({ missing: reason(caught, 'Could not search by meaning.'), hits: [] }))
+  }
+
+  /** Ask the reader's endpoint which of the closest passages answer the question on the page. It only picks. */
+  function judge() {
+    if (!inquiry || !judgeHost) return
+    const { question, query, keep, leave } = inquiry
+    const host = judgeHost
+    const settle = (next: Judged) => setJudged((was) => (was?.for === question ? { ...next, for: question } : was))
+    setJudged({ for: question, host, asking: true })
+    window.mate.judge(query, leave).then(
+      (result) => settle({ host, asked: result.asked, hits: result.hits.filter(keep) }),
+      (caught) => settle({ host, error: reason(caught, 'Your endpoint could not judge them.') })
+    )
+  }
+
+  /** What else in the context is close in meaning to the passage the reader selected: notes, the shelf, other drafts. */
+  function nearSelection() {
+    if (!view || file === null || !anchor) return
+    const clip = anchor.length > 90 ? `${anchor.slice(0, 90).trimEnd()}…` : anchor
+    ask(anchor, `Near “${clip}”`, { path: `projects/${view.project}/${view.draftsIn ?? ''}${file}`, start: from, end: from + anchor.length })
+    clearComment()
+  }
+
   /** A draft opens as a draft, at the match. Anything else is opened to be read. */
   async function openHit(hit: Hit) {
     if (hit.kind === 'draft' && hit.project && hit.path.toLowerCase().endsWith('.md')) {
@@ -946,6 +1008,7 @@ export function App() {
       add('New project…', 'Do', () => setFounding(''))
       add('Bring in a project…', 'Do', () => void importProject())
       add('Rename this context…', 'Do', () => setRenaming({ what: 'context', name: contextName ?? '' }))
+      add('Settings…', 'Show', openSettings)
       if (!lacks.git) add('Commit…', 'Do', () => void startCommit())
       add('Search this context', 'Do', () => document.querySelector<HTMLInputElement>('.rail .search')?.focus())
     }
@@ -954,7 +1017,7 @@ export function App() {
     return all
   }
 
-  // ⌘K opens the palette from anywhere in the window, and closes it again.
+  // Command/Ctrl+K opens the palette from anywhere in the window, and closes it again.
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return
@@ -979,7 +1042,9 @@ export function App() {
         <Divider which="rail" width={rail} set={setRail} />
         <header className="bar">
           Mate
-          <button className="quiet key" title="Go to a file, or do something" onClick={() => setPalette(acts())}>⌘K</button>
+          <button className="quiet key" title="Go to a file, or do something" onClick={() => setPalette(acts())}>
+            {document.documentElement.dataset.platform === 'mac' ? '⌘K' : 'Ctrl+K'}
+          </button>
         </header>
         <div className="scroll">
           {/* With no context there is one thing to do. With one, its name heads the rail, and another is a small step away. */}
@@ -1006,7 +1071,11 @@ export function App() {
               placeholder="Search this context"
               aria-label="Search this context"
               onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => event.key === 'Escape' && setQuery('')}
+              title="Enter: the passages closest in meaning, whole, on the page"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setQuery('')
+                if (event.key === 'Enter') ask(query)
+              }}
             />
           )}
           {contextDir && mindingLeft > 0 && readingLeft === 0 && (
@@ -1036,7 +1105,12 @@ export function App() {
               {/* What the words do not find, the meaning may: passages close to the question, in any of the languages. */}
               {close && close.hits.length > 0 && (
                 <>
-                  <h2>Close in meaning</h2>
+                  <h2>
+                    Close in meaning
+                    <button className="quiet see" title="The passages whole, grouped by document, on the page. Enter in the search does the same." onClick={() => ask(query)}>
+                      See them whole
+                    </button>
+                  </h2>
                   <ul>
                     {close.hits.map((hit, index) => (
                       <li key={index}>
@@ -1202,7 +1276,29 @@ export function App() {
         )}
       </aside>
       <main className="center">
-        <header className="bar">
+        {settingsOpen && (
+          <Settings
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
+        {/* A question takes the page. The draft stays as it was beneath it, and is back when the question is closed. */}
+        {inquiry && (
+          <Question
+            question={inquiry.question}
+            found={inquiry.found}
+            label={(hit) => KINDS[hit.kind].label}
+            judgeHost={judgeHost}
+            judged={judged?.for === inquiry.question ? judged : null}
+            onJudge={judge}
+            onUnjudge={() => setJudged(null)}
+            onOpen={(hit) => {
+              setInquiry(null)
+              void openHit(hit)
+            }}
+            onClose={() => setInquiry(null)}
+          />
+        )}
+        <header className="bar" hidden={inquiry !== null || settingsOpen}>
           {onPage && <span className="meta">{view.project}</span>}
           {onPage && <span className="meta">/</span>}
           {onPage && <span>Agent</span>}
@@ -1264,14 +1360,14 @@ export function App() {
                 </>
               ) : (
                 <>
-                  <button className="quiet" title="⌘S" disabled={typing === based.current} onClick={() => void save()}>Save</button>
+                  <button className="quiet" title={document.documentElement.dataset.platform === 'mac' ? '⌘S' : 'Ctrl+S'} disabled={typing === based.current} onClick={() => void save()}>Save</button>
                   <button className="quiet" onClick={() => void save().then((saved) => saved && setTyping(null))}>Done</button>
                 </>
               )}
             </span>
           )}
         </header>
-        <div className="scroll">
+        <div className="scroll" hidden={inquiry !== null || settingsOpen}>
           {/* A file the reader is deciding about. It leaves by one of the exits. There is no exit where it is just remembered. */}
           {view &&
             sources.map((source) => (
@@ -1368,6 +1464,9 @@ export function App() {
               <button className="quiet" onClick={() => compose('comment')}>Comment</button>
               <button className="quiet" onClick={() => compose('rewrite')}>Rewrite</button>
               <button className="quiet" onClick={() => compose('remove')}>Remove</button>
+              <button className="quiet" title="What else in this context is close to this passage in meaning: notes, the shelf, other drafts" onClick={nearSelection}>
+                Near it
+              </button>
             </div>
           )}
           {popover && composing && (
@@ -1415,7 +1514,7 @@ export function App() {
                     {drafting ? 'Writing…' : mode === 'rewrite' ? 'Draft the rewrite' : 'Draft the note'}
                   </button>
                 )}
-                <button className="primary" title="⌘↵" onClick={addComment}>Add to the file</button>
+                <button className="primary" title={document.documentElement.dataset.platform === 'mac' ? '⌘↵' : 'Ctrl+Enter'} onClick={addComment}>Add to the file</button>
               </footer>
             </div>
           )}
@@ -1554,6 +1653,8 @@ export function App() {
           onSession={setSessionOpen}
           files={view.files}
           onOpen={openFile}
+          onSettings={openSettings}
+          settingsOpen={settingsOpen}
         />
       )}
     </div>

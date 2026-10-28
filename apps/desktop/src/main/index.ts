@@ -1,4 +1,5 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage, shell, type IpcMainInvokeEvent } from 'electron'
+import { endpointView, judgeOnEndpoint, keepEndpointIn, linuxRelay, setEndpoint, stopRelay } from './endpoint'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -34,11 +35,30 @@ import {
   tickPane,
   writeDraft
 } from './context'
-import { refreshIndex, searchIndex } from './contextIndex'
+import { refreshIndex, searchIndex, type Hit } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
 import { runScript, stopAllScripts, stopScript } from './scripts'
 import { approve, describe, instructionFiles, keepPinsIn, movePins, unapproved } from './pins'
-import { PRIVATE, isPrivate, isTrusted, keepPrivacyIn, keepTrustIn, movePrivacy, moveTrust, setPrivate, setTrusted } from './trust'
+import {
+  PRIVATE,
+  closeAllToEndpoint,
+  isOpenedToEndpoint,
+  isPrivate,
+  isTrusted,
+  keepOpenedIn,
+  keepPrivacyIn,
+  keepTrustIn,
+  moveOpened,
+  movePrivacy,
+  moveTrust,
+  privacyAllows,
+  privacyRefusal,
+  privateContexts,
+  trustedContexts,
+  setOpenedToEndpoint,
+  setPrivate,
+  setTrusted
+} from './trust'
 import {
   answerAsk,
   attend,
@@ -75,6 +95,9 @@ const contexts = new Map<number, string>()
 // `pnpm build:assist` puts it. MATE_ASSIST names another one.
 const assistHelper =
   process.env.MATE_ASSIST ?? (app.isPackaged ? path.join(process.resourcesPath, 'mate-assist') : path.join(__dirname, '../../assist/mate-assist'))
+if (process.platform === 'linux') {
+  linuxRelay.helper = process.env.MATE_LINUX_RELAY ?? (app.isPackaged ? path.join(process.resourcesPath, 'linux-relay.py') : path.join(__dirname, '../../assist/linux-relay.py'))
+}
 
 // An app that was installed is not driven from outside. The port the end-to-end test asks for is for a checkout.
 if (app.isPackaged) app.commandLine.removeSwitch('remote-debugging-port')
@@ -247,12 +270,38 @@ function requireContext(event: IpcMainInvokeEvent): string {
 /** Electron's own menu has no New Window. The rest is the standard set, which the Edit shortcuts need. */
 function setMenu(): void {
   const mac = process.platform === 'darwin'
+  const settings = {
+    label: 'Settings…',
+    accelerator: 'CmdOrCtrl+,',
+    click: () => (BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0])?.webContents.send('settings:open')
+  }
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
-      ...(mac ? [{ role: 'appMenu' as const }] : []),
+      // The app menu of a Mac, spelled out to hold Settings where a Mac keeps it.
+      ...(mac
+        ? [
+            {
+              label: app.name,
+              submenu: [
+                { role: 'about' as const },
+                { type: 'separator' as const },
+                settings,
+                { type: 'separator' as const },
+                { role: 'services' as const },
+                { type: 'separator' as const },
+                { role: 'hide' as const },
+                { role: 'hideOthers' as const },
+                { role: 'unhide' as const },
+                { type: 'separator' as const },
+                { role: 'quit' as const }
+              ]
+            }
+          ]
+        : []),
       {
         label: 'File',
         submenu: [
+          ...(mac ? [] : [settings, { type: 'separator' as const }]),
           {
             id: 'new-window',
             label: 'New Window',
@@ -273,6 +322,14 @@ function setMenu(): void {
 app.whenReady().then(() => {
   keepTrustIn(path.join(app.getPath('userData'), 'trusted.json'))
   keepPrivacyIn(path.join(app.getPath('userData'), 'private.json'))
+  keepOpenedIn(path.join(app.getPath('userData'), 'opened.json'))
+  keepEndpointIn(path.join(app.getPath('userData'), 'endpoint.json'), {
+    encrypt: (text) => {
+      if (!safeStorage.isEncryptionAvailable()) throw new Error('Keep an endpoint key only where the system keychain is available.')
+      return safeStorage.encryptString(text)
+    },
+    decrypt: (sealed) => safeStorage.decryptString(sealed)
+  })
   keepPinsIn(path.join(app.getPath('userData'), 'pins.json'))
 
   // Before an agent starts: has what the context tells it changed since the reader last saw it?
@@ -379,11 +436,37 @@ app.whenReady().then(() => {
   })
 
   // The passages closest in meaning to the question, from what has its vectors so far.
-  ipcMain.handle('context:meaning', async (event, query: string) => {
+  // The host of the reader's endpoint, when it may judge passages of this context: not in a private one that
+  // is not opened to it. Null otherwise.
+  ipcMain.handle('endpoint:judges', (event) => {
+    const endpoint = endpointView()
+    return endpoint && privacyAllows(requireContext(event), 'private', null) ? new URL(endpoint.url).host : null
+  })
+
+  // The reader's endpoint picks, of the thirty passages closest in meaning, those that answer the question,
+  // under the bar too. Mate sends them itself, when the reader presses the button; no agent is involved.
+  // `leave` is the passage that was asked about, for Near it: the judge must not see it, or it picks it first.
+  ipcMain.handle('context:judge', async (event, question: string, leave?: { path: string; start: number; end: number }) => {
+    const contextDir = requireContext(event)
+    if (!privacyAllows(contextDir, 'private', null)) throw new Error(privacyRefusal(contextDir))
+    const missing = await meaningMissing()
+    if (missing) throw new Error(missing)
+    const outside = (hit: Hit) =>
+      !leave || hit.path !== String(leave.path) || hit.start === null || hit.start >= Number(leave.end) || hit.start + hit.length <= Number(leave.start)
+    const candidates = (await searchMeaning(contextDir, await refreshIndex(contextDir), String(question), ollamaEmbed, 32, 0))
+      .filter((hit) => hit.kind !== 'pane' && outside(hit))
+      .slice(0, 30)
+    const order = await judgeOnEndpoint(String(question), candidates.map((hit) => ({ title: hit.title, text: hit.passage ?? '' })))
+    return { asked: candidates.length, hits: order.map((at) => candidates[at]) }
+  })
+
+  // The rail shows a few passages. A question on the page asks for more: up to 30.
+  ipcMain.handle('context:meaning', async (event, query: string, limit?: number) => {
     const contextDir = requireContext(event)
     const missing = await meaningMissing()
     if (missing) return { missing, hits: [] }
-    return { missing: null, hits: await searchMeaning(contextDir, await refreshIndex(contextDir), String(query), ollamaEmbed) }
+    const many = Math.min(Math.max(Math.floor(Number(limit)) || 8, 1), 30)
+    return { missing: null, hits: await searchMeaning(contextDir, await refreshIndex(contextDir), String(query), ollamaEmbed, many) }
   })
 
   ipcMain.handle('file:read', (event, relative: string) => readContextFile(requireContext(event), relative))
@@ -449,6 +532,7 @@ app.whenReady().then(() => {
     // Trust, privacy and the approved instruction files were given to this folder. They follow it to its new name.
     moveTrust(was, moved)
     movePrivacy(was, moved)
+    moveOpened(was, moved)
     movePins(was, moved)
     forgetMeaning(contextDir)
     for (const [id, dir] of contexts) if (dir === contextDir) contexts.set(id, moved)
@@ -688,7 +772,76 @@ app.whenReady().then(() => {
       if (response !== 1) return true
     }
     setPrivate(contextDir, yes === true)
+    // Made private again later, it starts closed to the endpoint too: the reader opens it again, by name.
+    if (yes !== true) setOpenedToEndpoint(contextDir, false)
     return isPrivate(contextDir)
+  })
+
+  // The reader's endpoint: what the window may know of it, never the key.
+  ipcMain.handle('endpoint:get', () => endpointView())
+
+  // A new host is not trusted with the contexts that were opened to the old one: each is opened again, by name.
+  ipcMain.handle('endpoint:set', (_event, url: string, model: string, key?: string) => {
+    if (setEndpoint(String(url), String(model), typeof key === 'string' && key ? key : undefined)) closeAllToEndpoint()
+    return endpointView()
+  })
+
+  ipcMain.handle('privacy:opened', (event) => isOpenedToEndpoint(requireContext(event)))
+
+  // Everything the reader has set, in one place, and what this computer has. No key, ever.
+  ipcMain.handle('settings:get', async () => ({
+    folder: app.getPath('userData'),
+    endpoint: endpointView(),
+    trusted: trustedContexts(),
+    private: privateContexts().map((dir) => ({ dir, opened: isOpenedToEndpoint(dir) })),
+    meaning: await meaningMissing(),
+    assist: await checkAssist(assistHelper)
+  }))
+
+  // From the settings only what takes away, and only for a context on the list. A path the window names
+  // is acted on only when main holds it already: nothing can be trusted or opened from here.
+  ipcMain.handle('settings:untrust', (_event, dir: string) => {
+    if (!trustedContexts().includes(String(dir))) throw new Error('That context is not trusted.')
+    setTrusted(String(dir), false)
+  })
+  ipcMain.handle('settings:close', async (_event, dir: string) => {
+    if (!privateContexts().includes(String(dir)) || !isOpenedToEndpoint(String(dir))) throw new Error('That context is not open to your endpoint.')
+    if (isBusy(String(dir))) throw new Error('An agent is working in that context. Close it to the endpoint when the agent has finished.')
+    setOpenedToEndpoint(String(dir), false)
+    await closeAgentsIn(String(dir))
+  })
+  ipcMain.handle('settings:reveal', () => shell.openPath(app.getPath('userData')))
+
+  // The text of a private context may go to the reader's endpoint only after they say so in a dialog of
+  // the system, which names the host. Closing it again asks nothing.
+  ipcMain.handle('privacy:open', async (event, yes: boolean) => {
+    const contextDir = requireContext(event)
+    if (!isPrivate(contextDir)) throw new Error('Keep this context private first.')
+    if (yes === true) {
+      const endpoint = endpointView()
+      if (!endpoint) throw new Error('Set your endpoint first.')
+      const host = new URL(endpoint.url).host
+      const window = BrowserWindow.fromWebContents(event.sender)
+      const options = {
+        type: 'warning' as const,
+        buttons: ['Cancel', `Allow ${host}`],
+        defaultId: 0,
+        cancelId: 0,
+        message: `Let Hermes send this private context to ${host}?`,
+        detail:
+          `${contextDir}\n\n` +
+          `What Hermes reads here goes to ${endpoint.url}, to the model ${endpoint.model}, and to nowhere else: ` +
+          `Hermes runs in ${process.platform === 'darwin' ? 'the macOS sandbox' : 'Bubblewrap'} and reaches only Mate, which passes its requests to that address. ` +
+          'Allow it only if you control that server, or trust who does.'
+      }
+      const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+      if (response !== 1) return false
+    } else if (isBusy(contextDir)) {
+      throw new Error('An agent is working in this context. Close it to the endpoint when the agent has finished.')
+    }
+    setOpenedToEndpoint(contextDir, yes === true)
+    if (yes !== true) await closeAgentsIn(contextDir)
+    return isOpenedToEndpoint(contextDir)
   })
 
   // What a kept or a held change is, as lines. It reads and writes nothing else.
@@ -728,6 +881,7 @@ app.on('before-quit', (event) => {
     return
   }
   stopAllScripts()
+  stopRelay()
   stopAllTurns()
 })
 

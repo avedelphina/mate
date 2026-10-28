@@ -1,7 +1,7 @@
 name: CI
 
-# Mate is a Mac app: the helper that reads PDFs and scans is Swift, built against the macOS 26 SDK,
-# and the tests that cover it need a Mac. So everything runs on one macOS runner.
+# The helper that reads PDFs and scans is Swift and needs a Mac. Ubuntu checks the portable app,
+# drives its window, and makes both Linux packages.
 on:
   push:
     branches: [main]
@@ -21,6 +21,34 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - name: Install the external tools used by the tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bubblewrap libreoffice-writer poppler-utils python3 tesseract-ocr tesseract-ocr-ces tesseract-ocr-eng xvfb
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: xvfb-run -a pnpm test:e2e
+      - run: pnpm dist:linux
+      - name: Check both Linux packages
+        working-directory: apps/desktop
+        run: |
+          shopt -s nullglob
+          images=(release/*-x86_64.AppImage)
+          packages=(release/*-amd64.deb)
+          test "${#images[@]}" -eq 1
+          test "${#packages[@]}" -eq 1
+          dpkg-deb --info "${packages[0]}" > /dev/null
+          "${images[0]}" --appimage-extract > /dev/null
+          test -x squashfs-root/mate
+          rm -rf squashfs-root
 
   # A window opens for a few seconds and the built app is driven through it. Apart from `check` so
   # that a failure here, which is a failure of the runner's display as often as of Mate, reads as itself.

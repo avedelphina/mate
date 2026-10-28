@@ -53,6 +53,10 @@ test('passages get their vectors once, again when their file changes, and the cl
     assert.deepEqual(await searchMeaning(root, await refreshIndex(root), 'the weather tomorrow', embed), [])
     assert.equal(hits[0].kind, 'shelf')
     assert.match((await refreshIndex(root)).files.find((file) => file.path === 'shelf/records.md')!.text.slice(hits[0].start, hits[0].start + hits[0].length), /Důvěrné záznamy se uchovávají deset let\.$/)
+    // For a question on the page, each passage comes whole, as the file has it: as many as asked for, and no more.
+    assert.equal(hits[0].passage, (await refreshIndex(root)).files.find((file) => file.path === 'shelf/records.md')!.text.slice(hits[0].start!, hits[0].start! + hits[0].length))
+    assert.deepEqual((await searchMeaning(root, await refreshIndex(root), 'keep records and passwords', embed)).map((hit) => hit.path).sort(), ['shelf/access.md', 'shelf/records.md'])
+    assert.equal((await searchMeaning(root, await refreshIndex(root), 'keep records and passwords', embed, 1)).length, 1)
 
     // A changed file is done again, alone. A file that is gone is not found any more.
     await writeFile(path.join(root, 'shelf/access.md'), '# Přístup\n\nZálohy se dělají každou noc.\n')

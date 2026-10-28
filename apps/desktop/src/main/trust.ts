@@ -37,6 +37,7 @@ function listOf() {
       }
     },
     has: (contextDir: string): boolean => listed.has(real(contextDir)),
+    all: (): string[] => [...listed].sort(),
     /**
      * A listed context was renamed: it stays listed under its new name. `was` is the real path it
      * had. The old path is listed no more, so that another folder made there later is not listed by mistake.
@@ -50,6 +51,10 @@ function listOf() {
       if (yes) listed.add(real(contextDir))
       else listed.delete(real(contextDir))
       save()
+    },
+    clear(): void {
+      listed.clear()
+      save()
     }
   }
 }
@@ -59,12 +64,32 @@ export const keepTrustIn = trusted.keepIn
 export const isTrusted = trusted.has
 export const moveTrust = trusted.move
 export const setTrusted = trusted.set
+export const trustedContexts = trusted.all
 
 const kept = listOf()
 export const keepPrivacyIn = kept.keepIn
 export const isPrivate = kept.has
 export const movePrivacy = kept.move
 export const setPrivate = kept.set
+export const privateContexts = kept.all
+
+// The private contexts that the reader's own endpoint may read, through Hermes in the sandbox. See endpoint.ts.
+const opened = listOf()
+export const keepOpenedIn = opened.keepIn
+export const isOpenedToEndpoint = opened.has
+export const moveOpened = opened.move
+export const setOpenedToEndpoint = opened.set
+/** The endpoint's host changed: no context is open to the new one until the reader says so, by name. */
+export const closeAllToEndpoint = opened.clear
 
 /** What an agent, or the reader trying to invite one, is told in a private context. */
 export const PRIVATE = 'This context is private. Nothing of it leaves this computer, so no agent works in it.'
+export const PRIVATE_BUT_ENDPOINT = 'This context is private. Only Hermes on your own endpoint works in it.'
+
+/** Whether this agent may work in this context, as far as privacy goes. Only a private context limits it. */
+export function privacyAllows(contextDir: string, agent: string, host: string | null): boolean {
+  if (!isPrivate(contextDir)) return true
+  return agent === 'private' && host === null && isOpenedToEndpoint(contextDir)
+}
+
+export const privacyRefusal = (contextDir: string): string => (isOpenedToEndpoint(contextDir) ? PRIVATE_BUT_ENDPOINT : PRIVATE)

@@ -9,7 +9,9 @@ contextBridge.exposeInMainWorld('mate', {
   newContext: () => ipcRenderer.invoke('context:create'),
   currentContext: () => ipcRenderer.invoke('context:current'),
   searchContext: (query: string) => ipcRenderer.invoke('context:search', query),
-  searchMeaning: (query: string) => ipcRenderer.invoke('context:meaning', query),
+  searchMeaning: (query: string, limit?: number) => ipcRenderer.invoke('context:meaning', query, limit),
+  judgingHost: (): Promise<string | null> => ipcRenderer.invoke('endpoint:judges'),
+  judge: (question: string, leave?: { path: string; start: number; end: number }) => ipcRenderer.invoke('context:judge', question, leave),
   readFile: (path: string) => ipcRenderer.invoke('file:read', path),
   revealFile: (path: string) => ipcRenderer.invoke('file:reveal', path),
   openProject: (project: string, file?: string) => ipcRenderer.invoke('project:open', project, file),
@@ -83,6 +85,15 @@ contextBridge.exposeInMainWorld('mate', {
     return () => ipcRenderer.removeListener('context:reading', heard)
   },
   /** How many files are still to be given their meaning. Returns the function that stops listening. */
+  onSettings: (listener: () => void) => {
+    const heard = () => listener()
+    ipcRenderer.on('settings:open', heard)
+    return () => ipcRenderer.removeListener('settings:open', heard)
+  },
+  settings: () => ipcRenderer.invoke('settings:get'),
+  untrust: (dir: string) => ipcRenderer.invoke('settings:untrust', dir),
+  closeToEndpoint: (dir: string) => ipcRenderer.invoke('settings:close', dir),
+  revealSettings: () => ipcRenderer.invoke('settings:reveal'),
   onMinding: (listener: (left: number) => void) => {
     const heard = (_event: unknown, left: number) => listener(left)
     ipcRenderer.on('context:minding', heard)
@@ -92,6 +103,10 @@ contextBridge.exposeInMainWorld('mate', {
   setTrusted: (yes: boolean): Promise<boolean> => ipcRenderer.invoke('trust:set', yes),
   isPrivate: (): Promise<boolean> => ipcRenderer.invoke('privacy:get'),
   setPrivate: (yes: boolean): Promise<boolean> => ipcRenderer.invoke('privacy:set', yes),
+  isOpened: (): Promise<boolean> => ipcRenderer.invoke('privacy:opened'),
+  setOpened: (yes: boolean): Promise<boolean> => ipcRenderer.invoke('privacy:open', yes),
+  getEndpoint: () => ipcRenderer.invoke('endpoint:get'),
+  setEndpoint: (url: string, model: string, key?: string) => ipcRenderer.invoke('endpoint:set', url, model, key),
   runScript: (project: string, line: string) => ipcRenderer.invoke('script:run', project, line),
   stopScript: () => ipcRenderer.invoke('script:stop'),
   checkAssist: () => ipcRenderer.invoke('assist:check'),

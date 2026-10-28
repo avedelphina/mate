@@ -42,6 +42,17 @@ export type Kind = 'shelf' | 'draft' | 'project' | 'material' | 'context' | 'pan
 export type FileView = { path: string; kind: Kind; project: string | null; text: string; twin?: boolean }
 
 /** One place a search matched. `start` is where in the text of the file, or null. `thread` when it is in a comment. */
+/** What the settings page shows. Folders are as main holds them: real paths. */
+export type Settings = {
+  folder: string
+  endpoint: { url: string; model: string; hasKey: boolean } | null
+  trusted: string[]
+  private: { dir: string; opened: boolean }[]
+  /** Null when search by meaning can be had here, else what is missing. */
+  meaning: string | null
+  assist: AssistState
+}
+
 export type Hit = {
   path: string
   kind: Kind
@@ -53,10 +64,12 @@ export type Hit = {
   start: number | null
   length: number
   thread: string | null
+  /** The whole passage, as the file has it, for a hit found by meaning. */
+  passage?: string
 }
 
 /** `mcp` is an agent the reader runs themselves. It comes in over MCP. */
-export type AgentKind = 'claude' | 'codex' | 'hermes' | 'mcp'
+export type AgentKind = 'claude' | 'codex' | 'hermes' | 'private' | 'mcp'
 /** `host` is set for an agent on another machine, reached over SSH. */
 export type AgentInfo = { kind: AgentKind; label: string; found: boolean; host: string | null }
 
@@ -194,11 +207,25 @@ export type MateApi = {
   compare: (project: string, id: string, which: 'kept' | 'held', index: number) => Promise<Compared>
   onSession: (listener: (session: Session) => void) => () => void
   /** The passages closest in meaning to a question. `missing` says what this computer lacks for it, when it does. */
-  searchMeaning: (query: string) => Promise<{ missing: string | null; hits: Hit[] }>
+  searchMeaning: (query: string, limit?: number) => Promise<{ missing: string | null; hits: Hit[] }>
+  /** The host of the reader's endpoint, when it may judge passages of the open context. */
+  judgingHost: () => Promise<string | null>
+  /** Of the thirty passages closest in meaning, those the reader's endpoint picks as answering the question, in its order. */
+  judge: (question: string, leave?: { path: string; start: number; end: number }) => Promise<{ asked: number; hits: Hit[] }>
   /** How many files of the open context are still to be given their meaning. */
   onMinding: (listener: (left: number) => void) => () => void
   /** How many PDF and Word files of the open context are still to be read, so that search finds them. */
   onReading: (listener: (left: number) => void) => () => void
+  /** Settings… in the app menu. */
+  onSettings: (listener: () => void) => () => void
+  /** Everything the reader has set, and what this computer has. Never the key. */
+  settings: () => Promise<Settings>
+  /** Trust no more a context on the list. Taking away asks nothing. */
+  untrust: (dir: string) => Promise<void>
+  /** Close a private context on the list to the reader's endpoint. */
+  closeToEndpoint: (dir: string) => Promise<void>
+  /** The folder the settings are kept in, in the file manager. */
+  revealSettings: () => Promise<string>
   /** Whether the reader trusts the open context. In a trusted one Hermes runs as it does in a terminal. */
   isTrusted: () => Promise<boolean>
   /** Asks the reader in a system dialog before it gives trust. Returns what holds afterwards. */
@@ -207,6 +234,14 @@ export type MateApi = {
   isPrivate: () => Promise<boolean>
   /** Keeping it private asks nothing. Letting agents in again asks in a system dialog. Returns what holds afterwards. */
   setPrivate: (yes: boolean) => Promise<boolean>
+  /** Whether the open private context may be read by Hermes on the reader's own endpoint. */
+  isOpened: () => Promise<boolean>
+  /** Opening asks in a system dialog that names the host. Returns what holds afterwards. */
+  setOpened: (yes: boolean) => Promise<boolean>
+  /** The reader's endpoint: its address and model, and whether a key is saved. Never the key. */
+  getEndpoint: () => Promise<{ url: string; model: string; hasKey: boolean } | null>
+  /** Save the endpoint. An empty key keeps the saved one, unless the host changed. */
+  setEndpoint: (url: string, model: string, key?: string) => Promise<{ url: string; model: string; hasKey: boolean } | null>
   /** Run a script of the project: `scripts/NAME`, then what it is given. Only in a context the reader trusts. No agent. */
   runScript: (project: string, line: string) => Promise<Ran>
   /** Stop the script that is running in this context. */
