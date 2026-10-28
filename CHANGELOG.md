@@ -5,7 +5,13 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.10.0] - 2026-10-28
+
+Mate updates itself, and reads code as code: search reads every text
+file, a text file shows its line numbers, your own editor opens it at
+the line, and a trusted context shows what changed in a file. 0.9.0 was
+tagged but never released, since a test failed on Linux before it was
+built, so what it held comes out here.
 
 ### Added
 
@@ -15,15 +21,6 @@ then, minor versions may change behaviour.
   or at once with *Restart to update*. On Linux it says a new version is
   out and opens the page to download it from. Settings shows the version
   and checks on demand.
-
-## [0.9.0] - 2026-10-28
-
-Read code as code, without an editor inside Mate. Search reads every
-text file, a text file shows its line numbers, your own editor opens it
-at the line, and a trusted context shows what changed in a file.
-
-### Added
-
 - Search, by words and by meaning, reads every text file of a context:
   code, an XML config, a log. Before, only markdown and the files Mate
   makes text of were read.
