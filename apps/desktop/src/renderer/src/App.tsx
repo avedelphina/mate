@@ -5,6 +5,7 @@ import { Palette, type Act } from './Palette'
 import { fileNamed } from '../../shared/named'
 import { isTwinned } from '../../shared/twin'
 import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran } from './env'
+import { History } from './History'
 import { Question, type Judged } from './Question'
 import { Rendered, type Passage } from './Rendered'
 import { Settings } from './Settings'
@@ -191,9 +192,17 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const openSettings = () => {
     setInquiry(null)
+    setHistoryPath(null)
     setSettingsOpen(true)
   }
+  // The history of the open file, in the center like the settings. Its path from the context.
+  const [historyPath, setHistoryPath] = useState<string | null>(null)
+  // Whether the reader trusts the open context: git is asked for a file's history only there.
+  const [trustedHere, setTrustedHere] = useState(false)
   useEffect(() => window.mate.onSettings(openSettings), [])
+  useEffect(() => {
+    window.mate.isTrusted().then(setTrustedHere, () => setTrustedHere(false))
+  }, [contextDir, view?.project, settingsOpen])
   const [mindingLeft, setMindingLeft] = useState(0)
   useEffect(() => window.mate.onMinding(setMindingLeft), [])
   useEffect(() => {
@@ -638,6 +647,26 @@ export function App() {
     }
   }
 
+  /** The open document's path from the context: a draft where its project keeps drafts, a text file where it lies. */
+  const documentPath = () => (view && file !== null ? `projects/${view.project}/${textFile ? file : `${view.draftsIn}${file}`}` : null)
+
+  /** Open the document in the reader's editor, at the active comment, else at the selection, else at its top. */
+  async function openInEditor() {
+    const where = documentPath()
+    if (!where || !view) return
+    const thread = view.comments.find((each) => each.id === active)
+    const at = thread?.start ?? (anchor ? Math.max(0, view.text.indexOf(anchor, from)) : 0)
+    await window.mate.openInEditor(where, at).catch((caught) => setError(reason(caught, 'Could not open it in your editor.')))
+  }
+
+  function openHistory() {
+    const where = documentPath()
+    if (!where) return
+    setInquiry(null)
+    setSettingsOpen(false)
+    setHistoryPath(where)
+  }
+
   /** A file picked in the tree of the open project. A draft opens for review. Anything else is read. */
   function openFile(path: string) {
     if (!view) return
@@ -660,6 +689,7 @@ export function App() {
     const settle = (found: { missing: string | null; hits: Hit[] }) =>
       setInquiry((now) => (now?.question === heading ? { ...now, found: { ...found, hits: found.hits.filter(source) } } : now))
     setSettingsOpen(false)
+    setHistoryPath(null)
     setInquiry({ question: heading, query: question, keep: source, leave, found: null })
     setJudged(null)
     window.mate.judgingHost().then(setJudgeHost, () => setJudgeHost(null))
@@ -1337,6 +1367,7 @@ export function App() {
         )}
       </aside>
       <main className="center">
+        {historyPath && <History path={historyPath} onClose={() => setHistoryPath(null)} />}
         {settingsOpen && (
           <Settings
             onClose={() => setSettingsOpen(false)}
@@ -1359,7 +1390,7 @@ export function App() {
             onClose={() => setInquiry(null)}
           />
         )}
-        <header className="bar" hidden={inquiry !== null || settingsOpen}>
+        <header className="bar" hidden={inquiry !== null || settingsOpen || historyPath !== null}>
           {onPage && <span className="meta">{view.project}</span>}
           {onPage && <span className="meta">/</span>}
           {onPage && <span>Agent</span>}
@@ -1416,6 +1447,14 @@ export function App() {
                 </form>
               ) : typing === null ? (
                 <>
+                  <button className="quiet" title="Open it in your editor, at the comment or the selection" onClick={() => void openInEditor()}>
+                    Open in editor
+                  </button>
+                  {trustedHere && (
+                    <button className="quiet" title="What changed since the last commit, and each commit that changed it" onClick={() => openHistory()}>
+                      History
+                    </button>
+                  )}
                   <button className="quiet" onClick={edit}>Edit</button>
                   {!textFile && <button className="quiet" title="Make this draft a document of the shelf" onClick={() => setPublishing(file)}>Publish…</button>}
                 </>
@@ -1428,7 +1467,7 @@ export function App() {
             </span>
           )}
         </header>
-        <div className="scroll" hidden={inquiry !== null || settingsOpen}>
+        <div className="scroll" hidden={inquiry !== null || settingsOpen || historyPath !== null}>
           {/* A file the reader is deciding about. It leaves by one of the exits. There is no exit where it is just remembered. */}
           {view &&
             sources.map((source) => (

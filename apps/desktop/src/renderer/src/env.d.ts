@@ -43,8 +43,13 @@ export type FileView = { path: string; kind: Kind; project: string | null; text:
 
 /** One place a search matched. `start` is where in the text of the file, or null. `thread` when it is in a comment. */
 /** What the settings page shows. Folders are as main holds them: real paths. */
+/** A commit that changed a file. `date` is ISO 8601. */
+export type Commit = { hash: string; author: string; date: string; subject: string }
+
 export type Settings = {
   folder: string
+  /** The reader's editor command, or empty for the system's own app. */
+  editor: string
   endpoint: { url: string; model: string; hasKey: boolean } | null
   trusted: string[]
   private: { dir: string; opened: boolean }[]
@@ -226,6 +231,14 @@ export type MateApi = {
   closeToEndpoint: (dir: string) => Promise<void>
   /** The folder the settings are kept in, in the file manager. */
   revealSettings: () => Promise<string>
+  /** The reader's editor, as a command: the program and what it is given first. Empty: the system's own app. */
+  setEditor: (command: string) => Promise<string>
+  /** Open a file of the context in the reader's editor, at the line of a place in the text the page shows. */
+  openInEditor: (path: string, visible: number) => Promise<void>
+  /** The commits that changed a file, and whether it changed since the last. In a context the reader trusts. */
+  historyOf: (path: string) => Promise<{ repository: boolean; commits: Commit[]; changed: boolean }>
+  /** What changed in a file: since the last commit (null), or in one commit. */
+  compareFile: (path: string, hash: string | null) => Promise<{ kind: ' ' | '+' | '-'; text: string }[]>
   /** Whether the reader trusts the open context. In a trusted one Hermes runs as it does in a terminal. */
   isTrusted: () => Promise<boolean>
   /** Asks the reader in a system dialog before it gives trust. Returns what holds afterwards. */

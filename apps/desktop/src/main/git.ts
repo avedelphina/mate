@@ -70,3 +70,34 @@ export async function commitContext(dir: string, message: string, env: NodeJS.Pr
   await git(dir, env, ['commit', `--message=${said}`, '--', '.', ...leave])
   return changed
 }
+
+/** A commit that changed a file. `date` is ISO 8601. */
+export type Commit = { hash: string; author: string; date: string; subject: string }
+
+/**
+ * The commits that changed a file, the newest first, from the repository the file is in: a project
+ * that is a repository of its own answers for its own files. Only `git log`, which runs no diff
+ * program and no hook. Main asks it only in a context the reader trusts, as for a commit.
+ */
+export async function historyOf(full: string, env: NodeJS.ProcessEnv): Promise<Commit[]> {
+  if (!inRepository(full)) return []
+  const out = await git(path.dirname(full), env, ['log', '--max-count=200', '--format=%H%x09%an%x09%aI%x09%s', '--', path.basename(full)])
+  return out
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      const [hash, author, date, ...subject] = line.split('\t')
+      return { hash, author, date, subject: subject.join('\t') }
+    })
+}
+
+/**
+ * A file as a commit had it, or null when that commit did not have it. `git cat-file` gives the
+ * bytes as they are stored, with no filter and no text conversion, so nothing a repository names runs.
+ * `rev` is a commit's hash, that hash with `^` for the one before it, or HEAD.
+ */
+export async function versionAt(full: string, env: NodeJS.ProcessEnv, rev: string): Promise<string | null> {
+  if (!/^(?:[0-9a-f]{7,64}\^?|HEAD)$/.test(rev)) throw new Error('That is not a commit.')
+  if (!inRepository(full)) return null
+  return git(path.dirname(full), env, ['cat-file', 'blob', `${rev}:./${path.basename(full)}`]).catch(() => null)
+}

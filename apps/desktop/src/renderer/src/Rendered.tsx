@@ -95,6 +95,15 @@ export function Rendered(props: {
     if (piece.hidden) return <span key={index} className="syntax">{text.slice(piece.from, piece.to)}</span>
     return <Fragment key={index}>{marked(text, piece.from, piece.to, passages, active, onPick)}</Fragment>
   }
-  if (plain) return <pre className="plain">{marked(text, 0, text.length, passages, active, onPick)}</pre>
+  if (plain) {
+    // The line numbers are drawn by CSS from an attribute: they are beside the text, and not in it.
+    const count = text === '' ? 0 : text.split('\n').length - (text.endsWith('\n') ? 1 : 0)
+    return (
+      <div className="plain-file">
+        <span className="gutter" aria-hidden="true" data-lines={Array.from({ length: count }, (_, at) => at + 1).join('\n')} />
+        <pre className="plain">{marked(text, 0, text.length, passages, active, onPick)}</pre>
+      </div>
+    )
+  }
   return <>{pieces.map(draw)}</>
 }

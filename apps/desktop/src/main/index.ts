@@ -2,11 +2,14 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage, sh
 import { endpointView, judgeOnEndpoint, keepEndpointIn, keyRefusal, linuxRelay, setEndpoint, stopRelay } from './endpoint'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { addReply, anchorComment, applySuggestion } from '../shared/comments'
+import { addReply, anchorComment, applySuggestion, fileLineOf } from '../shared/comments'
 import { agentEnvironment, listAgents } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
-import { commitContext, inRepository, startRepository, uncommitted } from './git'
+import { commitContext, historyOf, inRepository, startRepository, uncommitted, versionAt } from './git'
+import { diffLines } from '../shared/diff'
 import { forgetMeaning, meaningMissing, moveMeaning, ollamaEmbed, refreshMeaning, searchMeaning } from './meaning'
 import { refreshTwins } from './twins'
 import {
@@ -17,6 +20,7 @@ import {
   createDraft,
   createProject,
   importProject,
+  realInside,
   renameContext,
   renameProject,
   describeContext,
@@ -37,7 +41,7 @@ import {
 } from './context'
 import { refreshIndex, searchIndex, type Hit } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
-import { runScript, stopAllScripts, stopScript } from './scripts'
+import { runScript, stopAllScripts, stopScript, wordsOf } from './scripts'
 import { approve, describe, instructionFiles, keepPinsIn, movePins, unapproved } from './pins'
 import {
   PRIVATE,
@@ -789,9 +793,80 @@ app.whenReady().then(() => {
 
   ipcMain.handle('privacy:opened', (event) => isOpenedToEndpoint(requireContext(event)))
 
+  // The reader's editor, to open a file at a line. Without one, the system's own app for the file opens it.
+  const editorFile = () => path.join(app.getPath('userData'), 'editor.json')
+  const readEditor = (): string => {
+    try {
+      return String((JSON.parse(readFileSync(editorFile(), 'utf8')) as { command?: unknown }).command ?? '')
+    } catch {
+      return ''
+    }
+  }
+  ipcMain.handle('editor:get', () => readEditor())
+  ipcMain.handle('editor:set', (_event, command: string) => {
+    const kept = String(command).trim().slice(0, 300)
+    writeFileSync(editorFile(), JSON.stringify({ command: kept }), { mode: 0o600 })
+    return kept
+  })
+  // `visible` is a place in the text the page shows; for a draft its line counts the comment markers above it.
+  // The editor is the reader's own program, started on their press, given the file and nothing else.
+  ipcMain.handle('file:edit', async (event, relative: string, visible: number) => {
+    const contextDir = requireContext(event)
+    const parts = String(relative).split('/')
+    if (parts.some((part) => part === '' || part.startsWith('.'))) throw new Error('That is not a file of this context.')
+    const full = await realInside(contextDir, ...parts)
+    const text = await readFile(full, 'utf8')
+    const line = full.toLowerCase().endsWith('.md')
+      ? fileLineOf(text, Number(visible))
+      : (text.slice(0, Math.max(0, Number(visible) || 0)).match(/\n/g) ?? []).length + 1
+    const command = readEditor()
+    if (!command) {
+      const failed = await shell.openPath(full)
+      if (failed) throw new Error(failed)
+      return
+    }
+    const [program, ...args] = wordsOf(command)
+    const child = spawn(program, [...args, `${full}:${line}`], { env: agentEnvironment(), detached: true, stdio: 'ignore' })
+    await new Promise<void>((resolve, reject) => {
+      child.once('spawn', resolve)
+      child.once('error', () => reject(new Error(`Could not start ${program}. Check the editor in Settings.`)))
+    })
+    child.unref()
+  })
+
+  // The history of a file, and what changed in it. Git is asked only in a context the reader trusts, as for
+  // a commit; Mate itself diffs the two versions, so no diff program of the repository runs.
+  const historyFile = async (event: IpcMainInvokeEvent, relative: string) => {
+    const contextDir = requireContext(event)
+    if (!isTrusted(contextDir)) {
+      throw new Error('The history of a file is shown in a context you trust: git runs what a repository names, so it is not asked elsewhere.')
+    }
+    const parts = String(relative).split('/')
+    if (parts.some((part) => part === '' || part.startsWith('.'))) throw new Error('That is not a file of this context.')
+    return realInside(contextDir, ...parts)
+  }
+  ipcMain.handle('file:history', async (event, relative: string) => {
+    const full = await historyFile(event, relative)
+    const env = agentEnvironment()
+    const commits = await historyOf(full, env)
+    const head = await versionAt(full, env, 'HEAD')
+    return { repository: inRepository(full), commits, changed: head !== (await readFile(full, 'utf8')) }
+  })
+  // `hash` null: what changed since the last commit. A hash: what that commit changed in the file.
+  ipcMain.handle('file:compare', async (event, relative: string, hash: string | null) => {
+    const full = await historyFile(event, relative)
+    const env = agentEnvironment()
+    const [before, after] =
+      hash === null
+        ? [await versionAt(full, env, 'HEAD'), await readFile(full, 'utf8')]
+        : [await versionAt(full, env, `${String(hash)}^`), await versionAt(full, env, String(hash))]
+    return diffLines(before ?? '', after ?? '')
+  })
+
   // Everything the reader has set, in one place, and what this computer has. No key, ever.
   ipcMain.handle('settings:get', async () => ({
     folder: app.getPath('userData'),
+    editor: readEditor(),
     endpoint: endpointView(),
     trusted: trustedContexts(),
     private: privateContexts().map((dir) => ({ dir, opened: isOpenedToEndpoint(dir) })),

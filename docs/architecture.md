@@ -122,6 +122,22 @@ to that line, never between the line and its first marker. Ids count up
 from the highest id already in the file. A `-->` inside a note is written
 as `--\u003e`, so the marker stays one HTML comment for every other reader.
 
+## Code, and any text file
+
+Mate reviews code; it does not try to be a code editor. A text file of a
+project is drawn as it is, with its line numbers beside it: they come
+from an attribute of the block and are drawn by CSS, so they are not in
+the page's text, which stays the file's. Lines do not wrap, so a number
+stays with its line. *Open in editor* opens the document in the reader's
+editor at the line of the active comment or the selection: the command
+is set in Settings (`code -g` takes `FILE:LINE`), and without one the
+system's own app opens the file. For a draft, the line counts the marker
+lines above it (`fileLineOf`). The editor is the reader's own program,
+started on their press with the file and nothing else; the file is
+checked to be in the context. There is no syntax colouring, completion,
+language server or terminal: scripts and agents run things, and the
+reader's editor is a click away.
+
 ## Comments on a file that is not markdown
 
 A file of a project that is text and not markdown, such as an XML config,
@@ -530,9 +546,14 @@ files and the twins.
 ## The index and the search
 
 A context has an index: `.indexes/context.json` inside the context folder.
-It holds, for every markdown file in the context and every file with a
-text twin, where the file stands,
-its title, its text as the page shows it, and the text of its comments.
+It holds, for every file in the context, where the file stands, its
+title, its text as the page shows it, and the text of its comments. A
+markdown file is read as a document, a PDF, Word or table file by its
+text twin, and any other by its own text when it is text: UTF-8 with no
+zero byte, such as code, an XML config or a log. A file that is not
+text is kept with no text, so it is not read again until it changes.
+Search by meaning reads the same files, so code is found by meaning too;
+a large repository brought in makes the first pass long.
 `refreshIndex` brings it up to date before every search. It reads a file
 again only when the file's size or time has changed.
 
@@ -610,7 +631,7 @@ could be a path. A project of that name is never written over, and a
 ## Git
 
 Git is how a context has a history and moves between computers. Mate
-does two things with it, and `git.ts` is the whole of both.
+does three things with it, and `git.ts` is the whole of them.
 
 - **Start a repository.** `startRepository` runs `git init` in the
   context folder, when the reader presses the button.
@@ -618,6 +639,16 @@ does two things with it, and `git.ts` is the whole of both.
   one commit, in the reader's words. The foot of the rail has the button.
   How many files there are is asked of git when the reader goes to
   commit, and is not kept.
+- **Show a file's history.** *History*, in the bar of an open document,
+  lists what changed since the last commit and each commit that changed
+  the file, newest first, each with what it changed. `historyOf` runs
+  `git log -- FILE`, from the file's own folder, so a project that is a
+  repository of its own answers for its files. `versionAt` runs `git
+  cat-file blob REV:./FILE`, which gives the bytes as stored: no filter
+  and no text conversion. Mate diffs two versions itself, with the line
+  diff an agent's changes are shown with, so no diff program a repository
+  names is run. A revision is taken only as a hash, a hash with `^`, or
+  `HEAD`.
 
 A commit is the reader's act, like publishing. Nothing is committed for
 them, at no moment and by no rule: a commit made on its own would take
@@ -632,8 +663,8 @@ be able to run a program, so:
   it and in the folders above it. Git is not asked.
 - `git init` is run only where there is no repository. A new one holds
   nothing but what git put there, so this is done in any context.
-- Everything else, counting what has changed and committing, is done
-  only in a context the reader trusts. Main checks that, as it does for
+- Everything else, counting what has changed, committing and reading a
+  file's history, is done only in a context the reader trusts. Main checks that, as it does for
   a script. Switching the hooks off for one command would not be enough:
   the config can name other programs, under names Mate cannot know.
 - Neither is done while an agent works in the context. The guard watches

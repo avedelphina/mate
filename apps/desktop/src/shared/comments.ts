@@ -397,3 +397,10 @@ export function separate(combined: string, name: string): { body: string; side: 
   ].join('\n')
   return { body, side }
 }
+
+/** The line of the file, from 1, where a place in the text the reader sees sits: the marker lines above it count. */
+export function fileLineOf(markdown: string, visible: number): number {
+  const { raw } = strip(markdown)
+  const at = raw[Math.max(0, Math.min(Math.floor(visible) || 0, raw.length - 1))]
+  return (markdown.slice(0, at).match(/\n/g) ?? []).length + 1
+}

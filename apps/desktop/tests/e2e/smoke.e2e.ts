@@ -77,6 +77,8 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'sysmon.xml')`, 'the XML in the tree')
     await app.press('.projects .tree .row', 'sysmon.xml')
     await app.until(`document.querySelector('.page pre.plain')?.textContent === ${JSON.stringify(xml)}`, 'the XML on the page, as it is')
+    // Its line numbers are beside it, and not in its text.
+    assert.equal(await app.page(`document.querySelector('.page .plain-file .gutter').dataset.lines`), '1\n2\n3')
     assert.equal(await app.page(`[...document.querySelectorAll('.center .bar button')].some((each) => each.textContent.startsWith('Publish'))`), false)
     await select('<ProcessCreate onmatch="exclude"/>')
     await app.until(`!!document.querySelector('.popover.menu')`, 'the menu under the selection')
@@ -384,6 +386,30 @@ test('in a context the reader trusts, a script of the project runs from its butt
     // With nothing changed since, there is nothing to commit, and the reader is told so.
     await app.press('.rail-foot button', 'Commit…')
     await app.until(`document.querySelector('.rail-foot .meta')?.textContent === 'Nothing has changed since the last commit.'`, 'nothing to commit')
+
+    // The history of a draft: what changed since the last commit, and each commit, with what it changed.
+    const draft = path.join(context, 'projects/document-review/draft/document.md')
+    await writeFile(draft, (await readFile(draft, 'utf8')) + '\nA line after the commit.\n')
+    await app.press('.projects .tree .row', 'document.md')
+    await app.until(`[...document.querySelectorAll('.center .bar button')].some((each) => each.textContent === 'History')`, 'the History button, in a context the reader trusts')
+    await app.press('.center .bar button', 'History')
+    await app.until(`document.querySelectorAll('.history li .row').length === 2`, 'the change since the commit, and the commit')
+    assert.deepEqual(await app.page(`[...document.querySelectorAll('.history li .row strong')].map((each) => each.textContent)`), ['Since the last commit', 'The example, as it came'])
+    await app.press('.history li .row strong', 'Since the last commit')
+    await app.until(`[...document.querySelectorAll('.history .diff .in')].some((each) => each.textContent === '+ A line after the commit.')`, 'the line added since')
+    await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
+    await app.until(`!document.querySelector('.center .history')`, 'the draft again')
+
+    // The reader's editor opens the file at the line of the comment that is active: a marker line above it counts.
+    // touch stands in for an editor: it makes a file named as the editor would be given it, FILE:LINE.
+    await app.page(`window.mate.setEditor('/usr/bin/touch')`)
+    await app.press('.margin .tabs button', 'Review')
+    await app.until(`!!document.querySelector('.margin .thread')`, 'the comment in the margin')
+    await app.page(`document.querySelector('.margin .thread').click()`)
+    const line = (await readFile(draft, 'utf8')).split('\n').findIndex((each) => each.includes('The sentence being discussed.')) + 1
+    await app.press('.center .bar button', 'Open in editor')
+    for (let waited = 0; waited < 50 && !existsSync(`${await realpath(draft)}:${line}`); waited++) await new Promise((resolve) => setTimeout(resolve, 100))
+    assert.equal(existsSync(`${await realpath(draft)}:${line}`), true)
   } finally {
     await app.close()
     await rm(root, { recursive: true, force: true })

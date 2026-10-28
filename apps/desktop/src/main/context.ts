@@ -3,7 +3,7 @@ import { existsSync, statSync } from 'node:fs'
 import { cp, lstat, mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { combine, insertComment, parseComments, readDocument, retype, separate, type Thread } from '../shared/comments'
-import { placeOf, type Place } from './contextIndex'
+import { asText, placeOf, type Place } from './contextIndex'
 import { inRepository } from './git'
 import { mateWrote } from './guard'
 import { isTwinned, twinOf } from '../shared/twin'
@@ -293,13 +293,7 @@ async function textFileAt(contextDir: string, project: string, file: string): Pr
   const full = await realInside(contextDir, 'projects', project, ...parts).catch(() => null)
   const info = full ? await stat(full).catch(() => null) : null
   if (!full || !info?.isFile() || info.size > MAX_TEXT_FILE) return null
-  const bytes = await readFile(full)
-  if (bytes.includes(0)) return null
-  try {
-    new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-  } catch {
-    return null
-  }
+  if (asText(await readFile(full)) === null) return null
   return { full, side: `${full}.comments.md`, relative: `projects/${project}/${name}` }
 }
 

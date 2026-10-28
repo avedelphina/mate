@@ -228,8 +228,11 @@ test('a text file of a project is reviewed like a draft, and a comment changes o
     await editDraft(root, 'review', 'config/sysmon.xml', (text) => applySuggestion(text, '2'))
     assert.equal(await readFile(file, 'utf8'), xml.replace('exclude', 'include'))
     assert.equal((await readProject(root, 'review', 'config/sysmon.xml')).comments.length, 2)
-    // A search finds the comment, and its tag, in the file beside it.
-    assert.ok(searchIndex(await refreshIndex(root), 'detection').some((hit) => hit.path === 'projects/review/config/sysmon.xml.comments.md'))
+    // A search finds the comment, and its tag, in the file beside it, and the words of the file itself. Not those of a picture.
+    const index = await refreshIndex(root)
+    assert.ok(searchIndex(index, 'detection').some((hit) => hit.path === 'projects/review/config/sysmon.xml.comments.md'))
+    assert.deepEqual([...new Set(searchIndex(index, 'EventFiltering').map((hit) => `${hit.kind} ${hit.path}`))], ['material projects/review/config/sysmon.xml'])
+    assert.equal(index.files.find((file) => file.path === 'projects/review/config/picture.bin')?.text, '')
   } finally {
     await rm(root, { recursive: true, force: true })
   }

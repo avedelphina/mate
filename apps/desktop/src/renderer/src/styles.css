@@ -176,8 +176,10 @@ button.wide { width: 100%; }
 .prose code, .prose pre, .raw { font: 0.86em/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .prose code { padding: 0.1em 0.35em; border-radius: 4px; background: var(--hover); }
 .prose pre { padding: 12px 14px; border-radius: 8px; background: var(--hover); overflow-x: auto; white-space: pre; }
-/* A file that is not markdown, drawn as it is: long lines wrap, so a comment's mark stays in view. */
-.prose pre.plain { padding: 0; background: none; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.6; }
+/* A file that is not markdown, drawn as it is, with its line numbers beside it. Lines do not wrap, so the numbers stay with them. */
+.prose .plain-file { display: flex; gap: 16px; margin: 0 0 1em; }
+.prose .plain-file .gutter::before { content: attr(data-lines); white-space: pre; display: block; text-align: right; color: var(--soft); font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; user-select: none; }
+.prose pre.plain { flex: 1; min-width: 0; margin: 0; padding: 0; background: none; white-space: pre; overflow-x: auto; font-size: 13px; line-height: 1.6; }
 .prose pre.meta, .raw, .prose s { color: var(--soft); }
 .prose div.raw { white-space: pre-wrap; }
 .rule { margin: 1.8em 0; border-top: 1px solid var(--line); }

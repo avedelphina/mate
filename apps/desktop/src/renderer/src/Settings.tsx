@@ -14,6 +14,8 @@ export function Settings(props: { onClose: () => void }) {
   // The endpoint form: address, model, and a key that is never shown back. Null until it is changed.
   const [editing, setEditing] = useState<{ url: string; model: string; key: string } | null>(null)
   const [saved, setSaved] = useState(false)
+  // The editor command while it is changed. Null until then.
+  const [editor, setEditor] = useState<string | null>(null)
   const load = () => window.mate.settings().then(setHeld, (caught) => setError(String(caught?.message ?? caught)))
   useEffect(() => {
     void load()
@@ -86,6 +88,30 @@ export function Settings(props: { onClose: () => void }) {
                 {saved && host && <span className="meta"> Saved: {host}.</span>}
               </p>
               <p className="meta">A new host closes every private context that was open to the old one.</p>
+            </form>
+          </section>
+
+          <section className="endpoint">
+            <h2>Your editor</h2>
+            <p className="meta">
+              Open in editor opens a file there, at the line of the comment or the selection. Give the command and what it takes before the file, such
+              as <code>code -g</code> for VS Code, Cursor or Zed: the file goes last, as <code>FILE:LINE</code>. Left empty, the system's own app for the
+              file opens it, at its top.
+            </p>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (editor !== null) act(() => window.mate.setEditor(editor).then(() => setEditor(null)))
+              }}
+            >
+              <label>
+                Command <input value={editor ?? held?.editor ?? ''} placeholder="code -g" onChange={(event) => setEditor(event.target.value)} />
+              </label>
+              <p>
+                <button type="submit" disabled={editor === null}>
+                  Save
+                </button>
+              </p>
             </form>
           </section>
 

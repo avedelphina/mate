@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { addComment, createDraft, placeOnDisk, readProject, resolveInside, writeDraft } from '../src/main/context.ts'
-import { addReply, anchorComment, applySuggestion, combine, insertComment, parseComments, readDocument, retype, separate } from '../src/shared/comments.ts'
+import { addReply, anchorComment, applySuggestion, combine, fileLineOf, insertComment, parseComments, readDocument, retype, separate } from '../src/shared/comments.ts'
 
 test('a comment is written on the line after the sentence it quotes', () => {
   const next = insertComment('Alpha stays.\nBeta changes.\n', 'Beta changes.', 'Say why.', 'ada')
@@ -237,4 +237,13 @@ test('a file that is not markdown keeps its comments beside it, and is given bac
   // A line that is gone puts the marker at the end, and the quote still finds its place.
   const moved = readDocument(combine('<Sysmon>\n    <ProcessCreate onmatch="exclude"/>\n</Sysmon>\n', side))
   assert.equal(moved.comments[0].start, moved.text.indexOf('<ProcessCreate'))
+})
+
+test("a place in the text the reader sees is on the file's line that counts the comments above it", () => {
+  const draft = insertComment('# Title\n\nFirst.\n\nSecond.\n', 'First.', 'Why?', 'you')
+  const shown = readDocument(draft).text
+  assert.equal(fileLineOf(draft, shown.indexOf('First.')), 3)
+  // The marker under "First." is a line of the file, and not of the page.
+  assert.equal(fileLineOf(draft, shown.indexOf('Second.')), 6)
+  assert.equal(fileLineOf(draft, 0), 1)
 })

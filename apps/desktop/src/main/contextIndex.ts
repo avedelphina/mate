@@ -62,17 +62,31 @@ export function placeOf(relative: string): Place {
   return { kind: 'context', project: null }
 }
 
+/** The text in some bytes, when they are text: UTF-8, and no zero byte. A program or a picture is not. */
+export function asText(bytes: Buffer): string | null {
+  if (bytes.includes(0)) return null
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    return null
+  }
+}
+
 /**
- * Every markdown file in the context, and every file that has a text twin. Hidden folders are
- * skipped, so the index never reads itself.
+ * Every file in the context. Hidden folders are skipped, so the index never reads itself. A markdown
+ * file is read as a document, one with a text twin by its twin, and any other by its own text when it
+ * is text, such as code, an XML config or a log. One that is not text is kept with no text, so it is
+ * not read again until it changes.
  */
+// ponytail: every text file of the context is held in one JSON index, code included. A large repository
+// brought in makes it large; skip build folders by name, or keep the text of files apart, if it grows.
 async function walk(contextDir: string, base = ''): Promise<string[]> {
   const found: string[] = []
   for (const entry of await readdir(path.join(contextDir, base), { withFileTypes: true })) {
     if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
     const relative = base ? `${base}/${entry.name}` : entry.name
     if (entry.isDirectory()) found.push(...(await walk(contextDir, relative)))
-    else if (entry.isFile() && (entry.name.toLowerCase().endsWith('.md') || isTwinned(entry.name))) found.push(relative)
+    else if (entry.isFile()) found.push(relative)
   }
   return found.sort()
 }
@@ -122,11 +136,16 @@ export async function refreshIndex(contextDir: string): Promise<Index> {
       continue
     }
     changed = true
-    const { text, comments } = twin ? { text: await readFile(read, 'utf8'), comments: [] } : readDocument(await readFile(read, 'utf8'))
+    const markdown = relative.toLowerCase().endsWith('.md')
+    const { text, comments } = twin
+      ? { text: await readFile(read, 'utf8'), comments: [] }
+      : markdown
+        ? readDocument(await readFile(read, 'utf8'))
+        : { text: asText(await readFile(read)) ?? '', comments: [] }
     files.push({
       path: relative,
       ...placeOf(relative),
-      title: (!twin && /^#{1,6}[ \t]+(.+?)[ \t#]*$/m.exec(text)?.[1]) || path.basename(relative),
+      title: (markdown && /^#{1,6}[ \t]+(.+?)[ \t#]*$/m.exec(text)?.[1]) || path.basename(relative),
       mtime: info.mtimeMs,
       size: info.size,
       text,

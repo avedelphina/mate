@@ -45,6 +45,12 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   `NAME.comments.md`, and the file changes only when you apply a
   suggestion. In a comment, `[[a file]]` opens that file and a `#tag`
   finds every comment that has it.
+- **Code.** A text file shows its line numbers, and the search, by words
+  and by meaning, reads code and any other text file. *Open in editor*
+  opens the document in your editor at the comment or the selection: set
+  the command in Settings, such as `code -g`. In a context you trust,
+  *History* shows what changed since the last commit and each commit that
+  changed the file, with what it changed.
 - **Markdown, drawn.** Headings, lists, tables, code, and task lists are
   drawn. The markup stays in the text and is hidden, so the page is the
   file, character for character.

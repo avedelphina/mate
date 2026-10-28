@@ -5,6 +5,22 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- Search, by words and by meaning, reads every text file of a context:
+  code, an XML config, a log. Before, only markdown and the files Mate
+  makes text of were read.
+- A text file shows its line numbers beside it.
+- *Open in editor*, in the bar of an open document: your editor opens it
+  at the active comment or the selection. Set the command in Settings,
+  such as `code -g`; without one, the system's own app opens it.
+- *History*, in a context you trust: what changed in the open file since
+  the last commit, and each commit that changed it, with what it changed.
+  Git is asked only for the log and for a file as a commit stored it, so
+  no diff program a repository names is run.
+
 ## [0.8.0] - 2026-10-28
 
 Review more than markdown. An XML config, a CSV or a log is commented on
