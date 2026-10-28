@@ -6,7 +6,7 @@ import http from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { checkEndpoint, endpointView, keepEndpointIn, profileConfig, sandboxProfile, setEndpoint, startRelay, stopRelay } from '../src/main/endpoint.ts'
+import { checkEndpoint, endpointView, judgeOnEndpoint, keepEndpointIn, picked, profileConfig, sandboxProfile, setEndpoint, startRelay, stopRelay } from '../src/main/endpoint.ts'
 
 // A stand-in for the keychain: anything but the key as it was given.
 const seal = { encrypt: (text: string) => Buffer.from([...text].reverse().join('')), decrypt: (sealed: Buffer) => [...sealed.toString()].reverse().join('') }
@@ -95,4 +95,42 @@ test("Mate's Hermes profile has the relay as its only way out", () => {
   assert.match(config, /toolsets:\n {2}- file\n/)
   assert.match(config, /plugins:\n {2}enabled: \[\]\n/)
   assert.equal(/https?:\/\/(?!127\.0\.0\.1)/.test(config), false)
+})
+
+test("the endpoint's pick is read in its order, each once, and only of passages that are there", () => {
+  assert.deepEqual(picked('{"relevant": [3, 1]}', 3), [2, 0])
+  assert.deepEqual(picked('<think>Passage 2 is about kitchens. {"relevant": [9]}</think>\nHere: {"relevant": [2, 2, 7, 0, "1"]}', 3), [1, 0])
+  assert.deepEqual(picked('{"relevant": []}', 3), [])
+  assert.throws(() => picked('Passages 1 and 2 answer it.', 3), /did not answer in the form/)
+  assert.throws(() => picked('{"relevant": "1"}', 3), /did not answer in the form/)
+})
+
+test('the endpoint is asked only to pick, with the key, and its pick comes back as places in the list', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'mate-judge-'))
+  let sent: { auth?: string; body?: Record<string, any> } = {} // eslint-disable-line @typescript-eslint/no-explicit-any
+  const upstream = await listen((request, response) => {
+    let body = ''
+    request.on('data', (chunk) => (body += chunk))
+    request.on('end', () => {
+      sent = { auth: request.headers.authorization, body: JSON.parse(body) }
+      response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ choices: [{ message: { content: '{"relevant": [2]}' } }] }))
+    })
+  })
+  try {
+    keepEndpointIn(path.join(dir, 'endpoint.json'), seal)
+    setEndpoint(`http://127.0.0.1:${upstream.port}/v1`, 'qwen', 'secret-key')
+    const order = await judgeOnEndpoint('Can we send our budget to an agency?', [
+      { title: 'Kitchen', text: 'The kitchen is cleaned on Fridays.' },
+      { title: 'Suppliers', text: 'Confidential data goes to a supplier only under an NDA.' }
+    ])
+    assert.deepEqual(order, [1])
+    assert.equal(sent.auth, 'Bearer secret-key')
+    assert.equal(sent.body!.model, 'qwen')
+    assert.equal(sent.body!.temperature, 0)
+    assert.match(sent.body!.messages[0].content, /You do not answer it/)
+    assert.match(sent.body!.messages[1].content, /^Text: Can we send our budget to an agency\?\n\nPassages:\n\n\[1\] Kitchen\n.*\n\n\[2\] Suppliers\n/)
+  } finally {
+    upstream.close()
+    await rm(dir, { recursive: true, force: true })
+  }
 })

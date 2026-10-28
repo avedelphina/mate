@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('mate', {
   currentContext: () => ipcRenderer.invoke('context:current'),
   searchContext: (query: string) => ipcRenderer.invoke('context:search', query),
   searchMeaning: (query: string, limit?: number) => ipcRenderer.invoke('context:meaning', query, limit),
+  judgingHost: (): Promise<string | null> => ipcRenderer.invoke('endpoint:judges'),
+  judge: (question: string, leave?: { path: string; start: number; end: number }) => ipcRenderer.invoke('context:judge', question, leave),
   readFile: (path: string) => ipcRenderer.invoke('file:read', path),
   revealFile: (path: string) => ipcRenderer.invoke('file:reveal', path),
   openProject: (project: string, file?: string) => ipcRenderer.invoke('project:open', project, file),

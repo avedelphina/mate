@@ -366,3 +366,6 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 .question .passage > button { padding: 0; font: 12.5px var(--ui); color: var(--soft); }
 .question .passage > button:hover { color: var(--accent); }
 .rail h2 .see { float: right; font-weight: 400; text-transform: none; letter-spacing: 0; }
+.question .summary p { margin: 0 0 8px; }
+.question .summary .judge { margin-top: 4px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); font: 13px var(--ui); }
+.question .summary .judge:hover { border-color: var(--accent); }

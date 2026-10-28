@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage, shell, type IpcMainInvokeEvent } from 'electron'
-import { endpointView, keepEndpointIn, setEndpoint, stopRelay } from './endpoint'
+import { endpointView, judgeOnEndpoint, keepEndpointIn, setEndpoint, stopRelay } from './endpoint'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -35,7 +35,7 @@ import {
   tickPane,
   writeDraft
 } from './context'
-import { refreshIndex, searchIndex } from './contextIndex'
+import { refreshIndex, searchIndex, type Hit } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
 import { runScript, stopAllScripts, stopScript } from './scripts'
 import { approve, describe, instructionFiles, keepPinsIn, movePins, unapproved } from './pins'
@@ -51,6 +51,8 @@ import {
   moveOpened,
   movePrivacy,
   moveTrust,
+  privacyAllows,
+  privacyRefusal,
   setOpenedToEndpoint,
   setPrivate,
   setTrusted
@@ -400,6 +402,30 @@ app.whenReady().then(() => {
   })
 
   // The passages closest in meaning to the question, from what has its vectors so far.
+  // The host of the reader's endpoint, when it may judge passages of this context: not in a private one that
+  // is not opened to it. Null otherwise.
+  ipcMain.handle('endpoint:judges', (event) => {
+    const endpoint = endpointView()
+    return endpoint && privacyAllows(requireContext(event), 'private', null) ? new URL(endpoint.url).host : null
+  })
+
+  // The reader's endpoint picks, of the thirty passages closest in meaning, those that answer the question,
+  // under the bar too. Mate sends them itself, when the reader presses the button; no agent is involved.
+  // `leave` is the passage that was asked about, for Near it: the judge must not see it, or it picks it first.
+  ipcMain.handle('context:judge', async (event, question: string, leave?: { path: string; start: number; end: number }) => {
+    const contextDir = requireContext(event)
+    if (!privacyAllows(contextDir, 'private', null)) throw new Error(privacyRefusal(contextDir))
+    const missing = await meaningMissing()
+    if (missing) throw new Error(missing)
+    const outside = (hit: Hit) =>
+      !leave || hit.path !== String(leave.path) || hit.start === null || hit.start >= Number(leave.end) || hit.start + hit.length <= Number(leave.start)
+    const candidates = (await searchMeaning(contextDir, await refreshIndex(contextDir), String(question), ollamaEmbed, 32, 0))
+      .filter((hit) => hit.kind !== 'pane' && outside(hit))
+      .slice(0, 30)
+    const order = await judgeOnEndpoint(String(question), candidates.map((hit) => ({ title: hit.title, text: hit.passage ?? '' })))
+    return { asked: candidates.length, hits: order.map((at) => candidates[at]) }
+  })
+
   // The rail shows a few passages. A question on the page asks for more: up to 30.
   ipcMain.handle('context:meaning', async (event, query: string, limit?: number) => {
     const contextDir = requireContext(event)

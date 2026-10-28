@@ -17,6 +17,12 @@ then, minor versions may change behaviour.
 - *Near it*, under a passage you select in a draft: what else in the
   context says something close to it, in any of the languages, on the
   page the same way. Panes are left out, since they are not sources.
+- Your own endpoint can judge a question. In the question view, *Ask
+  your-host which of these answer it* sends the question and the thirty
+  passages closest in meaning, under the bar too, to your endpoint, which
+  only picks the ones that answer it. The page shows those passages, the
+  files' own text, the most relevant first. Not in a private context that
+  is not opened to your endpoint.
 - A private context can be opened to your own inference endpoint. Set
   its address, model and key in the *Agent* tab, then allow it for a
   context in a system dialog that names the host. Hermes then works

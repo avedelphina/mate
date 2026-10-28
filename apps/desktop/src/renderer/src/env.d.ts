@@ -197,6 +197,10 @@ export type MateApi = {
   onSession: (listener: (session: Session) => void) => () => void
   /** The passages closest in meaning to a question. `missing` says what this computer lacks for it, when it does. */
   searchMeaning: (query: string, limit?: number) => Promise<{ missing: string | null; hits: Hit[] }>
+  /** The host of the reader's endpoint, when it may judge passages of the open context. */
+  judgingHost: () => Promise<string | null>
+  /** Of the thirty passages closest in meaning, those the reader's endpoint picks as answering the question, in its order. */
+  judge: (question: string, leave?: { path: string; start: number; end: number }) => Promise<{ asked: number; hits: Hit[] }>
   /** How many files of the open context are still to be given their meaning. */
   onMinding: (listener: (left: number) => void) => () => void
   /** How many PDF and Word files of the open context are still to be read, so that search finds them. */

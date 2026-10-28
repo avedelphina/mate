@@ -83,6 +83,9 @@ export function setEndpoint(url: string, model: string, key?: string): boolean {
 export const sandboxProfile = (port: number): string =>
   `(version 1)(allow default)(deny network-outbound)(allow network-outbound (remote ip "localhost:${Number(port)}"))`
 
+/** The endpoint's key, as a header. Only main ever holds it. */
+const keyHeader = (): Record<string, string> => (stored?.key ? { authorization: `Bearer ${seal!.decrypt(Buffer.from(stored.key, 'base64'))}` } : {})
+
 let relay: { port: number; token: string; close(): void } | null = null
 
 /** The relay, started on first use. Every request needs its token, and none may come from a web page. */
@@ -107,7 +110,7 @@ export async function startRelay(): Promise<{ port: number; token: string }> {
         headers: {
           'content-type': String(request.headers['content-type'] ?? 'application/json'),
           accept: String(request.headers.accept ?? '*/*'),
-          ...(stored.key ? { authorization: `Bearer ${seal!.decrypt(Buffer.from(stored.key, 'base64'))}` } : {})
+          ...keyHeader()
         },
         body: request.method === 'GET' || request.method === 'HEAD' ? undefined : (Readable.toWeb(request) as ReadableStream),
         duplex: 'half',
@@ -180,4 +183,60 @@ export async function preparePrivate(env: NodeJS.ProcessEnv): Promise<number> {
   await mkdir(dir, { recursive: true })
   await writeFile(path.join(dir, 'config.yaml'), profileConfig(port, token, stored.model), { mode: 0o600 })
   return port
+}
+
+const JUDGE = [
+  'You judge which passages of a library bear on a text the reader gives: a question, or a passage of a draft.',
+  'You do not answer it, and you do not write about it.',
+  'A passage bears on the text when it answers it, sets a rule or a limit that applies to what the text says or plans, or says something that contradicts it.',
+  'The text and the passages may be in English, Czech or Slovak.',
+  'Reply with JSON only, and nothing else: {"relevant": [the numbers of the relevant passages, the most relevant first]}. If none is, {"relevant": []}.'
+].join('\n')
+
+/**
+ * Ask the reader's endpoint which passages answer a question. It only picks: it gives their numbers,
+ * the most relevant first, and the reader still reads only the text of the files. Mate sends this
+ * itself, to the address the reader set; no agent is involved. Gives the passages' places in the list.
+ */
+export async function judgeOnEndpoint(question: string, passages: { title: string; text: string }[]): Promise<number[]> {
+  if (!stored) throw new Error('Set your endpoint first, in the Agent tab of a private context.')
+  // ponytail: a passage is cut at 1,200 characters, so thirty fit any model with a window of 16,000 tokens.
+  const listed = passages.map((each, at) => `[${at + 1}] ${each.title}\n${each.text.slice(0, 1200)}`).join('\n\n')
+  let answer: Response
+  try {
+    answer = await fetch(`${stored.url}/chat/completions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...keyHeader() },
+      body: JSON.stringify({
+        model: stored.model,
+        temperature: 0,
+        max_tokens: 400,
+        messages: [
+          { role: 'system', content: JUDGE },
+          { role: 'user', content: `Text: ${question}\n\nPassages:\n\n${listed}` }
+        ]
+      }),
+      redirect: 'error',
+      signal: AbortSignal.timeout(120_000)
+    })
+  } catch {
+    throw new Error(`Your endpoint, ${new URL(stored.url).host}, could not be reached.`)
+  }
+  if (!answer.ok) throw new Error(`Your endpoint, ${new URL(stored.url).host}, answered ${answer.status}.`)
+  const body = (await answer.json().catch(() => null)) as { choices?: { message?: { content?: unknown } }[] } | null
+  return picked(String(body?.choices?.[0]?.message?.content ?? ''), passages.length)
+}
+
+/** The numbers a model gave, as places in the list: in its order, each once, none that is not there. */
+export function picked(content: string, count: number): number[] {
+  // A model that thinks aloud does it first, between these tags. The answer is the JSON after it.
+  const json = content.replace(/<think>[\s\S]*?<\/think>/g, '').match(/\{[\s\S]*\}/)?.[0] ?? ''
+  let numbers: unknown
+  try {
+    numbers = (JSON.parse(json) as { relevant?: unknown }).relevant
+  } catch {
+    numbers = null
+  }
+  if (!Array.isArray(numbers)) throw new Error('Your endpoint did not answer in the form it was asked for.')
+  return [...new Set(numbers.map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= count))].map((n) => n - 1)
 }

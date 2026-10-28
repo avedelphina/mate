@@ -415,9 +415,23 @@ to it are found. `meaning.ts` is the whole of it.
 Limits of asking this way. A passage that matters can score under the
 bar: a draft that shares a budget with an agency scored 0.42 against the
 rule on suppliers, and a passage of no use 0.43. Down there the model
-cannot tell them apart, and a lower bar only brings more of no use. A
-reranking model, or the reader's own endpoint judging the closest
-thirty, would tell them apart; neither is built. The draft stays beneath, as it was, and is back when the
+cannot tell them apart, and a lower bar only brings more of no use.
+
+**Judging by the reader's endpoint.** Where the reader's endpoint may
+read the context (any context that is not private, and a private one
+opened to it), the question view offers to ask it. Mate itself sends the
+text asked about and the thirty passages closest in meaning, under the
+bar too, to the endpoint's `/chat/completions`, with the key, and asks
+for JSON only: the numbers of the passages that answer the text, set a
+rule that applies to it, or contradict it, the most relevant first
+(`judgeOnEndpoint` in `endpoint.ts`). No agent is involved, and nothing
+the model writes is shown: the page shows those passages, the files' own
+text, in its order. For *Near it* the selected passage is left out
+before the judge sees it, since it would pick it first. A passage is
+cut at 1,200 characters, so thirty fit a window of 16,000 tokens.
+Tried with a small local coding model as a stand-in, it picked the right
+document for a plain question and nothing for a passage of a draft: how
+much this gives depends on the model behind the endpoint. The draft stays beneath, as it was, and is back when the
   question is closed (Esc).
 - **Near a passage.** *Near it*, in the menu under a selection in a
   draft, asks the same with the selected text as the question, and

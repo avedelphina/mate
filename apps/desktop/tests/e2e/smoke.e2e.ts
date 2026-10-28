@@ -315,7 +315,7 @@ test('in a context the reader trusts, a script of the project runs from its butt
     await app.page(`document.querySelector('.rail .search').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`)
     await app.until(`document.querySelector('.center .question h1')?.textContent === 'eighteen months'`, 'the question on the page')
     assert.equal(await app.page(`getComputedStyle([...document.querySelectorAll('.center > .scroll')].at(-1)).display`), 'none')
-    await app.until(`!!document.querySelector('.center .question .passage, .center .question > p.meta:not(:first-of-type), .center .question h1 + p.meta')`, 'the passages, or why there are none')
+    await app.until(`!!document.querySelector('.center .question .passage, .center .question .summary, .center .question h1 + p.meta')`, 'the passages, or why there are none')
     await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
     await app.until(`!document.querySelector('.center .question')`, 'the question closed')
     assert.match(await app.page<string>(`document.querySelector('.center .bar').textContent`), /Show the original/)

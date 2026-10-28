@@ -207,7 +207,8 @@ export function Agent(props: {
             {kept ? 'Let agents in…' : 'Keep this context private'}
           </button>
         </p>
-        {kept && (
+        {/* The endpoint is set here in any context: it judges questions in any, and works as an agent only in a private one opened to it. */}
+        {(
           <div className="meta hint trust endpoint">
             {editing ? (
               <form
@@ -241,11 +242,15 @@ export function Agent(props: {
             ) : (
               <>
                 {endpoint
-                  ? opened
-                    ? `Hermes on your endpoint, ${new URL(endpoint.url).host}, may read this context. It runs in the sandbox of macOS and reaches nothing else.`
-                    : `Your endpoint is ${new URL(endpoint.url).host}, with ${endpoint.model}. It may not read this context.`
-                  : 'An agent can work here on your own inference endpoint, and nowhere else.'}
-                {endpoint && (
+                  ? !kept
+                    ? `Your endpoint is ${new URL(endpoint.url).host}, with ${endpoint.model}. It can judge a question here.`
+                    : opened
+                      ? `Hermes on your endpoint, ${new URL(endpoint.url).host}, may read this context. It runs in the sandbox of macOS and reaches nothing else.`
+                      : `Your endpoint is ${new URL(endpoint.url).host}, with ${endpoint.model}. It may not read this context.`
+                  : kept
+                    ? 'An agent can work here on your own inference endpoint, and nowhere else.'
+                    : 'Your own inference endpoint, a server you control, can judge questions, and work in a private context.'}
+                {endpoint && kept && (
                   <button onClick={() => window.mate.setOpened(!opened).then(setOpened, (caught) => setError(reason(caught)))}>
                     {opened ? 'Close it to your endpoint' : 'Allow your endpoint here…'}
                   </button>

@@ -88,7 +88,9 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   each opening at its place. Select a passage in a draft and choose
   *Near it* to see what your notes, the shelf and other drafts say close
   to it. No model writes the answer, so it works in a private context
-  too. Hermes in a context you trust searches the same
+  too. Where your own endpoint may read the context, it can be asked to
+  pick which of the thirty closest passages answer the question: it only
+  picks, and you still read the files' own text. Hermes in a context you trust searches the same
   way, through Mate, and answers from the passage it finds.
 - **PDF and Word files, and tables, are read and found.** Mate takes the
   text out of every PDF, Word file, Excel workbook and CSV file in the

@@ -4,7 +4,7 @@ import { Boundary } from './Boundary'
 import { Palette, type Act } from './Palette'
 import { isTwinned } from '../../shared/twin'
 import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran } from './env'
-import { Question } from './Question'
+import { Question, type Judged } from './Question'
 import { Rendered, type Passage } from './Rendered'
 import { Tree } from './Tree'
 import { asked, filled } from '../../shared/run'
@@ -173,8 +173,18 @@ export function App() {
   // The passages closest in meaning to the search, and how many files are still to be given their meaning.
   const [close, setClose] = useState<{ missing: string | null; hits: Hit[] } | null>(null)
   // A question on the page: the passages closest to it in meaning, whole. `found` is null while they are looked for.
-  const [inquiry, setInquiry] = useState<{ question: string; found: { missing: string | null; hits: Hit[] } | null } | null>(null)
+  // `query` is what is searched for, `keep` what of the passages may be shown: the heading may say it otherwise.
+  const [inquiry, setInquiry] = useState<{
+    question: string
+    query: string
+    keep: (hit: Hit) => boolean
+    leave?: { path: string; start: number; end: number }
+    found: { missing: string | null; hits: Hit[] } | null
+  } | null>(null)
   useEffect(() => setInquiry(null), [contextDir])
+  // What the reader's endpoint picked of the passages, for the question on the page, and whether it may be asked here.
+  const [judged, setJudged] = useState<(Judged & { for: string }) | null>(null)
+  const [judgeHost, setJudgeHost] = useState<string | null>(null)
   const [mindingLeft, setMindingLeft] = useState(0)
   useEffect(() => window.mate.onMinding(setMindingLeft), [])
   useEffect(() => {
@@ -615,9 +625,24 @@ export function App() {
     // A pane is what an agent gathered to show, not a source: the page shows only what the files of the context say.
     const source = (hit: Hit) => hit.kind !== 'pane' && outside(hit)
     const settle = (found: { missing: string | null; hits: Hit[] }) =>
-      setInquiry((now) => (now?.question === heading ? { question: heading, found: { ...found, hits: found.hits.filter(source) } } : now))
-    setInquiry({ question: heading, found: null })
+      setInquiry((now) => (now?.question === heading ? { ...now, found: { ...found, hits: found.hits.filter(source) } } : now))
+    setInquiry({ question: heading, query: question, keep: source, leave, found: null })
+    setJudged(null)
+    window.mate.judgingHost().then(setJudgeHost, () => setJudgeHost(null))
     window.mate.searchMeaning(question, 24).then(settle, (caught) => settle({ missing: reason(caught, 'Could not search by meaning.'), hits: [] }))
+  }
+
+  /** Ask the reader's endpoint which of the closest passages answer the question on the page. It only picks. */
+  function judge() {
+    if (!inquiry || !judgeHost) return
+    const { question, query, keep, leave } = inquiry
+    const host = judgeHost
+    const settle = (next: Judged) => setJudged((was) => (was?.for === question ? { ...next, for: question } : was))
+    setJudged({ for: question, host, asking: true })
+    window.mate.judge(query, leave).then(
+      (result) => settle({ host, asked: result.asked, hits: result.hits.filter(keep) }),
+      (caught) => settle({ host, error: reason(caught, 'Your endpoint could not judge them.') })
+    )
   }
 
   /** What else in the context is close in meaning to the passage the reader selected: notes, the shelf, other drafts. */
@@ -1245,6 +1270,10 @@ export function App() {
             question={inquiry.question}
             found={inquiry.found}
             label={(hit) => KINDS[hit.kind].label}
+            judgeHost={judgeHost}
+            judged={judged?.for === inquiry.question ? judged : null}
+            onJudge={judge}
+            onUnjudge={() => setJudged(null)}
             onOpen={(hit) => {
               setInquiry(null)
               void openHit(hit)
