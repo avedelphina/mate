@@ -358,7 +358,9 @@ Tools: `mate_project`, `mate_read`, `mate_search`, `mate_comments`,
 
 - Mate sends nothing to any server of its own, and has no telemetry. The
   only network connections are the ones you start: an agent you invite, an
-  SSH session you choose, and the local MCP endpoint.
+  SSH session you choose, and the local MCP endpoint. The one exception:
+  the installed app asks GitHub for a newer version of itself when it
+  starts and every six hours. It sends nothing of your contexts.
 - Agents are given file tools and no shell or web access. Claude Code is
   started without the settings and hooks of the context folder or of your
   account, so a context from someone else cannot run code through them.

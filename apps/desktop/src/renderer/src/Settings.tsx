@@ -1,5 +1,45 @@
 import { useEffect, useState } from 'react'
-import type { Settings as Held } from './env'
+import type { Settings as Held, Update } from './env'
+
+const unwrapped = (caught: unknown) => String((caught as Error)?.message ?? caught).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+
+/** Where the update of the installed app is, as main says it. */
+function useUpdate(): Update {
+  const [update, setUpdate] = useState<Update>({ state: 'idle' })
+  useEffect(() => {
+    void window.mate.update().then(setUpdate)
+    return window.mate.onUpdate(setUpdate)
+  }, [])
+  return update
+}
+
+const updateSaid = (update: Update): string =>
+  ({
+    idle: '',
+    checking: 'Checking…',
+    none: 'This is the newest version.',
+    downloading: 'Downloading the new version…',
+    ready: `Mate ${update.version} is downloaded. It is put in when Mate quits.`,
+    out: `Mate ${update.version} is out.`,
+    failed: update.message ?? 'The check did not work.'
+  })[update.state]
+
+/** In the rail, when a new version is there to be put in. */
+export function UpdateNotice() {
+  const update = useUpdate()
+  const [said, setSaid] = useState<string | null>(null)
+  if (update.state !== 'ready' && update.state !== 'out') return null
+  return (
+    <footer className="rail-foot">
+      <button className="quiet" onClick={() => window.mate.installUpdate().then(() => setSaid(null), (caught) => setSaid(unwrapped(caught)))}>
+        {update.state === 'ready' ? 'Restart to update' : 'Download'}
+      </button>
+      <span className="meta" role="status" title={said ?? undefined}>
+        {said ?? `Mate ${update.version}`}
+      </span>
+    </footer>
+  )
+}
 
 /**
  * What the reader has set, in one place, and what this computer has. Kept in the app's data folder, so it
@@ -16,6 +56,8 @@ export function Settings(props: { onClose: () => void }) {
   const [saved, setSaved] = useState(false)
   // The editor command while it is changed. Null until then.
   const [editor, setEditor] = useState<string | null>(null)
+  const update = useUpdate()
+  const mac = document.documentElement.dataset.platform === 'mac'
   const load = () => window.mate.settings().then(setHeld, (caught) => setError(String(caught?.message ?? caught)))
   useEffect(() => {
     void load()
@@ -26,7 +68,7 @@ export function Settings(props: { onClose: () => void }) {
   /** Run one change, then show the settings as they are now. */
   const act = (change: () => Promise<unknown>) => {
     setError(null)
-    change().then(load, (caught) => setError(String(caught?.message ?? caught).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')))
+    change().then(load, (caught) => setError(unwrapped(caught)))
   }
   const form = editing ?? { url: held?.endpoint?.url ?? '', model: held?.endpoint?.model ?? '', key: '' }
   const host = held?.endpoint ? new URL(held.endpoint.url).host : null
@@ -113,6 +155,26 @@ export function Settings(props: { onClose: () => void }) {
                 </button>
               </p>
             </form>
+          </section>
+
+          <section className="updates">
+            <h2>Updates</h2>
+            <p className="meta">
+              This is Mate {held?.version}. The installed app asks GitHub for a newer version when it starts and every six hours. It sends nothing of
+              your contexts.{' '}
+              {mac ? 'A new version is downloaded, and put in when Mate quits.' : 'When there is one, it says so, and opens the page to download it from.'}
+            </p>
+            <p>
+              <button disabled={update.state === 'checking' || update.state === 'downloading'} onClick={() => act(() => window.mate.checkForUpdate())}>
+                Check now
+              </button>{' '}
+              {(update.state === 'ready' || update.state === 'out') && (
+                <button onClick={() => act(() => window.mate.installUpdate())}>{update.state === 'ready' ? 'Restart to update' : 'Download'}</button>
+              )}{' '}
+              <span className="meta" role="status">
+                {updateSaid(update)}
+              </span>
+            </p>
           </section>
 
           <section>

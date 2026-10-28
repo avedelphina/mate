@@ -1114,6 +1114,16 @@ off, where a command line cannot turn them on again: it does not act as
 Node, it takes no Node options from the environment, and it takes no
 inspector. It starts only the archive it was packed with.
 
+It updates itself, in `update.ts`. Each release carries `update.json`,
+in Squirrel.Mac's JSON form, and the app reads it from GitHub's address
+for the newest release, when it starts and every six hours. On a Mac,
+Electron's own updater downloads the zip it names and checks that it is
+signed with the same Developer ID before it puts it in, when Mate quits.
+On Linux, Mate reads only the version, and says when a newer one is out:
+an AppImage or a package is put in by the reader. A checkout never
+updates itself. Restarting into an update is refused while an agent
+works.
+
 Run from a checkout, the app has another name, Mate Dev, and with it
 another folder for its data. A checkout can be driven through a debugging
 port, and whoever drives it could use what it holds: the contexts the
@@ -1128,4 +1138,3 @@ Mate connects to neither. Of git, only a repository started and a commit
 made, when the reader says so: no remote, no push, no pull, and no commit
 made on its own. No program from a context
 that runs in the window: a pane is markdown, and Mate draws its buttons.
-No update that fetches itself.

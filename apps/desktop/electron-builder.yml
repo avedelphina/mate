@@ -17,7 +17,7 @@ files:
   - package.json
 npmRebuild: false
 
-# No update is fetched, so nothing is said about where one would come from.
+# The release workflow uploads the packages and makes the update feed itself, so electron-builder publishes nothing.
 publish: null
 
 # An app that was installed is not a way to run other code as Mate: it does not act as Node,
@@ -43,8 +43,11 @@ mac:
       to: mate-assist
   # Sent to Apple to be notarised only when the credentials are in the environment:
   # APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID, or APPLE_KEYCHAIN_PROFILE.
+  # The disk image is for a first install; the zip is what the installed app updates itself from.
   target:
     - target: dmg
+      arch: [arm64]
+    - target: zip
       arch: [arm64]
 
 linux:

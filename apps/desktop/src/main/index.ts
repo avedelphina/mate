@@ -41,6 +41,7 @@ import {
 } from './context'
 import { refreshIndex, searchIndex, type Hit } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
+import { checkForUpdate, installUpdate, startUpdates, updateNow } from './update'
 import { runScript, stopAllScripts, stopScript, wordsOf } from './scripts'
 import { approve, describe, instructionFiles, keepPinsIn, movePins, unapproved } from './pins'
 import {
@@ -866,6 +867,7 @@ app.whenReady().then(() => {
   // Everything the reader has set, in one place, and what this computer has. No key, ever.
   ipcMain.handle('settings:get', async () => ({
     folder: app.getPath('userData'),
+    version: app.getVersion(),
     editor: readEditor(),
     endpoint: endpointView(),
     trusted: trustedContexts(),
@@ -937,8 +939,17 @@ app.whenReady().then(() => {
     runAssist(assistHelper, task, passage, note)
   )
 
+  ipcMain.handle('update:get', () => updateNow())
+  ipcMain.handle('update:check', () => checkForUpdate())
+  // Restarting stops nothing an agent is doing: that is asked when Mate quits, and Squirrel puts the update in then too.
+  ipcMain.handle('update:install', () => {
+    if (working() > 0) throw new Error('An agent is working. The update is put in when Mate quits, or restart when the work is done.')
+    installUpdate()
+  })
+
   setMenu()
   createWindow(null, contextFromArgv())
+  startUpdates()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

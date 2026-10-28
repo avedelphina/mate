@@ -91,6 +91,15 @@ contextBridge.exposeInMainWorld('mate', {
     return () => ipcRenderer.removeListener('settings:open', heard)
   },
   settings: () => ipcRenderer.invoke('settings:get'),
+  /** Where the update of the installed app is. Returns the function that stops listening. */
+  onUpdate: (listener: (update: unknown) => void) => {
+    const heard = (_event: unknown, update: unknown) => listener(update)
+    ipcRenderer.on('update', heard)
+    return () => ipcRenderer.removeListener('update', heard)
+  },
+  update: () => ipcRenderer.invoke('update:get'),
+  checkForUpdate: () => ipcRenderer.invoke('update:check'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
   untrust: (dir: string) => ipcRenderer.invoke('settings:untrust', dir),
   closeToEndpoint: (dir: string) => ipcRenderer.invoke('settings:close', dir),
   revealSettings: () => ipcRenderer.invoke('settings:reveal'),

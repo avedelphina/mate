@@ -96,7 +96,8 @@ These are not style preferences. Breaking one will get a change sent back.
    agent's change goes through `judge` in `sessions.ts`, or the MCP write
    path that calls it.
 6. **No silent network.** Nothing connects anywhere unless the reader starts
-   it.
+   it. The one exception: the installed app asks GitHub for a newer version
+   of itself, and sends nothing of a context.
 
 Three more follow from the security model. They are in
 [SECURITY.md](SECURITY.md) and [docs/architecture.md](docs/architecture.md):
@@ -165,7 +166,9 @@ request, on macOS and Ubuntu:
 checks that the tag is on `main`, that it matches both `package.json`
 files, and that `CHANGELOG.md` has a section for it. It builds and checks
 the Linux packages, tests, signs and notarises the Mac app, and only then
-publishes all three artifacts with that changelog section as its notes.
+publishes the disk image, the zip, the AppImage and the Debian package with
+that changelog section as its notes. With them goes `update.json`, which
+the installed app reads to update itself: a Mac downloads the zip it names.
 
 To release:
 

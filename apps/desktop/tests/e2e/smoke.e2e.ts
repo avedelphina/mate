@@ -231,6 +231,9 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.settings .endpoint button', 'Save')
     await app.until(`document.querySelector('.settings .endpoint')?.textContent.includes('Saved: llm.example.org.')`, 'the endpoint, saved')
     assert.equal(await app.page(`[...document.querySelectorAll('.settings li .dir')].some((each) => each.textContent.endsWith('/example'))`), true)
+    // A checkout never updates itself, and says so when asked.
+    await app.press('.settings .updates button', 'Check now')
+    await app.until(`document.querySelector('.settings .updates [role=status]')?.textContent === 'Run from a checkout, Mate does not update itself.'`, 'the update check, refused in a checkout')
     await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
     await app.until(`!document.querySelector('.center .settings') && document.querySelector('.endpoint')?.textContent.includes('Your endpoint is llm.example.org')`, 'the Agent tab, with the endpoint')
     assert.deepEqual(await app.page(`[...document.querySelectorAll('.endpoint button')].map((each) => each.textContent)`), ['Allow your endpoint here…', 'Change the endpoint…'])

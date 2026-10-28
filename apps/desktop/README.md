@@ -166,7 +166,10 @@ An installed app differs from a checkout in three ways, all on purpose:
   from outside. These are switched off in the program itself.
 - It refuses a debugging port. The end-to-end test drives a checkout, not
   the installed app.
-- It fetches no update. A new version is a new download.
+- It updates itself. It asks GitHub for a newer version when it starts
+  and every six hours. A Mac downloads it and puts it in when Mate quits,
+  or at once with *Restart to update*. Linux says a new version is out
+  and opens the page to download it from.
 
 It keeps its data in a folder of its own (on macOS,
 `~/Library/Application Support/Mate/`; on Linux, `~/.config/Mate/`).

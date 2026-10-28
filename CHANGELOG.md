@@ -5,6 +5,17 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- Mate updates itself. The installed app asks GitHub for a newer version
+  when it starts and every six hours, and sends nothing of your contexts.
+  On a Mac it downloads the new version and puts it in when Mate quits,
+  or at once with *Restart to update*. On Linux it says a new version is
+  out and opens the page to download it from. Settings shows the version
+  and checks on demand.
+
 ## [0.9.0] - 2026-10-28
 
 Read code as code, without an editor inside Mate. Search reads every

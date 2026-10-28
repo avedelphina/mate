@@ -8,7 +8,7 @@ import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran } from
 import { History } from './History'
 import { Question, type Judged } from './Question'
 import { Rendered, type Passage } from './Rendered'
-import { Settings } from './Settings'
+import { Settings, UpdateNotice } from './Settings'
 import { Tree } from './Tree'
 import { asked, filled } from '../../shared/run'
 import './styles.css'
@@ -1340,6 +1340,7 @@ export function App() {
             </>
           )}
         </div>
+        <UpdateNotice />
         {/* Git is the history of a context. A commit is the reader's act, like publishing: nothing is committed for them. */}
         {contextDir && !lacks.git && (
           <footer className="rail-foot">

@@ -42,12 +42,16 @@ export type Kind = 'shelf' | 'draft' | 'project' | 'material' | 'context' | 'pan
 export type FileView = { path: string; kind: Kind; project: string | null; text: string; twin?: boolean }
 
 /** One place a search matched. `start` is where in the text of the file, or null. `thread` when it is in a comment. */
-/** What the settings page shows. Folders are as main holds them: real paths. */
 /** A commit that changed a file. `date` is ISO 8601. */
 export type Commit = { hash: string; author: string; date: string; subject: string }
 
+/** Where the update of the installed app is. `ready`: downloaded, on a Mac. `out`: a newer version, on Linux. */
+export type Update = { state: 'idle' | 'checking' | 'none' | 'downloading' | 'ready' | 'out' | 'failed'; version?: string; message?: string }
+
+/** What the settings page shows. Folders are as main holds them: real paths. */
 export type Settings = {
   folder: string
+  version: string
   /** The reader's editor command, or empty for the system's own app. */
   editor: string
   endpoint: { url: string; model: string; hasKey: boolean } | null
@@ -225,6 +229,12 @@ export type MateApi = {
   onSettings: (listener: () => void) => () => void
   /** Everything the reader has set, and what this computer has. Never the key. */
   settings: () => Promise<Settings>
+  onUpdate: (listener: (update: Update) => void) => () => void
+  update: () => Promise<Update>
+  /** Ask GitHub now. On a Mac the answer comes through `onUpdate`. */
+  checkForUpdate: () => Promise<Update>
+  /** On a Mac, restart into the downloaded version. On Linux, open the page to download it from. */
+  installUpdate: () => Promise<void>
   /** Trust no more a context on the list. Taking away asks nothing. */
   untrust: (dir: string) => Promise<void>
   /** Close a private context on the list to the reader's endpoint. */
