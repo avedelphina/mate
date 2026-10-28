@@ -5,6 +5,25 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- An x86-64 Linux build, as an AppImage and a Debian package. Shortcuts
+  use Ctrl. Optional external tools provide functional parity with macOS:
+  Poppler and Tesseract read PDFs and scans, LibreOffice reads Office
+  documents, and Python reads web archives. None is bundled.
+- Writing assist works on Linux through a local Ollama chat model. Mate
+  does not install Ollama or download the model.
+- All Mate 0.6.0 features work on Linux: whole-context questions, *Near
+  it*, endpoint judging and settings. Hermes in a private context runs in
+  Bubblewrap and reaches only Mate's endpoint relay: it sees the system
+  read-only, and none of the host's Unix sockets, such as the D-Bus bus
+  or an ssh connection. An endpoint key is kept only where a keyring
+  runs, such as GNOME Keyring or KWallet.
+- Ubuntu CI checks the window, document extraction and both packages.
+  Tagged releases publish the Linux artifacts beside the macOS disk image.
+
 ## [0.6.0] - 2026-10-28
 
 Ask your library, and keep what is private on a server you control. A

@@ -3,11 +3,11 @@ name: Release
 # Merge to main, set the version, then tag the commit and push the tag:
 #   git tag -a v0.5.0 -m "…" && git push origin v0.5.0
 # This checks that the tag is on main, that it matches both package.json files, and that the
-# changelog has a section for it. It then tests, builds, signs and notarises the disk image, checks
-# the result, and only then publishes the GitHub release, with that changelog section as its notes.
-# Nothing goes live if a step before the end fails.
+# changelog has a section for it. It then tests and checks the Linux packages, signs and notarises
+# the disk image, and only then publishes all three artifacts, with that changelog section as its
+# notes. Nothing goes live if a step before the end fails.
 #
-# Mate fetches no update, so there is no updater feed: the release is the disk image and its notes.
+# Mate fetches no update, so there is no updater feed: the release is the packages and their notes.
 #
 # Required repository secrets (macOS signing):
 #   CSC_LINK                     base64 of the "Developer ID Application" .p12
@@ -51,9 +51,49 @@ jobs:
             exit 1
           fi
 
+  linux:
+    runs-on: ubuntu-latest
+    needs: prepare
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      # Ubuntu 24.04 keeps a user namespace from setting up a network of its own, so bwrap --unshare-net
+      # fails with "loopback: Failed RTM_NEWADDR". A reader on such a system makes the same choice: see the README.
+      - name: Let Bubblewrap give Hermes a network namespace of its own
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Install the external tools used by the tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bubblewrap libreoffice-writer poppler-utils python3 tesseract-ocr tesseract-ocr-ces tesseract-ocr-eng xvfb
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: xvfb-run -a pnpm test:e2e
+      - run: pnpm dist:linux
+      - name: Check both Linux packages
+        working-directory: apps/desktop
+        run: |
+          shopt -s nullglob
+          images=(release/*-x86_64.AppImage)
+          packages=(release/*-amd64.deb)
+          test "${#images[@]}" -eq 1
+          test "${#packages[@]}" -eq 1
+          dpkg-deb --info "${packages[0]}" > /dev/null
+          "${images[0]}" --appimage-extract > /dev/null
+          test -x squashfs-root/mate
+          rm -rf squashfs-root
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mate-linux
+          path: |
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+          if-no-files-found: error
+
   release:
     runs-on: macos-26
-    needs: prepare
+    needs: [prepare, linux]
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -116,14 +156,23 @@ jobs:
           ' CHANGELOG.md > notes.md
           test -s notes.md
 
+      - uses: actions/download-artifact@v7
+        with:
+          name: mate-linux
+          path: apps/desktop/release
+
       - name: Publish the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           shopt -s nullglob
           images=(apps/desktop/release/*.dmg)
+          appimages=(apps/desktop/release/*.AppImage)
+          packages=(apps/desktop/release/*.deb)
           test "${#images[@]}" -eq 1
-          gh release create "$GITHUB_REF_NAME" "${images[0]}" \
+          test "${#appimages[@]}" -eq 1
+          test "${#packages[@]}" -eq 1
+          gh release create "$GITHUB_REF_NAME" "${images[0]}" "${appimages[0]}" "${packages[0]}" \
             --verify-tag --latest \
             --title "Mate $GITHUB_REF_NAME" \
             --notes-file notes.md

@@ -1,15 +1,25 @@
 import assert from 'node:assert/strict'
-import { execFile } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { promisify } from 'node:util'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import http from 'node:http'
-import { tmpdir } from 'node:os'
+import net from 'node:net'
+import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { checkEndpoint, endpointView, judgeOnEndpoint, keepEndpointIn, picked, profileConfig, sandboxProfile, setEndpoint, startRelay, stopRelay } from '../src/main/endpoint.ts'
+import { checkEndpoint, endpointView, judgeOnEndpoint, keepEndpointIn, keyRefusal, linuxRelay, linuxSandbox, picked, profileConfig, sandboxProfile, setEndpoint, startRelay, stopRelay } from '../src/main/endpoint.ts'
 
 // A stand-in for the keychain: anything but the key as it was given.
 const seal = { encrypt: (text: string) => Buffer.from([...text].reverse().join('')), decrypt: (sealed: Buffer) => [...sealed.toString()].reverse().join('') }
+
+const available = (command: string): boolean => {
+  try {
+    execFileSync(command, ['--version'], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
 
 /** A server on this computer that says what it was sent. */
 async function listen(handler: http.RequestListener): Promise<{ port: number; close(): void }> {
@@ -87,11 +97,77 @@ test('in the sandbox, a program reaches the relay and no other address, even on 
   }
 })
 
+test('in the Linux sandbox, a program reaches only Mate through the Unix-socket bridge', { skip: process.platform !== 'linux' || !available('bwrap') || !available('python3') }, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'mate-linux-endpoint-'))
+  const upstream = await listen((_request, response) => response.end('relay'))
+  const other = await listen((_request, response) => response.end('other'))
+  const writable = await mkdtemp(path.join(tmpdir(), 'mate-linux-writable-'))
+  // A socket in the writable context is masked, and one under home is hidden. Both would be a way out.
+  const outside = path.join(writable, 'outside.sock')
+  const host = net.createServer((client) => client.end('open'))
+  await new Promise<void>((resolve) => host.listen(outside, resolve))
+  const home = await mkdtemp(path.join(homedir(), 'mate-linux-home-'))
+  const homeSocket = path.join(home, 'home.sock')
+  const homeHost = net.createServer((client) => client.end('open'))
+  await new Promise<void>((resolve) => homeHost.listen(homeSocket, resolve))
+  // The hidden checkout has an empty stand-in. A write there must not reach the host.
+  const probe = path.join(process.cwd(), '.sandbox-probe')
+  try {
+    keepEndpointIn(path.join(dir, 'endpoint.json'), seal)
+    setEndpoint(`http://127.0.0.1:${upstream.port}/v1`, 'qwen')
+    const { socket, token } = await startRelay()
+    const script = `
+import urllib.request
+def reach(url, data=None, headers={}):
+    try:
+        request = urllib.request.Request(url, data=data, headers=headers)
+        return urllib.request.urlopen(request, timeout=4).read().decode()
+    except Exception:
+        return 'blocked'
+relay = reach('http://127.0.0.1:${linuxRelay.port}/v1/chat/completions', b'{}', {'Authorization': 'Bearer ${token}', 'Content-Type': 'application/json'})
+other = reach('http://127.0.0.1:${other.port}')
+outside = reach('https://example.org')
+import socket
+def unix(path):
+    try:
+        s = socket.socket(socket.AF_UNIX)
+        s.settimeout(3)
+        s.connect(path)
+        return 'open'
+    except Exception:
+        return 'blocked'
+def write(path):
+    try:
+        open(path, 'w').write('x')
+        return 'written'
+    except Exception:
+        return 'blocked'
+print(relay, other, outside, unix('${outside}'), unix('${homeSocket}'), write('${path.join(writable, 'note.txt')}'), write('${probe}'))
+`
+    const args = [...linuxSandbox(socket, [writable]), 'python3', '-c', script]
+    const { stdout } = await promisify(execFile)(args[0], args.slice(1), { timeout: 30_000 })
+    assert.equal(stdout.trim(), 'relay blocked blocked blocked blocked written written')
+    await assert.rejects(readFile(probe))
+  } finally {
+    stopRelay()
+    upstream.close()
+    other.close()
+    host.close()
+    homeHost.close()
+    await rm(outside, { force: true })
+    await rm(probe, { force: true })
+    await rm(home, { recursive: true, force: true })
+    await rm(dir, { recursive: true, force: true })
+    await rm(writable, { recursive: true, force: true })
+  }
+})
+
 test("Mate's Hermes profile has the relay as its only way out", () => {
   const config = profileConfig(4242, 'token-for-the-relay', 'Qwen/Qwen3.6-35B-A3B-FP8')
   assert.match(config, /provider: custom:mate-relay\n/)
   assert.match(config, /api: http:\/\/127\.0\.0\.1:4242\/v1\n/)
   assert.match(config, /fallback_providers: \[\]\n/)
+  assert.match(config, /gateway:\n {2}standalone: true\n/)
   assert.match(config, /toolsets:\n {2}- file\n/)
   assert.match(config, /plugins:\n {2}enabled: \[\]\n/)
   assert.equal(/https?:\/\/(?!127\.0\.0\.1)/.test(config), false)
@@ -134,4 +210,13 @@ test('the endpoint is asked only to pick, with the key, and its pick comes back 
     upstream.close()
     await rm(dir, { recursive: true, force: true })
   }
+})
+
+test('a key is kept only under a real seal: not on Linux without a keyring', () => {
+  assert.equal(keyRefusal('darwin', true, ''), null)
+  assert.equal(keyRefusal('linux', true, 'gnome_libsecret'), null)
+  assert.equal(keyRefusal('linux', true, 'kwallet5'), null)
+  assert.match(keyRefusal('linux', true, 'basic_text')!, /keyring/)
+  assert.match(keyRefusal('linux', true, 'unknown')!, /keyring/)
+  assert.match(keyRefusal('darwin', false, '')!, /keychain/)
 })

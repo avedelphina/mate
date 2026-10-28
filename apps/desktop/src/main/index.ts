@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage, shell, type IpcMainInvokeEvent } from 'electron'
-import { endpointView, judgeOnEndpoint, keepEndpointIn, setEndpoint, stopRelay } from './endpoint'
+import { endpointView, judgeOnEndpoint, keepEndpointIn, keyRefusal, linuxRelay, setEndpoint, stopRelay } from './endpoint'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -95,6 +95,9 @@ const contexts = new Map<number, string>()
 // `pnpm build:assist` puts it. MATE_ASSIST names another one.
 const assistHelper =
   process.env.MATE_ASSIST ?? (app.isPackaged ? path.join(process.resourcesPath, 'mate-assist') : path.join(__dirname, '../../assist/mate-assist'))
+if (process.platform === 'linux') {
+  linuxRelay.helper = process.env.MATE_LINUX_RELAY ?? (app.isPackaged ? path.join(process.resourcesPath, 'linux-relay.py') : path.join(__dirname, '../../assist/linux-relay.py'))
+}
 
 // An app that was installed is not driven from outside. The port the end-to-end test asks for is for a checkout.
 if (app.isPackaged) app.commandLine.removeSwitch('remote-debugging-port')
@@ -321,7 +324,11 @@ app.whenReady().then(() => {
   keepPrivacyIn(path.join(app.getPath('userData'), 'private.json'))
   keepOpenedIn(path.join(app.getPath('userData'), 'opened.json'))
   keepEndpointIn(path.join(app.getPath('userData'), 'endpoint.json'), {
-    encrypt: (text) => safeStorage.encryptString(text),
+    encrypt: (text) => {
+      const refusal = keyRefusal(process.platform, safeStorage.isEncryptionAvailable(), process.platform === 'linux' ? safeStorage.getSelectedStorageBackend() : '')
+      if (refusal) throw new Error(refusal)
+      return safeStorage.encryptString(text)
+    },
     decrypt: (sealed) => safeStorage.decryptString(sealed)
   })
   keepPinsIn(path.join(app.getPath('userData'), 'pins.json'))
@@ -782,7 +789,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('privacy:opened', (event) => isOpenedToEndpoint(requireContext(event)))
 
-  // Everything the reader has set, in one place, and what this Mac has. No key, ever.
+  // Everything the reader has set, in one place, and what this computer has. No key, ever.
   ipcMain.handle('settings:get', async () => ({
     folder: app.getPath('userData'),
     endpoint: endpointView(),
@@ -825,7 +832,7 @@ app.whenReady().then(() => {
         detail:
           `${contextDir}\n\n` +
           `What Hermes reads here goes to ${endpoint.url}, to the model ${endpoint.model}, and to nowhere else: ` +
-          'Hermes runs in the sandbox of macOS and reaches only Mate, which passes its requests to that address. ' +
+          `Hermes runs in ${process.platform === 'darwin' ? 'the macOS sandbox' : 'Bubblewrap'} and reaches only Mate, which passes its requests to that address. ` +
           'Allow it only if you control that server, or trust who does.'
       }
       const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))

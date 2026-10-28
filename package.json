@@ -24,6 +24,8 @@
     "build": "pnpm --dir apps/desktop build",
     "build:assist": "pnpm --dir apps/desktop build:assist",
     "pack:mac": "pnpm --dir apps/desktop pack:mac",
-    "dist:mac": "pnpm --dir apps/desktop dist:mac"
+    "dist:mac": "pnpm --dir apps/desktop dist:mac",
+    "pack:linux": "pnpm --dir apps/desktop pack:linux",
+    "dist:linux": "pnpm --dir apps/desktop dist:linux"
   }
 }

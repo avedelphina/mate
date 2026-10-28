@@ -592,7 +592,7 @@ async function begin(
           })
         : await (async () => {
             const env = agentEnvironment()
-            const [command, ...before] = [...((await adapter.within?.(env)) ?? []), adapter.command]
+            const [command, ...before] = [...((await adapter.within?.(env, turn)) ?? []), adapter.command]
             return spawn(command, [...before, ...adapter.args(turn)], { cwd: projectDir, env })
           })()
       running.set(id, child)

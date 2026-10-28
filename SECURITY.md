@@ -95,5 +95,9 @@ they show that the model is broken, for example:
 ## Known limits, stated plainly
 
 The guard that holds agents' changes works after a turn, not during it. A
-change outside a project exists on disk until the turn ends. See the
+change outside a project exists on disk until the turn ends.
+
+On Linux, LibreOffice parses every Word, RTF and ODT file of an open
+context, trusted or not, to make its text searchable. A flaw in
+LibreOffice's parser is reachable by putting a file in a context. See the
 [known limits in the README](README.md#known-limits).

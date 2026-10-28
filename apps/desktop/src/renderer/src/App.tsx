@@ -1017,7 +1017,7 @@ export function App() {
     return all
   }
 
-  // ⌘K opens the palette from anywhere in the window, and closes it again.
+  // Command/Ctrl+K opens the palette from anywhere in the window, and closes it again.
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return
@@ -1042,7 +1042,9 @@ export function App() {
         <Divider which="rail" width={rail} set={setRail} />
         <header className="bar">
           Mate
-          <button className="quiet key" title="Go to a file, or do something" onClick={() => setPalette(acts())}>⌘K</button>
+          <button className="quiet key" title="Go to a file, or do something" onClick={() => setPalette(acts())}>
+            {document.documentElement.dataset.platform === 'mac' ? '⌘K' : 'Ctrl+K'}
+          </button>
         </header>
         <div className="scroll">
           {/* With no context there is one thing to do. With one, its name heads the rail, and another is a small step away. */}
@@ -1358,7 +1360,7 @@ export function App() {
                 </>
               ) : (
                 <>
-                  <button className="quiet" title="⌘S" disabled={typing === based.current} onClick={() => void save()}>Save</button>
+                  <button className="quiet" title={document.documentElement.dataset.platform === 'mac' ? '⌘S' : 'Ctrl+S'} disabled={typing === based.current} onClick={() => void save()}>Save</button>
                   <button className="quiet" onClick={() => void save().then((saved) => saved && setTyping(null))}>Done</button>
                 </>
               )}
@@ -1512,7 +1514,7 @@ export function App() {
                     {drafting ? 'Writing…' : mode === 'rewrite' ? 'Draft the rewrite' : 'Draft the note'}
                   </button>
                 )}
-                <button className="primary" title="⌘↵" onClick={addComment}>Add to the file</button>
+                <button className="primary" title={document.documentElement.dataset.platform === 'mac' ? '⌘↵' : 'Ctrl+Enter'} onClick={addComment}>Add to the file</button>
               </footer>
             </div>
           )}

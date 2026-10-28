@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { existsSync, lstatSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
@@ -12,7 +12,7 @@ import { isModel } from './agents'
  * The reader's own inference endpoint, for a private context that may use one. Hermes is the agent,
  * but it never reaches the endpoint itself:
  *
- * - It runs in the macOS sandbox with no network but one port on this computer: Mate's relay.
+ * - It runs in a platform sandbox with no network but Mate's relay on this computer.
  * - The relay forwards to the endpoint the reader set, and to nothing else, and adds the key there.
  *   Hermes holds only a token for the relay, good while the app runs.
  * - It runs under a Hermes profile of Mate's own, `mate-private`, with no fallback providers, no
@@ -22,10 +22,22 @@ import { isModel } from './agents'
  * names the endpoint. Whatever the profile says, nothing else is reachable.
  */
 
-/** Encrypts the key at rest. Electron's safeStorage in the app (the macOS keychain), a stand-in in the tests. */
+/** Encrypts the key at rest. Electron's safeStorage in the app (the system keychain), a stand-in in the tests. */
 export type Seal = { encrypt(text: string): Buffer; decrypt(sealed: Buffer): string }
 
 type Stored = { url: string; model: string; key?: string }
+
+/**
+ * Why a key may not be kept here, or null when it may. On Linux without a keyring, Electron falls back
+ * to a store sealed with a password that is the same on every computer: that is no seal at all.
+ */
+export function keyRefusal(platform: string, available: boolean, backend: string): string | null {
+  if (!available) return 'Keep an endpoint key only where the system keychain is available.'
+  if (platform === 'linux' && (backend === 'basic_text' || backend === 'unknown')) {
+    return 'Keep an endpoint key only where a keyring runs, such as GNOME Keyring or KWallet. Without one, the key would be sealed with a password every computer knows.'
+  }
+  return null
+}
 
 /** What the window may know: never the key. */
 export type EndpointView = { url: string; model: string; hasKey: boolean }
@@ -86,14 +98,14 @@ export const sandboxProfile = (port: number): string =>
 /** The endpoint's key, as a header. Only main ever holds it. */
 const keyHeader = (): Record<string, string> => (stored?.key ? { authorization: `Bearer ${seal!.decrypt(Buffer.from(stored.key, 'base64'))}` } : {})
 
-let relay: { port: number; token: string; close(): void } | null = null
+let relay: { port: number; socket: string; token: string; close(): void } | null = null
 
-/** The relay, started on first use. Every request needs its token, and none may come from a web page. */
-export async function startRelay(): Promise<{ port: number; token: string }> {
+/** The relay, on TCP for the Mac sandbox and a Unix socket for Linux. Every request needs its token. */
+export async function startRelay(): Promise<{ port: number; socket: string; token: string }> {
   if (relay) return relay
   const token = randomBytes(24).toString('hex')
   const expected = Buffer.from(`Bearer ${token}`)
-  const server = http.createServer(async (request, response) => {
+  const handler: http.RequestListener = async (request, response) => {
     const given = Buffer.from(String(request.headers.authorization ?? ''))
     if (given.length !== expected.length || !timingSafeEqual(given, expected)) return response.writeHead(401).end()
     if (request.headers.origin) return response.writeHead(403).end()
@@ -123,10 +135,30 @@ export async function startRelay(): Promise<{ port: number; token: string }> {
       if (!response.headersSent) response.writeHead(502)
       response.end()
     }
-  })
+  }
+  const server = http.createServer(handler)
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   const port = (server.address() as { port: number }).port
-  relay = { port, token, close: () => server.close() }
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'mate-relay-'))
+  const socket = path.join(dir, 'endpoint.sock')
+  const local = http.createServer(handler)
+  try {
+    await new Promise<void>((resolve) => local.listen(socket, resolve))
+  } catch (failed) {
+    server.close()
+    await rm(dir, { recursive: true, force: true })
+    throw failed
+  }
+  relay = {
+    port,
+    socket,
+    token,
+    close: () => {
+      server.close()
+      local.close()
+      void rm(dir, { recursive: true, force: true })
+    }
+  }
   return relay
 }
 
@@ -155,6 +187,8 @@ export function profileConfig(port: number, token: string, model: string): strin
     `    default_model: ${JSON.stringify(model)}`,
     '    transport: chat_completions',
     'fallback_providers: []',
+    'gateway:',
+    '  standalone: true',
     'toolsets:',
     '  - file',
     'plugins:',
@@ -169,10 +203,85 @@ export function profileConfig(port: number, token: string, model: string): strin
   ].join('\n')
 }
 
-/** Before a private turn: the relay runs, and the profile names it. Gives the relay's port for the sandbox. */
-export async function preparePrivate(env: NodeJS.ProcessEnv): Promise<number> {
+export const linuxRelay = { helper: 'assist/linux-relay.py', port: 41759 }
+
+/** No network namespace of its own can reach the host's TCP relay, so Linux uses its Unix socket. */
+// A Unix socket is not network: `--unshare-net` alone leaves every one on the host open, and the D-Bus
+// session bus, an ssh connection socket or a Docker socket is a way out. Home and the common socket folders
+// are empty. Only the context, the private Hermes profile and its runtime, and the relay are bound back.
+// Current Hermes needs its own gateway socket, so a syscall filter cannot close every other Unix socket.
+const HIDDEN = ['/tmp', '/run', '/var/tmp', os.homedir()]
+const POINTERS = ['DBUS_SESSION_BUS_ADDRESS', 'SSH_AUTH_SOCK', 'GPG_AGENT_INFO', 'DISPLAY', 'WAYLAND_DISPLAY', 'XDG_RUNTIME_DIR']
+
+/** A folder that is there, and not a link: bwrap would mount on what a link points at. */
+const isFolder = (where: string): boolean => {
+  try {
+    const info = lstatSync(where)
+    return info.isDirectory() && !info.isSymbolicLink()
+  } catch {
+    return false
+  }
+}
+
+/** Socket files brought in with a context are replaced by /dev/null, without following directory links. */
+function socketsIn(root: string): string[] {
+  const found: string[] = []
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const where = path.join(dir, entry.name)
+      if (entry.isDirectory()) walk(where)
+      else if (entry.isSocket()) found.push(where)
+    }
+  }
+  try {
+    walk(root)
+  } catch {}
+  return found
+}
+
+/** The command that encloses Hermes on Linux. Only `writable` folders may change; `readable` is bound back. */
+export function linuxSandbox(socket: string, writable: string[] = [], readable: string[] = []): string[] {
+  const helper = path.resolve(linuxRelay.helper)
+  return [
+    'bwrap',
+    '--ro-bind',
+    '/',
+    '/',
+    '--dev',
+    '/dev',
+    '--proc',
+    '/proc',
+    ...HIDDEN.filter(isFolder).flatMap((where) => ['--tmpfs', where]),
+    ...[...writable.filter(isFolder), path.dirname(socket)].flatMap((where) => ['--dir', path.dirname(where), '--bind', where, where]),
+    ...readable.filter(isFolder).flatMap((where) => ['--dir', path.dirname(where), '--ro-bind', where, where]),
+    ...socketsIn(writable[0] ?? '').flatMap((where) => ['--ro-bind', '/dev/null', where]),
+    '--dir',
+    path.dirname(helper),
+    '--ro-bind',
+    helper,
+    helper,
+    ...POINTERS.flatMap((name) => ['--unsetenv', name]),
+    '--unshare-net',
+    '--unshare-ipc',
+    '--new-session',
+    '--die-with-parent',
+    '--',
+    'python3',
+    helper,
+    '--socket',
+    socket,
+    '--port',
+    String(linuxRelay.port),
+    '--'
+  ]
+}
+
+/** Before a private turn: the relay runs, the profile names it, and the command encloses Hermes. */
+export async function preparePrivate(env: NodeJS.ProcessEnv, contextDir: string): Promise<string[]> {
   if (!stored) throw new Error('Set your endpoint first, in the Agent tab.')
-  const { port, token } = await startRelay()
+  const running = await startRelay()
+  const linux = process.platform === 'linux'
+  const port = linux ? linuxRelay.port : running.port
   const dir = profileDir()
   // Hermes makes a profile with its own command. It copies the reader's config, which is written over at once.
   if (!existsSync(dir)) {
@@ -181,8 +290,17 @@ export async function preparePrivate(env: NodeJS.ProcessEnv): Promise<number> {
     )
   }
   await mkdir(dir, { recursive: true })
-  await writeFile(path.join(dir, 'config.yaml'), profileConfig(port, token, stored.model), { mode: 0o600 })
-  return port
+  await writeFile(path.join(dir, 'config.yaml'), profileConfig(port, running.token, stored.model), { mode: 0o600 })
+  if (linux) {
+    env.HERMES_GATEWAY_LOCK_DIR = path.join(dir, 'gateway-locks')
+    const home = `${os.homedir()}${path.sep}`
+    const pathFolders = (env.PATH ?? '').split(path.delimiter).filter((where) => where.startsWith(home))
+    const runtime = ['hermes-agent', 'tools'].map((each) => path.join(os.homedir(), '.hermes', each))
+    const installs = path.join(os.homedir(), '.hermes', 'installs')
+    return linuxSandbox(running.socket, [contextDir, dir, installs], [...pathFolders, ...runtime])
+  }
+  if (process.platform === 'darwin') return ['/usr/bin/sandbox-exec', '-p', sandboxProfile(running.port)]
+  throw new Error('Hermes on your endpoint needs the macOS sandbox, or Bubblewrap on Linux.')
 }
 
 const JUDGE = [

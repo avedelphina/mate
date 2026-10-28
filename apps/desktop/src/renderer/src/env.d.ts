@@ -218,7 +218,7 @@ export type MateApi = {
   onReading: (listener: (left: number) => void) => () => void
   /** Settings… in the app menu. */
   onSettings: (listener: () => void) => () => void
-  /** Everything the reader has set, and what this Mac has. Never the key. */
+  /** Everything the reader has set, and what this computer has. Never the key. */
   settings: () => Promise<Settings>
   /** Trust no more a context on the list. Taking away asks nothing. */
   untrust: (dir: string) => Promise<void>

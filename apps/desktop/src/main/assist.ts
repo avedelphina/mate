@@ -37,7 +37,7 @@ export function assistRequest(task: AssistTask, passage: string, note: string): 
   }
 }
 
-/** Run the helper once. It answers with one line of JSON and always exits cleanly. */
+/** Run the native helper once. It answers with one line of JSON and always exits cleanly. */
 function ask(helper: string, args: string[], input: string): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const child = execFile(helper, args, { timeout: 60_000, maxBuffer: 1 << 20 }, (error, stdout) => {
@@ -53,7 +53,7 @@ function ask(helper: string, args: string[], input: string): Promise<Record<stri
   })
 }
 
-export async function checkAssist(helper: string): Promise<AssistState> {
+export async function checkNativeAssist(helper: string): Promise<AssistState> {
   if (!existsSync(helper)) return { present: false, available: false, reason: '' }
   try {
     const answer = await ask(helper, ['--check'], '')
@@ -63,11 +63,64 @@ export async function checkAssist(helper: string): Promise<AssistState> {
   }
 }
 
-/** The model's text, for the reader to accept or change. Nothing here touches a file. */
-export async function runAssist(helper: string, task: AssistTask, passage: string, note: string): Promise<string> {
+const plain = (text: string): string => text.trim().replace(/^["“]([\s\S]*)["”]$/, '$1').trim()
+
+/** The native model's text, for the reader to accept or change. Nothing here touches a file. */
+export async function runNativeAssist(helper: string, task: AssistTask, passage: string, note: string): Promise<string> {
   if (!passage.trim()) throw new Error('Select a passage first.')
   const answer = await ask(helper, [], JSON.stringify(assistRequest(task, passage, note)))
   if (typeof answer.text !== 'string') throw new Error(String(answer.error ?? 'The assist gave no text.'))
   // A small model likes to wrap what it writes in quotation marks, whatever it is told.
-  return answer.text.trim().replace(/^["“]([\s\S]*)["”]$/, '$1').trim()
+  return plain(answer.text)
+}
+
+const OLLAMA = 'http://127.0.0.1:11434'
+const MODEL = process.env.MATE_OLLAMA_MODEL || 'qwen2.5:3b'
+
+export async function checkOllamaAssist(url = OLLAMA, model = MODEL): Promise<AssistState> {
+  try {
+    const answer = await fetch(`${url}/api/tags`, { signal: AbortSignal.timeout(1500) })
+    if (!answer.ok) throw new Error()
+    const tags = (await answer.json()) as { models?: { name?: string }[] }
+    if ((tags.models ?? []).some((each) => each.name === model || each.name?.startsWith(`${model}:`))) {
+      return { present: true, available: true, reason: '' }
+    }
+    return { present: true, available: false, reason: `Writing assist needs the ${model} model in Ollama. In a terminal: ollama pull ${model}` }
+  } catch {
+    return { present: true, available: false, reason: `Writing assist needs Ollama running on this computer, with the ${model} model.` }
+  }
+}
+
+export async function runOllamaAssist(task: AssistTask, passage: string, note: string, url = OLLAMA, model = MODEL): Promise<string> {
+  if (!passage.trim()) throw new Error('Select a passage first.')
+  const request = assistRequest(task, passage, note)
+  let answer: Response
+  try {
+    answer = await fetch(`${url}/api/chat`, {
+      method: 'POST',
+      body: JSON.stringify({
+        model,
+        stream: false,
+        messages: [
+          { role: 'system', content: request.instructions },
+          { role: 'user', content: request.prompt }
+        ]
+      }),
+      signal: AbortSignal.timeout(120_000)
+    })
+  } catch {
+    throw new Error('Ollama did not answer the assist.')
+  }
+  if (!answer.ok) throw new Error(`Ollama did not answer the assist: ${answer.status}`)
+  const reply = (await answer.json()) as { message?: { content?: unknown }; error?: unknown }
+  if (typeof reply.message?.content !== 'string') throw new Error(String(reply.error ?? 'Ollama gave the assist no text.'))
+  return plain(reply.message.content)
+}
+
+export function checkAssist(helper: string): Promise<AssistState> {
+  return process.platform === 'linux' ? checkOllamaAssist() : checkNativeAssist(helper)
+}
+
+export function runAssist(helper: string, task: AssistTask, passage: string, note: string): Promise<string> {
+  return process.platform === 'linux' ? runOllamaAssist(task, passage, note) : runNativeAssist(helper, task, passage, note)
 }
