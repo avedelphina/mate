@@ -1,15 +1,24 @@
 import assert from 'node:assert/strict'
-import { execFile } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { promisify } from 'node:util'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import http from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { checkEndpoint, endpointView, judgeOnEndpoint, keepEndpointIn, picked, profileConfig, sandboxProfile, setEndpoint, startRelay, stopRelay } from '../src/main/endpoint.ts'
+import { checkEndpoint, endpointView, judgeOnEndpoint, keepEndpointIn, linuxRelay, linuxSandbox, picked, profileConfig, sandboxProfile, setEndpoint, startRelay, stopRelay } from '../src/main/endpoint.ts'
 
 // A stand-in for the keychain: anything but the key as it was given.
 const seal = { encrypt: (text: string) => Buffer.from([...text].reverse().join('')), decrypt: (sealed: Buffer) => [...sealed.toString()].reverse().join('') }
+
+const available = (command: string): boolean => {
+  try {
+    execFileSync(command, ['--version'], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
 
 /** A server on this computer that says what it was sent. */
 async function listen(handler: http.RequestListener): Promise<{ port: number; close(): void }> {
@@ -84,6 +93,38 @@ test('in the sandbox, a program reaches the relay and no other address, even on 
   } finally {
     relay.close()
     other.close()
+  }
+})
+
+test('in the Linux sandbox, a program reaches only Mate through the Unix-socket bridge', { skip: process.platform !== 'linux' || !available('bwrap') || !available('python3') }, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'mate-linux-endpoint-'))
+  const upstream = await listen((_request, response) => response.end('relay'))
+  const other = await listen((_request, response) => response.end('other'))
+  try {
+    keepEndpointIn(path.join(dir, 'endpoint.json'), seal)
+    setEndpoint(`http://127.0.0.1:${upstream.port}/v1`, 'qwen')
+    const { socket, token } = await startRelay()
+    const script = `
+import urllib.request
+def reach(url, data=None, headers={}):
+    try:
+        request = urllib.request.Request(url, data=data, headers=headers)
+        return urllib.request.urlopen(request, timeout=4).read().decode()
+    except Exception:
+        return 'blocked'
+relay = reach('http://127.0.0.1:${linuxRelay.port}/v1/chat/completions', b'{}', {'Authorization': 'Bearer ${token}', 'Content-Type': 'application/json'})
+other = reach('http://127.0.0.1:${other.port}')
+outside = reach('https://example.org')
+print(relay, other, outside)
+`
+    const args = [...linuxSandbox(socket), 'python3', '-c', script]
+    const { stdout } = await promisify(execFile)(args[0], args.slice(1), { timeout: 30_000 })
+    assert.equal(stdout.trim(), 'relay blocked blocked')
+  } finally {
+    stopRelay()
+    upstream.close()
+    other.close()
+    await rm(dir, { recursive: true, force: true })
   }
 })
 

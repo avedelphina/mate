@@ -1,7 +1,9 @@
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { isTwinned, twinOf } from '../shared/twin'
 
 /**
@@ -9,13 +11,13 @@ import { isTwinned, twinOf } from '../shared/twin'
  * `.indexes/text/`, so that search, the page and agents can read what Mate cannot draw. A twin is
  * a helper like the index: it is made again from the file, and deleting it loses nothing.
  *
- * The text is taken out by the system's own tools, each in a process of its own, and nothing
- * leaves the computer: a PDF by Mate's helper, which asks PDFKit, an Excel workbook by `unzip`, and
- * anything else by `textutil`. All come with macOS. On another system nothing is twinned.
+ * The text is taken out in a process of its own, and nothing leaves the computer. A Mac uses its
+ * own tools and Mate's PDFKit/Vision helper. Linux uses Poppler, Tesseract, LibreOffice and Python,
+ * installed separately. Tables are read through `unzip` on both.
  */
 
-// ponytail: PDF, tables, and what textutil reads. Slides wait for a tool that comes with the
-// system. A scanned page is read off its picture, in Czech and English: there is no Slovak model.
+// ponytail: PDF, tables, and what the system's document converter reads. Slides wait for a tool.
+// Scans are read in Czech and English; the Czech model also reads Slovak but for a letter or two.
 const MAX_SOURCE = 50 * 1024 * 1024
 const MAX_TEXT = 2 * 1024 * 1024
 // What a twin is made with. When it changes, every twin is made again: twins made before scans
@@ -31,15 +33,95 @@ const run = (command: string, args: string[], input?: Buffer, seconds = 60) =>
     child.stdin?.end(input)
   })
 
+async function linuxPdf(file: string): Promise<string> {
+  const text = await run('pdftotext', ['-enc', 'UTF-8', '-nopgbrk', path.resolve(file), '-'])
+  if (text.trim()) return text
+  // Check before rendering: without the OCR tool or its languages there is no work to retry while absent.
+  const languages = await run('tesseract', ['--list-langs'], undefined, 10)
+  if (!/^\s*ces\s*$/m.test(languages) || !/^\s*eng\s*$/m.test(languages)) {
+    const missing = new Error('Tesseract needs Czech and English language data.') as NodeJS.ErrnoException
+    missing.code = 'ENOENT'
+    throw missing
+  }
+  const dir = await mkdtemp(path.join(tmpdir(), 'mate-ocr-'))
+  try {
+    await run('pdftoppm', ['-jpeg', '-r', '200', path.resolve(file), path.join(dir, 'page')], undefined, 600)
+    const pages = (await readdir(dir)).filter((each) => /^page-\d+\.jpg$/.test(each)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    const out: string[] = []
+    for (const page of pages) out.push(await run('tesseract', [path.join(dir, page), 'stdout', '-l', 'ces+eng'], undefined, 120))
+    return out.join('\n')
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+}
+
+async function linuxOffice(file: string): Promise<string> {
+  const dir = await mkdtemp(path.join(tmpdir(), 'mate-office-'))
+  try {
+    await run(
+      'libreoffice',
+      [
+        '--headless',
+        '--nologo',
+        '--nodefault',
+        '--nofirststartwizard',
+        '--nolockcheck',
+        '--norestore',
+        `-env:UserInstallation=${pathToFileURL(path.join(dir, 'profile')).href}`,
+        '--convert-to',
+        'txt:Text (encoded):UTF8',
+        '--outdir',
+        dir,
+        path.resolve(file)
+      ],
+      undefined,
+      120
+    )
+    const out = (await readdir(dir)).find((each) => each.toLowerCase().endsWith('.txt'))
+    if (!out) throw new Error('LibreOffice read no text.')
+    return await readFile(path.join(dir, out), 'utf8')
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+}
+
+const WEB_ARCHIVE = `
+import html.parser, plistlib, sys
+class Text(html.parser.HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.parts, self.hidden = [], 0
+    def handle_starttag(self, tag, attrs):
+        if tag in ('script', 'style'): self.hidden += 1
+        if tag in ('br', 'p', 'div', 'li', 'tr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'): self.parts.append('\\n')
+    def handle_endtag(self, tag):
+        if tag in ('script', 'style'): self.hidden = max(0, self.hidden - 1)
+        if tag in ('p', 'div', 'li', 'tr'): self.parts.append('\\n')
+    def handle_data(self, data):
+        if not self.hidden: self.parts.append(data)
+with open(sys.argv[1], 'rb') as source:
+    resource = plistlib.load(source)['WebMainResource']
+data = resource['WebResourceData']
+page = data if isinstance(data, str) else data.decode('utf-8', 'replace')
+text = Text()
+text.feed(page)
+text.close()
+print(''.join(text.parts))
+`
+
 /**
- * The text of one file. `file` is a full path the caller has checked. A PDF goes to the helper as
- * bytes, so the helper never names a path; textutil is given the path, which begins with a slash
- * and so is never read as an option.
+ * The text of one file. `file` is a full path the caller has checked. A Mac PDF goes to the helper
+ * as bytes; the other tools get an absolute path, which is never read as an option.
  */
 export async function extract(file: string, helper: string): Promise<string> {
   const lower = file.toLowerCase()
   if (lower.endsWith('.xlsx')) return workbook(file)
   if (lower.endsWith('.csv') || lower.endsWith('.tsv')) return decoded(await readFile(file))
+  if (process.platform === 'linux') {
+    if (lower.endsWith('.pdf')) return linuxPdf(file)
+    if (lower.endsWith('.webarchive')) return run('python3', ['-c', WEB_ARCHIVE, path.resolve(file)])
+    return linuxOffice(file)
+  }
   if (lower.endsWith('.pdf')) {
     // A scan is read off its pictures, a fraction of a second a page, and the first takes longer while the model loads.
     const answer = JSON.parse(await run(helper, ['--pdf'], await readFile(file), 600)) as { text?: unknown; error?: unknown }
@@ -138,7 +220,7 @@ async function twins(dir: string, base = ''): Promise<string[]> {
  * Gives the number of twins made or taken away.
  */
 export async function refreshTwins(contextDir: string, helper: string, left: (count: number) => void = () => {}): Promise<number> {
-  if (process.platform !== 'darwin') return 0
+  if (process.platform !== 'darwin' && process.platform !== 'linux') return 0
   const sources = await walk(contextDir)
   const marked = path.join(contextDir, '.indexes', 'text', '.version')
   const current = (await readFile(marked, 'utf8').catch(() => '')).trim() === VERSION
@@ -152,11 +234,12 @@ export async function refreshTwins(contextDir: string, helper: string, left: (co
   for (const [done, relative] of due.entries()) {
     left(due.length - done)
     let text = ''
-    // A PDF needs the helper. Without it, a PDF waits for the next time, and is not marked as unreadable.
-    if (relative.toLowerCase().endsWith('.pdf') && !existsSync(helper)) continue
+    // Without the Mac helper or a Linux tool, a file waits rather than being marked as unreadable.
+    if (process.platform === 'darwin' && relative.toLowerCase().endsWith('.pdf') && !existsSync(helper)) continue
     try {
       text = (await extract(path.join(contextDir, relative), helper)).slice(0, MAX_TEXT)
-    } catch {
+    } catch (caught) {
+      if ((caught as NodeJS.ErrnoException).code === 'ENOENT') continue
       // Locked, damaged, or not what its name says. An empty twin says so until the file changes.
     }
     const file = path.join(contextDir, twinOf(relative))

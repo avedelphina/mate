@@ -9,6 +9,7 @@ import { launch } from './drive.ts'
 
 const names = (selector: string) =>
   `[...document.querySelectorAll(${JSON.stringify(selector)})].map((each) => each.textContent + (each.classList.contains('active') ? '*' : ''))`
+const mac = process.platform === 'darwin'
 
 test('the window, on the example context: a comment into the file, the tree, a pane, the conversation on the page', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'mate-e2e-'))
@@ -163,7 +164,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.projects .tree .row', 'scan.pdf')
     await app.until(`document.querySelector('.source strong')?.textContent === 'scan.pdf'`, 'the card of the file')
     assert.deepEqual(await app.page(`[...document.querySelectorAll('.source .acts button')].map((each) => each.textContent.trim())`), [
-      'Show it in Finder',
+      mac ? 'Show it in Finder' : 'Show it in the file manager',
       'Ask the agent to extract its text into draft/',
       'Close'
     ])
@@ -216,7 +217,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.equal(await app.page(`document.querySelectorAll('.ran').length`), 0)
 
     // The palette lists what the window can go to or do. A file of the project is found by a part of its name, and opened.
-    await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }))`)
+    await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: ${mac}, ctrlKey: ${!mac}, bubbles: true }))`)
     await app.until(`document.querySelector('dialog.palette')?.open === true`, 'the palette')
     await app.page(`(() => {
       const input = document.querySelector('dialog.palette input')
@@ -266,9 +267,19 @@ test('in a context the reader trusts, a script of the project runs from its butt
   const root = await mkdtemp(path.join(tmpdir(), 'mate-e2e-'))
   const context = path.join(root, 'example')
   await cp(path.resolve(import.meta.dirname, '../../../../contexts/_example'), context, { recursive: true })
-  // A policy on the shelf as Word wrote it. Mate reads its text when the context is opened.
-  await writeFile(path.join(root, 'terms.txt'), 'Suppliers are reviewed every eighteen months.\n')
-  execFileSync('/usr/bin/textutil', ['-convert', 'docx', '-output', path.join(context, 'shelf/terms.docx'), path.join(root, 'terms.txt')])
+  // A policy on the shelf as Word wrote it also checks reading its text.
+  if (process.platform !== 'win32') {
+    await writeFile(path.join(root, 'terms.txt'), 'Suppliers are reviewed every eighteen months.\n')
+    if (mac) {
+      execFileSync('/usr/bin/textutil', ['-convert', 'docx', '-output', path.join(context, 'shelf/terms.docx'), path.join(root, 'terms.txt')])
+    } else {
+      execFileSync(
+        'libreoffice',
+        ['--headless', '--norestore', `-env:UserInstallation=file://${path.join(root, 'libreoffice-profile')}`, '--convert-to', 'docx', '--outdir', path.join(context, 'shelf'), path.join(root, 'terms.txt')],
+        { stdio: 'ignore' }
+      )
+    }
+  }
   // A commit says who made it. The test is nobody in particular, whoever runs it.
   Object.assign(process.env, { GIT_AUTHOR_NAME: 'Reader', GIT_AUTHOR_EMAIL: 'reader@example.com', GIT_COMMITTER_NAME: 'Reader', GIT_COMMITTER_EMAIL: 'reader@example.com' })
   // The reader trusted this folder on an earlier day: that is what the app finds in its data folder.
@@ -305,30 +316,32 @@ test('in a context the reader trusts, a script of the project runs from its butt
     await app.until(`!!document.querySelector('.source .ran pre')`, 'what the script printed, on its card')
     assert.match(await app.page<string>(`document.querySelector('.source .ran pre').textContent`), /^draft\/document\.md: \d+ words\n$/)
 
-    // The Word file on the shelf is found by what it says, and read as its text, with a way to the file itself.
-    await app.page(`(() => {
-      const input = document.querySelector('.rail .search')
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'eighteen months')
-      input.dispatchEvent(new Event('input', { bubbles: true }))
-    })()`)
-    await app.until(`[...document.querySelectorAll('.rail .hit')].some((each) => each.textContent.includes('terms.docx'))`, 'the Word file among the hits')
-    await app.page(`[...document.querySelectorAll('.rail .hit')].find((each) => each.textContent.includes('terms.docx')).click()`)
-    await app.until(`document.querySelector('.center .bar').textContent.includes('Show the original')`, 'its text on the page')
-    assert.match(await app.page<string>(`document.querySelector('.center .prose').textContent`), /Suppliers are reviewed every eighteen months/)
-    // Enter asks the whole context: the question takes the page, with the passages closest in meaning, or why there are none.
-    // Esc gives the page back as it was.
-    await app.page(`document.querySelector('.rail .search').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`)
-    await app.until(`document.querySelector('.center .question h1')?.textContent === 'eighteen months'`, 'the question on the page')
-    assert.equal(await app.page(`getComputedStyle([...document.querySelectorAll('.center > .scroll')].at(-1)).display`), 'none')
-    await app.until(`!!document.querySelector('.center .question .passage, .center .question .summary, .center .question h1 + p.meta')`, 'the passages, or why there are none')
-    await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
-    await app.until(`!document.querySelector('.center .question')`, 'the question closed')
-    assert.match(await app.page<string>(`document.querySelector('.center .bar').textContent`), /Show the original/)
-    await app.page(`(() => {
-      const input = document.querySelector('.rail .search')
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '')
-      input.dispatchEvent(new Event('input', { bubbles: true }))
-    })()`)
+    if (process.platform !== 'win32') {
+      // The Word file on the shelf is found by what it says, and read as its text, with a way to the file itself.
+      await app.page(`(() => {
+        const input = document.querySelector('.rail .search')
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'eighteen months')
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })()`)
+      await app.until(`[...document.querySelectorAll('.rail .hit')].some((each) => each.textContent.includes('terms.docx'))`, 'the Word file among the hits')
+      await app.page(`[...document.querySelectorAll('.rail .hit')].find((each) => each.textContent.includes('terms.docx')).click()`)
+      await app.until(`document.querySelector('.center .bar').textContent.includes('Show the original')`, 'its text on the page')
+      assert.match(await app.page<string>(`document.querySelector('.center .prose').textContent`), /Suppliers are reviewed every eighteen months/)
+      // Enter asks the whole context: the question takes the page, with the passages closest in meaning, or why there are none.
+      // Esc gives the page back as it was.
+      await app.page(`document.querySelector('.rail .search').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`)
+      await app.until(`document.querySelector('.center .question h1')?.textContent === 'eighteen months'`, 'the question on the page')
+      assert.equal(await app.page(`getComputedStyle([...document.querySelectorAll('.center > .scroll')].at(-1)).display`), 'none')
+      await app.until(`!!document.querySelector('.center .question .passage, .center .question .summary, .center .question h1 + p.meta')`, 'the passages, or why there are none')
+      await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
+      await app.until(`!document.querySelector('.center .question')`, 'the question closed')
+      assert.match(await app.page<string>(`document.querySelector('.center .bar').textContent`), /Show the original/)
+      await app.page(`(() => {
+        const input = document.querySelector('.rail .search')
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '')
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })()`)
+    }
 
     // Here the reader commits. A repository is started, and what is in the context goes into one commit, in their words.
     await app.press('.rail .ask button', 'Start a repository')

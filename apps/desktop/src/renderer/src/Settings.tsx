@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Settings as Held } from './env'
 
 /**
- * What the reader has set, in one place, and what this Mac has. Kept in the app's data folder, so it
+ * What the reader has set, in one place, and what this computer has. Kept in the app's data folder, so it
  * stays from one start to the next. From here a setting can only be taken away: trusting a context,
  * or letting an agent or the endpoint into a private one, is done in that context, behind a dialog of
  * the system.
@@ -52,7 +52,7 @@ export function Settings(props: { onClose: () => void }) {
             <h2>Your endpoint</h2>
             <p className="meta">
               An inference server you control, with an OpenAI-compatible address. It can judge which passages answer a question in any context, and
-              Hermes can work on it in a private context you open to it. The key is kept sealed by the keychain of this Mac, and never shown again.
+              Hermes can work on it in a private context you open to it. The key is kept sealed by the keychain of this computer, and never shown again.
             </p>
             <form
               onSubmit={(event) => {
@@ -107,7 +107,7 @@ export function Settings(props: { onClose: () => void }) {
 
           <section>
             <h2>Private contexts</h2>
-            <p className="meta">No agent works in these, so nothing of them leaves this Mac, unless one is open to your endpoint. You make a context private, or let agents in again, in its Agent tab.</p>
+            <p className="meta">No agent works in these, so nothing of them leaves this computer, unless one is open to your endpoint. You make a context private, or let agents in again, in its Agent tab.</p>
             {held && held.private.length === 0 && <p className="meta">None.</p>}
             <ul>
               {held?.private.map(({ dir, opened }) => (
@@ -125,15 +125,21 @@ export function Settings(props: { onClose: () => void }) {
           </section>
 
           <section>
-            <h2>On this Mac</h2>
+            <h2>On this computer</h2>
             <ul>
               <li>
-                Search by meaning: <span className="meta">{held ? (held.meaning ?? 'ready, with bge-m3 in Ollama on this Mac.') : '…'}</span>
+                Search by meaning: <span className="meta">{held ? (held.meaning ?? 'ready, with bge-m3 in Ollama on this computer.') : '…'}</span>
               </li>
               <li>
                 Drafting in the comment box:{' '}
                 <span className="meta">
-                  {!held ? '…' : held.assist.available ? "ready, with Apple's model on this Mac." : held.assist.present ? held.assist.reason || 'not available.' : 'the helper is not built.'}
+                  {!held
+                    ? '…'
+                    : held.assist.available
+                      ? `ready, with ${document.documentElement.dataset.platform === 'mac' ? "Apple's model" : 'Ollama'} on this computer.`
+                      : held.assist.present
+                        ? held.assist.reason || 'not available.'
+                        : 'the helper is not built.'}
                 </span>
               </li>
               <li>

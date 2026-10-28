@@ -267,22 +267,22 @@ the text a selection is measured against.
 
 ## The assist
 
-On a Mac with Apple's on-device model, the form under a selection has one
-more button: Draft the rewrite, or Draft the note. Electron cannot call the
-Foundation Models framework, so a small native helper does.
+The form under a selection has one more button where a local model is
+available: Draft the rewrite, or Draft the note. `src/main/assist.ts`
+decides what to ask, so the wording is in one place and has a test.
 
-`assist/main.swift` is the whole helper. It takes one question on stdin,
-gives one answer on stdout, and keeps no state. It knows nothing about
-Mate. `src/main/assist.ts` decides what to ask, so the wording of a
-question is in one place and has a test. `pnpm build:assist` compiles the
-helper to `assist/mate-assist`, which is not committed.
+On a Mac, Electron cannot call the Foundation Models framework, so a small
+native helper does. `assist/main.swift` is the whole helper. It takes one
+question on stdin, gives one answer on stdout, and keeps no state.
+`pnpm build:assist` compiles it to `assist/mate-assist`, which is not
+committed. Linux instead asks Ollama's local chat API for `qwen2.5:3b`;
+`MATE_OLLAMA_MODEL` names another model. Mate never installs Ollama or
+pulls a model itself.
 
-The button is there only where the helper is. Where the helper is and the
-model cannot answer, the button is off and says why. Linux and Windows
-have no helper, and nothing else about the review changes there.
-
-The model's text goes into the form. It reaches the file only when the
-reader presses Add, as any comment does. Nothing leaves the computer.
+Where the model cannot answer or is not installed, the button is off and
+says why. Windows has no assist. The model's text goes into the form. It
+reaches the file only when the reader presses Add, as any comment does.
+Nothing leaves the computer.
 
 ## Writing a file
 
@@ -306,20 +306,19 @@ out once and keeps it: the *twin* of `shelf/policy.pdf` is
 `.indexes/text/shelf/policy.pdf.txt`. `twins.ts` is the whole of it, and
 `src/shared/twin.ts` says which files have one.
 
-- **What takes the text out.** The tools of the system, each in a process
-  of its own, and nothing leaves the computer. A PDF is handed as bytes
-  to Mate's helper, which asks PDFKit; the helper is never given a path.
-  A page with no text is a picture of one, as a scanner makes it: the
-  helper draws it at three times its size and reads the text off the
-  picture with Vision, about a fifth of a second a page once its model
-  is loaded. A Word, RTF, ODT or HTML file goes to `textutil`. An Excel
-  workbook is a zip of XML files: `unzip` gives its parts, and each sheet
-  becomes a markdown table under its name, so the page draws it as a
-  table. Columns empty all the way down are left out. A CSV or TSV file
-  is its own text: UTF-8, or else Windows-1250, which is what Excel
-  writes on a Czech or Slovak system. All of these tools come with macOS.
-  On another system nothing is twinned. No program in a file runs: these
-  tools read text, they do not open the file in its program.
+- **What takes the text out.** A process of its own, and nothing leaves
+  the computer. On a Mac a PDF is handed as bytes to Mate's helper, which
+  asks PDFKit; a page with no text is drawn at three times its size and
+  read with Vision. Word, RTF, ODT and HTML go to `textutil`. On Linux,
+  `pdftotext` reads a PDF, and one without text is rendered by `pdftoppm`
+  and read by Tesseract. LibreOffice converts DOC/DOCX, RTF, ODT and HTML
+  in headless mode with an isolated temporary profile. Python's standard
+  library reads the HTML in a `.webarchive`. On both, an Excel workbook is
+  a zip of XML files read by `unzip`, and each sheet becomes a markdown
+  table. A CSV or TSV file is its own text: UTF-8, or else Windows-1250.
+  These Linux tools are external dependencies, not bundled. A missing one
+  leaves its files untwinned until it is installed. Mate starts no program
+  or macro contained in a file.
 - **When.** In the background, when a context is opened and at every
   search. Nothing waits for it. The rail says how many files are still to
   be read, and the search runs again when they are. A twin is made again
@@ -335,9 +334,9 @@ out once and keeps it: the *twin* of `shelf/policy.pdf` is
   for its file. Only the twin is read: a file of another kind is still
   shown only in the file manager.
 
-Limits. A scan is read in Czech and English: Vision has no Slovak
-model, and the Czech one reads Slovak but for a letter or two, such as
-Ľ. Handwriting is not read. Slides, `.xls` and Numbers files have no
+Limits. A scan is read in Czech and English by Vision or Tesseract. The
+Czech model reads Slovak but for a letter or two, such as Ľ. Handwriting
+is not read. Slides, `.xls` and Numbers files have no
 twin yet. A workbook gives the values of its cells: a formula gives the
 value it last had, and a date the number Excel keeps for it. Any other
 twin is plain text: headings, tables and pictures are gone. Up to 50 MB a file, 2 MB of text.
@@ -350,15 +349,16 @@ each: `trusted.json`, `private.json`, `opened.json`, `endpoint.json`
 start to the next; the installed Mate and Mate Dev keep separate
 folders. A context is known in these by its real path.
 
-*Settings…* in the app menu (⌘,), or in the palette, puts them on one
-page in the center, like a question: the endpoint, with its form; the
-contexts trusted; the private contexts, and which are open to the
+*Settings…* in the app menu (Command/Ctrl+,), or in the palette, puts them
+on one page in the center, like a question: the endpoint, with its form;
+the contexts trusted; the private contexts, and which are open to the
 endpoint; whether search by meaning and the comment box's helper can be
-had on this Mac; and the folder, to show in Finder. From the page a
-setting can only be taken away: *Stop trusting*, *Close it to your
-endpoint*. Trusting a context, or letting an agent or the endpoint into a
-private one, is done in that context, behind a dialog of the system. A
-folder the window names is acted on only when main holds it already.
+had on this computer; and the folder, to show in the file manager. From
+the page a setting can only be taken away: *Stop trusting*, *Close it to
+your endpoint*. Trusting a context, or letting an agent or the endpoint
+into a private one, is done in that context, behind a dialog of the
+system. A folder the window names is acted on only when main holds it
+already.
 
 ## A private context and the reader's endpoint
 
@@ -367,22 +367,25 @@ agent: Hermes on their own inference endpoint, an OpenAI-compatible
 address such as `https://their-server/v1`. `endpoint.ts` is the whole of
 it, and three things together keep the text from going anywhere else:
 
-- **The sandbox.** Mate starts Hermes under `sandbox-exec`, with a
-  profile that denies every connection out but one: Mate's relay, on a
-  port of `127.0.0.1`. Not the internet, not another port of this
-  computer. The sandbox cannot allow one remote host, only this computer
-  or every host, so the relay names the endpoint.
-- **The relay.** A server in Mate, on `127.0.0.1`, that passes requests
-  under `/v1` to the endpoint the reader set, and to nothing else. It
-  needs a token that Hermes holds, refuses a request with an `Origin`
-  header, and adds the endpoint's key itself. Hermes never sees the key.
+- **The sandbox.** On a Mac, `sandbox-exec` denies every connection out
+  but Mate's TCP relay on `127.0.0.1`. Linux runs Hermes under Bubblewrap
+  with `--unshare-net`: it has no network device but loopback. A small
+  Python bridge in the sandbox listens there and forwards only to Mate's
+  relay over a Unix socket shared from the host. It cannot reach another
+  local or remote server. The bridge is `assist/linux-relay.py`, packaged
+  with Mate; Bubblewrap and Python are external dependencies.
+- **The relay.** A server in Mate, on TCP and a Unix socket, that passes
+  requests under `/v1` to the endpoint the reader set, and to nothing
+  else. It needs a token that Hermes holds, refuses a request with an
+  `Origin` header, and adds the endpoint's key itself. Hermes and the
+  Python bridge never see the key.
 - **Mate's own Hermes profile.** `mate-private`, in Hermes's profiles,
   written again before every turn: the relay as its only provider, no
   fallback providers, no plugins, no memory, file tools only. The
   reader's own profile may fall back to a provider in the cloud.
 
 The key is kept in `endpoint.json` in the app's data folder, sealed by
-Electron's `safeStorage` (the macOS keychain). The window is told the
+Electron's `safeStorage` (the system keychain). The window is told the
 address, the model, and whether a key is saved, never the key. The
 address must be https, unless it is on this computer.
 
@@ -391,10 +394,11 @@ a dialog of the system that names the host. A new host closes every
 context that was opened to the old one. Closing a context to the
 endpoint, or making it not private, closes it again.
 
-Limits. macOS only: `sandbox-exec` is deprecated by Apple, and still
-works. Hermes needs a model with tool calls and a window of 64,000 tokens
-or more. The agent is Hermes alone; Claude and Codex are not offered in a
-private context.
+Limits. `sandbox-exec` is deprecated by Apple, and still works. Linux
+needs Bubblewrap with user namespaces permitted by the system. Hermes
+needs a model with tool calls and a window of 64,000 tokens or more. The
+agent is Hermes alone; Claude and Codex are not offered in a private
+context.
 
 ## Search by meaning
 
@@ -998,7 +1002,7 @@ A new window starts in the context of the window it was opened from, with
 no project open. It can open any other context after that, and the first
 window does not follow.
 
-⌘K opens the palette: one list of what the window can go to or do just
+Command/Ctrl+K opens the palette: one list of what the window can go to or do just
 now, found by typing. The files of the open project, the shelf, the other
 projects, the tabs of the margin, and what the buttons do. It is made
 from the same functions the buttons call, so it adds no way to do
@@ -1018,10 +1022,11 @@ when it gets the focus back. Nothing tells it sooner.
 
 ## The app, installed
 
-`electron-builder.yml` puts the app together for a Mac: the built `out/`
-folder in one archive, the on-device helper beside it in the resources,
-and the icon. Nothing is loaded from `node_modules` when it runs, because
-the build already holds what main and the window import.
+`electron-builder.yml` puts the app together for Apple silicon macOS and
+x86-64 Linux: the built `out/` folder in one archive, the on-device helper
+beside it in the resources on a Mac, and the icon. Linux is an AppImage
+and a Debian package. Nothing is loaded from `node_modules` when it runs,
+because the build already holds what main and the window import.
 
 The only code that knows it is installed is in `index.ts`: the helper is
 looked for in the resources, and a debugging port asked for on the

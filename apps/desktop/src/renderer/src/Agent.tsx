@@ -161,7 +161,7 @@ export function Agent(props: {
               title={
                 kept
                   ? opened && endpoint
-                    ? `Hermes in the sandbox of macOS, with your endpoint ${new URL(endpoint.url).host} as its only way out.`
+                    ? `Hermes in ${document.documentElement.dataset.platform === 'mac' ? 'the macOS sandbox' : 'Bubblewrap'}, with your endpoint ${new URL(endpoint.url).host} as its only way out.`
                     : 'This context is private. Allow your endpoint here first.'
                   : agent.host
                     ? 'On another machine. It has no folder there: Mate sends it the text of the files.'
@@ -210,7 +210,7 @@ export function Agent(props: {
                   ? !kept
                     ? `Your endpoint is ${new URL(endpoint.url).host}, with ${endpoint.model}. It can judge a question here.`
                     : opened
-                      ? `Hermes on your endpoint, ${new URL(endpoint.url).host}, may read this context. It runs in the sandbox of macOS and reaches nothing else.`
+                      ? `Hermes on your endpoint, ${new URL(endpoint.url).host}, may read this context. It runs in ${document.documentElement.dataset.platform === 'mac' ? 'the macOS sandbox' : 'Bubblewrap'} and reaches nothing else.`
                       : `Your endpoint is ${new URL(endpoint.url).host}, with ${endpoint.model}. It may not read this context.`
                   : kept
                     ? 'An agent can work here on your own inference endpoint, and nowhere else.'
@@ -393,7 +393,7 @@ export function Agent(props: {
               After this turn
             </button>
           )}
-          <button className="primary" title="⌘↵" disabled={!text.trim()} onClick={() => send(false)}>
+          <button className="primary" title={document.documentElement.dataset.platform === 'mac' ? '⌘↵' : 'Ctrl+Enter'} disabled={!text.trim()} onClick={() => send(false)}>
             Send
           </button>
         </footer>

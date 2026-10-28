@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { EFFORTS } from '../shared/effort'
-import { PROFILE, preparePrivate, sandboxProfile } from './endpoint'
+import { PROFILE, preparePrivate } from './endpoint'
 
 export type AgentKind = 'claude' | 'codex' | 'hermes' | 'private'
 
@@ -196,14 +196,14 @@ export const AGENTS: Record<AgentKind, Adapter> = {
     }
   },
 
-  // Hermes on the reader's own endpoint, in a private context that allows it. It runs in the macOS
-  // sandbox, which lets it reach Mate's relay and nothing else, under Mate's own profile: the reader's
-  // may fall back to the cloud. Files only, whatever the trust, and the model is the endpoint's.
+  // Hermes on the reader's own endpoint, in a private context that allows it. The platform sandbox
+  // lets it reach Mate's relay and nothing else, under Mate's own profile: the reader's may fall
+  // back to the cloud. Files only, whatever the trust, and the model is the endpoint's.
   private: {
     label: 'Hermes on your endpoint',
     command: 'hermes',
     args: (turn) => ['-p', PROFILE, ...AGENTS.hermes.args({ ...turn, model: undefined, effort: undefined })],
-    within: async (env) => ['/usr/bin/sandbox-exec', '-p', sandboxProfile(await preparePrivate(env))],
+    within: (env) => preparePrivate(env),
     read: (line) => AGENTS.hermes.read(line)
   }
 }
@@ -260,10 +260,13 @@ export type AgentInfo = { kind: AgentKind; label: string; found: boolean; host: 
 export function listAgents(): AgentInfo[] {
   const folders = (agentEnvironment().PATH ?? '').split(path.delimiter)
   const kinds = Object.keys(AGENTS) as AgentKind[]
+  const present = (command: string) => folders.some((folder) => existsSync(path.join(folder, command)))
   const here = kinds.map((kind) => ({
     kind,
     label: AGENTS[kind].label,
-    found: folders.some((folder) => existsSync(path.join(folder, AGENTS[kind].command))),
+    found:
+      present(AGENTS[kind].command) &&
+      (kind !== 'private' || process.platform === 'darwin' || (process.platform === 'linux' && present('bwrap') && present('python3'))),
     host: null
   }))
   const away = listHosts().flatMap((host) =>

@@ -1,6 +1,8 @@
-# How the app is put together to be installed. Mac only so far, for Apple silicon.
-#   pnpm pack:mac   an app to try, in release/mac-arm64/. It takes no certificate from the keychain.
-#   pnpm dist:mac   the disk image, signed with the Developer ID in the keychain.
+# How the app is put together to be installed.
+#   pnpm pack:mac      an app to try, in release/mac-arm64/. It takes no certificate from the keychain.
+#   pnpm dist:mac      the disk image, signed with the Developer ID in the keychain.
+#   pnpm pack:linux    an app to try, in release/linux-unpacked/.
+#   pnpm dist:linux    an x86-64 AppImage and Debian package.
 appId: io.github.avedelphina.mate
 productName: Mate
 artifactName: Mate-${version}-${arch}.${ext}
@@ -14,11 +16,6 @@ files:
   - out/**/*
   - package.json
 npmRebuild: false
-
-# The on-device helper. `pnpm build:assist` makes it, and both commands above run that first.
-extraResources:
-  - from: assist/mate-assist
-    to: mate-assist
 
 # No update is fetched, so nothing is said about where one would come from.
 publish: null
@@ -40,11 +37,30 @@ mac:
   icon: build/icon.icns
   hardenedRuntime: true
   gatekeeperAssess: false
+  # The on-device helper. `pnpm build:assist` makes it, and both Mac commands run that first.
+  extraResources:
+    - from: assist/mate-assist
+      to: mate-assist
   # Sent to Apple to be notarised only when the credentials are in the environment:
   # APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID, or APPLE_KEYCHAIN_PROFILE.
   target:
     - target: dmg
       arch: [arm64]
+
+linux:
+  executableName: mate
+  category: Utility
+  icon: build/icon.png
+  maintainer: Mate contributors
+  syncDesktopName: true
+  extraResources:
+    - from: assist/linux-relay.py
+      to: linux-relay.py
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
 
 dmg:
   iconSize: 96
