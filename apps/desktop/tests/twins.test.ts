@@ -87,11 +87,13 @@ const available = (command: string): boolean => {
 
 test('Linux reads a PDF, a Word file and a web archive with external tools', { skip: process.platform !== 'linux' || !available('pdftotext') || !available('libreoffice') || !available('python3') }, async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'mate-linux-twins-'))
+  // The converter's input and profile stay outside the context, or search finds them too.
+  const outside = await mkdtemp(path.join(tmpdir(), 'mate-linux-source-'))
   try {
     await mkdir(path.join(root, 'shelf'))
     await mkdir(path.join(root, 'projects/a/draft'), { recursive: true })
     await copyFile(path.join(import.meta.dirname, 'fixtures/classification.pdf'), path.join(root, 'shelf/classification.pdf'))
-    await writeFile(path.join(root, 'report.txt'), 'Draft reports are archived for eighteen months.\n')
+    await writeFile(path.join(outside, 'report.txt'), 'Draft reports are archived for eighteen months.\n')
     execFileSync(
       'libreoffice',
       [
@@ -101,12 +103,12 @@ test('Linux reads a PDF, a Word file and a web archive with external tools', { s
         '--nofirststartwizard',
         '--nolockcheck',
         '--norestore',
-        `-env:UserInstallation=${new URL(`file://${path.join(root, 'libreoffice-profile')}`).href}`,
+        `-env:UserInstallation=${new URL(`file://${path.join(outside, 'libreoffice-profile')}`).href}`,
         '--convert-to',
         'docx',
         '--outdir',
         path.join(root, 'projects/a/draft'),
-        path.join(root, 'report.txt')
+        path.join(outside, 'report.txt')
       ],
       { stdio: 'ignore' }
     )
@@ -128,6 +130,7 @@ test('Linux reads a PDF, a Word file and a web archive with external tools', { s
     assert.deepEqual(searchIndex(await refreshIndex(root), 'archived').map((hit) => hit.path), ['projects/a/draft/report.docx'])
   } finally {
     await rm(root, { recursive: true, force: true })
+    await rm(outside, { recursive: true, force: true })
   }
 })
 
