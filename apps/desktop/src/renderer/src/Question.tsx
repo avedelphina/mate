@@ -60,7 +60,7 @@ export function Question(props: {
             <div className="meta summary">
               {judged?.hits ? (
                 <p>
-                  {judged.host} picked {count(judged.hits.length, 'passage', 'passages')} of the {judged.asked} closest in meaning as answering it, the most
+                  {judged.host} picked {count(judged.hits.length, 'passage', 'passages')} of the {judged.asked} closest in meaning as bearing on it, the most
                   relevant first. Each is the text of its file.{' '}
                   <button className="quiet" onClick={onUnjudge}>
                     Show them by meaning again

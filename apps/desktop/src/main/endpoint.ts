@@ -210,10 +210,12 @@ export async function judgeOnEndpoint(question: string, passages: { title: strin
       body: JSON.stringify({
         model: stored.model,
         temperature: 0,
-        max_tokens: 400,
+        // Room for a model that thinks before it answers, and asked not to: `/no_think` is Qwen's switch.
+        // Another model reads it as two words and goes on.
+        max_tokens: 2000,
         messages: [
           { role: 'system', content: JUDGE },
-          { role: 'user', content: `Text: ${question}\n\nPassages:\n\n${listed}` }
+          { role: 'user', content: `Text: ${question}\n\nPassages:\n\n${listed}\n\n/no_think` }
         ]
       }),
       redirect: 'error',
@@ -223,17 +225,27 @@ export async function judgeOnEndpoint(question: string, passages: { title: strin
     throw new Error(`Your endpoint, ${new URL(stored.url).host}, could not be reached.`)
   }
   if (!answer.ok) throw new Error(`Your endpoint, ${new URL(stored.url).host}, answered ${answer.status}.`)
-  const body = (await answer.json().catch(() => null)) as { choices?: { message?: { content?: unknown } }[] } | null
-  return picked(String(body?.choices?.[0]?.message?.content ?? ''), passages.length)
+  const body = (await answer.json().catch(() => null)) as { choices?: { message?: { content?: unknown }; finish_reason?: unknown }[] } | null
+  const choice = body?.choices?.[0]
+  const content = String(choice?.message?.content ?? '')
+  try {
+    return picked(content, passages.length)
+  } catch (failed) {
+    // What came back, so the reader can tell a model that ran out of room from one that said something else.
+    const said = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+    if (choice?.finish_reason === 'length') throw new Error(`${(failed as Error).message} It ran out of room before it answered.`)
+    throw new Error(`${(failed as Error).message} ${said ? `It said: “${said.slice(0, 160)}${said.length > 160 ? '…' : ''}”` : 'Its answer was empty.'}`)
+  }
 }
 
 /** The numbers a model gave, as places in the list: in its order, each once, none that is not there. */
 export function picked(content: string, count: number): number[] {
-  // A model that thinks aloud does it first, between these tags. The answer is the JSON after it.
-  const json = content.replace(/<think>[\s\S]*?<\/think>/g, '').match(/\{[\s\S]*\}/)?.[0] ?? ''
+  // A model that thinks aloud does it first, between these tags. The answer is the last such object after it:
+  // prose or an example before it may hold braces of its own.
+  const found = content.replace(/<think>[\s\S]*?<\/think>/g, '').match(/\{\s*"relevant"\s*:\s*\[[^\]]*\]\s*\}/g) ?? []
   let numbers: unknown
   try {
-    numbers = (JSON.parse(json) as { relevant?: unknown }).relevant
+    numbers = (JSON.parse(found.at(-1) ?? '') as { relevant?: unknown }).relevant
   } catch {
     numbers = null
   }

@@ -101,6 +101,7 @@ test("the endpoint's pick is read in its order, each once, and only of passages 
   assert.deepEqual(picked('{"relevant": [3, 1]}', 3), [2, 0])
   assert.deepEqual(picked('<think>Passage 2 is about kitchens. {"relevant": [9]}</think>\nHere: {"relevant": [2, 2, 7, 0, "1"]}', 3), [1, 0])
   assert.deepEqual(picked('{"relevant": []}', 3), [])
+  assert.deepEqual(picked('For example {"relevant": [1, 2]} would mean two.\n```json\n{"relevant": [3]}\n```', 3), [2])
   assert.throws(() => picked('Passages 1 and 2 answer it.', 3), /did not answer in the form/)
   assert.throws(() => picked('{"relevant": "1"}', 3), /did not answer in the form/)
 })
