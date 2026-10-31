@@ -489,6 +489,14 @@ Not this step: moving a file between projects, a request with a status that
 both projects can see, or a document that the shelf and a project both
 own.
 
+Built: all three. A folder of the drafts has a plus for a draft in it, and
+rows are dragged onto folders or moved from ⌘K. *Send to project…* is in the
+menu under a selection. `status: final` is read from the front matter, and
+the first publish name starts with the project's. `docs/model.md` no longer
+calls every draft a proposal. Not tried yet: a real project with real
+requests going between two of its projects, and the dialog of the system,
+which a test cannot press.
+
 ## Beside the steps: an app you can install
 
 A signed and notarised app for macOS, as a disk image. It is not a step,
