@@ -196,7 +196,8 @@ export type MateApi = {
   /** Save what the reader typed. `base` is the text they began from: it is refused when the file holds another by now. */
   writeDraft: (project: string, file: string, base: string, text: string) => Promise<DocumentView>
   /** Start a new draft in a project. An existing file is never written over. */
-  createDraft: (project: string, name: string) => Promise<DocumentView>
+  createDraft: (project: string, name: string, folder?: string) => Promise<DocumentView>
+  moveFile: (project: string, from: string, to: string) => Promise<DocumentView>
   addComment: (
     project: string,
     file: string,

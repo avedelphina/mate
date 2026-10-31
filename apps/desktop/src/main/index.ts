@@ -18,6 +18,7 @@ import {
   copySource,
   createContext,
   createDraft,
+  moveEntry,
   createProject,
   importProject,
   makeFolder,
@@ -609,7 +610,19 @@ app.whenReady().then(() => {
   ipcMain.handle('draft:write', (event, project: string, file: string, base: string, text: string) =>
     writeDraft(requireContext(event), project, file, String(base), String(text))
   )
-  ipcMain.handle('draft:create', (event, project: string, name: string) => createDraft(requireContext(event), project, String(name)))
+  ipcMain.handle('draft:create', (event, project: string, name: string, folder?: string) =>
+    createDraft(requireContext(event), project, String(name), typeof folder === 'string' ? folder : '')
+  )
+  // A file or a folder of a project goes into another folder of it, with its comments and its note.
+  ipcMain.handle('file:move', async (event, project: string, from: string, to: string) => {
+    const contextDir = requireContext(event)
+    // Not while an agent works, whose turn would take the move for its own. Reading goes on: what it makes of a file that moved is made again.
+    if (isBusy(contextDir)) throw new Error('An agent is working in this context. Move it when the agent has finished.')
+    const moved = await moveEntry(contextDir, String(project), String(from), String(to))
+    // What the index learned of the file goes with it: a file, with what is kept beside it, or a folder.
+    await moveMeaning(contextDir, moved.folder ? `${moved.from}/` : moved.from, moved.folder ? `${moved.to}/` : moved.to)
+    return readProject(contextDir, String(project))
+  })
 
   ipcMain.handle('shelf:list', (event) => listShelf(requireContext(event)))
   ipcMain.handle('context:files', (event) => listContextFiles(requireContext(event)))

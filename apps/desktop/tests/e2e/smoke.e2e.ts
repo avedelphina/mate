@@ -145,7 +145,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
       field.dispatchEvent(new Event('input', { bubbles: true }))
       field.form.requestSubmit()
     })()`)
-    await app.until(`[...document.querySelectorAll('.projects .tree summary')].some((each) => each.textContent === 'contracts')`, 'the new folder in the tree')
+    await app.until(`[...document.querySelectorAll('.projects .tree summary')].some((each) => each.firstChild?.textContent === 'contracts')`, 'the new folder in the tree')
     await writeFile(path.join(project, 'draft/contracts/nda.md'), '# NDA\n\nBoth sides keep it secret.\n')
     await app.page(`window.dispatchEvent(new Event('focus'))`)
     await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'nda.md')`, 'the draft in the folder')
@@ -164,6 +164,35 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.center .bar .tag', '#alpha')
     await app.until(`document.querySelector('input.search').value === '#alpha' && document.querySelector('.rail').textContent.includes('Tagged')`, 'the search for the tag finds the draft')
     await app.page(`document.querySelector('input.search').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
+    await app.press('.projects .tree .row', 'document.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
+
+    // A row is dragged into a folder and the file moves, and a folder of the drafts has a plus for a draft in it.
+    const drag = (rowText: string, folder: string) =>
+      app.page(`(() => {
+        const row = [...document.querySelectorAll('.projects .tree .row')].find((each) => each.textContent === ${JSON.stringify(rowText)})
+        const target = [...document.querySelectorAll('.projects .tree summary')].find((each) => each.firstChild?.textContent === ${JSON.stringify(folder)})
+        const data = new DataTransfer()
+        row.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: data }))
+        target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: data }))
+        target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data }))
+      })()`)
+    await drag('inline.md', 'contracts')
+    await app.until(`![...document.querySelectorAll('.projects .tree summary + ul .row')].some((each) => each.textContent === 'inline.md') || [...document.querySelectorAll('.projects .tree summary')].find((each) => each.firstChild?.textContent === 'contracts')?.parentElement.textContent.includes('inline.md')`, 'the file in its new folder in the tree')
+    assert.equal(existsSync(path.join(project, 'draft/inline.md')), false)
+    // It came with its comments, which are in the file.
+    assert.match(await readFile(path.join(project, 'draft/contracts/inline.md'), 'utf8'), /A \*\*big\*\* word here\.\n<!-- @comment\{.*"text":"Over markup\."/)
+    await app.page(`[...document.querySelectorAll('.projects .tree summary')].find((each) => each.firstChild?.textContent === 'contracts').querySelector('.add').click()`)
+    await app.until(`document.querySelector('input[aria-label="Name of the new draft"]')?.placeholder === 'Name of the draft in contracts'`, 'the name of a draft in the folder')
+    await app.page(`(() => {
+      const field = document.querySelector('input[aria-label="Name of the new draft"]')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, 'terms')
+      field.dispatchEvent(new Event('input', { bubbles: true }))
+      field.form.requestSubmit()
+    })()`)
+    await app.until(`document.querySelector('.center .bar').textContent.includes('contracts/terms.md')`, 'the new draft, in the folder')
+    assert.equal(await readFile(path.join(project, 'draft/contracts/terms.md'), 'utf8'), '# terms\n')
+    await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 

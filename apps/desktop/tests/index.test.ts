@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { addComment, createContext, createDraft, createProject, describeContext, importProject, listProjects, makeFolder, readNote, readProject, renameContext, renameProject, shapeContext, tickPane, writeNote, writeSteering } from '../src/main/context.ts'
+import { addComment, createContext, createDraft, createProject, describeContext, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, shapeContext, tickPane, writeNote, writeSteering } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
@@ -184,6 +184,64 @@ test('a #tag finds the documents whose front matter names it, at the tag, and th
     // A word that is no tag of any document finds nothing, and the others are counted without regard to case.
     assert.deepEqual(searchIndex(index, '#secret').map((hit) => hit.path), [])
     assert.deepEqual(tagsInUse(index), [{ tag: 'Contract', count: 2 }, { tag: 'legal', count: 1 }])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a draft is started in a folder, and a file or a folder is moved with what is kept beside it', async () => {
+  const root = await context()
+  try {
+    const project = path.join(root, 'projects/review')
+    await makeFolder(root, 'review', 'draft/WEF')
+    await makeFolder(root, 'review', 'notes')
+    const started = await createDraft(root, 'review', 'design', 'WEF')
+    assert.equal(started.file, 'WEF/design.md')
+    assert.equal(await readFile(path.join(project, 'draft/WEF/design.md'), 'utf8'), '# design\n')
+    await assert.rejects(createDraft(root, 'review', 'x', 'missing'), /not in the drafts/)
+    await assert.rejects(createDraft(root, 'review', 'x', '../outside'), /not a folder of the drafts/)
+    await assert.rejects(createDraft(root, 'review', 'design', 'WEF'), /already there/)
+
+    // A text file goes with its comments and its note, and its twin goes with it.
+    await writeFile(path.join(project, 'sysmon.xml'), '<a/>\n')
+    await writeFile(path.join(project, 'sysmon.xml.comments.md'), 'c\n')
+    await writeFile(path.join(project, 'sysmon.xml.notes.md'), 'n\n')
+    await writeFile(path.join(project, 'old.pdf'), 'pdf')
+    await mkdir(path.join(root, '.indexes/text/projects/review'), { recursive: true })
+    await writeFile(path.join(root, '.indexes/text/projects/review/old.pdf.txt'), 'text of the pdf')
+    const moved = await moveEntry(root, 'review', 'sysmon.xml', 'notes')
+    assert.deepEqual(moved, { from: 'projects/review/sysmon.xml', to: 'projects/review/notes/sysmon.xml', folder: false })
+    assert.deepEqual((await readdir(path.join(project, 'notes'))).sort(), ['sysmon.xml', 'sysmon.xml.comments.md', 'sysmon.xml.notes.md'])
+    assert.equal(existsSync(path.join(project, 'sysmon.xml')), false)
+    await moveEntry(root, 'review', 'old.pdf', 'notes')
+    assert.equal(await readFile(path.join(root, '.indexes/text/projects/review/notes/old.pdf.txt'), 'utf8'), 'text of the pdf')
+
+    // A draft moved out of draft/ is material, and the other way round it is a draft.
+    await moveEntry(root, 'review', 'draft/WEF/design.md', 'notes')
+    assert.equal((await readProject(root, 'review')).drafts.includes('WEF/design.md'), false)
+    assert.equal(placeOf('projects/review/notes/design.md').kind, 'material')
+    await moveEntry(root, 'review', 'notes/design.md', 'draft')
+    assert.ok((await readProject(root, 'review')).drafts.includes('design.md'))
+
+    // A folder goes whole. Not into itself, not where it is, and not over a name that is there.
+    await moveEntry(root, 'review', 'notes', 'draft/WEF')
+    assert.ok(existsSync(path.join(project, 'draft/WEF/notes/sysmon.xml.notes.md')))
+    await assert.rejects(moveEntry(root, 'review', 'draft/WEF', 'draft/WEF/notes'), /into itself/)
+    await assert.rejects(moveEntry(root, 'review', 'draft/design.md', 'draft'), /in that folder already/)
+    await writeFile(path.join(project, 'draft/WEF/design.md'), 'there')
+    await assert.rejects(moveEntry(root, 'review', 'draft/design.md', 'draft/WEF'), /already there/)
+
+    // What a project keeps for itself stays, nothing leaves the project, and a side file moves with its file.
+    for (const [from, to, why] of [
+      ['draft', 'draft/WEF', /keeps it for itself/],
+      ['intents.md', 'draft', /keeps it for itself/],
+      ['draft/design.md', 'panes', /panes\/ or scripts\//],
+      ['draft/design.md', '../shelf', /cannot be moved/],
+      ['../../shelf/classification.md', 'draft', /cannot be moved/],
+      ['draft/WEF/notes/sysmon.xml.notes.md', 'draft', /go with it/],
+      ['draft/design.md', 'missing', /not in this project/],
+      ['draft/nothing.md', 'draft/WEF', /not in this project/]
+    ] as const) await assert.rejects(moveEntry(root, 'review', from, to), why, `${from} -> ${to}`)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

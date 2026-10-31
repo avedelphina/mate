@@ -496,15 +496,71 @@ export async function makeFolder(contextDir: string, project: string, where: str
 }
 
 /** Start a new draft in a project: a file with its title and nothing else. An existing file is never written over. */
-export async function createDraft(contextDir: string, project: string, name: string): Promise<DocumentView> {
+export async function createDraft(contextDir: string, project: string, name: string, folder = ''): Promise<DocumentView> {
   const title = String(name).trim().replace(/\.md$/i, '')
   if (!NAME.test(title)) throw new Error('Name the draft with letters and numbers. Spaces, dots, dashes and underscores may follow.')
   const projectDir = resolveInside(contextDir, 'projects', project)
   if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
-  const file = `${title}.md`
+  // In a folder that is there already, inside the place the project keeps its drafts.
+  const inside = String(folder).split('/').filter(Boolean)
+  if (inside.length > 0) {
+    if (!inside.every((part) => NAME.test(part))) throw new Error('That is not a folder of the drafts.')
+    const dir = await realInside(contextDir, path.relative(contextDir, draftHome(projectDir)), ...inside).catch(() => null)
+    if (!dir || !(await stat(dir)).isDirectory()) throw new Error('That folder is not in the drafts of this project.')
+  }
+  const file = [...inside, `${title}.md`].join('/')
   const text = `# ${title}\n`
   await putDraft(contextDir, project, file, text, 'A draft of that name is already there.')
   return readProject(contextDir, project, file)
+}
+
+/**
+ * Move a file or a folder of a project into another folder of the same project. `from` and `to` are
+ * paths from the project folder, and `to` is a folder that is there already: empty for the project's
+ * own. The comments beside a file and its note go with it. It is the reader's act, so nothing asks the
+ * agent, and `still` in the handler has checked that none works here. Nothing moves into or out of the
+ * folders a project keeps for itself (panes and scripts), or the two files that steer it, and nothing
+ * leaves the project, so the shelf is only ever reached by publishing.
+ */
+export async function moveEntry(contextDir: string, project: string, from: string, to: string): Promise<{ from: string; to: string; folder: boolean }> {
+  const source = String(from).split('/')
+  const target = String(to).split('/').filter(Boolean)
+  const bad = (parts: string[]) => parts.length === 0 || parts.some((part) => part === '' || part.startsWith('.') || part === 'node_modules')
+  if (bad(source) || (target.length > 0 && bad(target))) throw new Error('That cannot be moved there.')
+  const name = source[source.length - 1]
+  if (source.length === 1 && (KEPT.has(name) || name === 'intents.md' || name === 'principles.md')) {
+    throw new Error(`${name} stays where it is: a project keeps it for itself.`)
+  }
+  if (source[0] === 'panes' || source[0] === 'scripts' || target[0] === 'panes' || target[0] === 'scripts') {
+    throw new Error('Nothing moves into or out of panes/ or scripts/: a pane is shown and a script is run from there.')
+  }
+  if (BESIDE.test(name)) throw new Error('Move the file the comments or the note belong to. They go with it.')
+
+  const dir = await realInside(contextDir, 'projects', project)
+  const real = (parts: string[]) => path.join(dir, ...parts)
+  const info = await lstat(real(source)).catch(() => null)
+  if (!info || !(info.isFile() || info.isDirectory())) throw new Error('That is not in this project.')
+  const into = await realInside(contextDir, 'projects', project, ...target).catch(() => null)
+  if (!into || !(await stat(into)).isDirectory()) throw new Error('That folder is not in this project.')
+  if (info.isDirectory() && (within(real(source), into))) throw new Error('A folder cannot be moved into itself.')
+  if (target.join('/') === source.slice(0, -1).join('/')) throw new Error('It is in that folder already.')
+
+  // A file takes what is kept beside it. None of it may meet a file already there.
+  const names = info.isFile() ? [name, `${name}.comments.md`, `${name}.notes.md`] : [name]
+  const there = names.filter((each) => existsSync(path.join(real(source.slice(0, -1)), each)))
+  if (there.some((each) => existsSync(path.join(into, each)))) throw new Error('A file or folder of that name is already there.')
+  for (const each of there) await rename(path.join(real(source.slice(0, -1)), each), path.join(into, each))
+
+  // What was read of the file stays with it, so nothing is read again. A twin is the text of a PDF or a Word file.
+  const old = `projects/${project}/${source.join('/')}`
+  const now = `projects/${project}/${[...target, name].join('/')}`
+  const kept = path.join(contextDir, '.indexes', 'text', info.isFile() ? `${old}.txt` : old)
+  if (existsSync(kept)) {
+    const moved = path.join(contextDir, '.indexes', 'text', info.isFile() ? `${now}.txt` : now)
+    await mkdir(path.dirname(moved), { recursive: true })
+    await rename(kept, moved).catch(() => {})
+  }
+  return { from: old, to: now, folder: info.isDirectory() }
 }
 
 /**

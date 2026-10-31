@@ -91,8 +91,13 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   Mate cannot draw is shown in the file manager. *+ New folder* makes a
   folder in the project: `notes`, or `draft/contracts`. A folder inside
   `draft/` keeps drafts, and they are reviewed and published as the others
-  are. Mate makes the folder and nothing else: a draft is moved into it in
-  the file manager.
+  are. A folder of the drafts has a *+* that starts a draft in it. A file
+  or a folder is moved by dragging its row onto another folder, or onto
+  the project's name for the project's own place, or with *Move this file
+  to…* in ⌘K. Its comments and its note go with it. A draft moved out of
+  `draft/` is material, and one moved in is a draft; Mate says so. Nothing
+  moves to the shelf: only publishing puts a document there. Nothing moves
+  while an agent works in the context.
 - **Search by meaning.** With Ollama on your computer and its `bge-m3`
   model (`ollama pull bge-m3`), the search also finds passages close to
   your question in meaning, in other words or another language: an English

@@ -45,7 +45,8 @@ contextBridge.exposeInMainWorld('mate', {
   pullIn: (project: string, path: string) => ipcRenderer.invoke('dropbox:pull', project, path),
   publishDraft: (project: string, file: string, name: string) => ipcRenderer.invoke('draft:publish', project, file, name),
   writeDraft: (project: string, file: string, base: string, text: string) => ipcRenderer.invoke('draft:write', project, file, base, text),
-  createDraft: (project: string, name: string) => ipcRenderer.invoke('draft:create', project, name),
+  createDraft: (project: string, name: string, folder?: string) => ipcRenderer.invoke('draft:create', project, name, folder),
+  moveFile: (project: string, from: string, to: string) => ipcRenderer.invoke('file:move', project, from, to),
   addComment: (
     project: string,
     file: string,

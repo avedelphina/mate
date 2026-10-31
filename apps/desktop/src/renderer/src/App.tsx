@@ -13,7 +13,7 @@ import { Rendered, type Passage } from './Rendered'
 import { Settings, UpdateNotice } from './Settings'
 import { Notes } from './Notes'
 import { useTyping } from './Steering'
-import { Tree } from './Tree'
+import { dropOn, Tree } from './Tree'
 import { asked, filled } from '../../shared/run'
 import './styles.css'
 
@@ -168,6 +168,10 @@ export function App() {
   const saving = useRef<Promise<boolean>>(Promise.resolve(true))
   // The name of a new draft, while the reader is typing it in the rail. Null when they are not.
   const [naming, setNaming] = useState<string | null>(null)
+  // The folder of the drafts a new draft goes into, while it is named. Empty for the place the project keeps its drafts.
+  const [namingIn, setNamingIn] = useState('')
+  // A file the reader is moving by typing where, in the rail, from the palette. Null when they are not.
+  const [moving, setMoving] = useState<{ from: string; to: string } | null>(null)
   // The name or path of a new folder, while the reader is typing it in the rail. Null when they are not.
   const [making, setMaking] = useState<string | null>(null)
   // The name of a project that is being started, while the reader types it.
@@ -592,9 +596,10 @@ export function App() {
     event.preventDefault()
     if (!project || !naming?.trim() || !(await leaveEditor())) return
     try {
-      const made = await window.mate.createDraft(project, naming)
+      const made = await window.mate.createDraft(project, naming, namingIn)
       setError(null)
       setNaming(null)
+      setNamingIn('')
       setReading(null)
       setAgentOnPage(false)
       setView(made)
@@ -617,6 +622,35 @@ export function App() {
       setView((now) => (now ? { ...now, files: made.files, folders: made.folders } : made))
     } catch (caught) {
       setError(reason(caught, 'Could not make the folder.'))
+    }
+  }
+
+  /**
+   * Move a file or a folder of the open project into another folder of it, and follow it if it is the
+   * one on the page. Where it lands decides what it is: in the drafts it is a draft, and out of them it is not.
+   */
+  async function moveTo(from: string, to: string) {
+    if (!project || !view || !(await leaveEditor())) return
+    const onPage = inTree
+    try {
+      const next = await window.mate.moveFile(project, from, to)
+      setError(null)
+      setView(next)
+      const name = from.split('/').pop()!
+      const inDrafts = (path: string) => next.draftsIn !== '' && path.startsWith(next.draftsIn)
+      const landed = [to, name].filter(Boolean).join('/')
+      if (inDrafts(from) !== inDrafts(landed)) {
+        setNotice(inDrafts(landed) ? `${name} is a draft now.` : `${name} is material now, and no longer a draft.`)
+      }
+      if (onPage && (onPage === from || onPage.startsWith(`${from}/`))) {
+        const now = `${landed}${onPage.slice(from.length)}`
+        const draft = now.startsWith(next.draftsIn) ? now.slice(next.draftsIn.length) : null
+        if (draft !== null && next.drafts.includes(draft)) void openProject(project, draft)
+        else if (/\.md$/i.test(now) || isTwinned(now)) void read(`projects/${project}/${now}`)
+        else void openText(now)
+      }
+    } catch (caught) {
+      setError(reason(caught, 'Could not move that.'))
     }
   }
 
@@ -1174,7 +1208,10 @@ export function App() {
       for (const each of view.panes) add(each.name.replace(/\.md$/, ''), 'Show pane', () => setTab(`pane:${each.name}`))
       if (file !== null && typing === null && !reading) add('Edit this draft', 'Do', edit)
       if (file !== null && !reading && !textFile) add('Publish this draft…', 'Do', () => setPublishing(file))
-      add('New draft…', 'Do', () => setNaming(''))
+      add('New draft…', 'Do', () => (setNamingIn(''), setNaming('')))
+      if (inTree && !/^(draft|dropbox|panes|scripts|intents\.md|principles\.md)$/.test(inTree) && !/^(panes|scripts)\//.test(inTree) && !/\.(comments|notes)\.md$/i.test(inTree)) {
+        add('Move this file to…', 'Do', () => setMoving({ from: inTree, to: '' }))
+      }
       add('Rename this project…', 'Do', () => setRenaming({ what: 'project', name: view.project }))
       add('Add a source…', 'Do', () => void addSources())
       add(agentOnPage ? 'Put the conversation back in the margin' : 'Open the conversation in the page', 'Do', agentOnPage ? toMargin : toPage)
@@ -1354,7 +1391,11 @@ export function App() {
               <ul className="projects">
                 {projects.map((name) => (
                   <li key={name}>
-                    <button className={project === name ? 'row project active' : 'row project'} onClick={() => openProject(name)}>
+                    <button
+                      className={project === name ? 'row project active' : 'row project'}
+                      onClick={() => openProject(name)}
+                      {...(view && project === name ? dropOn('', moveTo) : {})}
+                    >
                       {name}
                     </button>
                     {view && project === name && (view.intents || view.principles) && (
@@ -1373,6 +1414,9 @@ export function App() {
                       <Tree
                         paths={view.files}
                         folders={view.folders}
+                        onMove={moveTo}
+                        draftsIn={view.draftsIn}
+                        onNewDraft={(folder) => (setNamingIn(folder), setNaming(''))}
                         current={inTree}
                         onOpen={openFile}
                         onReveal={(path) => {
@@ -1388,6 +1432,25 @@ export function App() {
                       <div className="tree-new">
                         {renaming?.what === 'project' ? (
                           renameField('New name of the project')
+                        ) : moving !== null ? (
+                          <form
+                            onSubmit={(event) => {
+                              event.preventDefault()
+                              void moveTo(moving.from, moving.to.trim().replace(/^\/+|\/+$/g, '')).then(() => setMoving(null))
+                            }}
+                          >
+                            <input
+                              autoFocus
+                              list="project-folders"
+                              value={moving.to}
+                              placeholder={`Move ${moving.from.split('/').pop()} to… (empty: the project)`}
+                              aria-label={`The folder to move ${moving.from.split('/').pop()} to`}
+                              onChange={(event) => setMoving({ ...moving, to: event.target.value })}
+                              onKeyDown={(event) => event.key === 'Escape' && setMoving(null)}
+                              onBlur={() => setMoving(null)}
+                            />
+                            <datalist id="project-folders">{view.folders.map((each) => <option key={each} value={each} />)}</datalist>
+                          </form>
                         ) : making !== null ? (
                           <form onSubmit={newFolder}>
                             <input
@@ -1403,7 +1466,7 @@ export function App() {
                           </form>
                         ) : naming === null ? (
                           <>
-                            <button className="row" onClick={() => setNaming('')}>+ New draft</button>
+                            <button className="row" onClick={() => (setNamingIn(''), setNaming(''))}>+ New draft</button>
                             <button className="row" title="A folder in this project. Inside draft/, it holds drafts." onClick={() => setMaking('')}>+ New folder</button>
                             <button className="row" title="A file or a folder from outside this context. You choose what becomes of it." onClick={() => void addSources()}>
                               + Add a source
@@ -1417,7 +1480,7 @@ export function App() {
                             <input
                               autoFocus
                               value={naming}
-                              placeholder="Name of the draft"
+                              placeholder={namingIn ? `Name of the draft in ${namingIn}` : 'Name of the draft'}
                               aria-label="Name of the new draft"
                               onChange={(event) => setNaming(event.target.value)}
                               onKeyDown={(event) => event.key === 'Escape' && setNaming(null)}

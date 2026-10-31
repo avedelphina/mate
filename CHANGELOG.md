@@ -5,6 +5,18 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- A folder of the drafts has a *+* that starts a draft in it.
+- Files and folders move. Drag a row onto another folder, or onto the
+  project's name for the project's own place, or use *Move this file
+  to…* in ⌘K. The comments beside a file and its note go with it. A draft
+  moved out of `draft/` becomes material, and one moved in becomes a
+  draft, and Mate says so. Nothing moves to the shelf, into or out of
+  `panes/` or `scripts/`, or while an agent works in the context.
+
 ## [0.14.1] - 2026-10-31
 
 The bar above the page fits a long file name, and its buttons become

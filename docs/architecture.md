@@ -782,7 +782,20 @@ name of a draft. The folders a project keeps for itself, `draft`,
 Drafts lie in folders of `draft/` too. Their name is their path from
 `draft/`, such as `contracts/nda.md`, and `placeOf` calls everything deeper
 in `draft/` a draft. A project with no `draft/` folder is as it was: its
-markdown files are drafts wherever they lie. A draft is not moved by Mate.
+markdown files are drafts wherever they lie.
+
+A draft is started in a folder with the *+* on its row (`createDraft` takes
+the folder, which must be there already, inside the drafts). A file or a
+folder is moved by `moveEntry`: from a path of the project into a folder of
+the same project, by `rename`, with the comments beside the file and its
+note, and what was read of it (its twin, and its learned passages, by
+`moveMeaning`). It is refused for `draft`, `dropbox`, `panes`, `scripts`,
+the intents and the principles, for anything into or out of `panes/` and
+`scripts/`, for a folder into itself, over a name that is there, and for
+anything that leaves the project, so the shelf is reached only by
+publishing. The handler refuses it while an agent works in the context.
+The rows are dragged with `text/x-mate-path`, a type of ours, so a file
+dropped from outside is not taken for one.
 
 A draft opens for review. Any other markdown file opens to be read, as
 it does from a search. The project stays open while the file is read:
