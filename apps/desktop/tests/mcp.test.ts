@@ -7,7 +7,7 @@ import { readContextFile } from '../src/main/context.ts'
 import { startMcp, type Binding } from '../src/main/mcp.ts'
 import { meaningRuns, refreshMeaning } from '../src/main/meaning.ts'
 import { refreshIndex } from '../src/main/contextIndex.ts'
-import { loadSession, sendMessage, startSession } from '../src/main/sessions.ts'
+import { loadSession, ownSession, sendMessage, startSession } from '../src/main/sessions.ts'
 import { isPrivate, movePrivacy, setOpenedToEndpoint, setPrivate } from '../src/main/trust.ts'
 import { parseComments } from '../src/shared/comments.ts'
 
@@ -205,6 +205,22 @@ test('in a private context no agent starts, none is told anything, and the door 
   } finally {
     setPrivate(root, false)
     door.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('the door for the reader\'s own agent leads to a session made for it, and to no other', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-own-'))
+  try {
+    await mkdir(path.join(root, 'projects/review/draft'), { recursive: true })
+    await writeFile(path.join(root, 'projects/review/draft/document.md'), '# Draft\n')
+    const own = await startSession(root, 'review', 'mcp')
+    const other = await startSession(root, 'review', 'hermes')
+    assert.equal((await ownSession(root, 'review', own.id)).id, own.id)
+    await assert.rejects(ownSession(root, 'review', other.id), /not one for your own agent/)
+    await assert.rejects(ownSession(root, 'review', 'no-such-session'))
+    await assert.rejects(ownSession(root, 'review', '../../../etc'))
+  } finally {
     await rm(root, { recursive: true, force: true })
   }
 })

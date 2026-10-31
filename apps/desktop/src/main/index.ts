@@ -75,6 +75,7 @@ import {
   isBusy,
   listModels,
   listSessions,
+  ownSession,
   revertChange,
   sendMessage,
   settleHeld,
@@ -251,6 +252,8 @@ function startDoor(): Promise<{ port: number }> {
     changed: (at, session) => tell(at.contextDir, session),
     guest: (token) => guests.get(token) ?? null
   })
+  // A start that failed is not kept, or every later ask would get the same failure.
+  door.catch(() => (door = null))
   return door
 }
 
@@ -709,9 +712,10 @@ app.whenReady().then(() => {
     keepRemote(readRemote().filter((each) => !(each.kind === kind && each.host === host)))
   )
 
-  ipcMain.handle('mcp:bind', (event, project: string, id: string) => {
+  ipcMain.handle('mcp:bind', async (event, project: string, id: string) => {
     const contextDir = requireContext(event)
     if (isPrivate(contextDir)) throw new Error(PRIVATE)
+    await ownSession(contextDir, project, id)
     return openDoor({ contextDir, project, id })
   })
 

@@ -199,6 +199,14 @@ export async function saveSession(contextDir: string, session: Session): Promise
   await rename(temporary, path.join(dir, 'session.json'))
 }
 
+/** The session a door for the reader's own agent may lead to: one that exists, and was made for such an agent. */
+export async function ownSession(contextDir: string, project: string, id: string): Promise<Session> {
+  const session = await loadSession(contextDir, project, id)
+  // A door to a session of an agent Mate started would let calls write over its live state.
+  if (session.agent !== 'mcp') throw new Error('That session is not one for your own agent.')
+  return session
+}
+
 export async function loadSession(contextDir: string, project: string, id: string): Promise<Session> {
   // While the agent is working the session in memory is the one that counts. A second copy read
   // from the file would be written over when the turn ends.
