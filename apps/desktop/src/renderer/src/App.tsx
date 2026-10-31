@@ -163,6 +163,8 @@ export function App() {
   const saving = useRef<Promise<boolean>>(Promise.resolve(true))
   // The name of a new draft, while the reader is typing it in the rail. Null when they are not.
   const [naming, setNaming] = useState<string | null>(null)
+  // The name or path of a new folder, while the reader is typing it in the rail. Null when they are not.
+  const [making, setMaking] = useState<string | null>(null)
   // The name of a project that is being started, while the reader types it.
   const [founding, setFounding] = useState<string | null>(null)
   // The context or the open project being given a new name, while the reader types it.
@@ -586,6 +588,20 @@ export function App() {
       setTyping(made.text)
     } catch (caught) {
       setError(reason(caught, 'Could not start the draft.'))
+    }
+  }
+
+  async function newFolder(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!project || !making?.trim()) return
+    try {
+      const made = await window.mate.makeFolder(project, making)
+      setError(null)
+      setMaking(null)
+      // Only the tree changes. The page stays on what the reader had.
+      setView((now) => (now ? { ...now, files: made.files, folders: made.folders } : made))
+    } catch (caught) {
+      setError(reason(caught, 'Could not make the folder.'))
     }
   }
 
@@ -1301,6 +1317,7 @@ export function App() {
                     {view && project === name && (
                       <Tree
                         paths={view.files}
+                        folders={view.folders}
                         current={inTree}
                         onOpen={openFile}
                         onReveal={(path) => {
@@ -1316,9 +1333,23 @@ export function App() {
                       <div className="tree-new">
                         {renaming?.what === 'project' ? (
                           renameField('New name of the project')
+                        ) : making !== null ? (
+                          <form onSubmit={newFolder}>
+                            <input
+                              autoFocus
+                              value={making}
+                              placeholder="Folder, or draft/folder"
+                              aria-label="Name of the new folder"
+                              title="A path goes from the project. Only the last folder is new."
+                              onChange={(event) => setMaking(event.target.value)}
+                              onKeyDown={(event) => event.key === 'Escape' && setMaking(null)}
+                              onBlur={() => making.trim() === '' && setMaking(null)}
+                            />
+                          </form>
                         ) : naming === null ? (
                           <>
                             <button className="row" onClick={() => setNaming('')}>+ New draft</button>
+                            <button className="row" title="A folder in this project. Inside draft/, it holds drafts." onClick={() => setMaking('')}>+ New folder</button>
                             <button className="row" title="A file or a folder from outside this context. You choose what becomes of it." onClick={() => void addSources()}>
                               + Add a source
                             </button>

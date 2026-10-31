@@ -7,6 +7,8 @@ import { isTwinned } from '../../shared/twin'
  */
 export function Tree(props: {
   paths: string[]
+  /** Folders with nothing in them show too, so a folder the reader just made is there. */
+  folders?: string[]
   base?: string
   current: string | null
   onOpen: (path: string) => void
@@ -14,11 +16,11 @@ export function Tree(props: {
   /** The folder that starts unfolded: in a project, its drafts. */
   unfolded?: string
 }) {
-  const { paths, base = '', current, onOpen, onReveal, unfolded = 'draft' } = props
+  const { paths, folders = [], base = '', current, onOpen, onReveal, unfolded = 'draft' } = props
   const manager = document.documentElement.dataset.platform === 'mac' ? 'Finder' : 'the file manager'
   const isFile = (name: string) => paths.includes(base + name)
   // What is directly in this folder: a file, or the folder that something deeper is in.
-  const here = [...new Set(paths.map((each) => each.slice(base.length).split('/')[0]))]
+  const here = [...new Set([...paths, ...folders].map((each) => each.slice(base.length).split('/')[0]))]
   here.sort((a, b) => Number(isFile(a)) - Number(isFile(b)) || a.localeCompare(b))
   return (
     <ul className="tree">
@@ -44,7 +46,7 @@ export function Tree(props: {
             {/* Unfolded too when the file on the page is in it, so the reader sees where it is. */}
             <details open={full === unfolded || (current?.startsWith(`${full}/`) ?? false)}>
               <summary>{name}</summary>
-              <Tree paths={paths.filter((each) => each.startsWith(`${full}/`))} base={`${full}/`} current={current} onOpen={onOpen} onReveal={onReveal} unfolded={unfolded} />
+              <Tree paths={paths.filter((each) => each.startsWith(`${full}/`))} folders={folders.filter((each) => each.startsWith(`${full}/`))} base={`${full}/`} current={current} onOpen={onOpen} onReveal={onReveal} unfolded={unfolded} />
             </details>
           </li>
         )

@@ -88,7 +88,11 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   own dropbox.
 - **The files of a project.** The rail shows them as a tree. A draft
   opens for review, any other markdown file opens to be read, and a file
-  Mate cannot draw is shown in the file manager.
+  Mate cannot draw is shown in the file manager. *+ New folder* makes a
+  folder in the project: `notes`, or `draft/contracts`. A folder inside
+  `draft/` keeps drafts, and they are reviewed and published as the others
+  are. Mate makes the folder and nothing else: a draft is moved into it in
+  the file manager.
 - **Search by meaning.** With Ollama on your computer and its `bge-m3`
   model (`ollama pull bge-m3`), the search also finds passages close to
   your question in meaning, in other words or another language: an English

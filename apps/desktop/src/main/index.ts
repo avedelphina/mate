@@ -20,6 +20,7 @@ import {
   createDraft,
   createProject,
   importProject,
+  makeFolder,
   realInside,
   renameContext,
   renameProject,
@@ -673,6 +674,8 @@ app.whenReady().then(() => {
   ipcMain.handle('pane:tick', (event, project: string, name: string, base: string, at: number, draft?: string) =>
     tickPane(requireContext(event), project, String(name), String(base), Number(at), draft)
   )
+
+  ipcMain.handle('folder:make', (event, project: string, where: string) => makeFolder(requireContext(event), project, String(where)))
 
   // The intents and the principles steer an agent, so they are written from the reader's window only.
   ipcMain.handle('steering:write', (event, project: string, name: string, base: string, text: string, draft?: string) =>

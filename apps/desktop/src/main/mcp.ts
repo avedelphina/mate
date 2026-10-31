@@ -122,9 +122,9 @@ function ownDraft(session: Session, relative: unknown): string {
   if (parts.length < 3 || parts[0] !== 'projects' || parts[1] !== session.project) {
     throw new Error(`You may comment only on a draft of your project: projects/${session.project}/...`)
   }
-  // In draft/, a draft is named by its name. Where a project keeps them where they lie, by its path in the project.
+  // In draft/, a draft is named by its path from draft/. Where a project keeps them where they lie, by its path in the project.
   // Which it is, and whether it is a draft at all, is checked where the draft is changed.
-  return parts[2] === 'draft' && parts.length === 4 ? parts[3] : parts.slice(2).join('/')
+  return parts[2] === 'draft' && parts.length >= 4 ? parts.slice(3).join('/') : parts.slice(2).join('/')
 }
 
 async function run(binding: Binding, session: Session, name: string, input: Json, who: string): Promise<string> {

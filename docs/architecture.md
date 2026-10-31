@@ -724,6 +724,19 @@ a `<details>` element, so it folds with no code of ours. `draft/` starts
 unfolded. Each level stands a step in, with a line down its side, and the
 project is the root of its own tree.
 
+`readProject` sends the folders too (`listFolders`), so a folder with
+nothing in it is drawn. *+ New folder* in the rail asks `makeFolder` in
+`context.ts`. It takes a path from the project, makes only its last name,
+and needs the folders before it to be there. Each name is checked like the
+name of a draft. The folders a project keeps for itself, `draft`,
+`dropbox`, `panes` and `scripts`, are not made, but a folder inside
+`draft/` is. It makes no folder where a link leads out of the context.
+
+Drafts lie in folders of `draft/` too. Their name is their path from
+`draft/`, such as `contracts/nda.md`, and `placeOf` calls everything deeper
+in `draft/` a draft. A project with no `draft/` folder is as it was: its
+markdown files are drafts wherever they lie. A draft is not moved by Mate.
+
 A draft opens for review. Any other markdown file opens to be read, as
 it does from a search. The project stays open while the file is read:
 the margin keeps its tabs, and the agent keeps its session. A file that

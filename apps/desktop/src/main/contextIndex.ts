@@ -56,7 +56,7 @@ export function placeOf(relative: string): Place {
   if (parts[0] === 'projects' && parts.length > 2) {
     const [, project, ...rest] = parts
     const steers = rest.length === 1 && (rest[0] === 'intents.md' || rest[0] === 'principles.md')
-    const kind = steers ? 'project' : rest.length !== 2 ? 'material' : rest[0] === 'draft' ? 'draft' : rest[0] === 'panes' ? 'pane' : 'material'
+    const kind = steers ? 'project' : rest[0] === 'draft' && rest.length >= 2 ? 'draft' : rest.length !== 2 ? 'material' : rest[0] === 'panes' ? 'pane' : 'material'
     return { kind, project }
   }
   return { kind: 'context', project: null }

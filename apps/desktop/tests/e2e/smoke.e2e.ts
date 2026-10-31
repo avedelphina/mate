@@ -136,6 +136,24 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.match(inline[inline.indexOf('bb') + 1], /"text":"The second bb\."/)
     assert.match(inline[inline.indexOf('A **big** word here.') + 1], /"anchor":"A \*\*big\*\* word".*"text":"Over markup\."/)
 
+    // A folder is made from the rail, shows while it is empty, and a draft in it is a draft.
+    await app.press('.projects .tree-new button', '+ New folder')
+    await app.until(`!!document.querySelector('input[aria-label="Name of the new folder"]')`, 'the field for the folder')
+    await app.page(`(() => {
+      const field = document.querySelector('input[aria-label="Name of the new folder"]')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, 'draft/contracts')
+      field.dispatchEvent(new Event('input', { bubbles: true }))
+      field.form.requestSubmit()
+    })()`)
+    await app.until(`[...document.querySelectorAll('.projects .tree summary')].some((each) => each.textContent === 'contracts')`, 'the new folder in the tree')
+    await writeFile(path.join(project, 'draft/contracts/nda.md'), '# NDA\n\nBoth sides keep it secret.\n')
+    await app.page(`window.dispatchEvent(new Event('focus'))`)
+    await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'nda.md')`, 'the draft in the folder')
+    await app.press('.projects .tree .row', 'nda.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('contracts/nda.md') && !!document.querySelector('.center .bar button.quiet')`, 'the draft in the folder, open for review')
+    await app.press('.projects .tree .row', 'document.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
+
     // A file of text that is not markdown is reviewed too, drawn as it is. Its comment goes beside it, and it stays as it was.
     const xml = '<Sysmon schemaversion="4.90">\n  <ProcessCreate onmatch="exclude"/>\n</Sysmon>\n'
     await writeFile(path.join(project, 'sysmon.xml'), xml)

@@ -27,6 +27,8 @@ export type DocumentView = {
   panes: Pane[]
   /** Every file of the project, by its path from the project folder. The window draws them as a tree. */
   files: string[]
+  /** Every folder of the project, empty ones too, by its path from the project folder. */
+  folders: string[]
   /** Where the drafts are, from the project folder: `draft/`, or nothing when they are where they lie. */
   draftsIn: string
 }
@@ -227,6 +229,17 @@ async function listFiles(dir: string, base = ''): Promise<string[]> {
   return found.sort()
 }
 
+/** Every folder under a folder, empty ones too, by its path from that folder. Hidden names are left out, and a link is not followed. */
+async function listFolders(dir: string, base = ''): Promise<string[]> {
+  const found: string[] = []
+  for (const entry of await readdir(path.join(dir, base), { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') continue
+    const relative = base ? `${base}/${entry.name}` : entry.name
+    found.push(relative, ...(await listFolders(dir, relative)))
+  }
+  return found.sort()
+}
+
 /** A path that stays inside root. Rejects absolute paths and anything that climbs out. */
 export function resolveInside(root: string, ...parts: string[]): string {
   const target = path.resolve(root, ...parts)
@@ -268,7 +281,8 @@ export async function draftsOf(projectDir: string): Promise<string[]> {
   const home = draftHome(projectDir)
   // The comments on a file that is not markdown are kept beside it. They are not a draft of their own.
   const beside = (name: string) => name.toLowerCase().endsWith('.comments.md') && existsSync(path.join(home, name.slice(0, -'.comments.md'.length)))
-  if (home !== projectDir) return (await listMarkdown(home)).filter((each) => !beside(each))
+  // A folder inside draft/ keeps drafts too.
+  if (home !== projectDir) return (await listFiles(home)).filter((each) => each.toLowerCase().endsWith('.md') && !beside(each))
   return (await listFiles(projectDir)).filter(
     (each) =>
       each.toLowerCase().endsWith('.md') && each !== 'intents.md' && each !== 'principles.md' && !each.startsWith('panes/') && !beside(each)
@@ -352,7 +366,7 @@ export async function readProject(contextDir: string, project: string, file?: st
     }))
   )
   const draftsIn = draftDir === projectDir ? '' : 'draft/'
-  return { project, drafts, draftsIn, file: chosen, ...document, intents, principles, panes, files: await listFiles(projectDir) }
+  return { project, drafts, draftsIn, file: chosen, ...document, intents, principles, panes, files: await listFiles(projectDir), folders: await listFolders(projectDir) }
 }
 
 /** Read the draft, change it, and put it back whole. */
@@ -416,6 +430,31 @@ export function writeDraft(contextDir: string, project: string, file: string, ba
     }
     return retype(markdown, text)
   })
+}
+
+/**
+ * Make a folder in a project. `where` is its path from the project folder, and only its last name is
+ * new: the folders before it are there already. The folders a project keeps for itself are not made
+ * here, but a folder inside draft/ is, since drafts may lie in folders.
+ */
+export async function makeFolder(contextDir: string, project: string, where: string): Promise<DocumentView> {
+  const parts = String(where).split('/').map((part) => part.trim()).filter(Boolean)
+  if (parts.length === 0 || !parts.every((part) => NAME.test(part))) {
+    throw new Error('Name the folder with letters and numbers. Spaces, dots, dashes and underscores may follow. A path goes from the project, with a slash between folders.')
+  }
+  if (KEPT.has(parts[0]) && !(parts[0] === 'draft' && parts.length > 1)) {
+    throw new Error(`A project keeps ${parts[0]}/ for itself. Name the folder otherwise.`)
+  }
+  const parent = await realInside(contextDir, 'projects', project, ...parts.slice(0, -1)).catch(() => {
+    throw new Error('The folder to put it in is not in this project.')
+  })
+  if (!(await stat(parent)).isDirectory()) throw new Error('The folder to put it in is not in this project.')
+  try {
+    await mkdir(path.join(parent, parts[parts.length - 1]))
+  } catch {
+    throw new Error('A file or folder of that name is already there.')
+  }
+  return readProject(contextDir, project)
 }
 
 /** Start a new draft in a project: a file with its title and nothing else. An existing file is never written over. */

@@ -7,6 +7,14 @@ then, minor versions may change behaviour.
 
 ## [Unreleased]
 
+### Added
+
+- *+ New folder* in the rail makes a folder in the project, such as
+  `notes` or `draft/contracts`. An empty folder shows in the tree.
+- A folder inside `draft/` keeps drafts. They are reviewed, commented and
+  published like the drafts in `draft/` itself, and a search calls them
+  proposals.
+
 ### Changed
 
 - The intents and the principles are no longer at the foot of the Review

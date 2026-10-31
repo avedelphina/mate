@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { addComment, createContext, createDraft, createProject, describeContext, importProject, listProjects, readProject, renameContext, renameProject, shapeContext, tickPane, writeSteering } from '../src/main/context.ts'
+import { addComment, createContext, createDraft, createProject, describeContext, importProject, listProjects, makeFolder, readProject, renameContext, renameProject, shapeContext, tickPane, writeSteering } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
@@ -37,7 +37,9 @@ test('a file is labelled by where it stands in the context', () => {
   assert.deepEqual(placeOf('projects/review/intents.md'), { kind: 'project', project: 'review' })
   // Only the intents and the principles steer. What came in, and what is deeper in a folder, is material.
   assert.deepEqual(placeOf('projects/review/principles.md'), { kind: 'project', project: 'review' })
-  assert.deepEqual(placeOf('projects/review/draft/deep/x.md'), { kind: 'material', project: 'review' })
+  // A folder inside draft/ keeps drafts too.
+  assert.deepEqual(placeOf('projects/review/draft/deep/x.md'), { kind: 'draft', project: 'review' })
+  assert.deepEqual(placeOf('projects/review/notes/deep/x.md'), { kind: 'material', project: 'review' })
   assert.deepEqual(placeOf('projects/review/dropbox/letter.md'), { kind: 'material', project: 'review' })
   assert.deepEqual(placeOf('projects/review/intents/AGENTS.md'), { kind: 'material', project: 'review' })
   assert.deepEqual(placeOf('projects/review/README.md'), { kind: 'material', project: 'review' })
@@ -164,6 +166,37 @@ test('a task in a pane is ticked in the file, one character, and only from the t
     await assert.rejects(tickPane(root, 'review', 'tasks.md', shown, shown.indexOf('[ ] Call')), /has changed since it was shown/)
     await assert.rejects(tickPane(root, 'review', '../intents.md', now, 0), /not in this project/)
     await assert.rejects(tickPane(root, 'review', 'missing.md', now, 0), /not in this project/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a folder is made in a project, and drafts lie in folders of draft/ as they do in draft/', async () => {
+  const root = await context()
+  try {
+    const made = await makeFolder(root, 'review', 'draft/contracts')
+    assert.ok(made.folders.includes('draft/contracts'), 'an empty folder is listed')
+    await makeFolder(root, 'review', 'notes')
+    await writeFile(path.join(root, 'projects/review/draft/contracts/nda.md'), '# NDA\n\nBoth sides keep it secret.\n')
+
+    const view = await readProject(root, 'review', 'contracts/nda.md')
+    assert.ok(view.drafts.includes('contracts/nda.md'))
+    assert.equal(view.file, 'contracts/nda.md')
+    assert.equal(placeOf('projects/review/draft/contracts/nda.md').kind, 'draft')
+    assert.equal(placeOf('projects/review/notes/a.md').kind, 'material')
+    // A comment goes into the draft in the folder, and nowhere else.
+    await addComment(root, 'review', 'contracts/nda.md', 'keep it secret', 'Which law?', 'you', 0)
+    assert.match(await readFile(path.join(root, 'projects/review/draft/contracts/nda.md'), 'utf8'), /@comment/)
+
+    // The folders a project keeps for itself are not made, a name is a name and not a path out, and nothing is made over.
+    await assert.rejects(makeFolder(root, 'review', 'draft'), /keeps draft\/ for itself/)
+    await assert.rejects(makeFolder(root, 'review', 'dropbox'), /keeps dropbox\/ for itself/)
+    await assert.rejects(makeFolder(root, 'review', 'panes/x'), /keeps panes\/ for itself/)
+    await assert.rejects(makeFolder(root, 'review', '../outside'), /Name the folder/)
+    await assert.rejects(makeFolder(root, 'review', 'missing/inside'), /not in this project/)
+    await assert.rejects(makeFolder(root, 'review', 'notes'), /already there/)
+    await assert.rejects(makeFolder(root, 'review', 'draft/contracts/nda.md'), /already there/)
+    assert.equal(existsSync(path.join(root, 'outside')), false)
   } finally {
     await rm(root, { recursive: true, force: true })
   }
