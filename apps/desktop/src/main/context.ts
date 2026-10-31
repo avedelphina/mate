@@ -3,6 +3,7 @@ import { existsSync, statSync } from 'node:fs'
 import { cp, lstat, mkdir, open, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { combine, insertComment, parseComments, readDocument, retype, separate, type Thread } from '../shared/comments'
+import { reviewableMarkdown } from '../shared/reviewable'
 import { statusOf } from '../shared/status'
 import { asText, placeOf, type Place } from './contextIndex'
 import { inRepository } from './git'
@@ -318,14 +319,16 @@ export async function draftsOf(projectDir: string): Promise<string[]> {
 const MAX_TEXT_FILE = 2 * 1024 * 1024
 
 /**
- * A file of the project that is text and not markdown, such as a CSV, an XML config or a log. It is
- * reviewed like a draft, named by its path in the project, and its comments are kept beside it in
+ * A file of the project that is text and not a draft, such as a CSV, an XML config, a log, or a markdown
+ * file outside `draft/`. It is reviewed like a draft, named by its path in the project, and its comments are kept beside it in
  * NAME.comments.md, so the file itself changes only when the reader applies a suggestion or types
  * in it. Text is told by its bytes, not its name: UTF-8, and no zero byte.
  */
 async function textFileAt(contextDir: string, project: string, file: string): Promise<{ full: string; side: string; relative: string } | null> {
-  const name = String(file)
-  if (name.toLowerCase().endsWith('.md') || isTwinned(name)) return null
+  // A leading slash says "from the project folder": a markdown file there can have the name of a draft.
+  // ponytail: a markdown file that already holds comment markers has them moved into its side file when it is written.
+  const name = String(file).replace(/^\//, '')
+  if (isTwinned(name) || (name.toLowerCase().endsWith('.md') && !reviewableMarkdown(name))) return null
   const parts = name.split('/')
   // A script is run from its card, not reviewed.
   if (parts.some((part) => part === '' || part.startsWith('.')) || parts[0] === 'scripts') return null

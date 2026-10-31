@@ -5,6 +5,17 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Changed
+
+- A markdown file that is not a draft can be reviewed. Material that came
+  in, or a file you moved out of `draft/`, opens for comments and typing
+  like any file of text: its comments are kept beside it in
+  `NAME.md.comments.md`, and the file is left as it was. Only a draft can
+  be published, and the intake (`dropbox/`), the panes, the scripts and
+  the intents and principles still open to be read.
+
 ## [0.15.1] - 2026-10-31
 
 Small fixes: a Content-Security-Policy for the window, and three things in

@@ -5,13 +5,14 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { addComment, createContext, createDraft, createProject, describeContext, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeNote, writeSteering } from '../src/main/context.ts'
+import { addComment, createContext, createDraft, createProject, describeContext, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
 import { commitContext, startRepository, uncommitted } from '../src/main/git.ts'
 import { placeOf, refreshIndex, searchIndex, tagsInUse } from '../src/main/contextIndex.ts'
 import { insertComment } from '../src/shared/comments.ts'
+import { reviewableMarkdown } from '../src/shared/reviewable.ts'
 
 async function context(): Promise<string> {
   const root = await mkdtemp(path.join(tmpdir(), 'mate-index-'))
@@ -292,6 +293,41 @@ test('the drafts that say they are final are told with the project, and a long f
     await writeFile(path.join(root, 'projects/review/draft/long.md'), `---\ntitle: ${'x'.repeat(5000)}\nstatus: final\n---\n# Long\n`)
     const view = await readProject(root, 'review')
     assert.deepEqual(view.final, ['done.md'])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a markdown file that is not a draft is reviewed too, with its comments beside it and the file left as it was', async () => {
+  const root = await context()
+  try {
+    const project = path.join(root, 'projects/review')
+    await mkdir(path.join(project, 'WEF'), { recursive: true })
+    const body = '# Design\n\nThe collector listens on 5986.\n'
+    await writeFile(path.join(project, 'WEF/design.md'), body)
+    // A draft of the same name does not take its place: a slash says the file is named from the project folder.
+    await mkdir(path.join(project, 'draft/WEF'), { recursive: true })
+    await writeFile(path.join(project, 'draft/WEF/design.md'), '# The draft\n')
+    assert.equal((await readProject(root, 'review', 'WEF/design.md')).text, '# The draft\n')
+    const view = await readProject(root, 'review', '/WEF/design.md')
+    assert.equal(view.text, body)
+
+    const commented = await addComment(root, 'review', '/WEF/design.md', 'listens on 5986', 'Which port is that for?', 'you', 0)
+    assert.equal(commented.comments.length, 1)
+    assert.equal(await readFile(path.join(project, 'WEF/design.md'), 'utf8'), body, 'the file itself is as it was')
+    assert.match(await readFile(path.join(project, 'WEF/design.md.comments.md'), 'utf8'), /Which port is that for\?/)
+    assert.equal((await readProject(root, 'review')).drafts.some((name) => name.includes('.comments.')), false)
+    // It can be typed in, and the comment stays with its passage.
+    const typed = await writeDraft(root, 'review', '/WEF/design.md', body, body.replace('5986', '5985'))
+    assert.match(await readFile(path.join(project, 'WEF/design.md'), 'utf8'), /5985/)
+    assert.equal(typed.comments.length, 1)
+
+    // Which markdown is reviewed: not the intake, the panes, the scripts, the two files that steer, or what is kept beside a file.
+    for (const yes of ['WEF/design.md', 'notes.md', '/WEF/design.md']) assert.equal(reviewableMarkdown(yes), true, yes)
+    for (const no of ['dropbox/letter.md', 'panes/tasks.md', 'scripts/README.md', 'intents.md', 'principles.md', 'a.md.notes.md', 'a.md.comments.md', 'a.txt', '.hidden/a.md']) {
+      assert.equal(reviewableMarkdown(no), false, no)
+    }
+    await assert.rejects(addComment(root, 'review', '/dropbox/letter.md', 'x', 'y', 'you', 0))
   } finally {
     await rm(root, { recursive: true, force: true })
   }

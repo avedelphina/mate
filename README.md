@@ -87,8 +87,12 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   *Context* the rest of the context that is not a project, such as its
   own dropbox.
 - **The files of a project.** The rail shows them as a tree. A draft
-  opens for review, any other markdown file opens to be read, and a file
-  Mate cannot draw is shown in the file manager. *+ New folder* makes a
+  opens for review. So does any other markdown file of the project, such
+  as material that came in: its comments are kept beside it, in
+  `NAME.md.comments.md`, and the file itself is left as it was. Only a
+  draft can be published. The dropbox, the panes, the scripts and the
+  intents and principles open to be read, and a file Mate cannot draw is
+  shown in the file manager. *+ New folder* makes a
   folder in the project: `notes`, or `draft/contracts`. A folder inside
   `draft/` keeps drafts, and they are reviewed and published as the others
   are. A folder of the drafts has a *+* that starts a draft in it. A file

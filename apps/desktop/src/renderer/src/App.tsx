@@ -4,6 +4,7 @@ import { BarButton } from './BarButton'
 import { Boundary } from './Boundary'
 import { Palette, type Act } from './Palette'
 import { fileNamed } from '../../shared/named'
+import { reviewableMarkdown } from '../../shared/reviewable'
 import { statusOf } from '../../shared/status'
 import { tagsOf } from '../../shared/tags'
 import { isTwinned } from '../../shared/twin'
@@ -663,14 +664,14 @@ export function App() {
       const inDrafts = (path: string) => next.draftsIn !== '' && path.startsWith(next.draftsIn)
       const landed = [to, name].filter(Boolean).join('/')
       if (inDrafts(from) !== inDrafts(landed)) {
-        setNotice(inDrafts(landed) ? `${name} is a draft now.` : `${name} is material now, and no longer a draft.`)
+        setNotice(inDrafts(landed) ? `${name} is a draft now, and can be published.` : `${name} is material now. It is reviewed as before, but it is no longer a draft and cannot be published.`)
       }
       if (onPage && (onPage === from || onPage.startsWith(`${from}/`))) {
         const now = `${landed}${onPage.slice(from.length)}`
         const draft = now.startsWith(next.draftsIn) ? now.slice(next.draftsIn.length) : null
         if (draft !== null && next.drafts.includes(draft)) void openProject(project, draft)
-        else if (/\.md$/i.test(now) || isTwinned(now)) void read(`projects/${project}/${now}`)
-        else void openText(now)
+        else if (isTwinned(now) || (/\.md$/i.test(now) && !reviewableMarkdown(now))) void read(`projects/${project}/${now}`)
+        else void openText(/\.md$/i.test(now) ? `/${now}` : now)
       }
     } catch (caught) {
       setError(reason(caught, 'Could not move that.'))
@@ -741,7 +742,7 @@ export function App() {
   }
 
   /** The open document's path from the context: a draft where its project keeps drafts, a text file where it lies. */
-  const documentPath = () => (view && file !== null ? `projects/${view.project}/${textFile ? file : `${view.draftsIn}${file}`}` : null)
+  const documentPath = () => (view && file !== null ? `projects/${view.project}/${outside ? file.replace(/^\//, '') : `${view.draftsIn}${file}`}` : null)
 
   /** Open the document in the reader's editor, at the active comment, else at the selection, else at its top. */
   async function openInEditor() {
@@ -766,6 +767,8 @@ export function App() {
     // A draft opens for review: in draft/, or where it lies in a project that keeps its drafts there.
     const draft = path.startsWith(view.draftsIn) ? path.slice(view.draftsIn.length) : null
     if (draft !== null && view.drafts.includes(draft)) void openProject(view.project, draft)
+    // Any other markdown file of the project is reviewed too, with its comments beside it. Intake, panes and scripts are read.
+    else if (reviewableMarkdown(path)) void openText(`/${path}`)
     else void read(`projects/${view.project}/${path}`)
   }
 
@@ -815,7 +818,7 @@ export function App() {
     // A comment kept beside a file opens that file, with the comment's thread active.
     const beside = hit.thread ? /^projects\/([^/]+)\/(.+)\.comments\.md$/.exec(hit.path) : null
     if (beside && view?.project === beside[1]) {
-      await openText(beside[2])
+      await openText(/\.md$/i.test(beside[2]) ? `/${beside[2]}` : beside[2])
       setActive(hit.thread)
       return
     }
@@ -823,6 +826,11 @@ export function App() {
       // The draft is named from where its project keeps drafts: after draft/, or from the project folder.
       const inProject = hit.path.split('/').slice(2).join('/')
       await openProject(hit.project, inProject.startsWith('draft/') ? inProject.slice('draft/'.length) : inProject)
+      setActive(hit.thread)
+    } else if (hit.project && hit.path.toLowerCase().endsWith('.md') && reviewableMarkdown(hit.path.split('/').slice(2).join('/'))) {
+      // Material that is markdown is reviewed like the rest of its project.
+      if (view?.project !== hit.project) await openProject(hit.project)
+      await openText(`/${hit.path.split('/').slice(2).join('/')}`)
       setActive(hit.thread)
     } else {
       await read(hit.path)
@@ -949,7 +957,9 @@ export function App() {
     })
 
   // The open document is a file of the project that is not markdown: it is drawn as it is, and is not published.
+  // Text that is not markdown is drawn as it is. A file that is not a draft is named from the project folder, and a markdown one with a slash before it.
   const textFile = file !== null && !file.toLowerCase().endsWith('.md')
+  const outside = file !== null && (textFile || file.startsWith('/'))
 
   const passages: Passage[] = []
   // The threads belong to the draft. A file that is only read has none.
@@ -969,7 +979,7 @@ export function App() {
   // The file on the page, from the project folder, when it can have a note: a file of the open project that is not hidden and is not itself a comment file or a note.
   const noteTarget = (() => {
     if (!view) return null
-    const target = reading ? (reading.project === view.project ? reading.path.slice(`projects/${view.project}/`.length) : null) : file === null ? null : textFile ? file : `${view.draftsIn}${file}`
+    const target = reading ? (reading.project === view.project ? reading.path.slice(`projects/${view.project}/`.length) : null) : file === null ? null : outside ? file.replace(/^\//, '') : `${view.draftsIn}${file}`
     return target && !/\.(comments|notes)\.md$/i.test(target) && !target.split('/').some((part) => part.startsWith('.')) ? target : null
   })()
   const shown = pane ? 'pane' : tab === 'agent' && !agentOnPage ? 'agent' : tab === 'notes' && noteTarget ? 'notes' : 'review'
@@ -1233,7 +1243,7 @@ export function App() {
       if (!agentOnPage) add('Agent', 'Show', () => setTab('agent'))
       for (const each of view.panes) add(each.name.replace(/\.md$/, ''), 'Show pane', () => setTab(`pane:${each.name}`))
       if (file !== null && typing === null && !reading) add('Edit this draft', 'Do', edit)
-      if (file !== null && !reading && !textFile) add('Publish this draft…', 'Do', () => setPublishing(publishName(file)))
+      if (file !== null && !reading && !outside) add('Publish this draft…', 'Do', () => setPublishing(publishName(file)))
       add('New draft…', 'Do', () => (setNamingIn(''), setNaming('')))
       if (inTree && !/^(draft|dropbox|panes|scripts|intents\.md|principles\.md)$/.test(inTree) && !/^(panes|scripts)\//.test(inTree) && !/\.(comments|notes)\.md$/i.test(inTree)) {
         add('Move this file to…', 'Do', () => setMoving({ from: inTree, to: '' }))
@@ -1269,7 +1279,7 @@ export function App() {
   })
 
   // Where the page is in the tree of the open project, when it is in it at all.
-  const inTree = reading ? (reading.project === project ? reading.path.split('/').slice(2).join('/') : null) : file && (textFile ? file : `${view?.draftsIn ?? ''}${file}`)
+  const inTree = reading ? (reading.project === project ? reading.path.split('/').slice(2).join('/') : null) : file && (outside ? file.replace(/^\//, '') : `${view?.draftsIn ?? ''}${file}`)
 
   return (
     <div
@@ -1684,7 +1694,7 @@ export function App() {
                     <BarButton icon="history" label="History" title="What changed since the last commit, and each commit that changed it" onClick={() => openHistory()} />
                   )}
                   <BarButton icon="edit" label="Edit" onClick={edit} />
-                  {!textFile && <BarButton icon="publish" label="Publish…" fit={statusOf(view?.text ?? '') === 'final'} title={statusOf(view?.text ?? '') === 'final' ? 'The draft is final. Make it a document of the shelf, which every project of the context reads as true.' : 'Make this draft a document of the shelf, which every project of the context reads as true.'} onClick={() => setPublishing(publishName(file))} />}
+                  {!outside && <BarButton icon="publish" label="Publish…" fit={statusOf(view?.text ?? '') === 'final'} title={statusOf(view?.text ?? '') === 'final' ? 'The draft is final. Make it a document of the shelf, which every project of the context reads as true.' : 'Make this draft a document of the shelf, which every project of the context reads as true.'} onClick={() => setPublishing(publishName(file))} />}
                 </>
               ) : (
                 <>

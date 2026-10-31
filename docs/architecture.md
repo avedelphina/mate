@@ -826,8 +826,14 @@ publishing. The handler refuses it while an agent works in the context.
 The rows are dragged with `text/x-mate-path`, a type of ours, so a file
 dropped from outside is not taken for one.
 
-A draft opens for review. Any other markdown file opens to be read, as
-it does from a search. The project stays open while the file is read:
+A draft opens for review. So does any other markdown file of the project
+(`reviewableMarkdown` in `shared/reviewable.ts`): it is reviewed as a file
+of text is, with its comments beside it and the file left as it was, and a
+slash before its path (`/WEF/design.md`) says it is named from the project
+folder, since a draft can have the same name. It cannot be published: only
+a draft can, so a file moved into `draft/` becomes publishable. The
+dropbox, `panes/`, `scripts/`, the intents and principles, and what is kept
+beside a file open to be read, as a file does from a search. The project stays open while the file is read:
 the margin keeps its tabs, and the agent keeps its session. A file that
 is not markdown is named in the tree, and a click shows its card, with
 what can be done with it, and Show it in Finder for the reader to open it

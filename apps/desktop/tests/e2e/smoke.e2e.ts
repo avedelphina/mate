@@ -198,6 +198,21 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 
+    // A markdown file that is not a draft is reviewed too. Its comment is kept beside it, and it cannot be published.
+    const material = '# Material\n\nThe collector listens here.\n'
+    await writeFile(path.join(project, 'material.md'), material)
+    await app.page(`window.dispatchEvent(new Event('focus'))`)
+    await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'material.md')`, 'the material in the tree')
+    await app.press('.projects .tree .row', 'material.md')
+    await app.until(`document.querySelector('.center .bar')?.textContent.includes('material.md') && !!document.querySelector('.page')`, 'the material open for review')
+    assert.equal(await app.page(`[...document.querySelectorAll('.center .bar button')].map((each) => each.textContent.trim()).join()`), 'Open in editor,Edit')
+    await span('collector', 'collector')
+    await note('Which port?')
+    assert.equal(await readFile(path.join(project, 'material.md'), 'utf8'), material, 'the file is as it was')
+    assert.match(await readFile(path.join(project, 'material.md.comments.md'), 'utf8'), /Which port\?/)
+    await app.press('.projects .tree .row', 'document.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
+
     // A file of text that is not markdown is reviewed too, drawn as it is. Its comment goes beside it, and it stays as it was.
     const xml = '<Sysmon schemaversion="4.90">\n  <ProcessCreate onmatch="exclude"/>\n</Sysmon>\n'
     await writeFile(path.join(project, 'sysmon.xml'), xml)
