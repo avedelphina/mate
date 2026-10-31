@@ -148,6 +148,17 @@ button.wide { width: 100%; }
 .center .bar > .acts, .center .bar > .tags, .center .bar > .kind { flex: none; overflow: visible; }
 .center .bar > .tags { margin-left: 4px; }
 .center .bar button { flex: none; white-space: nowrap; }
+/* When the page is narrow its buttons are pictures. The page is the container, not the window: the margin and the rail take their share. */
+.center { container-type: inline-size; }
+.act { display: inline-flex; align-items: center; gap: 5px; }
+.act .icon { display: none; }
+@container (max-width: 640px) {
+  .center .bar .act .label { display: none; }
+  .center .bar .act .icon { display: block; }
+  .center .bar .acts { gap: 0; }
+  /* The project and its slash go: a few letters of the name say nothing, and the file keeps the room. */
+  .center .bar > .meta { display: none; }
+}
 .bar .acts > .meta { margin-right: 6px; font-weight: 400; }
 .tree-new { margin: 0 0 6px 13px; padding-left: 4px; border-left: 1px solid var(--line); }
 .tree-new .row { height: 24px; padding: 0 8px 0 24px; border-radius: 5px; color: var(--soft); font-size: 12px; line-height: 24px; }

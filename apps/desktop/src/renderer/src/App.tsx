@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from 'react'
 import { Agent } from './Agent'
+import { BarButton } from './BarButton'
 import { Boundary } from './Boundary'
 import { Palette, type Act } from './Palette'
 import { fileNamed } from '../../shared/named'
@@ -1588,16 +1589,12 @@ export function App() {
                 </form>
               ) : typing === null ? (
                 <>
-                  <button className="quiet" title="Open it in your editor, at the comment or the selection" onClick={() => void openInEditor()}>
-                    Open in editor
-                  </button>
+                  <BarButton icon="editor" label="Open in editor" title="Open it in your editor, at the comment or the selection" onClick={() => void openInEditor()} />
                   {trustedHere && (
-                    <button className="quiet" title="What changed since the last commit, and each commit that changed it" onClick={() => openHistory()}>
-                      History
-                    </button>
+                    <BarButton icon="history" label="History" title="What changed since the last commit, and each commit that changed it" onClick={() => openHistory()} />
                   )}
-                  <button className="quiet" onClick={edit}>Edit</button>
-                  {!textFile && <button className="quiet" title="Make this draft a document of the shelf" onClick={() => setPublishing(file)}>Publish…</button>}
+                  <BarButton icon="edit" label="Edit" onClick={edit} />
+                  {!textFile && <BarButton icon="publish" label="Publish…" title="Make this draft a document of the shelf" onClick={() => setPublishing(file)} />}
                 </>
               ) : (
                 <>

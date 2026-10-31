@@ -13,6 +13,9 @@ then, minor versions may change behaviour.
   longer wraps and spills over the top: the names give way, with an
   ellipsis, before the buttons do, and a name shows in full when you rest
   the pointer on it.
+- When the page is narrow, *Open in editor*, *History*, *Edit* and
+  *Publish…* become pictures, and the project name leaves the bar so the
+  file name keeps the room. Each still has its name as a tooltip.
 
 ## [0.14.0] - 2026-10-31
 
