@@ -7,6 +7,7 @@ Read these in this order if you are new to the project.
 3. [roadmap.md](roadmap.md): the order Mate grows in. Each step is usable on its own. It records what is built and what is not.
 4. [mvp.md](mvp.md): the first slice, its checks, what was verified by hand, and the known limits at the time. Kept as history.
 5. [brief-review.md](brief-review.md): the working brief for the review slice. Kept as history; it is written to a developer, not a user.
+6. [review-2026-10-12.md](review-2026-10-12.md): a review of the whole repository at 0.3.0, with what is fixed and what is still open at 0.11.0.
 
 Other documents:
 
