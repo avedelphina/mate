@@ -9,6 +9,7 @@ import { History } from './History'
 import { Question, type Judged } from './Question'
 import { Rendered, type Passage } from './Rendered'
 import { Settings, UpdateNotice } from './Settings'
+import { Steering } from './Steering'
 import { Tree } from './Tree'
 import { asked, filled } from '../../shared/run'
 import './styles.css'
@@ -867,6 +868,16 @@ export function App() {
       // The pane may have been written meanwhile. Show what the file holds now.
       window.mate.openProject(view.project, view.file ?? undefined).then(setView, () => {})
     })
+  }
+
+  /** Save the intents or the principles the reader typed. The window shows what the file holds after. */
+  async function steer(name: 'intents' | 'principles', base: string, text: string) {
+    if (!view) return
+    try {
+      setView(await window.mate.writeSteering(view.project, name, base, text, view.file ?? undefined))
+    } catch (caught) {
+      throw new Error(reason(caught, 'Could not save.'))
+    }
   }
 
   /** A pane says its own words to the agent, in the session that is open. The words are the ones on the button. */
@@ -1737,10 +1748,10 @@ export function App() {
             </>
           )}
           {shown === 'review' && view?.intents && (
-            <details open><summary>Intents</summary><div className="prose"><Boundary what="The intents" of={view.intents}><Rendered text={view.intents} /></Boundary></div></details>
+            <Steering key={`intents ${view.project}`} title="Intents" text={view.intents} onSave={(base, text) => steer('intents', base, text)} />
           )}
           {shown === 'review' && view?.principles && (
-            <details open><summary>Principles</summary><div className="prose"><Boundary what="The principles" of={view.principles}><Rendered text={view.principles} /></Boundary></div></details>
+            <Steering key={`principles ${view.project}`} title="Principles" text={view.principles} onSave={(base, text) => steer('principles', base, text)} />
           )}
         </div>
       </aside>

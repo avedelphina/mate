@@ -115,8 +115,9 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   it is: *Shelf* (what is true now), *Proposal*, *Project file*,
   *Material*, or *Pane*. The index lives in `.indexes/` and can be
   deleted at any time.
-- **Read-only files.** Shelf files, the intents and the principles open
-  to be read, not commented on.
+- **Read-only files.** Shelf files open to be read, not commented on. The
+  intents and the principles of a project are read in the margin, and
+  *Edit* under each lets you type them.
 - **Panes.** A markdown file in a project's `panes/` folder is a tab of
   the margin. An agent writes it, to show you tasks, deadlines or mail it
   reached through its own connections. You can tick a task in it, and a
@@ -453,8 +454,10 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
 - **A commit takes everything that changed in the context.** There is no
   choosing of files and no look at the difference before it. For that,
   use git.
-- **The intents and the principles are not typed in Mate.** A new project
-  gets both files with a line each. Write them in any editor.
+- **The intents and the principles of a context are not typed in Mate.** A
+  new project gets both files with a line each. A project's own are typed
+  in the margin. The ones at the root of a context, which a project
+  without its own falls back on, are written in any editor.
 - **Mate draws markdown and nothing else.** A PDF or a Word file is read
   as its plain text, without headings, tables or pictures. A scanned page
   is read off its picture, in Czech and English; Slovak reads well but

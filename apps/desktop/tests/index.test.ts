@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { addComment, createContext, createDraft, createProject, describeContext, importProject, listProjects, readProject, renameContext, renameProject, shapeContext, tickPane } from '../src/main/context.ts'
+import { addComment, createContext, createDraft, createProject, describeContext, importProject, listProjects, readProject, renameContext, renameProject, shapeContext, tickPane, writeSteering } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
@@ -164,6 +164,28 @@ test('a task in a pane is ticked in the file, one character, and only from the t
     await assert.rejects(tickPane(root, 'review', 'tasks.md', shown, shown.indexOf('[ ] Call')), /has changed since it was shown/)
     await assert.rejects(tickPane(root, 'review', '../intents.md', now, 0), /not in this project/)
     await assert.rejects(tickPane(root, 'review', 'missing.md', now, 0), /not in this project/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('the intents and the principles are written from the text the reader began from, and no other file is', async () => {
+  const root = await context()
+  try {
+    const file = path.join(root, 'projects/review/intents.md')
+    await writeFile(file, '# Intents\r\n\r\nLean on the shelf.\r\n')
+    const shown = (await readProject(root, 'review')).intents
+    // A text area gives LF. The file keeps its line endings.
+    const saved = await writeSteering(root, 'review', 'intents', shown, '# Intents\n\nLean on the shelf, then the notes.\n')
+    assert.equal(await readFile(file, 'utf8'), '# Intents\r\n\r\nLean on the shelf, then the notes.\r\n')
+    assert.match(saved.intents, /then the notes/)
+    // Written meanwhile by someone else: nothing is written over it.
+    await assert.rejects(writeSteering(root, 'review', 'intents', shown, 'Lost.\n'), /has changed since you began/)
+    assert.match(await readFile(file, 'utf8'), /then the notes/)
+    // Only these two files, and only inside the project.
+    await assert.rejects(writeSteering(root, 'review', 'tasks', '', 'x'), /Only the intents and the principles/)
+    await assert.rejects(writeSteering(root, 'review', '../intents', '', 'x'), /Only the intents and the principles/)
+    await assert.rejects(writeSteering(root, '../review', 'intents', '', 'x'))
   } finally {
     await rm(root, { recursive: true, force: true })
   }

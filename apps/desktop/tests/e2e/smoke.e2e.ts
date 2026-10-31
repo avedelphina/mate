@@ -29,6 +29,20 @@ test('the window, on the example context: a comment into the file, the tree, a p
       ['README.md', 'README.md', 'count-words.py', 'document.md*', 'intents.md', 'principles.md', 'tasks.md', 'workflow.md']
     )
 
+    // The intents are typed in the margin, by the reader. The file holds what was typed, and the margin shows it.
+    const intents = path.join(project, 'intents.md')
+    const before = await readFile(intents, 'utf8')
+    await app.press('.margin details button', 'Edit')
+    await app.until(`!!document.querySelector('.margin textarea.steer')`, 'the intents open to type in')
+    await app.page(`(() => {
+      const box = document.querySelector('.margin textarea.steer')
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(box, box.value + '\\nAdded by the test.\\n')
+      box.dispatchEvent(new Event('input', { bubbles: true }))
+    })()`)
+    await app.press('.margin details button', 'Save')
+    await app.until(`!document.querySelector('.margin textarea.steer') && document.querySelector('.margin details .prose').textContent.includes('Added by the test.')`, 'the intents saved and shown')
+    assert.equal(await readFile(intents, 'utf8'), before + '\nAdded by the test.\n')
+
     // Select a passage, comment on it, and find the comment in the file under the passage.
     const passage = 'The shelf copy stays as it was until you publish.'
     const select = (words = passage) =>

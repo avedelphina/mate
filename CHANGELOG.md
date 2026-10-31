@@ -5,6 +5,15 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- The intents and the principles of a project can be typed. In the margin,
+  *Edit* under each opens it, and *Save* writes the file. Only you can do
+  this: no agent has a way to change them. If the file was written
+  meanwhile, nothing is saved over it.
+
 ## [0.11.1] - 2026-10-31
 
 Two fixes to the door for an agent you run yourself, and the roadmap now

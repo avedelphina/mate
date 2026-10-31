@@ -37,7 +37,8 @@ import {
   shelfPath,
   takeDown,
   tickPane,
-  writeDraft
+  writeDraft,
+  writeSteering
 } from './context'
 import { refreshIndex, searchIndex, type Hit } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
@@ -671,6 +672,11 @@ app.whenReady().then(() => {
   // The reader ticks a task in a pane. One character of the pane's file changes, and no other file can.
   ipcMain.handle('pane:tick', (event, project: string, name: string, base: string, at: number, draft?: string) =>
     tickPane(requireContext(event), project, String(name), String(base), Number(at), draft)
+  )
+
+  // The intents and the principles steer an agent, so they are written from the reader's window only.
+  ipcMain.handle('steering:write', (event, project: string, name: string, base: string, text: string, draft?: string) =>
+    writeSteering(requireContext(event), project, String(name), String(base), String(text), draft)
   )
 
   // The other handler that changes the prose. It runs when the reader presses Apply, never otherwise.

@@ -212,9 +212,18 @@ another text by then, because an agent or another program wrote it,
 nothing is saved, and the reader is told. What they typed stays in the
 field.
 
-Only a draft can be typed in. The shelf, the intents, the principles
-and all other files are read. No agent can reach this path: an agent
-proposes a replacement, and the reader applies it.
+Only a draft can be typed in, and two more files: a project's intents and
+principles. The shelf and all other files are read. No agent can reach
+this path: an agent proposes a replacement, and the reader applies it.
+
+The intents and the principles are the only files that steer an agent, so
+they are typed in the margin, by the reader, with *Edit* under each.
+`writeSteering` in `context.ts` is the one path. It takes only those two
+names of the open project. Like a draft, it writes only from the text the
+reader began from, keeps the file's line endings, and writes beside the
+file and renames. The window asks for it by `steering:write`, and no agent
+tool or MCP call leads to it. The context's own `intents.md` and
+`principles.md` at its root are not typed in Mate.
 
 ## The shelf: taking down and publishing
 

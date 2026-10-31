@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld('mate', {
   },
   tickPane: (project: string, name: string, base: string, at: number, draft?: string) =>
     ipcRenderer.invoke('pane:tick', project, name, base, at, draft),
+  writeSteering: (project: string, name: string, base: string, text: string, draft?: string) =>
+    ipcRenderer.invoke('steering:write', project, name, base, text, draft),
   listShelf: () => ipcRenderer.invoke('shelf:list'),
   listContextFiles: (): Promise<string[]> => ipcRenderer.invoke('context:files'),
   takeDown: (project: string, path: string) => ipcRenderer.invoke('shelf:take', project, path),

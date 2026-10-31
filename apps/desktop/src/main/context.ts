@@ -453,6 +453,23 @@ export async function tickPane(contextDir: string, project: string, name: string
   return readProject(contextDir, project, draft)
 }
 
+/**
+ * Give a project's intents or principles the text the reader typed. They are the only files that
+ * steer an agent, so only the reader's window asks for this and no agent has a way to. `base` is the
+ * text the reader began from: a file that holds another text by now is not written over.
+ */
+export async function writeSteering(contextDir: string, project: string, name: string, base: string, text: string, draft?: string): Promise<DocumentView> {
+  if (name !== 'intents' && name !== 'principles') throw new Error('Only the intents and the principles are written here.')
+  const full = resolveInside(contextDir, 'projects', project, `${name}.md`)
+  if ((await readFile(full, 'utf8').catch(() => null)) !== base) {
+    throw new Error('The file has changed since you began to edit it. Nothing was saved. Copy what you typed, then edit again.')
+  }
+  // A text area gives LF. The file keeps the line endings it had.
+  const eol = base.includes('\r\n') ? '\r\n' : '\n'
+  await replace(contextDir, full, `projects/${project}/${name}.md`, text.replace(/\r?\n/g, eol))
+  return readProject(contextDir, project, draft)
+}
+
 /** The documents of the shelf, by their path from the shelf folder. What is true now, for every project. */
 export async function listShelf(contextDir: string): Promise<string[]> {
   const shelf = path.join(contextDir, 'shelf')

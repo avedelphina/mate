@@ -161,6 +161,7 @@ export type MateApi = {
   openProject: (project: string, file?: string) => Promise<DocumentView>
   /** Tick a task box in a pane, or clear it. `at` is where the box is in `base`, the text that was shown. */
   tickPane: (project: string, name: string, base: string, at: number, draft?: string) => Promise<DocumentView>
+  writeSteering: (project: string, name: string, base: string, text: string, draft?: string) => Promise<DocumentView>
   /** The documents of the shelf, by their path from the shelf folder. */
   listShelf: () => Promise<string[]>
   /** The files of the context outside the shelf and the projects: its dropbox, and anything else in it. */
