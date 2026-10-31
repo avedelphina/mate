@@ -5,7 +5,10 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.14.1] - 2026-10-31
+
+The bar above the page fits a long file name, and its buttons become
+pictures when the page is narrow.
 
 ### Fixed
 
