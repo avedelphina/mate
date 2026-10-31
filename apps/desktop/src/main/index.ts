@@ -26,6 +26,7 @@ import {
   realInside,
   renameContext,
   renameProject,
+  sendToProject,
   describeContext,
   editDraft,
   listContextFiles,
@@ -613,6 +614,24 @@ app.whenReady().then(() => {
   ipcMain.handle('draft:create', (event, project: string, name: string, folder?: string) =>
     createDraft(requireContext(event), project, String(name), typeof folder === 'string' ? folder : '')
   )
+  // A request to another project. The reader is asked once, in a dialog of the system that names the project it goes to.
+  ipcMain.handle('project:send', async (event, project: string, file: string, target: string, passage: string, note: string) => {
+    const contextDir = requireContext(event)
+    if (isBusy(contextDir)) throw new Error('An agent is working in this context. Send it when the agent has finished.')
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      type: 'question' as const,
+      buttons: ['Cancel', `Send to ${String(target)}`],
+      defaultId: 1,
+      cancelId: 0,
+      message: `Send this to ${String(target)}?`,
+      detail: `One file goes into the dropbox of ${String(target)}: your note and the passage you selected. Nothing else in that project changes.`
+    }
+    const { response } = window ? await dialog.showMessageBox(window, options) : await dialog.showMessageBox(options)
+    if (response !== 1) return null
+    return sendToProject(contextDir, String(project), String(file), String(target), String(passage), String(note))
+  })
+
   // A file or a folder of a project goes into another folder of it, with its comments and its note.
   ipcMain.handle('file:move', async (event, project: string, from: string, to: string) => {
     const contextDir = requireContext(event)

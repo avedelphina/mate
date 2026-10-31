@@ -124,6 +124,14 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   it is: *Shelf* (what is true now), *Proposal*, *Project file*,
   *Material*, or *Pane*. The index lives in `.indexes/` and can be
   deleted at any time.
+- **Send to project.** When a context has more than one project, a
+  selected passage has *Send to project…*. Pick the project, say what is
+  wrong and what you propose, and the system asks once, naming the project.
+  One file goes into that project's dropbox: your note, the passage as a
+  quote, and where it came from. Nothing else in that project changes. It
+  deals with it by the exits of a dropbox: pull it into the drafts, or
+  leave it outside. The file you sent it from gets a line in its note.
+  Only the passage goes, not the draft. Not while an agent works.
 - **Notes.** The *Notes* tab of the margin holds a note about the file on
   the page: what it is for, what was decided, documentation, or a
   discussion. It is a markdown file beside it, `NAME.notes.md`, which you

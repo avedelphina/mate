@@ -197,6 +197,8 @@ export type MateApi = {
   writeDraft: (project: string, file: string, base: string, text: string) => Promise<DocumentView>
   /** Start a new draft in a project. An existing file is never written over. */
   createDraft: (project: string, name: string, folder?: string) => Promise<DocumentView>
+  /** The path of the request in the other project's dropbox, or null when the reader said no. */
+  sendToProject: (project: string, file: string, target: string, passage: string, note: string) => Promise<string | null>
   moveFile: (project: string, from: string, to: string) => Promise<DocumentView>
   addComment: (
     project: string,

@@ -117,7 +117,9 @@ export function App() {
   // Where the menu sits, just under the selection, counted inside the scrolling page. Null when closed.
   const [popover, setPopover] = useState<{ left: number; top: number } | null>(null)
   // Null while the menu shows. Then what the reader picked from it, and the form is open.
-  const [mode, setMode] = useState<'comment' | 'rewrite' | 'remove' | null>(null)
+  const [mode, setMode] = useState<'comment' | 'rewrite' | 'remove' | 'send' | null>(null)
+  // The project a request goes to, while the reader writes it.
+  const [sendTo, setSendTo] = useState('')
   const composing = mode !== null
   // The on-device model, on the machines that have one. See docs/architecture.md.
   const [assist, setAssist] = useState<AssistState | null>(null)
@@ -370,11 +372,28 @@ export function App() {
     form.current += 1
   }
 
-  function compose(next: 'comment' | 'rewrite' | 'remove') {
-    setSuggestion(next === 'comment' ? null : next === 'rewrite' ? anchor : '')
+  function compose(next: 'comment' | 'rewrite' | 'remove' | 'send') {
+    setSuggestion(next === 'rewrite' ? anchor : next === 'remove' ? '' : null)
+    if (next === 'send') setSendTo((now) => (projects.includes(now) && now !== project ? now : (projects.find((each) => each !== project) ?? '')))
     setMode(next)
     // Asked each time: the model may have become ready since the window opened.
     window.mate.checkAssist().then(setAssist, () => setAssist(null))
+  }
+
+  /** Send the selected passage and a note to another project, as a request in its dropbox. The system asks first. */
+  async function sendRequest() {
+    if (!project || !sendTo || !anchor) return
+    setError(null)
+    try {
+      const sent = await window.mate.sendToProject(project, noteTarget ?? '', sendTo, anchor, text)
+      if (!sent) return
+      setNotice(`Sent to ${sendTo}, as ${sent.split('/').pop()} in its dropbox.`)
+      // The sender keeps a line about it in the note beside the file.
+      if (noteTarget) void window.mate.readNote(project, noteTarget).then(setFileNote, () => {})
+      clearComment()
+    } catch (caught) {
+      setError(reason(caught, 'Could not send it.'))
+    }
   }
 
   /** Let the on-device model write the replacement or the note. The reader still has to add it. */
@@ -1780,9 +1799,45 @@ export function App() {
               <button className="quiet" title="What else in this context is close to this passage in meaning: notes, the shelf, other drafts" onClick={nearSelection}>
                 Near it
               </button>
+              {projects.length > 1 && (
+                <button className="quiet" title="Ask another project of this context to deal with this passage. It arrives in its dropbox." onClick={() => compose('send')}>
+                  Send to project…
+                </button>
+              )}
             </div>
           )}
-          {popover && composing && (
+          {popover && mode === 'send' && (
+            <div
+              className="popover composer"
+              ref={floating}
+              style={{ ...popover, width: POPOVER_WIDTH }}
+              role="dialog"
+              aria-label="Send the selected passage to another project"
+              onKeyDown={(event) => event.key === 'Enter' && (event.metaKey || event.ctrlKey) && void sendRequest()}
+            >
+              <label className="meta">
+                To{' '}
+                <select value={sendTo} aria-label="The project to send it to" onChange={(event) => setSendTo(event.target.value)}>
+                  {projects.filter((each) => each !== project).map((each) => <option key={each} value={each}>{each}</option>)}
+                </select>
+              </label>
+              <textarea
+                aria-label="What is wrong, and what is proposed"
+                rows={3}
+                autoFocus
+                value={text}
+                placeholder="What is wrong, and what you propose. The selected passage goes with it."
+                onChange={(event) => setText(event.target.value)}
+              />
+              <footer>
+                <button className="quiet" onClick={clearComment}>Cancel</button>
+                <button className="primary" title={document.documentElement.dataset.platform === 'mac' ? '⌘↵' : 'Ctrl+Enter'} disabled={!sendTo} onClick={sendRequest}>
+                  Send…
+                </button>
+              </footer>
+            </div>
+          )}
+          {popover && composing && mode !== 'send' && (
             <div
               className="popover composer"
               ref={floating}

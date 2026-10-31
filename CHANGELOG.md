@@ -16,6 +16,11 @@ then, minor versions may change behaviour.
   moved out of `draft/` becomes material, and one moved in becomes a
   draft, and Mate says so. Nothing moves to the shelf, into or out of
   `panes/` or `scripts/`, or while an agent works in the context.
+- *Send to project…* on a selected passage asks another project of the
+  context to deal with it. The system asks once, naming the project. One
+  file goes into that project's dropbox: your note, the passage and where
+  it came from, and nothing else in that project changes. The file you
+  sent it from gets a line in its note.
 
 ## [0.14.1] - 2026-10-31
 

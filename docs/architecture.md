@@ -189,6 +189,23 @@ that it reads the note with the file and the files the note names as
 tool for this: it reads with the tools it has. The margin's *Notes* tab
 shows the note, the files it names as buttons, and the box to type it in.
 
+## A request to another project
+
+A passage selected in one project can be sent to another project of the
+same context: *Send to project…* in the menu under the selection. The
+window asks `project:send`. The system asks the reader once, in a dialog
+that names the project, and the handler refuses while an agent works in the
+context, since the guard would take the new file for the agent's.
+`sendToProject` in `context.ts` then writes one file, `from-SENDER-STAMP.md`,
+into the dropbox of the other project, by `wx`, so a file there is never
+written over, and only after the dropbox is seen to be inside the context.
+It holds front matter (`from`, `sent`), the reader's note and the passage
+as a quote, and nothing else in the other project changes. The other
+project deals with it by the exits of a dropbox. Only the passage goes: a
+request is something to read, and a whole draft is a source to bring in.
+The sender gets a line in the note beside the file the passage is in, which
+is left unsaid if that file can have no note. No agent can send one.
+
 ## The text and the anchor
 
 `readDocument` returns the text the window shows: the markers cut out and

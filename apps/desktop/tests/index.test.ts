@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { addComment, createContext, createDraft, createProject, describeContext, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, shapeContext, tickPane, writeNote, writeSteering } from '../src/main/context.ts'
+import { addComment, createContext, createDraft, createProject, describeContext, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeNote, writeSteering } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
@@ -244,6 +244,42 @@ test('a draft is started in a folder, and a file or a folder is moved with what 
     ] as const) await assert.rejects(moveEntry(root, 'review', from, to), why, `${from} -> ${to}`)
   } finally {
     await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a request goes into the dropbox of another project as one file, and the sender keeps a line about it', async () => {
+  const root = await context()
+  const outside = `${root}-outside`
+  try {
+    await createProject(root, 'regulations')
+    const sent = await sendToProject(root, 'review', 'draft/document.md', 'regulations', 'Public data may leave\nafter review.', 'The rule is too strict for the lab.')
+    assert.match(sent, /^projects\/regulations\/dropbox\/from-review-\d{8}-\d{6}\.md$/)
+    const text = await readFile(path.join(root, sent), 'utf8')
+    assert.match(text, /^---\nfrom: review\/draft\/document\.md\nsent: \d{4}-/)
+    assert.match(text, /# Request from review\n\nThe rule is too strict for the lab\.\n\n> Public data may leave\n> after review\.\n\nFrom `draft\/document\.md` in review, /)
+    // The other project is changed in its dropbox and nowhere else. A second request in the same second is another file.
+    assert.deepEqual((await readdir(path.join(root, 'projects/regulations'))).sort(), ['dropbox', 'draft', 'intents.md', 'principles.md'].sort())
+    const again = await sendToProject(root, 'review', 'draft/document.md', 'regulations', 'Another passage.', '')
+    assert.notEqual(again, sent)
+    assert.equal((await readdir(path.join(root, 'projects/regulations/dropbox'))).length, 2)
+    // The sender keeps a line in the note beside the file.
+    const note = await readFile(path.join(root, 'projects/review/draft/document.md.notes.md'), 'utf8')
+    assert.match(note, /^Sent to regulations on \d{4}-\d{2}-\d{2}: The rule is too strict for the lab\.\nSent to regulations on \d{4}-\d{2}-\d{2}\n$/)
+
+    await assert.rejects(sendToProject(root, 'review', 'draft/document.md', 'review', 'x', ''), /another project/)
+    await assert.rejects(sendToProject(root, 'review', 'draft/document.md', 'missing', 'x', ''), /not in this context/)
+    await assert.rejects(sendToProject(root, 'review', 'draft/document.md', 'regulations', '  ', 'x'), /Select the passage/)
+    await assert.rejects(sendToProject(root, 'review', 'draft/document.md', 'regulations', 'x'.repeat(20_001), ''), /too long/)
+    // A dropbox that is a link leading out of the context is not written through.
+    await createProject(root, 'lab')
+    await mkdir(outside)
+    await rm(path.join(root, 'projects/lab/dropbox'), { recursive: true, force: true })
+    await symlink(outside, path.join(root, 'projects/lab/dropbox'))
+    await assert.rejects(sendToProject(root, 'review', 'draft/document.md', 'lab', 'x', ''), /leaves the context/)
+    assert.deepEqual(await readdir(outside), [])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+    await rm(outside, { recursive: true, force: true })
   }
 })
 

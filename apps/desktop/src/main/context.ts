@@ -563,6 +563,77 @@ export async function moveEntry(contextDir: string, project: string, from: strin
   return { from: old, to: now, folder: info.isDirectory() }
 }
 
+// ponytail: a passage and a note are text for a person to read. Past this it is a file, to be brought in as a source.
+const MAX_REQUEST = 20_000
+
+/**
+ * A request to another project of the context: the reader's note and the passage they selected, as one
+ * file in that project's dropbox. Nothing else in the other project changes, a file there is never
+ * written over, and the other project deals with it by the exits of a dropbox. The sender keeps a line
+ * in the note beside the file it came from. `file` is the path of that file from the sender's folder,
+ * or empty when it can have no note. Only the reader's window asks for this, after the system has asked
+ * them, and the handler has seen that no agent works in the context.
+ */
+export async function sendToProject(
+  contextDir: string,
+  project: string,
+  file: string,
+  target: string,
+  passage: string,
+  note: string
+): Promise<string> {
+  const projects = await listProjects(contextDir)
+  if (!projects.includes(project) || !projects.includes(target)) throw new Error('That project is not in this context.')
+  if (target === project) throw new Error('Send it to another project. This is the one it is from.')
+  const quoted = String(passage).trim()
+  const words = String(note).trim()
+  if (!quoted) throw new Error('Select the passage to send.')
+  if (quoted.length > MAX_REQUEST || words.length > MAX_REQUEST) throw new Error('That is too long to send as a request. Bring it in as a source instead.')
+
+  const now = new Date()
+  const stamp = now.toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-')
+  const sent = now.toISOString().slice(0, 10)
+  const from = file ? `${project}/${file}` : project
+  const body = [
+    '---',
+    `from: ${from.replace(/\n/g, ' ')}`,
+    `sent: ${now.toISOString()}`,
+    '---',
+    `# Request from ${project}`,
+    '',
+    words,
+    '',
+    ...quoted.split('\n').map((line) => `> ${line}`.trimEnd()),
+    '',
+    `From ${file ? `\`${file}\` in ` : ''}${project}, ${sent}.`,
+    ''
+  ].join('\n')
+
+  const dropbox = path.join(await realInside(contextDir, 'projects', target), 'dropbox')
+  await mkdir(dropbox, { recursive: true })
+  const into = await realInside(contextDir, 'projects', target, 'dropbox')
+  const base = `from-${project.replace(/\s+/g, '-')}-${stamp}`
+  for (let tries = 0; ; tries += 1) {
+    const name = `${base}${tries ? `-${tries + 1}` : ''}.md`
+    try {
+      await writeFile(path.join(into, name), body, { flag: 'wx' })
+      const relative = `projects/${target}/dropbox/${name}`
+      mateWrote(contextDir, relative, Buffer.from(body))
+      // The sender remembers it, beside the file. A file that can have no note, or a note that cannot be written, does not undo the sending.
+      if (file) {
+        const kept = await readNote(contextDir, project, file).catch(() => null)
+        if (kept !== null) {
+          const line = `Sent to ${target} on ${sent}${words ? `: ${words.replace(/\s+/g, ' ').slice(0, 100)}` : ''}\n`
+          await writeNote(contextDir, project, file, kept, kept && !kept.endsWith('\n') ? `${kept}\n${line}` : kept + line).catch(() => {})
+        }
+      }
+      return relative
+    } catch (failed) {
+      if ((failed as NodeJS.ErrnoException).code !== 'EEXIST' || tries > 20) throw failed
+    }
+  }
+}
+
 /**
  * Tick a task box in a pane, or clear it. `at` is where the box is in the text the reader was
  * shown, and `base` is that text: a pane an agent has written since is not changed. The one
