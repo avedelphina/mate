@@ -24,8 +24,10 @@ export function Tree(props: {
   /** A draft is to be started in this folder. With this, a folder of the drafts has a plus. `draftsIn` is where the drafts are. */
   onNewDraft?: (folder: string) => void
   draftsIn?: string
+  /** Files that say they are final, by their path from the project. */
+  final?: string[]
 }) {
-  const { paths, folders = [], base = '', current, onOpen, onReveal, unfolded = 'draft', onMove, onNewDraft, draftsIn = 'draft/' } = props
+  const { paths, folders = [], base = '', current, onOpen, onReveal, unfolded = 'draft', onMove, onNewDraft, draftsIn = 'draft/', final = [] } = props
   const manager = document.documentElement.dataset.platform === 'mac' ? 'Finder' : 'the file manager'
   const isFile = (name: string) => paths.includes(base + name)
   // What is directly in this folder: a file, or the folder that something deeper is in.
@@ -45,8 +47,8 @@ export function Tree(props: {
             <li key={name}>
               <button
                 {...drag(full)}
-                className={current === full ? 'row active' : markdown || isTwinned(name) ? 'row' : 'row other'}
-                title={markdown ? undefined : isTwinned(name) ? 'Mate reads its text.' : `A file of text opens to be reviewed, its comments kept beside it. Any other is shown with what can be done with it, or in ${manager}.`}
+                className={`${current === full ? 'row active' : markdown || isTwinned(name) ? 'row' : 'row other'}${final.includes(full) ? ' final' : ''}`}
+                title={final.includes(full) ? 'Final: the finished document of this project' : markdown ? undefined : isTwinned(name) ? 'Mate reads its text.' : `A file of text opens to be reviewed, its comments kept beside it. Any other is shown with what can be done with it, or in ${manager}.`}
                 onClick={() => (markdown ? onOpen(full) : onReveal(full))}
               >
                 {name}
@@ -75,7 +77,7 @@ export function Tree(props: {
                   </button>
                 )}
               </summary>
-              <Tree paths={paths.filter((each) => each.startsWith(`${full}/`))} folders={folders.filter((each) => each.startsWith(`${full}/`))} base={`${full}/`} current={current} onOpen={onOpen} onReveal={onReveal} unfolded={unfolded} onMove={onMove} onNewDraft={onNewDraft} draftsIn={draftsIn} />
+              <Tree paths={paths.filter((each) => each.startsWith(`${full}/`))} folders={folders.filter((each) => each.startsWith(`${full}/`))} base={`${full}/`} current={current} onOpen={onOpen} onReveal={onReveal} unfolded={unfolded} onMove={onMove} onNewDraft={onNewDraft} draftsIn={draftsIn} final={final} />
             </details>
           </li>
         )

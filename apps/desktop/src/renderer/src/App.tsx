@@ -4,6 +4,7 @@ import { BarButton } from './BarButton'
 import { Boundary } from './Boundary'
 import { Palette, type Act } from './Palette'
 import { fileNamed } from '../../shared/named'
+import { statusOf } from '../../shared/status'
 import { tagsOf } from '../../shared/tags'
 import { isTwinned } from '../../shared/twin'
 import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran } from './env'
@@ -630,6 +631,9 @@ export function App() {
     }
   }
 
+  /** The name a draft is offered under on the shelf: its project, then its own path. Two projects do not replace each other's documents by accident. */
+  const publishName = (draft: string) => `${project ?? ''}/${draft}`.replace(/^\//, '')
+
   async function newFolder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!project || !making?.trim()) return
@@ -905,9 +909,11 @@ export function App() {
   /** The tags a document names in its front matter. A click searches the context for the tag. */
   const tagChips = (text: string) => {
     const named = [...new Set(tagsOf(text).map((each) => each.tag))]
-    if (named.length === 0) return null
+    const final = statusOf(text) === 'final'
+    if (named.length === 0 && !final) return null
     return (
       <span className="tags">
+        {final && <span className="status final" title="Final: the finished document of this project. Only the shelf is the context's truth.">Final</span>}
         {named.map((tag) => (
           <button key={tag} className="tag" title={`Every document, comment and passage with #${tag}`} onClick={() => setQuery(`#${tag}`)}>
             #{tag}
@@ -1226,7 +1232,7 @@ export function App() {
       if (!agentOnPage) add('Agent', 'Show', () => setTab('agent'))
       for (const each of view.panes) add(each.name.replace(/\.md$/, ''), 'Show pane', () => setTab(`pane:${each.name}`))
       if (file !== null && typing === null && !reading) add('Edit this draft', 'Do', edit)
-      if (file !== null && !reading && !textFile) add('Publish this draft…', 'Do', () => setPublishing(file))
+      if (file !== null && !reading && !textFile) add('Publish this draft…', 'Do', () => setPublishing(publishName(file)))
       add('New draft…', 'Do', () => (setNamingIn(''), setNaming('')))
       if (inTree && !/^(draft|dropbox|panes|scripts|intents\.md|principles\.md)$/.test(inTree) && !/^(panes|scripts)\//.test(inTree) && !/\.(comments|notes)\.md$/i.test(inTree)) {
         add('Move this file to…', 'Do', () => setMoving({ from: inTree, to: '' }))
@@ -1434,6 +1440,7 @@ export function App() {
                         paths={view.files}
                         folders={view.folders}
                         onMove={moveTo}
+                        final={view.final.map((each) => `${view.draftsIn}${each}`)}
                         draftsIn={view.draftsIn}
                         onNewDraft={(folder) => (setNamingIn(folder), setNaming(''))}
                         current={inTree}
@@ -1676,7 +1683,7 @@ export function App() {
                     <BarButton icon="history" label="History" title="What changed since the last commit, and each commit that changed it" onClick={() => openHistory()} />
                   )}
                   <BarButton icon="edit" label="Edit" onClick={edit} />
-                  {!textFile && <BarButton icon="publish" label="Publish…" title="Make this draft a document of the shelf" onClick={() => setPublishing(file)} />}
+                  {!textFile && <BarButton icon="publish" label="Publish…" fit={statusOf(view?.text ?? '') === 'final'} title={statusOf(view?.text ?? '') === 'final' ? 'The draft is final. Make it a document of the shelf, which every project of the context reads as true.' : 'Make this draft a document of the shelf, which every project of the context reads as true.'} onClick={() => setPublishing(publishName(file))} />}
                 </>
               ) : (
                 <>

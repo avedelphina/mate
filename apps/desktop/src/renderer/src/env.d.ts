@@ -28,6 +28,8 @@ export type DocumentView = {
   /** Every file of the project, by its path from the project folder. */
   files: string[]
   folders: string[]
+  /** The drafts that say `status: final`. */
+  final: string[]
   /** Where the drafts are, from the project folder: `draft/`, or nothing when they are where they lie. */
   draftsIn: string
 }

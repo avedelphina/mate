@@ -189,6 +189,18 @@ that it reads the note with the file and the files the note names as
 tool for this: it reads with the tools it has. The margin's *Notes* tab
 shows the note, the files it names as buttons, and the box to type it in.
 
+## Final
+
+`status: final` in the front matter says a draft is its project's finished
+document (`statusOf` in `shared/status.ts`). Nothing else keeps it.
+`readProject` tells the window which drafts say so (`final`), from the
+first 4 KB of each, so a long front matter is not seen. The bar shows a
+*Final* mark and the tree a check. It changes no rule: a final draft is not
+the shelf, and the agent is told so in the same words. *Publish…* is on
+every draft, drawn in the accent colour on a final one, and the name it
+suggests starts with the project's, so the shelf shows where a document
+came from.
+
 ## A request to another project
 
 A passage selected in one project can be sent to another project of the

@@ -21,6 +21,17 @@ then, minor versions may change behaviour.
   file goes into that project's dropbox: your note, the passage and where
   it came from, and nothing else in that project changes. The file you
   sent it from gets a line in its note.
+- A draft can say it is final, with `status: final` in its front matter.
+  The bar shows *Final* and the tree a check. It means the finished
+  document of its project, not the truth of the context: only the shelf
+  is that. An agent is told which drafts are final, and *Publish…* is
+  drawn plainly on one.
+
+### Changed
+
+- The name offered when a draft is published starts with its project, as
+  `Project/draft`, so two projects do not replace each other's shelf
+  documents by accident. A name you type still wins.
 
 ## [0.14.1] - 2026-10-31
 

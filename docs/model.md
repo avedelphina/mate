@@ -26,7 +26,10 @@ Context knowledge is the shelf. Projects treat it as the current reference.
 It changes only when someone publishes.
 
 Project knowledge is the work: drafts, comments, findings. It may be
-unfinished or wrong. Other projects do not treat it as true.
+unfinished or wrong. Other projects do not treat it as true. A draft can
+say it is final, in its front matter as `status: final`: that is the
+project's own finished result. It is still not the context's truth, which
+only the shelf is. Most projects never need the shelf.
 
 Publishing turns a draft into the shelf copy. Saving does not. A newer
 draft never wins because it is newer. The copy a publish replaces is kept
@@ -38,8 +41,9 @@ keeps its own, and stays what is true.
 
 ## What a project holds
 
-- `draft/` holds the documents being written and reviewed. They are
-  proposals. A project with no `draft/` folder, such as a repository
+- `draft/` holds the documents being written and reviewed. They are the
+  project's own work, and proposals against the shelf. Folders inside it
+  keep drafts too. A project with no `draft/` folder, such as a repository
   brought in as it is, has its markdown files as its drafts, where they
   lie, but for the two files that steer it and its panes.
 - `intents.md` and `principles.md` steer the project.

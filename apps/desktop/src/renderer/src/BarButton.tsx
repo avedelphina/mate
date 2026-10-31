@@ -16,10 +16,10 @@ const PATHS: Record<string, ReactNode> = {
  * A button of the bar over the page. It has its words, and when the page is narrow the words give
  * way to a picture (see `.act` in styles.css). The words stay as its name for a screen reader.
  */
-export function BarButton(props: { icon: keyof typeof PATHS; label: string; title?: string; onClick: () => void }) {
-  const { icon, label, title, onClick } = props
+export function BarButton(props: { icon: keyof typeof PATHS; label: string; title?: string; onClick: () => void; fit?: boolean }) {
+  const { icon, label, title, onClick, fit = false } = props
   return (
-    <button className="quiet act" title={title ?? label} aria-label={label} onClick={onClick}>
+    <button className={fit ? 'quiet act fit' : 'quiet act'} title={title ?? label} aria-label={label} onClick={onClick}>
       <svg className="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         {PATHS[icon]}
       </svg>

@@ -283,6 +283,20 @@ test('a request goes into the dropbox of another project as one file, and the se
   }
 })
 
+test('the drafts that say they are final are told with the project, and a long front matter is not read', async () => {
+  const root = await context()
+  try {
+    await writeFile(path.join(root, 'projects/review/draft/done.md'), '---\ntags: a\nstatus: final\n---\n# Done\n')
+    await writeFile(path.join(root, 'projects/review/draft/open.md'), '---\nstatus: draft\n---\n# Open\n')
+    await writeFile(path.join(root, 'projects/review/draft/body.md'), '# Not front matter\n\nstatus: final\n')
+    await writeFile(path.join(root, 'projects/review/draft/long.md'), `---\ntitle: ${'x'.repeat(5000)}\nstatus: final\n---\n# Long\n`)
+    const view = await readProject(root, 'review')
+    assert.deepEqual(view.final, ['done.md'])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('a file has a note beside it, written from the text the reader began from, and it is material and not a draft', async () => {
   const root = await context()
   try {

@@ -132,6 +132,14 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   deals with it by the exits of a dropbox: pull it into the drafts, or
   leave it outside. The file you sent it from gets a line in its note.
   Only the passage goes, not the draft. Not while an agent works.
+- **Final.** A draft says it is final in its front matter, as
+  `status: final`. The bar and the tree show it. It means the finished
+  document of its project, not the truth of the context: only the shelf is
+  that. *Publish…* is for sending a document on to the shelf, which every
+  project reads as what is true, and it is offered most plainly on a
+  final draft. The name it suggests starts with the project's name, so two
+  projects do not replace each other's documents by accident. An agent is
+  told which drafts are final.
 - **Notes.** The *Notes* tab of the margin holds a note about the file on
   the page: what it is for, what was decided, documentation, or a
   discussion. It is a markdown file beside it, `NAME.notes.md`, which you

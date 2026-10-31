@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, statSync } from 'node:fs'
-import { cp, lstat, mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { cp, lstat, mkdir, open, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { combine, insertComment, parseComments, readDocument, retype, separate, type Thread } from '../shared/comments'
+import { statusOf } from '../shared/status'
 import { asText, placeOf, type Place } from './contextIndex'
 import { inRepository } from './git'
 import { mateWrote } from './guard'
@@ -29,6 +30,8 @@ export type DocumentView = {
   files: string[]
   /** Every folder of the project, empty ones too, by its path from the project folder. */
   folders: string[]
+  /** The drafts that say `status: final` in their front matter: their project's finished documents. */
+  final: string[]
   /** Where the drafts are, from the project folder: `draft/`, or nothing when they are where they lie. */
   draftsIn: string
 }
@@ -229,6 +232,25 @@ async function listFiles(dir: string, base = ''): Promise<string[]> {
   return found.sort()
 }
 
+// ponytail: the front matter is looked for in the first 4 KB of each draft. A longer one is not seen. Read it whole when that is wanted.
+const META_BYTES = 4096
+
+/** The drafts whose front matter says `status: final`. Only the start of each is read. */
+async function finalOf(home: string, drafts: string[]): Promise<string[]> {
+  const final: string[] = []
+  for (const name of drafts) {
+    const handle = await open(path.join(home, name), 'r').catch(() => null)
+    if (!handle) continue
+    try {
+      const { bytesRead, buffer } = await handle.read(Buffer.alloc(META_BYTES), 0, META_BYTES, 0)
+      if (statusOf(buffer.toString('utf8', 0, bytesRead)) === 'final') final.push(name)
+    } finally {
+      await handle.close()
+    }
+  }
+  return final
+}
+
 /** Every folder under a folder, empty ones too, by its path from that folder. Hidden names are left out, and a link is not followed. */
 async function listFolders(dir: string, base = ''): Promise<string[]> {
   const found: string[] = []
@@ -404,7 +426,7 @@ export async function readProject(contextDir: string, project: string, file?: st
     }))
   )
   const draftsIn = draftDir === projectDir ? '' : 'draft/'
-  return { project, drafts, draftsIn, file: chosen, ...document, intents, principles, panes, files: await listFiles(projectDir), folders: await listFolders(projectDir) }
+  return { project, drafts, draftsIn, file: chosen, ...document, intents, principles, panes, files: await listFiles(projectDir), folders: await listFolders(projectDir), final: await finalOf(draftDir, drafts) }
 }
 
 /** Read the draft, change it, and put it back whole. */

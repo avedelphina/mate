@@ -155,11 +155,13 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 
     // The tags in a document's front matter show in its bar and in the rail, and a click searches for them.
-    await writeFile(path.join(project, 'draft/tagged.md'), '---\ntags: alpha, beta\n---\n# Tagged\n\nText.\n')
+    await writeFile(path.join(project, 'draft/tagged.md'), '---\ntags: alpha, beta\nstatus: final\n---\n# Tagged\n\nText.\n')
     await app.page(`window.dispatchEvent(new Event('focus'))`)
     await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'tagged.md')`, 'the tagged draft in the tree')
     await app.press('.projects .tree .row', 'tagged.md')
     await app.until(`${names('.center .bar .tag')}.join() === '#alpha,#beta'`, 'its tags in the bar')
+    await app.until(`document.querySelector('.center .bar .status.final')?.textContent === 'Final' && ${names('.projects .tree .row.final')}.join() === 'tagged.md*'`, 'its status, in the bar and in the tree')
+    assert.equal(await app.page(`document.querySelector('.center .bar button.act.fit') !== null`), true)
     await app.until(`[...document.querySelectorAll('.tag-list .tag')].some((each) => each.textContent.startsWith('#alpha'))`, 'the tags in use, in the rail')
     await app.press('.center .bar .tag', '#alpha')
     await app.until(`document.querySelector('input.search').value === '#alpha' && document.querySelector('.rail').textContent.includes('Tagged')`, 'the search for the tag finds the draft')
@@ -273,7 +275,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
 
     // Publishing asks for a name on the shelf, and offers the ones that are there. The system asks once more, so it stops here.
     await app.press('.center .bar button', 'Publish…')
-    await app.until(`document.querySelector('.publish input')?.value === 'document.md'`, 'the name to publish under')
+    await app.until(`document.querySelector('.publish input')?.value === 'document-review/document.md'`, 'the name to publish under, which starts with the project')
     assert.deepEqual(await app.page(`[...document.querySelectorAll('#shelf-names option')].map((each) => each.value)`), ['README.md'])
     await app.press('.publish button', 'Cancel')
 
