@@ -379,15 +379,17 @@ const turns = new Map<string, { session: Session; finished: Promise<Session>; st
 /** The agents that stay between turns, by session. See acp.ts. They end with the app. */
 const live = new Map<string, Acp>()
 /** What Hermes offers to think with. Asked once for each run of the app, when the reader first opens the choice. */
-let offered: Promise<Models> | null = null
+const offered = new Map<'hermes' | 'kimi', Promise<Models>>()
 
 /**
- * The models Hermes on this computer offers. Hermes is started for the question in a folder that
- * is nobody's, so it reads no context's instruction files, and it is sent away with the answer.
+ * The models Hermes or Kimi on this computer offers. The agent is started for the question in a folder
+ * that is nobody's, so it reads no context's instruction files, and it is sent away with the answer.
  */
-export function listModels(): Promise<Models> {
-  if (offered) return offered
-  const asked = Acp.start(AGENTS.hermes.command, AGENTS.hermes.acp!, tmpdir(), agentEnvironment())
+export function listModels(agent: 'hermes' | 'kimi' = 'hermes'): Promise<Models> {
+  if (agent !== 'hermes' && agent !== 'kimi') throw new Error('That agent offers no models.')
+  const kept = offered.get(agent)
+  if (kept) return kept
+  const asked = Acp.start(AGENTS[agent].command, AGENTS[agent].acp!, tmpdir(), agentEnvironment())
   const late = setTimeout(() => asked.close(), 30_000)
   const found = asked.ready
     .then(() => asked.models)
@@ -395,12 +397,13 @@ export function listModels(): Promise<Models> {
       clearTimeout(late)
       asked.close()
     })
-  // A failure is not kept: the next time the reader looks, Hermes is asked again.
-  found.catch(() => (offered = null))
-  return (offered = found)
+  // A failure is not kept: the next time the reader looks, the agent is asked again.
+  found.catch(() => offered.delete(agent))
+  offered.set(agent, found)
+  return found
 }
 
-// ponytail: a model and an effort for Hermes on this computer only. Claude and Codex take theirs
+// ponytail: a model and an effort for Hermes and Kimi on this computer only. Claude and Codex take theirs
 // from their own settings, and an agent on another machine has other models than this one offers.
 /** Choose the model and the thinking effort of a conversation. Null gives the choice back to the agent. */
 export async function tuneSession(
@@ -411,7 +414,7 @@ export async function tuneSession(
   effort: string | null
 ): Promise<Session> {
   const session = await loadSession(contextDir, project, id)
-  if (session.agent !== 'hermes' || session.host) throw new Error('Only Hermes on this computer takes a model from Mate.')
+  if ((session.agent !== 'hermes' && session.agent !== 'kimi') || session.host) throw new Error('Only Hermes and Kimi on this computer take a model from Mate.')
   if (model !== null && !isModel(model)) throw new Error('That is not a model.')
   if (effort !== null && !EFFORTS.includes(effort)) throw new Error('That is not a thinking effort.')
   session.model = model ?? undefined
@@ -560,7 +563,8 @@ async function begin(
     const files = session.host ? pack(snapshot, session.sent) : ''
     // The agent that stayed thinks with a model the reader chose, and the reader has given the choice
     // back. Only a new one thinks with its own again.
-    if (acp && live.get(id)?.model && !isModel(session.model)) {
+    const stayed = live.get(id)
+    if (acp && stayed && ((stayed.model && !isModel(session.model)) || (stayed.effort && !session.effort))) {
       live.get(id)!.close()
       live.delete(id)
     }
@@ -703,7 +707,7 @@ async function begin(
   }
   if (conn) {
     const agent = conn
-    turns.get(id)!.steer = async (text) => {
+    if (adapter.steers) turns.get(id)!.steer = async (text) => {
       // What the agent says from here on is its answer to this, so it gets a message of its own.
       const said: Message = { role: 'you', text, tools: [] }
       const before = answer
@@ -720,8 +724,9 @@ async function begin(
       }
     }
     const model = isModel(session.model) ? session.model : ''
+    const effort = session.effort ?? ''
     agent.ready
-      // ponytail: the model only. Hermes 0.21.5 has no way to be told an effort while it stays, so
+      // ponytail: the model only for Hermes. 0.21.5 has no way to be told an effort while it stays, so
       // here it thinks as hard as its own settings say. Pass it on when `hermes acp` takes one.
       .then(() =>
         model && agent.model !== model
@@ -730,9 +735,17 @@ async function begin(
             })
           : undefined
       )
+      // An agent that lists efforts (Kimi) takes one; a choice it does not list is left alone.
+      .then(() =>
+        effort && agent.models.efforts?.includes(effort) && agent.effort !== effort
+          ? agent.setEffort(effort).catch((caught: Error) => {
+              throw new Error(`${adapter.label} did not take the effort ${effort}.\n\n${caught.message}`)
+            })
+          : undefined
+      )
       // Until the plan is approved the agent asks before every edit. After it, the guard is enough.
       // An agent with no mode for edits alone is asked each time, and Mate answers for its edits below.
-      .then(() => agent.mode(mayWrite && !adapter.edits ? 'accept_edits' : 'default'))
+      .then(() => agent.mode(mayWrite ? (adapter.modes?.write ?? 'accept_edits') : (adapter.modes?.plan ?? 'default')))
       .then(() =>
         agent.turn(prompt, {
           text: (text) => {
@@ -744,6 +757,12 @@ async function begin(
             update()
           },
           ask: (ask) => {
+            // The agent made its plan in its own plan mode. The reader reads it here and approves it here.
+            if (adapter.planAsk?.title === ask.title) {
+              answer.text = `${answer.text && `${answer.text.trimEnd()}\n\n`}${ask.detail.replace(/^Plan saved to: .*\n+/, '')}\n\n`
+              update()
+              return agent.answer(ask.id, false, adapter.planAsk.no)
+            }
             // The reader approved the plan, and this is an edit: the guard rules on it afterwards.
             if (mayWrite && adapter.edits?.includes(ask.title)) return agent.answer(ask.id, true)
             // The reader left the agent to finish by itself. Nobody is there to say yes.

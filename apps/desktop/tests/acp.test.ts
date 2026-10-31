@@ -19,6 +19,11 @@ test('a yes to an agent is for this once, and a yes it cannot take that way is a
   // Only "always" is offered: Mate does not allow for good on the reader's behalf.
   assert.deepEqual(outcome([offered[0], offered[2]], true), { outcome: { outcome: 'selected', optionId: 'no' } })
   assert.deepEqual(outcome([offered[0]], true), { outcome: { outcome: 'cancelled' } })
+  // A no that names its option gets it, when it is a no.
+  const two = [offered[1], { kind: 'reject_once', optionId: 'revise' }, offered[2]]
+  assert.deepEqual(outcome(two, false, 'no'), { outcome: { outcome: 'selected', optionId: 'no' } })
+  assert.deepEqual(outcome(two, true, 'no'), { outcome: { outcome: 'selected', optionId: 'once' } })
+  assert.deepEqual(outcome(two, false, 'once'), { outcome: { outcome: 'selected', optionId: 'revise' } })
 })
 
 /**
@@ -26,7 +31,7 @@ test('a yes to an agent is for this once, and a yes it cannot take that way is a
  * and asks before a command, unless the message says "quick". A turn whose message says "wait"
  * goes on until it is steered.
  */
-const AGENT = (log: string) => `#!/usr/bin/env node
+const AGENT = (log: string, kimi = false) => `#!/usr/bin/env node
 import { appendFileSync } from 'node:fs'
 import readline from 'node:readline'
 const note = (what) => appendFileSync(${JSON.stringify(log)}, JSON.stringify(what) + '\\n')
@@ -42,6 +47,10 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
   const reply = (result) => send({ id: message.id, result })
   if (message.method === 'initialize') return reply({ protocolVersion: 1 })
   if (message.method === 'session/new') note({ servers: message.params.mcpServers })
+  if (message.method === 'session/set_config_option') return note({ option: [message.params.configId, message.params.value] }), reply({})
+  if (message.method === 'session/new' && ${kimi}) return reply({ sessionId: 's1', configOptions: [
+    { id: 'model', currentValue: 'kimi/own', options: [{ value: 'kimi/own', name: 'Own' }, { value: 'kimi/big', name: 'Big' }] },
+    { id: 'thinking', currentValue: 'high', options: [{ value: 'low' }, { value: 'high' }, { value: 'max' }] }] })
   if (message.method === 'session/new') return reply({ sessionId: 's1', models: { currentModelId: 'custom:own', availableModels: [
     { modelId: 'custom:own', name: 'custom · own', description: 'Provider: custom • current' },
     { modelId: 'shop:big/model-1', name: 'big/model-1', description: 'Provider: Shop' }] } })
@@ -64,8 +73,11 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
   const answer = said.includes('quick') ? { outcome: { optionId: 'not asked' } } : await new Promise((resolve) => {
     answers.set(99, resolve)
     send({ id: 99, method: 'session/request_permission', params: { sessionId: 's1',
-      toolCall: { toolCallId: 't2', title: said.includes('edits') ? 'Write' : 'terminal: rm old.txt', rawInput: { tool: 'terminal', arguments: { command: 'rm old.txt' } } },
-      options: [{ kind: 'allow_once', optionId: 'yes' }, { kind: 'reject_once', optionId: 'no' }] } })
+      toolCall: { toolCallId: 't2', title: said.includes('EDITASK') ? 'Write' : said.includes('PLANASK') ? 'ExitPlanMode' : 'terminal: rm old.txt',
+      content: [{ type: 'content', content: { type: 'text', text: 'Plan saved to: /x/plan.md\\n\\n# Plan\\nChange the line.' } }], rawInput: said.includes('PLANASK') ? undefined : { tool: 'terminal', arguments: { command: 'rm old.txt' } } },
+      options: said.includes('PLANASK')
+        ? [{ kind: 'allow_once', optionId: 'plan_approve' }, { kind: 'reject_once', optionId: 'plan_revise' }, { kind: 'reject_once', optionId: 'plan_reject_and_exit' }]
+        : [{ kind: 'allow_once', optionId: 'yes' }, { kind: 'reject_once', optionId: 'no' }] } })
   })
   text('The answer was ' + answer.outcome.optionId + '.')
   if (said.includes('wait')) text(' Then: ' + (await new Promise((resolve) => (steered = resolve))) + '.')
@@ -292,7 +304,7 @@ test('left to finish by itself, an agent that asks is told no, and the work is k
   }
 })
 
-test('Kimi works in a trusted context only, asks before everything but an edit, and edits once the plan is approved', async () => {
+test('Kimi works in a trusted context only, plans in its own mode, and edits once the plan is approved', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'mate-kimi-'))
   const out = `${root}-out`
   const command = AGENTS.kimi.command
@@ -306,35 +318,94 @@ test('Kimi works in a trusted context only, asks before everything but an edit, 
     await mkdir(path.join(root, 'projects/review/draft'), { recursive: true })
     await mkdir(out)
     await writeFile(path.join(root, 'projects/review/draft/document.md'), 'Draft text.\n')
-    await writeFile(path.join(out, 'agent.mjs'), AGENT(path.join(out, 'log')))
+    await writeFile(path.join(out, 'agent.mjs'), AGENT(path.join(out, 'log'), true))
     await chmod(path.join(out, 'agent.mjs'), 0o755)
     AGENTS.kimi.command = path.join(out, 'agent.mjs')
     keepTrustIn(path.join(out, 'trusted.json'))
     doors.forAgent = async () => ({ url: 'http://127.0.0.1:1/mcp', token: 'door' })
+    const logged = async () => (await readFile(path.join(out, 'log'), 'utf8')).trim().split('\n').map((line) => JSON.parse(line))
     const session = await startSession(root, 'review', 'kimi')
 
     // Kimi cannot be held to files, so it is not started where the reader has not trusted the context.
     await assert.rejects(sendMessage(root, 'review', session.id, 'Hello.', false, () => {}), /works only in a context you trust/)
 
     setTrusted(root, true)
+    // It offers its models and how hard it thinks, among the options of the conversation.
+    assert.deepEqual(await listModels('kimi'), {
+      current: 'kimi/own',
+      all: [
+        { id: 'kimi/own', name: 'Own', from: '' },
+        { id: 'kimi/big', name: 'Big', from: '' }
+      ],
+      efforts: ['low', 'high', 'max']
+    })
+    await tuneSession(root, 'review', session.id, 'kimi/big', 'low')
+
+    // Before the plan is approved Kimi is in its plan mode. The plan it ends with is read here, where it is
+    // approved, and the agent is told to revise: the reader is not asked twice.
     let now: Session = session
-    const first = await sendMessage(root, 'review', session.id, 'Change the edits.', false, (next) => (now = next))
-    // Before the plan is approved even an edit goes to the reader.
+    const planned = await (await sendMessage(root, 'review', session.id, 'PLANASK Make the plan.', false, (next) => (now = next))).finished
+    assert.deepEqual(planned.asks, [])
+    const plan = planned.messages.filter((each) => each.role === 'agent').at(-1)!.text
+    assert.match(plan, /# Plan\nChange the line\./)
+    assert.doesNotMatch(plan, /Plan saved to/)
+    // Not "revise", which makes the agent send the plan again and again.
+    assert.match(plan, /The answer was plan_reject_and_exit\./)
+
+    // Before the plan is approved even an edit goes to the reader. After it, Mate says yes to the edit.
+    const first = await sendMessage(root, 'review', session.id, 'EDITASK change.', false, (next) => (now = next))
     await until(() => (now.asks ?? []).length === 1)
     assert.equal(now.asks![0].title, 'Write')
     answerAsk(session.id, 't2', false)
     await first.finished
-    // After it, Mate says yes to the edit, and the reader is asked nothing.
-    const second = await sendMessage(root, 'review', session.id, 'Change the edits.', true, (next) => (now = next))
-    const done = await second.finished
+    const done = await (await sendMessage(root, 'review', session.id, 'EDITASK change.', true, (next) => (now = next))).finished
     assert.deepEqual(done.asks, [])
     assert.match(done.messages.filter((each) => each.role === 'agent').at(-1)!.text, /The answer was yes\./)
-    // Always the mode that asks: Kimi's `auto` runs a shell and the web unasked.
-    const log = (await readFile(path.join(out, 'log'), 'utf8')).trim().split('\n').map((line) => JSON.parse(line))
-    assert.deepEqual(log.filter((each) => each.mode).map((each) => each.mode), ['default', 'default'])
+
+    // Its plan mode before, its mode that asks after: Kimi's `auto` runs a shell and the web unasked.
+    // The model and the effort are told once, to the agent that stays.
+    const log = await logged()
+    assert.deepEqual(log.filter((each) => each.mode).map((each) => each.mode), ['plan', 'plan', 'default'])
+    assert.deepEqual(log.filter((each) => each.option).map((each) => each.option), [['model', 'kimi/big'], ['thinking', 'low']])
   } finally {
     AGENTS.kimi.command = command
     stopAllTurns()
+    await rm(root, { recursive: true, force: true })
+    await rm(out, { recursive: true, force: true })
+  }
+})
+
+test('said while Kimi works, a message waits for the turn to end, since Kimi cannot be steered', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-kimiwait-'))
+  const out = `${root}-out`
+  const command = AGENTS.kimi.command
+  try {
+    await mkdir(path.join(root, 'projects/review/draft'), { recursive: true })
+    await mkdir(out)
+    await writeFile(path.join(root, 'projects/review/draft/document.md'), 'Draft text.\n')
+    await writeFile(path.join(out, 'agent.mjs'), AGENT(path.join(out, 'log'), true))
+    await chmod(path.join(out, 'agent.mjs'), 0o755)
+    AGENTS.kimi.command = path.join(out, 'agent.mjs')
+    keepTrustIn(path.join(out, 'trusted.json'))
+    setTrusted(root, true)
+    const session = await startSession(root, 'review', 'kimi')
+    let now: Session = session
+    await sendMessage(root, 'review', session.id, 'quick wait', false, (next) => (now = next))
+    for (let waited = 0; !now.running || !now.messages.at(-1)?.text; waited += 20) {
+      if (waited > 5000) throw new Error('It did not happen.')
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+    const next = await sendMessage(root, 'review', session.id, 'quick, then this.', false, (changed) => (now = changed))
+    assert.deepEqual(next.started.queue.map((each) => each.text), ['quick, then this.'])
+    const prompts = (await readFile(path.join(out, 'log'), 'utf8')).trim().split('\n').map((line) => JSON.parse(line)).filter((each) => each.prompt)
+    assert.equal(prompts.some((each) => each.prompt.startsWith('/steer')), false)
+  } finally {
+    AGENTS.kimi.command = command
+    // The turn that waited starts when this one is stopped, and the conversation so far makes it wait too.
+    for (let again = 0; again < 2; again++) {
+      stopAllTurns()
+      await new Promise((resolve) => setTimeout(resolve, 300))
+    }
     await rm(root, { recursive: true, force: true })
     await rm(out, { recursive: true, force: true })
   }

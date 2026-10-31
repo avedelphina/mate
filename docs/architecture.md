@@ -860,10 +860,17 @@ folder. Nothing inside a context can make that context trusted.
 Kimi is the one agent that has no limit to start with: `kimi acp` takes no
 list of tools, and ignores the agent file that `kimi -p` obeys. So it is
 started in a trusted context only (`trustedOnly` in `agents.ts`), over ACP, so
-the message goes in on stdin. It stays in its `default` mode, which asks
+the message goes in on stdin. Before the plan is approved it is in its own
+`plan` mode, which runs no tool but a read and saves the plan under its
+sessions. It ends the plan with an ask titled `ExitPlanMode` that holds the
+plan: Mate puts the text into the answer, where the reader approves it, and
+says no with `plan_reject_and_exit` (`planAsk`), because "revise" makes it
+send the plan again and again. After approval it is in `default`, which asks
 before every step but a read: its `auto` mode runs a shell and the web
-unasked. Once the plan is approved, Mate says yes to an ask titled `Write` or
-`Edit` (`edits`) and passes the rest to the reader.
+unasked. Mate says yes to an ask titled `Write` or `Edit` (`edits`) and
+passes the rest to the reader. It cannot be steered, so a message sent while
+it works waits behind the turn. Its models and its thinking (`low`, `high`,
+`max`) are options of the conversation, set with `session/set_config_option`.
 
 In a trusted context, Hermes on this computer is started without the
 limit. It has the tools it has in the reader's terminal: its own tools,
@@ -930,7 +937,7 @@ session and holds from the next turn on.
   context it thinks as hard as its own settings say, and the choice says
   so instead of offering one.
 
-Claude, Codex and Kimi take their model from their own settings, and so does
+Claude and Codex take their model from their own settings, and so does
 an agent on another machine, which has other models than this one offers.
 
 ### Instruction files

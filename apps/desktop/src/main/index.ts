@@ -735,8 +735,8 @@ app.whenReady().then(() => {
   // The reader's yes or no to what an agent asked before it goes on. Yes is for that one thing, once.
   ipcMain.handle('session:answer', (_event, id: string, ask: string, allow: boolean) => answerAsk(String(id), String(ask), allow === true))
 
-  // The reader opened the choice of model. Hermes is asked what it offers, once for each run of the app.
-  ipcMain.handle('session:models', (event) => (requireContext(event), listModels()))
+  // The reader opened the choice of model. The agent is asked what it offers, once for each run of the app.
+  ipcMain.handle('session:models', (event, agent: 'hermes' | 'kimi') => (requireContext(event), listModels(agent)))
 
   ipcMain.handle('session:tune', async (event, project: string, id: string, model: unknown, effort: unknown) => {
     const contextDir = requireContext(event)

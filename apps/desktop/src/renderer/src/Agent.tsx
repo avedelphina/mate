@@ -371,8 +371,9 @@ export function Agent(props: {
           onChange={(event) => setText(event.target.value)}
         />
         <footer>
-          {session.agent === 'hermes' && !session.host ? (
+          {(session.agent === 'hermes' || session.agent === 'kimi') && !session.host ? (
             <Tune
+              agent={session.agent}
               session={session}
               stays={listens}
               onTune={(model, effort) => void act(() => window.mate.tuneSession(project, session.id, model, effort))}
@@ -411,16 +412,18 @@ export function Agent(props: {
 const brief = (name: string) => name.slice(name.lastIndexOf('/') + 1).replace(/^[a-z-]+:/, '')
 
 /**
- * The model Hermes thinks with in this conversation, and how hard it thinks. The choice holds from
- * the next turn on. Hermes is asked what it offers only when the reader opens this.
+ * The model Hermes or Kimi thinks with in this conversation, and how hard it thinks. The choice holds
+ * from the next turn on. The agent is asked what it offers only when the reader opens this.
  */
 function Tune(props: {
+  agent: 'hermes' | 'kimi'
   session: Session
-  /** Hermes stays between turns here. It can be given a model then, and not an effort. */
+  /** The agent stays between turns here. It can be given a model then, and an effort only if it lists some. */
   stays: boolean
   onTune: (model: string | null, effort: string | null) => void
 }) {
-  const { session, stays, onTune } = props
+  const { agent, session, stays, onTune } = props
+  const name = agent === 'kimi' ? 'Kimi' : 'Hermes'
   const [models, setModels] = useState<Models | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
   const [find, setFind] = useState('')
@@ -430,18 +433,18 @@ function Tune(props: {
   const named = (id: string) => models?.all.find((each) => each.id === id)?.name ?? id
   const thinks = chosen ?? models?.current
   const seek = useRef<HTMLInputElement>(null)
-  // Opened: the whole list again, ready to be searched. Hermes is asked for it the first time.
+  // Opened: the whole list again, ready to be searched. The agent is asked for it the first time.
   const opened = () => {
     setFind('')
     seek.current?.focus()
     if (models) return
     setFailed(null)
-    window.mate.listModels().then(setModels, (caught) => setFailed(reason(caught)))
+    window.mate.listModels(agent).then(setModels, (caught) => setFailed(reason(caught)))
   }
   const words = find.toLowerCase().split(/\s+/).filter(Boolean)
   const groups = new Map<string, Models['all']>()
   for (const each of models?.all ?? []) {
-    // Hermes lists the model it starts with once more under a name of its own. The first row stands for it.
+    // The agent lists the model it starts with once more under a name of its own. The first row stands for it.
     if (each.id === models?.current) continue
     if (!words.every((word) => `${each.from} ${each.name}`.toLowerCase().includes(word))) continue
     groups.set(each.from, [...(groups.get(each.from) ?? []), each])
@@ -454,21 +457,21 @@ function Tune(props: {
     <>
       <button className="quiet tune" popoverTarget="tune" title={thinks ? named(thinks) : 'The model, and how hard it thinks'}>
         <span>{thinks ? brief(named(thinks)) : 'Model'}</span>
-        {effort && !stays && ` · ${effort}`}
+        {effort && (!stays || agent === 'kimi') && ` · ${effort}`}
       </button>
       <div id="tune" popover="auto" ref={box} className="popover picker" onToggle={(event) => event.newState === 'open' && opened()}>
         <input ref={seek} className="search" aria-label="Find a model" placeholder="Find a model" value={find} onChange={(event) => setFind(event.target.value)} />
         <div className="models">
-          {!models && !failed && <p className="meta">Asking Hermes what it offers…</p>}
+          {!models && !failed && <p className="meta">Asking {name} what it offers…</p>}
           {failed && <p className="error" role="alert">{failed}</p>}
           {models && words.length === 0 && (
             <button className={chosen ? 'row' : 'row active'} onClick={() => pick(null)}>
-              Hermes’s own{models.current && ` · ${named(models.current)}`}
+              {name}’s own{models.current && ` · ${named(models.current)}`}
             </button>
           )}
           {[...groups].map(([from, all]) => (
             <div key={from}>
-              <h4>{from}</h4>
+              {from && <h4>{from}</h4>}
               {all.map((each) => (
                 <button key={each.id} className={each.id === chosen ? 'row active' : 'row'} title={each.id} onClick={() => pick(each.id)}>
                   {each.name}
@@ -476,14 +479,14 @@ function Tune(props: {
               ))}
             </div>
           ))}
-          {models && words.length > 0 && groups.size === 0 && <p className="meta">Hermes offers no such model.</p>}
+          {models && words.length > 0 && groups.size === 0 && <p className="meta">{name} offers no such model.</p>}
         </div>
         <div className="efforts">
           <h4>Thinking</h4>
-          {stays ? (
-            <p className="meta">In a trusted context Hermes thinks as hard as its own settings say. It cannot be told otherwise from here yet.</p>
+          {stays && !models?.efforts ? (
+            <p className="meta">In a trusted context {name} thinks as hard as its own settings say. It cannot be told otherwise from here yet.</p>
           ) : (
-            [null, ...EFFORTS].map((each) => (
+            [null, ...(stays ? models!.efforts! : EFFORTS)].map((each) => (
               <button key={each ?? 'own'} className={each === effort ? 'chip on' : 'chip'} aria-pressed={each === effort} onClick={() => onTune(chosen, each)}>
                 {each ?? 'own'}
               </button>

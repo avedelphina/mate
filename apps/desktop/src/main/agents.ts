@@ -49,6 +49,19 @@ type Adapter = {
    * such way here. It is started in a context the reader trusts and in no other.
    */
   trustedOnly?: boolean
+  /** Whether a message can be put into a turn while the agent works (Hermes `/steer`). Else it waits behind the turn. */
+  steers?: boolean
+  /**
+   * The agent's own modes over ACP, for a turn before the plan is approved and for one after. Without
+   * this, `default` asks before every edit and `accept_edits` lets edits through.
+   */
+  modes?: { plan: string; write: string }
+  /**
+   * The ask with which the agent shows a plan it made in its plan mode. Mate puts the plan into the
+   * answer, where the reader approves it as any other, and says `no` with the option that ends the
+   * plan mode: "revise" makes the agent send the plan again and again.
+   */
+  planAsk?: { title: string; no: string }
   /**
    * The titles under which the agent asks to change a file. Once the plan is approved, Mate says yes to
    * these, as `accept_edits` does for Hermes. It asks the reader about everything else.
@@ -163,7 +176,10 @@ export const AGENTS: Record<AgentKind, Adapter> = {
     read: () => [],
     acp: ['acp'],
     trustedOnly: true,
-    edits: ['Write', 'Edit']
+    edits: ['Write', 'Edit'],
+    // Its plan mode reads and writes nothing in the folder; it saves the plan where its sessions are.
+    modes: { plan: 'plan', write: 'default' },
+    planAsk: { title: 'ExitPlanMode', no: 'plan_reject_and_exit' }
   },
 
   hermes: {
@@ -187,6 +203,7 @@ export const AGENTS: Record<AgentKind, Adapter> = {
       ...(turn.resume ? ['--resume', turn.resume] : [])
     ],
     acp: ['acp'],
+    steers: true,
     // `todo` is a toolset that touches nothing. Hermes must not read or write the other machine's files.
     // Quiet text, not the event stream: an older Hermes on the other machine does not have the stream.
     // In quiet mode the answer is all that is printed, and the session id goes to stderr.

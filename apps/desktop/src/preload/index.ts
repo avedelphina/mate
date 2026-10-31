@@ -67,7 +67,7 @@ contextBridge.exposeInMainWorld('mate', {
     ipcRenderer.invoke('session:send', project, id, text, approve, wait),
   stopTurn: (id: string) => ipcRenderer.invoke('session:stop', id),
   answerAsk: (id: string, ask: string, allow: boolean) => ipcRenderer.invoke('session:answer', id, ask, allow),
-  listModels: () => ipcRenderer.invoke('session:models'),
+  listModels: (agent: 'hermes' | 'kimi') => ipcRenderer.invoke('session:models', agent),
   tuneSession: (project: string, id: string, model: string | null, effort: string | null) =>
     ipcRenderer.invoke('session:tune', project, id, model, effort),
   revertChange: (project: string, id: string, index: number) => ipcRenderer.invoke('session:revert', project, id, index),

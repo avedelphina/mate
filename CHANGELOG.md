@@ -11,7 +11,10 @@ then, minor versions may change behaviour.
 
 - Kimi (Kimi Code CLI) can be invited, in a context you trust. It cannot be
   held to file tools, so it runs there with all its tools and asks before
-  each step but a read. Once you approve the plan, Mate says yes to its edits.
+  each step but a read. Until you approve the plan it is in its own plan
+  mode, and the plan it makes appears in the answer. Once you approve it,
+  Mate says yes to its edits. You can choose its model and how hard it
+  thinks, and a message you send while it works waits for the turn to end.
 
 ### Changed
 

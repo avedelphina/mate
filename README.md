@@ -291,7 +291,7 @@ that file.
 |---|---|---|
 | Claude Code | `claude -p` in the project folder, with file tools only | `claude` on your `PATH` and signed in |
 | Codex | `codex exec` in the project folder | `codex` on your `PATH` and `codex login` done |
-| Kimi | `kimi acp`, in a context you trust only, with all its tools. It asks before every step but a read | `kimi` on your `PATH` and signed in (`kimi login`) |
+| Kimi | `kimi acp`, in a context you trust only, with all its tools. It plans in its own plan mode, and asks before every step but a read | `kimi` on your `PATH` and signed in (`kimi login`) |
 | Hermes | `hermes chat` in the project folder, with the `file` toolset only. In a context you trust, `hermes acp` with all its tools | `hermes` on your `PATH` |
 | Hermes on another host | `ssh <host> hermes chat -Q …` with the `todo` toolset only | a host in `~/.ssh/config` with key login and Hermes installed there |
 | Your own agent | an MCP endpoint at `http://127.0.0.1:41757/mcp` | any MCP client; see below |
@@ -330,7 +330,9 @@ context can make it trusted. In a trusted context:
 Kimi can be held to file tools by nothing Mate can pass it, so it works in
 a trusted context only. It runs there with all its tools, asks before each
 step but a read, and Mate says yes for it only to an edit, once you have
-approved the plan. Trust does not change Claude, Codex, or an agent on
+approved the plan. Until then it is in its plan mode, and the plan it makes
+appears in the answer for you to approve. You can choose its model and how
+hard it thinks. A message you send while it works waits for the turn to end. Trust does not change Claude, Codex, or an agent on
 another machine. It does not change who decides either: the plan comes first, a change
 outside the project is held, and only you publish. Trust a folder whose
 files you know, because a file in it can ask the agent for anything.

@@ -123,7 +123,7 @@ export type Session = {
 
 /** A model an agent offers. `id` is the agent's name for it, `from` is who serves it. */
 export type Model = { id: string; name: string; from: string }
-export type Models = { current: string; all: Model[] }
+export type Models = { current: string; all: Model[]; efforts?: string[] }
 
 /** What running a script came to. `output` is what it printed. `code` is null when it could not be started or was stopped. */
 export type Ran = { line: string; code: number | null; output: string; seconds: number; stopped: boolean }
@@ -213,7 +213,7 @@ export type MateApi = {
   /** Yes or no to what the agent asked. Yes is for that one thing, once. */
   answerAsk: (id: string, ask: string, allow: boolean) => Promise<void>
   /** What Hermes on this computer offers to think with. Hermes is started to be asked, the first time. */
-  listModels: () => Promise<Models>
+  listModels: (agent: 'hermes' | 'kimi') => Promise<Models>
   /** The model and the effort of a conversation, from its next turn on. Null gives the choice back to the agent. */
   tuneSession: (project: string, id: string, model: string | null, effort: string | null) => Promise<Session>
   revertChange: (project: string, id: string, index: number) => Promise<Session>

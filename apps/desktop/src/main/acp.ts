@@ -35,9 +35,20 @@ const short = (value: unknown, length: number) => (typeof value === 'string' ? v
 /** A model the agent can think with. `id` is the agent's own name for it, and only the agent reads it. */
 export type Model = { id: string; name: string; from: string }
 /** The models an agent offers, and the one it starts with. */
-export type Models = { current: string; all: Model[] }
+/** `efforts` is there when the agent can be told how hard to think while it stays. */
+export type Models = { current: string; all: Model[]; efforts?: string[] }
 
-function modelsOf(told: Json | undefined): Models {
+function modelsOf(told: Json | undefined, options: Json[]): Models {
+  // Kimi lists its models and its thinking among the options of the conversation, not as `models`.
+  const option = (id: string) => options.find((each) => each?.id === id)
+  const values = (id: string): Json[] => (Array.isArray(option(id)?.options) ? option(id)!.options : [])
+  const efforts = values('thinking').map((each) => each?.value).filter((each): each is string => typeof each === 'string')
+  if (!told && option('model')) {
+    const all = values('model')
+      .filter((each) => typeof each?.value === 'string')
+      .map((each) => ({ id: each.value as string, name: short(each.name ?? each.value, 200), from: '' }))
+    return { current: String(option('model')!.currentValue ?? ''), all, ...(efforts.length ? { efforts } : {}) }
+  }
   const all = (Array.isArray(told?.availableModels) ? told.availableModels : [])
     .filter((each: Json) => typeof each?.modelId === 'string')
     .map((each: Json) => ({
@@ -53,14 +64,18 @@ function modelsOf(told: Json | undefined): Models {
  * The reader's yes or no, as the agent wants it. Yes is only ever "this once": if the agent does
  * not offer that, the answer is no, so that nothing is allowed for good on the reader's behalf.
  */
-export function outcome(options: Option[], allow: boolean): Json {
+export function outcome(options: Option[], allow: boolean, prefer?: string): Json {
   const of = (kind: string) => options.find((each) => each?.kind === kind && typeof each.optionId === 'string')
-  const pick = (allow ? of('allow_once') : undefined) ?? of('reject_once')
+  // A no may name which of its no's it means.
+  const named = !allow && prefer ? options.find((each) => each?.kind === 'reject_once' && each.optionId === prefer) : undefined
+  const pick = named ?? (allow ? of('allow_once') : undefined) ?? of('reject_once')
   return pick ? { outcome: { outcome: 'selected', optionId: pick.optionId } } : { outcome: { outcome: 'cancelled' } }
 }
 
 export class Acp {
   readonly child: ChildProcess
+  /** Whether the agent is told its model by `session/set_config_option` (Kimi) and not `session/set_model` (Hermes). */
+  private configured = false
   private next = 0
   private readonly waiting = new Map<number, { resolve: (result: Json) => void; reject: (error: Error) => void }>()
   private readonly asks = new Map<string, { request: number | string; options: Option[] }>()
@@ -75,6 +90,8 @@ export class Acp {
   models: Models = { current: '', all: [] }
   /** The model the reader chose for this agent. Empty while it thinks with its own. */
   model = ''
+  /** The thinking effort the reader chose, when the agent takes one while it stays. */
+  effort = ''
 
   /** Settles when the agent has answered and a conversation is open. Until then nothing else is sent. */
   readonly ready: Promise<void>
@@ -116,7 +133,8 @@ export class Acp {
     const made = await this.request('session/new', { cwd, mcpServers })
     if (typeof made.sessionId !== 'string') throw new Error('The agent opened no conversation.')
     this.sessionId = made.sessionId
-    this.models = modelsOf(made.models)
+    this.configured = !made.models && Array.isArray(made.configOptions)
+    this.models = modelsOf(made.models, this.configured ? made.configOptions : [])
   }
 
   get alive(): boolean {
@@ -165,7 +183,7 @@ export class Acp {
       if (!this.hooks) return this.answer(id, false)
       // Kimi names no command or path, only what it wants to do in words.
       const said = call.content?.[0]?.content?.text
-      return this.hooks.ask({ id, title: short(call.title ?? 'The agent asks to go on', 200), detail: short(input.command ?? input.path ?? said ?? '', 600) })
+      return this.hooks.ask({ id, title: short(call.title ?? 'The agent asks to go on', 200), detail: short(input.command ?? input.path ?? said ?? '', 20_000) })
     }
     // Mate offers the agent nothing else, and says so if it is asked.
     if (message.id !== undefined) this.send({ id: message.id, error: { code: -32601, message: 'Mate does not do that.' } })
@@ -177,15 +195,22 @@ export class Acp {
     if (update.sessionUpdate === 'tool_call' && typeof update.title === 'string') this.hooks.step(short(update.title, 200))
   }
 
-  /** Whether edits need the reader's yes each time (`default`) or go through (`accept_edits`). The guard rules either way. */
-  async mode(id: 'default' | 'accept_edits'): Promise<void> {
+  /** The agent's mode: whether edits need the reader's yes each time (`default`) or go through (`accept_edits`), or its own plan mode. The guard rules either way. */
+  async mode(id: string): Promise<void> {
     await this.request('session/set_mode', { sessionId: this.sessionId, modeId: id })
   }
 
   /** Think with another model from here on. The agent takes it only between turns. */
   async setModel(id: string): Promise<void> {
-    await this.request('session/set_model', { sessionId: this.sessionId, modelId: id })
+    if (this.configured) await this.request('session/set_config_option', { sessionId: this.sessionId, configId: 'model', value: id })
+    else await this.request('session/set_model', { sessionId: this.sessionId, modelId: id })
     this.model = id
+  }
+
+  /** Think this hard from here on. Only an agent that lists efforts takes one. */
+  async setEffort(value: string): Promise<void> {
+    await this.request('session/set_config_option', { sessionId: this.sessionId, configId: 'thinking', value })
+    this.effort = value
   }
 
   /** One turn. It ends when the agent stops. What is still asked then is over. */
@@ -211,11 +236,11 @@ export class Acp {
     return this.echo ? text.replace(this.echo, '') : text
   }
 
-  answer(id: string, allow: boolean): void {
+  answer(id: string, allow: boolean, prefer?: string): void {
     const ask = this.asks.get(id)
     if (!ask) return
     this.asks.delete(id)
-    this.send({ id: ask.request, result: outcome(ask.options, allow) })
+    this.send({ id: ask.request, result: outcome(ask.options, allow, prefer) })
     this.hooks?.asked(id)
   }
 
