@@ -134,6 +134,11 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   Searching `#contract` finds the files that name it, and the comments
   that use it. A tag is letters, numbers, dashes and underscores. Words
   with a space in them become one with dashes.
+- **Notifications.** When Mate is behind another window, the system tells
+  you that an agent has finished, has a plan to approve, is asking you
+  something, or wants to change a file, and that a new version is ready.
+  It names the agent and the project and nothing from a document. A press
+  brings Mate forward. *Notifications* in Settings turns it off.
 - **Read-only files.** Shelf files open to be read, not commented on. The
   intents and the principles of a project have a row each at the top of
   the project in the rail. A click opens the file on the page, and *Edit*

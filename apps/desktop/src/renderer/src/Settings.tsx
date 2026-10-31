@@ -227,6 +227,17 @@ export function Settings(props: { onClose: () => void }) {
             </form>
           </section>
 
+          <section className="notifications">
+            <h2>Notifications</h2>
+            <p className="meta">
+              When Mate is not what you are looking at, the system tells you that an agent has finished, has a plan to approve, is asking you something,
+              or wants to change a file, and that a new version is ready. It names the agent and the project and nothing from a document.
+            </p>
+            <label>
+              <input type="checkbox" checked={held?.notifications ?? true} onChange={(event) => act(() => window.mate.setNotifications(event.target.checked))} /> Tell me
+            </label>
+          </section>
+
           <section className="updates">
             <h2>Updates</h2>
             <p className="meta">

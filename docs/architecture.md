@@ -427,6 +427,19 @@ twin yet. A workbook gives the values of its cells: a formula gives the
 value it last had, and a date the number Excel keeps for it. Any other
 twin is plain text: headings, tables and pictures are gone. Up to 50 MB a file, 2 MB of text.
 
+## Notifications
+
+When Mate is not what the reader is looking at, the system tells them that
+an agent has finished, has a plan to approve, is asking something, or wants
+to change a file (`noticeFor` in `shared/notice.ts` finds what is new, from
+each session as `tell` passes it on), and that a new version is ready.
+`notify.ts` shows it with Electron's `Notification`, and only when no Mate
+window has the focus. A press brings Mate forward. The words name the agent
+and the project and say what is needed: nothing of a document, since a
+notification stays in the system's list and on a locked screen. It connects
+to nothing. *Notifications* in Settings turns it off (`notifications.json`).
+The system may ask once whether Mate may notify.
+
 ## Settings
 
 What the reader has set is kept in the app's data folder, one small file

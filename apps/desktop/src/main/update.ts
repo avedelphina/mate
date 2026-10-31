@@ -1,4 +1,5 @@
 import { app, autoUpdater, BrowserWindow, shell } from 'electron'
+import { notify } from './notify'
 
 // Each release carries update.json, in Squirrel.Mac's JSON form, made by the release workflow.
 // GitHub sends `latest/download` to the newest release, so this address never changes.
@@ -13,6 +14,8 @@ let fed = false
 
 function tell(next: Update): Update {
   now = next
+  // The reader may not be looking at Mate when a new version is there.
+  if (next.state === 'ready' || next.state === 'out') notify('Mate', `${next.version ? `Version ${next.version} is` : 'A new version is'} ${next.state === 'ready' ? 'ready. It is put in when Mate quits.' : 'out.'}`)
   for (const window of BrowserWindow.getAllWindows()) window.webContents.send('update', now)
   return now
 }

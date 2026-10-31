@@ -55,6 +55,8 @@ export type Settings = {
   version: string
   /** The reader's editor command, or empty for the system's own app. */
   editor: string
+  /** Whether the reader is told, outside the window, when an agent needs them. */
+  notifications: boolean
   endpoint: { url: string; model: string; hasKey: boolean } | null
   trusted: string[]
   private: { dir: string; opened: boolean }[]
@@ -261,6 +263,7 @@ export type MateApi = {
   /** The folder the settings are kept in, in the file manager. */
   revealSettings: () => Promise<string>
   /** The reader's editor, as a command: the program and what it is given first. Empty: the system's own app. */
+  setNotifications: (on: boolean) => Promise<boolean>
   setEditor: (command: string) => Promise<string>
   /** Open a file of the context in the reader's editor, at the line of a place in the text the page shows. */
   openInEditor: (path: string, visible: number) => Promise<void>

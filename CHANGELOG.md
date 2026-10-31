@@ -9,6 +9,11 @@ then, minor versions may change behaviour.
 
 ### Added
 
+- Notifications. When Mate is behind another window, the system tells you
+  that an agent has finished, has a plan to approve, is asking you
+  something, or wants to change a file, and that a new version is ready.
+  It names the agent and the project and nothing from a document. You can
+  turn it off in Settings.
 - When Hermes or Kimi asks, *Allow commands for this conversation* (or
   edits, or whatever kind of step it is) lets that kind through without
   asking again, and *Allow everything* lets every step through, except a

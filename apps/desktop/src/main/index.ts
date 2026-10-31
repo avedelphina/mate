@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { addReply, anchorComment, applySuggestion, fileLineOf } from '../shared/comments'
-import { addable, agentEnvironment, describeAgent, discoverAgents, type AgentKind } from './agents'
+import { addable, AGENTS, agentEnvironment, describeAgent, discoverAgents, type AgentKind } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
 import { commitContext, historyOf, inRepository, startRepository, uncommitted, versionAt } from './git'
 import { diffLines } from '../shared/diff'
@@ -45,6 +45,8 @@ import {
 } from './context'
 import { refreshIndex, searchIndex, tagsInUse, type Hit } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
+import { noticeFor, seenOf, type Seen } from '../shared/notice'
+import { notify, notifying, setNotifying } from './notify'
 import { checkForUpdate, installUpdate, startUpdates, updateNow } from './update'
 import { runScript, stopAllScripts, stopScript, wordsOf } from './scripts'
 import { approve, describe, instructionFiles, keepPinsIn, movePins, unapproved } from './pins'
@@ -171,8 +173,21 @@ function createWindow(from?: BrowserWindow | null, open?: string): void {
   }
 }
 
+/** What a session was the last time it was told: to notice that a turn ended, or that something now waits for the reader. */
+const noticed = new Map<string, Seen>()
+
+/** Tell the reader, outside the window, when an agent needs them. Only the kind of thing and where: nothing from a file. */
+function notice(session: Session): void {
+  if (session.agent === 'mcp') return
+  const now = seenOf(session)
+  const words = noticeFor(noticed.get(session.id), now, session.planApproved)
+  noticed.set(session.id, now)
+  if (words) notify(`${AGENTS[session.agent].label}${session.host ? ` on ${session.host}` : ''} · ${session.project}`, words)
+}
+
 /** Show a session's progress in every window that has its context open, and in no other. */
 function tell(contextDir: string, session: Session): void {
+  notice(session)
   for (const window of BrowserWindow.getAllWindows()) {
     if (contexts.get(window.webContents.id) === contextDir) window.webContents.send('session:update', session)
   }
@@ -862,6 +877,7 @@ app.whenReady().then(() => {
       return ''
     }
   }
+  ipcMain.handle('notify:set', (_event, on: boolean) => setNotifying(on === true))
   ipcMain.handle('editor:get', () => readEditor())
   ipcMain.handle('editor:set', (_event, command: string) => {
     const kept = String(command).trim().slice(0, 300)
@@ -928,6 +944,7 @@ app.whenReady().then(() => {
     folder: app.getPath('userData'),
     version: app.getVersion(),
     editor: readEditor(),
+    notifications: notifying(),
     endpoint: endpointView(),
     trusted: trustedContexts(),
     private: privateContexts().map((dir) => ({ dir, opened: isOpenedToEndpoint(dir) })),

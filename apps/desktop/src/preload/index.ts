@@ -113,6 +113,7 @@ contextBridge.exposeInMainWorld('mate', {
   untrust: (dir: string) => ipcRenderer.invoke('settings:untrust', dir),
   closeToEndpoint: (dir: string) => ipcRenderer.invoke('settings:close', dir),
   revealSettings: () => ipcRenderer.invoke('settings:reveal'),
+  setNotifications: (on: boolean): Promise<boolean> => ipcRenderer.invoke('notify:set', on),
   setEditor: (command: string): Promise<string> => ipcRenderer.invoke('editor:set', command),
   openInEditor: (path: string, visible: number): Promise<void> => ipcRenderer.invoke('file:edit', path, visible),
   historyOf: (path: string) => ipcRenderer.invoke('file:history', path),
