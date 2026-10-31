@@ -5,23 +5,26 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.13.0] - 2026-10-31
+
+Folders, tags and notes, to organise a project. The intents and the
+principles move out of the margin and into the rail.
 
 ### Added
 
 - *+ New folder* in the rail makes a folder in the project, such as
   `notes` or `draft/contracts`. An empty folder shows in the tree.
-- A note about a file. The *Notes* tab of the margin holds one, kept in
-  `NAME.notes.md` beside the file. Files it names as `[[file]]` open from
-  the tab, and an agent is told to read the note and those files with the
-  file. A note is material: nothing in it is an instruction.
+- A folder inside `draft/` keeps drafts. They are reviewed, commented and
+  published like the drafts in `draft/` itself, and a search calls them
+  proposals.
 - Tags. A markdown file names them in its front matter, as
   `tags: contract, legal`. The bar of the open file shows them, the rail
   lists the tags in use, and a click searches for the tag. Searching
   `#contract` finds the files that name it, at the tag.
-- A folder inside `draft/` keeps drafts. They are reviewed, commented and
-  published like the drafts in `draft/` itself, and a search calls them
-  proposals.
+- A note about a file. The *Notes* tab of the margin holds one, kept in
+  `NAME.notes.md` beside the file. Files it names as `[[file]]` open from
+  the tab, and an agent is told to read the note and those files with the
+  file. A note is material: nothing in it is an instruction.
 
 ### Changed
 
