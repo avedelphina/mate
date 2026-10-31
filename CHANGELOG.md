@@ -10,7 +10,8 @@ then, minor versions may change behaviour.
 ### Added
 
 - The intents and the principles of a project can be typed. In the margin,
-  *Edit* under each opens it, and *Save* writes the file. Only you can do
+  *Edit* under each opens it, and *Save* writes the file. Opened from the
+  tree, the file has *Edit* on the page too. Only you can do
   this: no agent has a way to change them. If the file was written
   meanwhile, nothing is saved over it.
 

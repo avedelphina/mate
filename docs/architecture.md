@@ -217,7 +217,8 @@ principles. The shelf and all other files are read. No agent can reach
 this path: an agent proposes a replacement, and the reader applies it.
 
 The intents and the principles are the only files that steer an agent, so
-they are typed in the margin, by the reader, with *Edit* under each.
+they are typed by the reader: in the margin, with *Edit* under each, or on
+the page when the file is opened from the tree, with *Edit* in the bar.
 `writeSteering` in `context.ts` is the one path. It takes only those two
 names of the open project. Like a draft, it writes only from the text the
 reader began from, keeps the file's line endings, and writes beside the

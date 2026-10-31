@@ -43,6 +43,22 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`!document.querySelector('.margin textarea.steer') && document.querySelector('.margin details .prose').textContent.includes('Added by the test.')`, 'the intents saved and shown')
     assert.equal(await readFile(intents, 'utf8'), before + '\nAdded by the test.\n')
 
+    // The same file opened on the page is typed there too, and the page shows what was saved.
+    await app.press('.projects .tree .row', 'intents.md')
+    await app.until(`document.querySelector('.center .bar')?.textContent.includes('projects/document-review/intents.md')`, 'the intents on the page')
+    await app.press('.center .bar button', 'Edit')
+    await app.until(`!!document.querySelector('.center textarea.editor')`, 'the intents open to type in on the page')
+    await app.page(`(() => {
+      const box = document.querySelector('.center textarea.editor')
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(box, box.value + 'Typed on the page.\\n')
+      box.dispatchEvent(new Event('input', { bubbles: true }))
+    })()`)
+    await app.press('.center .bar button', 'Save')
+    await app.until(`!document.querySelector('.center textarea.editor') && document.querySelector('.center .page.prose').textContent.includes('Typed on the page.')`, 'the intents saved and shown on the page')
+    assert.equal(await readFile(intents, 'utf8'), before + '\nAdded by the test.\nTyped on the page.\n')
+    await app.press('.projects .tree .row', 'document.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
+
     // Select a passage, comment on it, and find the comment in the file under the passage.
     const passage = 'The shelf copy stays as it was until you publish.'
     const select = (words = passage) =>

@@ -117,7 +117,8 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   deleted at any time.
 - **Read-only files.** Shelf files open to be read, not commented on. The
   intents and the principles of a project are read in the margin, and
-  *Edit* under each lets you type them.
+  *Edit* under each lets you type them. Opened from the tree, the page
+  has *Edit* in its bar too.
 - **Panes.** A markdown file in a project's `panes/` folder is a tab of
   the margin. An agent writes it, to show you tasks, deadlines or mail it
   reached through its own connections. You can tick a task in it, and a

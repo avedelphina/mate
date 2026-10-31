@@ -9,7 +9,7 @@ import { History } from './History'
 import { Question, type Judged } from './Question'
 import { Rendered, type Passage } from './Rendered'
 import { Settings, UpdateNotice } from './Settings'
-import { Steering } from './Steering'
+import { Steering, useSteering } from './Steering'
 import { Tree } from './Tree'
 import { asked, filled } from '../../shared/run'
 import './styles.css'
@@ -239,6 +239,10 @@ export function App() {
   const project = view?.project
   const file = view?.file ?? null
   const readingPath = reading?.path
+  // The open file, when it is the intents or the principles of the open project: the reader can type those.
+  const steering = view && readingPath ? (['intents', 'principles'] as const).find((name) => readingPath === `projects/${view.project}/${name}.md`) ?? null : null
+  const steerPage = useSteering((base, text) => (steering ? steer(steering, base, text) : Promise.resolve()))
+  useEffect(() => steerPage.cancel(), [readingPath])
 
   // A window opened from another starts in that window's context.
   useEffect(() => {
@@ -875,6 +879,8 @@ export function App() {
     if (!view) return
     try {
       setView(await window.mate.writeSteering(view.project, name, base, text, view.file ?? undefined))
+      // The page may be showing that file. It reads what the file holds now.
+      if (reading?.path === `projects/${view.project}/${name}.md`) setReading(await window.mate.readFile(reading.path))
     } catch (caught) {
       throw new Error(reason(caught, 'Could not save.'))
     }
@@ -1436,6 +1442,18 @@ export function App() {
               </button>
             </span>
           )}
+          {!onPage && steering && view && (
+            <span className="acts">
+              {steerPage.typing === null ? (
+                <button className="quiet" onClick={() => steerPage.begin(view[steering])}>Edit</button>
+              ) : (
+                <>
+                  <button className="quiet" disabled={steerPage.typing === steerPage.base} onClick={steerPage.save}>Save</button>
+                  <button className="quiet" onClick={steerPage.cancel}>Cancel</button>
+                </>
+              )}
+            </span>
+          )}
           {!onPage && !reading && view && <span className="meta">{view.project}</span>}
           {!onPage && !reading && file !== null && <span className="meta">/</span>}
           {!onPage && !reading && file !== null && <span>{file}</span>}
@@ -1532,6 +1550,18 @@ export function App() {
             ))}
           {onPage ? (
             <div className="page talk-page" ref={setPageSlot} />
+          ) : reading && steerPage.typing !== null ? (
+            <>
+              {steerPage.error && <p className="error" role="alert">{steerPage.error}</p>}
+              <textarea
+                className="page editor"
+                aria-label={`The text of ${reading.path}`}
+                value={steerPage.typing}
+                spellCheck
+                autoFocus
+                onChange={(event) => steerPage.change(event.target.value)}
+              />
+            </>
           ) : reading ? (
             <div className="page prose">
               {reading.twin && !reading.text.trim() && <p className="meta">Mate found no text in this file. It may be locked, or hold pictures with no words in them.</p>}
