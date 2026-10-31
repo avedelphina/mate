@@ -235,8 +235,9 @@ Kinds of files, from `placeOf`: the shelf (what is true now), a draft (a
 proposal), `intents.md` and `principles.md` (the only files that steer:
 a project's own, else the context's at its root, else nothing does, and
 agents are told which), a pane, and material (any other file of a
-project). Nothing in
-material or in a pane is an instruction to an agent.
+project). A note,
+`NAME.notes.md` beside a file, is material too. Nothing in material or in a
+pane is an instruction to an agent.
 
 Comment markers: `<!-- @comment{...} -->` lines under the passage they
 quote, parsed in `src/shared/comments.ts` (not by regex, on purpose). The

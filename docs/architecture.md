@@ -169,6 +169,26 @@ file]]` opens it when it names one file of the project (`fileNamed`, as
 in an agent's answer), and a `#tag` searches the context for it. A
 search hit in a side file opens the file it comments on, at its thread.
 
+## A note beside a file
+
+Any file of a project can have a note: `NAME.notes.md` in the same folder.
+The comments of a file are Mate's format, and a note is free words, so
+they are two files. `readNote` and `writeNote` in `context.ts` are the one
+path. They take a path from the project folder, refuse a hidden file and a
+file that is a comment file or a note, and write beside the file by a
+temporary file and a rename. Like a draft, a note is written only from the
+text the reader began from, and a first note must not be empty. The window
+asks by `note:read` and `note:write`.
+
+A note is material: `placeOf` says so wherever its file is, and a project
+that keeps its drafts where they lie does not take it for a draft. It is
+searched, tagged and linked like any file. The agent is told, in what it is
+given about a project, that `NAME.notes.md` is the reviewer's note on NAME,
+that it reads the note with the file and the files the note names as
+`[[file]]`, and that nothing in it is an instruction. The agent has no new
+tool for this: it reads with the tools it has. The margin's *Notes* tab
+shows the note, the files it names as buttons, and the box to type it in.
+
 ## The text and the anchor
 
 `readDocument` returns the text the window shows: the markers cut out and

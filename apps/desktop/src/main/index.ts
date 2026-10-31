@@ -21,6 +21,7 @@ import {
   createProject,
   importProject,
   makeFolder,
+  readNote,
   realInside,
   renameContext,
   renameProject,
@@ -39,6 +40,7 @@ import {
   takeDown,
   tickPane,
   writeDraft,
+  writeNote,
   writeSteering
 } from './context'
 import { refreshIndex, searchIndex, tagsInUse, type Hit } from './contextIndex'
@@ -679,6 +681,12 @@ app.whenReady().then(() => {
   )
 
   ipcMain.handle('folder:make', (event, project: string, where: string) => makeFolder(requireContext(event), project, String(where)))
+
+  // The note beside a file is the reader's own words. It is written from the window only.
+  ipcMain.handle('note:read', (event, project: string, file: string) => readNote(requireContext(event), project, String(file)))
+  ipcMain.handle('note:write', (event, project: string, file: string, base: string, text: string) =>
+    writeNote(requireContext(event), project, String(file), String(base), String(text))
+  )
 
   // The intents and the principles steer an agent, so they are written from the reader's window only.
   ipcMain.handle('steering:write', (event, project: string, name: string, base: string, text: string, draft?: string) =>

@@ -11,6 +11,10 @@ then, minor versions may change behaviour.
 
 - *+ New folder* in the rail makes a folder in the project, such as
   `notes` or `draft/contracts`. An empty folder shows in the tree.
+- A note about a file. The *Notes* tab of the margin holds one, kept in
+  `NAME.notes.md` beside the file. Files it names as `[[file]]` open from
+  the tab, and an agent is told to read the note and those files with the
+  file. A note is material: nothing in it is an instruction.
 - Tags. A markdown file names them in its front matter, as
   `tags: contract, legal`. The bar of the open file shows them, the rail
   lists the tags in use, and a click searches for the tag. Searching

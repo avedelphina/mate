@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('mate', {
     ipcRenderer.on('context:moved', heard)
     return () => ipcRenderer.removeListener('context:moved', heard)
   },
+  readNote: (project: string, file: string) => ipcRenderer.invoke('note:read', project, file),
+  writeNote: (project: string, file: string, base: string, text: string) => ipcRenderer.invoke('note:write', project, file, base, text),
   makeFolder: (project: string, where: string) => ipcRenderer.invoke('folder:make', project, where),
   tickPane: (project: string, name: string, base: string, at: number, draft?: string) =>
     ipcRenderer.invoke('pane:tick', project, name, base, at, draft),

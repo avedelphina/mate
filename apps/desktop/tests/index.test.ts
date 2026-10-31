@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { addComment, createContext, createDraft, createProject, describeContext, importProject, listProjects, makeFolder, readProject, renameContext, renameProject, shapeContext, tickPane, writeSteering } from '../src/main/context.ts'
+import { addComment, createContext, createDraft, createProject, describeContext, importProject, listProjects, makeFolder, readNote, readProject, renameContext, renameProject, shapeContext, tickPane, writeNote, writeSteering } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
@@ -184,6 +184,39 @@ test('a #tag finds the documents whose front matter names it, at the tag, and th
     // A word that is no tag of any document finds nothing, and the others are counted without regard to case.
     assert.deepEqual(searchIndex(index, '#secret').map((hit) => hit.path), [])
     assert.deepEqual(tagsInUse(index), [{ tag: 'Contract', count: 2 }, { tag: 'legal', count: 1 }])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a file has a note beside it, written from the text the reader began from, and it is material and not a draft', async () => {
+  const root = await context()
+  try {
+    const note = path.join(root, 'projects/review/draft/document.md.notes.md')
+    assert.equal(await readNote(root, 'review', 'draft/document.md'), '')
+    // A note is begun by a word, and it is written beside the file.
+    await assert.rejects(writeNote(root, 'review', 'draft/document.md', '', '  \n'), /The note is empty/)
+    assert.equal(await writeNote(root, 'review', 'draft/document.md', '', 'Based on [[policy.md]].\n'), 'Based on [[policy.md]].\n')
+    assert.equal(await readFile(note, 'utf8'), 'Based on [[policy.md]].\n')
+    assert.equal(await readNote(root, 'review', 'draft/document.md'), 'Based on [[policy.md]].\n')
+    // Another text by now: nothing is written over it.
+    await assert.rejects(writeNote(root, 'review', 'draft/document.md', '', 'Lost.\n'), /has changed since you began/)
+    assert.equal(await readFile(note, 'utf8'), 'Based on [[policy.md]].\n')
+    await writeNote(root, 'review', 'draft/document.md', 'Based on [[policy.md]].\n', 'Based on [[policy.md]].\nAnd more.\n')
+
+    // A note is not a draft, and is material wherever its file is.
+    assert.equal((await readProject(root, 'review')).drafts.some((name) => name.includes('.notes.')), false)
+    assert.equal(placeOf('projects/review/draft/document.md.notes.md').kind, 'material')
+    assert.equal(placeOf('projects/review/sysmon.xml.notes.md').kind, 'material')
+    const index = await refreshIndex(root)
+    assert.equal(index.files.find((file) => file.path.endsWith('document.md.notes.md'))?.kind, 'material')
+
+    // Only a file of the project that is there, not hidden, and not itself a comment file or a note.
+    await assert.rejects(readNote(root, 'review', 'draft/missing.md'), /not in this project/)
+    await assert.rejects(readNote(root, 'review', '../intents.md'), /has no note/)
+    await assert.rejects(readNote(root, 'review', 'draft/document.md.notes.md'), /has no note/)
+    await assert.rejects(readNote(root, 'review', 'draft/x.comments.md'), /has no note/)
+    await assert.rejects(writeNote(root, 'review', '.indexes/x', '', 'x'), /has no note/)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

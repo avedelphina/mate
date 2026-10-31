@@ -22,7 +22,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.rail h2')?.textContent === 'example'`, 'the context is open')
     await app.press('.rail .row', 'document-review')
     await app.until(`document.querySelectorAll('.projects .tree .row').length > 0`, 'the project is open')
-    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review*', 'Agent', 'tasks', 'workflow'])
+    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review*', 'Notes', 'Agent', 'tasks', 'workflow'])
     // Every file of the project is in the tree, those in folded folders too. The draft is the one on the page.
     assert.deepEqual(
       (await app.page<string[]>(names('.projects .tree .row'))).sort(),
@@ -190,6 +190,23 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.thread .note .tag')?.textContent === '#detection'`, 'the comment, with its tag')
     assert.equal(await readFile(path.join(project, 'sysmon.xml'), 'utf8'), xml)
     assert.match(await readFile(path.join(project, 'sysmon.xml.comments.md'), 'utf8'), /"text":"Too wide\. #detection".*"line":2/)
+    // The note beside the file is typed in the margin, kept beside it, and a file it names opens from there.
+    await app.press('.margin .tabs button', 'Notes')
+    await app.until(`document.querySelector('.margin').textContent.includes('No note on this file yet')`, 'the notes tab, with no note yet')
+    await app.press('.margin .scroll button', 'Add a note')
+    await app.until(`!!document.querySelector('.margin textarea.steer')`, 'the note open to type in')
+    await app.page(`(() => {
+      const box = document.querySelector('.margin textarea.steer')
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(box, 'The baseline is [[document.md]].\\n')
+      box.dispatchEvent(new Event('input', { bubbles: true }))
+    })()`)
+    await app.press('.margin .scroll button', 'Save')
+    await app.until(`!document.querySelector('.margin textarea.steer') && !!document.querySelector('.margin .named-files .named')`, 'the note saved, with the file it names as a button')
+    assert.equal(await readFile(path.join(project, 'sysmon.xml.notes.md'), 'utf8'), 'The baseline is [[document.md]].\n')
+    assert.equal(await readFile(path.join(project, 'sysmon.xml'), 'utf8'), xml)
+    await app.press('.margin .named-files .named', 'document.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the file the note names, opened')
+    await app.press('.margin .tabs button', 'Review')
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 
@@ -253,7 +270,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     // Another file of the project is read on the page, and the project stays open beside it.
     await app.press('.projects .tree .row', 'intents.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('intents.md')`, 'the file on the page')
-    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review*', 'Agent', 'tasks', 'workflow'])
+    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review*', 'Notes', 'Agent', 'tasks', 'workflow'])
 
     // A pane is a tab of the margin. One that is written while the project is open is put on show.
     await app.press('.margin .tabs button', 'tasks')
@@ -278,7 +295,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await writeFile(path.join(project, 'panes/deadlines.md'), '# Deadlines\n\n- 20 October: legal\n')
     await app.page(`window.dispatchEvent(new Event('focus'))`)
     await app.until(`document.querySelector('.margin .pane h1')?.textContent.includes('Deadlines')`, 'the new pane on show')
-    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review', 'Agent', 'deadlines*', 'tasks', 'workflow'])
+    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review', 'Notes', 'Agent', 'deadlines*', 'tasks', 'workflow'])
 
     // A file Mate cannot draw has a card with what can be done with it. Its text is taken out by the agent, when asked.
     await writeFile(path.join(project, 'dropbox/scan.pdf'), 'not a real pdf')
@@ -304,7 +321,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.match(await app.page<string>(`document.querySelector('.trust').textContent`), /This context is not trusted/)
     await app.press('.talk-move button', 'Open in the page')
     await app.until(`!!document.querySelector('.center .talk-page .invite')`, 'the conversation on the page')
-    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review', 'deadlines*', 'tasks', 'workflow'])
+    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review', 'Notes', 'deadlines*', 'tasks', 'workflow'])
 
     // Kept private, the context lets no agent in. That asks nothing, and is kept in the app's own data, not in the folder.
     await app.press('.private button', 'Keep this context private')

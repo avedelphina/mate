@@ -1,10 +1,10 @@
 import { useState } from 'react'
 
 /**
- * Typing in the intents or the principles. They steer an agent, so the reader types them, here and
- * nowhere else. `onSave` is given the text the reader began from, and refuses when the file holds another.
+ * Typing in a file that is not a draft and is the reader's own words: the intents, the principles, a
+ * note. `onSave` is given the text the reader began from, and refuses when the file holds another.
  */
-export function useSteering(onSave: (base: string, text: string) => Promise<void>) {
+export function useTyping(onSave: (base: string, text: string) => Promise<void>) {
   const [typing, setTyping] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   // The text the reader began from, kept so that a file written meanwhile is not written over.

@@ -10,7 +10,8 @@ import { History } from './History'
 import { Question, type Judged } from './Question'
 import { Rendered, type Passage } from './Rendered'
 import { Settings, UpdateNotice } from './Settings'
-import { useSteering } from './Steering'
+import { Notes } from './Notes'
+import { useTyping } from './Steering'
 import { Tree } from './Tree'
 import { asked, filled } from '../../shared/run'
 import './styles.css'
@@ -256,7 +257,7 @@ export function App() {
   const readingPath = reading?.path
   // The open file, when it is the intents or the principles of the open project: the reader can type those.
   const steering = view && readingPath ? (['intents', 'principles'] as const).find((name) => readingPath === `projects/${view.project}/${name}.md`) ?? null : null
-  const steerPage = useSteering((base, text) => (steering ? steer(steering, base, text) : Promise.resolve()))
+  const steerPage = useTyping((base, text) => (steering ? steer(steering, base, text) : Promise.resolve()))
   useEffect(() => steerPage.cancel(), [readingPath])
 
   // A window opened from another starts in that window's context.
@@ -904,7 +905,32 @@ export function App() {
   const contextName = contextDir?.split(/[\\/]/).filter(Boolean).pop()
   // A tab whose pane file is gone falls back to the review.
   const pane = view?.panes.find((each) => `pane:${each.name}` === tab) ?? null
-  const shown = pane ? 'pane' : tab === 'agent' && !agentOnPage ? 'agent' : 'review'
+  // The file on the page, from the project folder, when it can have a note: a file of the open project that is not hidden and is not itself a comment file or a note.
+  const noteTarget = (() => {
+    if (!view) return null
+    const target = reading ? (reading.project === view.project ? reading.path.slice(`projects/${view.project}/`.length) : null) : file === null ? null : textFile ? file : `${view.draftsIn}${file}`
+    return target && !/\.(comments|notes)\.md$/i.test(target) && !target.split('/').some((part) => part.startsWith('.')) ? target : null
+  })()
+  const shown = pane ? 'pane' : tab === 'agent' && !agentOnPage ? 'agent' : tab === 'notes' && noteTarget ? 'notes' : 'review'
+  // The note about the file on the page. Read again when the file changes, and kept apart from the draft.
+  const [fileNote, setFileNote] = useState('')
+  useEffect(() => {
+    if (!project || !noteTarget) return setFileNote('')
+    let current = true
+    window.mate.readNote(project, noteTarget).then((next) => current && setFileNote(next), () => current && setFileNote(''))
+    return () => {
+      current = false
+    }
+  }, [project, noteTarget])
+  /** Save the note. The window shows what the file holds after. */
+  async function saveNote(base: string, text: string) {
+    if (!project || !noteTarget) return
+    try {
+      setFileNote(await window.mate.writeNote(project, noteTarget, base, text))
+    } catch (caught) {
+      throw new Error(reason(caught, 'Could not save the note.'))
+    }
+  }
   const onPage = agentOnPage && view !== null
 
   /** Tick a task in a pane, or clear it. The file changes, so the agent finds it ticked when it next reads. */
@@ -1754,6 +1780,11 @@ export function App() {
           {view && (
             <span className="tabs">
               <button className={shown === 'review' ? 'quiet active' : 'quiet'} onClick={() => setTab('review')}>Review</button>
+              {noteTarget && (
+                <button className={shown === 'notes' ? 'quiet active' : 'quiet'} title="Your note about this file" onClick={() => setTab('notes')}>
+                  {fileNote.trim() ? 'Notes •' : 'Notes'}
+                </button>
+              )}
               {!agentOnPage && (
                 <button className={shown === 'agent' ? 'quiet active' : 'quiet'} onClick={() => setTab('agent')}>Agent</button>
               )}
@@ -1779,6 +1810,9 @@ export function App() {
           {error && <p className="error" role="alert">{error}</p>}
           {notice && <p className="notice" role="status">{notice}</p>}
           {reading && (!view || shown === 'review') && <p className="meta hint">{KINDS[reading.kind].note}</p>}
+          {view && shown === 'notes' && noteTarget && (
+            <Notes key={`${view.project} ${noteTarget}`} project={view.project} files={view.files} target={noteTarget} text={fileNote} onSave={saveNote} onOpen={openFile} />
+          )}
           {view && shown === 'agent' && (
             <>
               <p className="meta talk-move"><button className="quiet" onClick={toPage}>Open in the page</button></p>

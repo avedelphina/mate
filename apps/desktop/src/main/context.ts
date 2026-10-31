@@ -277,10 +277,13 @@ export async function placeOnDisk(contextDir: string, relative: string): Promise
 export const draftHome = (projectDir: string): string => (existsSync(path.join(projectDir, 'draft')) ? path.join(projectDir, 'draft') : projectDir)
 
 /** The drafts of a project, each named by its path from where the project keeps them. */
+/** What is kept beside a file: its comments, or the note about it. Neither is a draft of its own. */
+const BESIDE = /\.(comments|notes)\.md$/i
+
 export async function draftsOf(projectDir: string): Promise<string[]> {
   const home = draftHome(projectDir)
   // The comments on a file that is not markdown are kept beside it. They are not a draft of their own.
-  const beside = (name: string) => name.toLowerCase().endsWith('.comments.md') && existsSync(path.join(home, name.slice(0, -'.comments.md'.length)))
+  const beside = (name: string) => BESIDE.test(name) && existsSync(path.join(home, name.replace(BESIDE, '')))
   // A folder inside draft/ keeps drafts too.
   if (home !== projectDir) return (await listFiles(home)).filter((each) => each.toLowerCase().endsWith('.md') && !beside(each))
   return (await listFiles(projectDir)).filter(
@@ -309,6 +312,41 @@ async function textFileAt(contextDir: string, project: string, file: string): Pr
   if (!full || !info?.isFile() || info.size > MAX_TEXT_FILE) return null
   if (asText(await readFile(full)) === null) return null
   return { full, side: `${full}.comments.md`, relative: `projects/${project}/${name}` }
+}
+
+/**
+ * Where the note about a file of a project is: NAME.notes.md beside it. The note is the reader's
+ * words about the file, such as what it is for, a discussion, or documentation, and it is a file of
+ * the project like any other. It is material: an agent reads it, and nothing in it is an instruction.
+ * `file` is the path from the project folder. A hidden file, a comment file and a note have none.
+ */
+async function noteAt(contextDir: string, project: string, file: string): Promise<string> {
+  const parts = String(file).split('/')
+  if (parts.some((part) => part === '' || part.startsWith('.')) || BESIDE.test(file)) throw new Error('That file has no note.')
+  const dir = await realInside(contextDir, 'projects', project, ...parts.slice(0, -1)).catch(() => null)
+  const name = parts[parts.length - 1]
+  if (!dir || !(await lstat(path.join(dir, name)).catch(() => null))?.isFile()) throw new Error('That file is not in this project.')
+  return path.join(dir, `${name}.notes.md`)
+}
+
+/** The note about a file, or nothing when there is none. */
+export async function readNote(contextDir: string, project: string, file: string): Promise<string> {
+  return readFile(await noteAt(contextDir, project, file), 'utf8').catch(() => '')
+}
+
+/**
+ * Write the note about a file. `base` is the text the reader began from: a note that holds another
+ * text by now is not written over. A note is begun by a word, not by nothing. Returns what the file holds.
+ */
+export async function writeNote(contextDir: string, project: string, file: string, base: string, text: string): Promise<string> {
+  const full = await noteAt(contextDir, project, file)
+  const held = await readFile(full, 'utf8').catch(() => null)
+  if ((held ?? '') !== base) throw new Error('The note has changed since you began to edit it. Nothing was saved. Copy what you typed, then edit again.')
+  if (held === null && !text.trim()) throw new Error('The note is empty.')
+  // A text area gives LF. A note keeps the line endings it had.
+  const next = text.replace(/\r?\n/g, base.includes('\r\n') ? '\r\n' : '\n')
+  await replace(contextDir, full, path.relative(contextDir, full).split(path.sep).join('/'), next)
+  return next
 }
 
 /** A text file and the comments beside it, put together as a draft reads. */

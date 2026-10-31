@@ -59,7 +59,9 @@ export function placeOf(relative: string): Place {
   if (parts[0] === 'projects' && parts.length > 2) {
     const [, project, ...rest] = parts
     const steers = rest.length === 1 && (rest[0] === 'intents.md' || rest[0] === 'principles.md')
-    const kind = steers ? 'project' : rest[0] === 'draft' && rest.length >= 2 ? 'draft' : rest.length !== 2 ? 'material' : rest[0] === 'panes' ? 'pane' : 'material'
+    // The note about a file is material, wherever the file is.
+    const note = rest[rest.length - 1].toLowerCase().endsWith('.notes.md')
+    const kind = steers ? 'project' : note ? 'material' : rest[0] === 'draft' && rest.length >= 2 ? 'draft' : rest.length !== 2 ? 'material' : rest[0] === 'panes' ? 'pane' : 'material'
     return { kind, project }
   }
   return { kind: 'context', project: null }
@@ -166,6 +168,7 @@ export async function refreshIndex(contextDir: string): Promise<Index> {
   )
   for (const file of files) {
     if (file.kind !== 'material' || !file.project || !looseDrafts.has(file.project) || !file.path.toLowerCase().endsWith('.md')) continue
+    if (file.path.toLowerCase().endsWith('.notes.md')) continue
     file.kind = 'draft'
   }
   const index = { version: VERSION, files }

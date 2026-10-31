@@ -162,6 +162,8 @@ export type MateApi = {
   revealFile: (path: string) => Promise<void>
   openProject: (project: string, file?: string) => Promise<DocumentView>
   /** Tick a task box in a pane, or clear it. `at` is where the box is in `base`, the text that was shown. */
+  readNote: (project: string, file: string) => Promise<string>
+  writeNote: (project: string, file: string, base: string, text: string) => Promise<string>
   makeFolder: (project: string, where: string) => Promise<DocumentView>
   tickPane: (project: string, name: string, base: string, at: number, draft?: string) => Promise<DocumentView>
   writeSteering: (project: string, name: string, base: string, text: string, draft?: string) => Promise<DocumentView>

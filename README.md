@@ -119,6 +119,13 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   it is: *Shelf* (what is true now), *Proposal*, *Project file*,
   *Material*, or *Pane*. The index lives in `.indexes/` and can be
   deleted at any time.
+- **Notes.** The *Notes* tab of the margin holds a note about the file on
+  the page: what it is for, what was decided, documentation, or a
+  discussion. It is a markdown file beside it, `NAME.notes.md`, which you
+  type in Mate, and it is searched like any file. Write `[[another file]]`
+  in it and that file opens from the tab. An agent you invite is told the
+  note is there and reads it with the file, and the files it names. Nothing
+  in a note is an instruction to the agent.
 - **Tags.** A markdown file names its tags in its front matter:
   `tags: contract, legal`, or `tags: [contract, legal]`, or a list under
   `tags:`. They are text in the file, so you type them in the draft and an
