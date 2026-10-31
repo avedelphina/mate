@@ -5,7 +5,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { outcome } from '../src/main/acp.ts'
 import { AGENTS } from '../src/main/agents.ts'
-import { answerAsk, attend, doors, listModels, sendMessage, startSession, stopAllTurns, tuneSession, whenIdle, working, type Session } from '../src/main/sessions.ts'
+import { allowNoMore, answerAsk, attend, doors, listModels, sendMessage, startSession, stopAllTurns, tuneSession, whenIdle, working, type Session } from '../src/main/sessions.ts'
 import { keepTrustIn, setTrusted } from '../src/main/trust.ts'
 
 test('a yes to an agent is for this once, and a yes it cannot take that way is a no', () => {
@@ -268,6 +268,66 @@ test('said while an agent that listens is working, a message waits for the turn 
     assert.equal(done.messages.some((each) => each.waiting), false)
   } finally {
     // The agent that stayed is sent away, as when the app closes. The test would not end with it there.
+    stopAllTurns()
+    AGENTS.hermes.command = command
+    await rm(root, { recursive: true, force: true })
+    await rm(out, { recursive: true, force: true })
+  }
+})
+
+test('a yes for the rest of the conversation is kept in memory, applies once the plan is approved, and can be taken back', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-allow-'))
+  const out = `${root}-out`
+  const command = AGENTS.hermes.command
+  const until = async (found: () => boolean) => {
+    for (let waited = 0; !found(); waited += 20) {
+      if (waited > 5000) throw new Error('It did not happen.')
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+  }
+  try {
+    await mkdir(path.join(root, 'projects/review/draft'), { recursive: true })
+    await mkdir(out)
+    await writeFile(path.join(root, 'projects/review/draft/document.md'), 'Draft text.\n')
+    await writeFile(path.join(out, 'agent.mjs'), AGENT(path.join(out, 'log')))
+    await chmod(path.join(out, 'agent.mjs'), 0o755)
+    AGENTS.hermes.command = path.join(out, 'agent.mjs')
+    keepTrustIn(path.join(out, 'trusted.json'))
+    setTrusted(root, true)
+    doors.forAgent = async (_context, _project, id) => ({ url: 'http://127.0.0.1:1/mcp', token: `door-for-${id}` })
+
+    const session = await startSession(root, 'review', 'hermes')
+    let now: Session = session
+    // Before the plan is approved the agent is asked, and a yes for the conversation is kept but does not apply yet.
+    const first = await sendMessage(root, 'review', session.id, 'Tidy the draft.', false, (next) => (now = next))
+    await until(() => (now.asks ?? []).length === 1)
+    answerAsk(session.id, 't2', true, undefined, 'kind')
+    assert.deepEqual(now.auto, { all: false, kinds: ['terminal: rm old.txt'] })
+    await first.finished
+
+    // The plan is approved: the same step is let through without asking, and the turn says so.
+    const second = await sendMessage(root, 'review', session.id, 'Go on.', true, (next) => (now = next))
+    const done = await second.finished
+    assert.deepEqual(done.asks, [])
+    assert.equal(done.messages.find((each) => each.role === 'agent' && each.text.includes('The answer was yes.')) !== undefined, true)
+    assert.ok(done.messages.some((each) => each.tools?.includes('Allowed without asking: terminal: rm old.txt')))
+
+    // Taken back, it asks again. The yes is in memory only: the session file does not carry it.
+    assert.equal((await allowNoMore(root, 'review', session.id)).auto, undefined)
+    assert.doesNotMatch(await readFile(path.join(root, '.sessions/review', session.id, 'session.json'), 'utf8'), /"kinds"/)
+    const third = await sendMessage(root, 'review', session.id, 'Again.', true, (next) => (now = next))
+    await until(() => (now.asks ?? []).length === 1)
+    answerAsk(session.id, 't2', false)
+    await third.finished
+
+    // Everything, once, for a step of any kind; a question with answers to pick from is still asked.
+    const fourth = await sendMessage(root, 'review', session.id, 'Once more.', true, (next) => (now = next))
+    await until(() => (now.asks ?? []).length === 1)
+    answerAsk(session.id, 't2', true, undefined, 'all')
+    assert.deepEqual(now.auto, { all: true, kinds: [] })
+    await fourth.finished
+    await allowNoMore(root, 'review', session.id)
+  } finally {
     stopAllTurns()
     AGENTS.hermes.command = command
     await rm(root, { recursive: true, force: true })

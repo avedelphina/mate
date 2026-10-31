@@ -6,6 +6,17 @@ import type { AgentInfo, AgentKind, Compared, Models, Session } from './env'
 import { Boundary } from './Boundary'
 import { Rendered } from './Rendered'
 
+/** What an agent calls a kind of step, in words a reader would use for "allow ... for this conversation". */
+const WHAT: Record<string, string> = {
+  execute: 'commands',
+  edit: 'edits',
+  delete: 'deletions',
+  move: 'moves',
+  fetch: 'web requests',
+  read: 'reads',
+  search: 'searches'
+}
+
 function reason(caught: unknown): string {
   if (!(caught instanceof Error)) return 'That did not work.'
   return caught.message.replace(/^Error invoking remote method '[^']*': (Error: )?/, '')
@@ -97,7 +108,7 @@ export function Agent(props: {
   const last = session?.messages[session.messages.length - 1]
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'end' })
-  }, [open, session?.messages.length, last?.text, session?.running, into])
+  }, [open, session?.messages.length, last?.text, session?.running, session?.asks?.length, session?.held.length, session?.changes.length, into])
 
   async function act(action: () => Promise<Session>, after?: () => void) {
     setError(null)
@@ -303,6 +314,14 @@ export function Agent(props: {
       ))}
       {session.running && <p className="meta working">Working…</p>}
 
+      {/* What the reader let the agent do without asking. It can be taken back at any time. */}
+      {session.auto && (
+        <p className="meta">
+          {session.auto.all ? 'Everything is allowed without asking' : `Allowed without asking: ${session.auto.kinds.map((each) => WHAT[each] ?? each).join(', ')}`}, in this conversation.{' '}
+          <button className="quiet" onClick={() => void act(() => window.mate.allowNoMore(project, session.id))}>Ask again</button>
+        </p>
+      )}
+
       {/* The agent waits here for a yes or a no. Yes is for this one thing, once. */}
       {(session.asks ?? []).map((ask) => (
         <div key={ask.id} className="decide" role="alert">
@@ -323,6 +342,19 @@ export function Agent(props: {
               {ask.detail && <pre>{ask.detail}</pre>}
               <p>
                 <button className="primary" onClick={() => void window.mate.answerAsk(session.id, ask.id, true)}>Allow once</button>
+                <button
+                  title={`${label(session)} will not ask again for this in this conversation, once the plan is approved. It asks again when Mate is closed. Mate still holds any change outside the project.`}
+                  onClick={() => void window.mate.answerAsk(session.id, ask.id, true, undefined, 'kind')}
+                >
+                  {`Allow ${WHAT[ask.kind ?? ''] ?? 'this'} for this conversation`}
+                </button>
+                <button
+                  className="quiet"
+                  title="Nothing it asks is asked again in this conversation, once the plan is approved, except a question with answers to pick from. It asks again when Mate is closed. Mate still holds any change outside the project."
+                  onClick={() => void window.mate.answerAsk(session.id, ask.id, true, undefined, 'all')}
+                >
+                  Allow everything
+                </button>
                 <button className="quiet" onClick={() => void window.mate.answerAsk(session.id, ask.id, false)}>Deny</button>
               </p>
             </>

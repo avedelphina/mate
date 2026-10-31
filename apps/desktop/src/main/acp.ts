@@ -16,8 +16,8 @@ type Json = Record<string, any> // eslint-disable-line @typescript-eslint/no-exp
 export type Door = { url: string; token: string }
 
 /** Something the agent will not do until the reader has said yes or no. */
-/** `choices` is there when the agent asks a question with answers to pick from (Kimi). */
-export type Ask = { id: string; title: string; detail: string; choices?: { id: string; name: string }[] }
+/** `choices` is there when the agent asks a question with answers to pick from (Kimi). `kind` is what the agent says the step is: execute, edit, fetch and so on. */
+export type Ask = { id: string; title: string; detail: string; choices?: { id: string; name: string }[]; kind?: string }
 
 /** What a turn tells whoever started it. */
 export type Hooks = {
@@ -193,7 +193,7 @@ export class Acp {
       if (!this.hooks) return this.answer(id, false)
       // Kimi names no command or path, only what it wants to do in words.
       const said = call.content?.[0]?.content?.text
-      return this.hooks.ask({ id, title: short(call.title ?? 'The agent asks to go on', 200), detail: short(input.command ?? input.path ?? said ?? '', 20_000), ...(choices ? { choices } : {}) })
+      return this.hooks.ask({ id, title: short(call.title ?? 'The agent asks to go on', 200), detail: short(input.command ?? input.path ?? said ?? '', 20_000), ...(choices ? { choices } : {}), ...(typeof call.kind === 'string' ? { kind: short(call.kind, 40) } : {}) })
     }
     // Mate offers the agent nothing else, and says so if it is asked.
     if (message.id !== undefined) this.send({ id: message.id, error: { code: -32601, message: 'Mate does not do that.' } })

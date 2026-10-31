@@ -69,6 +69,7 @@ import {
   setTrusted
 } from './trust'
 import {
+  allowNoMore,
   answerAsk,
   attend,
   compare,
@@ -756,10 +757,14 @@ app.whenReady().then(() => {
 
   ipcMain.handle('session:stop', (_event, id: string) => stopTurn(id))
 
-  // The reader's yes or no to what an agent asked before it goes on. Yes is for that one thing, once.
-  ipcMain.handle('session:answer', (_event, id: string, ask: string, allow: boolean, choice?: string) =>
-    answerAsk(String(id), String(ask), allow === true, typeof choice === 'string' ? choice : undefined)
+  // The reader's yes or no to what an agent asked before it goes on. Yes is for that one thing, once,
+  // unless the reader says it is for this kind of step, or for everything, in this conversation.
+  ipcMain.handle('session:answer', (_event, id: string, ask: string, allow: boolean, choice?: string, scope?: string) =>
+    answerAsk(String(id), String(ask), allow === true, typeof choice === 'string' ? choice : undefined, typeof scope === 'string' ? scope : undefined)
   )
+
+  // From now on the agent asks again for what the reader let it do without asking.
+  ipcMain.handle('session:allow-off', (event, project: string, id: string) => allowNoMore(requireContext(event), String(project), String(id)))
 
   // The reader opened the choice of model. The agent is asked what it offers, once for each run of the app.
   ipcMain.handle('session:models', (event, agent: 'hermes' | 'kimi') => (requireContext(event), listModels(agent)))

@@ -97,7 +97,10 @@ export type Opened = { dir: string; projects: string[]; shaped: boolean; tracked
 export type Compared = { lines?: DiffLine[]; note?: string }
 
 /** Something an agent will not do until the reader says yes or no. `detail` is the command or the file. */
-export type Ask = { id: string; title: string; detail: string; choices?: { id: string; name: string }[] }
+export type Ask = { id: string; title: string; detail: string; choices?: { id: string; name: string }[]; kind?: string }
+
+/** What the reader let an agent do in a conversation without asking again: kinds of step, or everything. */
+export type Auto = { all: boolean; kinds: string[] }
 
 /** A conversation with one agent inside one project. See src/main/sessions.ts. */
 export type Session = {
@@ -117,6 +120,8 @@ export type Session = {
   running: boolean
   /** What the agent is asking right now. Only while a turn runs, and only from an agent that stays. */
   asks?: Ask[]
+  /** What the reader let the agent do without asking. It lasts until Mate is closed. */
+  auto?: Auto
   /** The model and the thinking effort the reader chose. Without one, the agent's own. */
   model?: string
   effort?: string
@@ -218,7 +223,8 @@ export type MateApi = {
   stopTurn: (id: string) => Promise<void>
   /** Yes or no to what the agent asked. Yes is for that one thing, once. */
   /** `choice` is the answer to a question that has answers to pick from. Without one, `allow` is a plain yes or no. */
-  answerAsk: (id: string, ask: string, allow: boolean, choice?: string) => Promise<void>
+  answerAsk: (id: string, ask: string, allow: boolean, choice?: string, scope?: 'kind' | 'all') => Promise<void>
+  allowNoMore: (project: string, id: string) => Promise<Session>
   /** What Hermes on this computer offers to think with. Hermes is started to be asked, the first time. */
   listModels: (agent: 'hermes' | 'kimi') => Promise<Models>
   /** The model and the effort of a conversation, from its next turn on. Null gives the choice back to the agent. */

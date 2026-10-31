@@ -343,7 +343,12 @@ context can make it trusted. In a trusted context:
   risky command, or before an edit while no plan is approved (*Allow
   once* or *Deny*), and a message you send while it works is taken into
   the turn. *After this turn* sends it to wait for the turn to end
-  instead.
+  instead. *Allow commands for this conversation* (or edits, or whatever
+  kind of step it is) lets that kind through without asking again, and
+  *Allow everything* lets every step through, except a question with
+  answers to pick from. Both apply once the plan is approved, last until
+  you close Mate or press *Ask again*, and are never written to a file.
+  Mate still holds any change outside the project.
 - A script of a project runs from its button.
 - *Commit…* commits. A commit starts the hooks of the repository, and
   those are programs from the folder, like a script.

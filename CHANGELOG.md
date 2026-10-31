@@ -5,6 +5,23 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- When Hermes or Kimi asks, *Allow commands for this conversation* (or
+  edits, or whatever kind of step it is) lets that kind through without
+  asking again, and *Allow everything* lets every step through, except a
+  question with answers to pick from. It applies once the plan is
+  approved, lasts until you close Mate or press *Ask again*, and is never
+  written to a file. A step let through is noted in the turn. Mate still
+  holds any change outside the project.
+
+### Fixed
+
+- A question, a held file or a change that comes in while you are looking
+  at the Agent tab now scrolls into view.
+
 ## [0.13.0] - 2026-10-31
 
 Folders, tags and notes, to organise a project. The intents and the

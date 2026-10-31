@@ -54,7 +54,24 @@ export type Session = {
   model?: string
   /** How hard the reader asks the agent to think. Without it, as the agent's own settings say. */
   effort?: string
+  /** What the reader let the agent do without asking again. Read from memory when the session is loaded, never from the file. */
+  auto?: Auto
 }
+
+/** What the agent may do in this conversation without a yes each time: whole kinds of step, or everything. */
+export type Auto = { all: boolean; kinds: string[] }
+
+/**
+ * What the reader allowed, by conversation. It is kept here and not in the session file, which a
+ * context may ship, so no folder can come with a yes already given. It ends with the app.
+ */
+const allowances = new Map<string, { all: boolean; kinds: Set<string> }>()
+const autoOf = (id: string): Auto | undefined => {
+  const now = allowances.get(id)
+  return now && (now.all || now.kinds.size > 0) ? { all: now.all, kinds: [...now.kinds] } : undefined
+}
+/** What an allowance is for: the kind of step the agent names, else its words for the step. */
+const askKey = (ask: Ask): string => ask.kind || ask.title
 
 const RULES = `You have been invited into a project on a Mate desk. Mate is a tool for reviewing documents.
 Your working folder is one project. The project is part of a context: a folder of related work.
@@ -200,7 +217,8 @@ export async function saveSession(contextDir: string, session: Session): Promise
   const ignore = path.join(contextDir, '.sessions', '.gitignore')
   if (!existsSync(ignore)) await writeFile(ignore, '*\n')
   const temporary = path.join(dir, `.session.${randomUUID()}.tmp`)
-  await writeFile(temporary, JSON.stringify({ ...session, running: false }, null, 2))
+  // What the reader allowed is not written: a file may be shipped with a context, and a yes is the reader's, now.
+  await writeFile(temporary, JSON.stringify({ ...session, running: false, auto: undefined }, null, 2))
   await rename(temporary, path.join(dir, 'session.json'))
 }
 
@@ -219,7 +237,7 @@ export async function loadSession(contextDir: string, project: string, id: strin
   if (live) return live
   const read = JSON.parse(await readFile(path.join(folder(contextDir, project, id), 'session.json'), 'utf8')) as Session
   // A session written before agents could be on another machine has neither field.
-  const session = { ...read, host: read.host ?? null, sent: read.sent ?? {}, queue: read.queue ?? [], running: false, asks: [] }
+  const session = { ...read, host: read.host ?? null, sent: read.sent ?? {}, queue: read.queue ?? [], running: false, asks: [], auto: autoOf(id) }
   await cutOff(contextDir, session)
   return session
 }
@@ -778,6 +796,14 @@ async function begin(
             }
             // The reader approved the plan, and this is an edit: the guard rules on it afterwards.
             if (mayWrite && adapter.edits?.includes(ask.title)) return agent.answer(ask.id, true)
+            // The reader let this kind of step go, or everything, for this conversation. Only after the plan is approved,
+            // and never a question with answers to pick from. Mate still rules on what changes in the folder.
+            const allowed = allowances.get(id)
+            if (mayWrite && !ask.choices && allowed && (allowed.all || allowed.kinds.has(askKey(ask)))) {
+              answer.tools.push(`Allowed without asking: ${ask.title}`)
+              update()
+              return agent.answer(ask.id, true)
+            }
             // The reader left the agent to finish by itself. Nobody is there to say yes.
             if (!attended) return agent.answer(ask.id, false)
             session.asks = [...(session.asks ?? []), ask]
@@ -922,8 +948,26 @@ export async function compare(contextDir: string, project: string, id: string, w
  * The reader's yes or no to what an agent asked, or the answer they picked to its question. It counts
  * only while the agent still waits for it, and a choice only if it is one of the answers on offer.
  */
-export function answerAsk(id: string, ask: string, allow: boolean, choice?: string): void {
+export function answerAsk(id: string, ask: string, allow: boolean, choice?: string, scope?: string): void {
+  const turn = turns.get(id)
+  const asked = turn?.session.asks?.find((each) => each.id === ask)
+  // A yes for the rest of the conversation: for this kind of step, or for everything. A question is always asked.
+  if (allow === true && asked && !asked.choices && (scope === 'kind' || scope === 'all')) {
+    const now = allowances.get(id) ?? { all: false, kinds: new Set<string>() }
+    if (scope === 'all') now.all = true
+    else now.kinds.add(askKey(asked))
+    allowances.set(id, now)
+    turn!.session.auto = autoOf(id)
+  }
   live.get(id)?.answer(ask, allow === true, undefined, typeof choice === 'string' ? choice : undefined)
+}
+
+/** The reader takes back what they let the agent do without asking. From the next step it asks again. */
+export async function allowNoMore(contextDir: string, project: string, id: string): Promise<Session> {
+  allowances.delete(id)
+  const session = await loadSession(contextDir, project, id)
+  session.auto = undefined
+  return session
 }
 
 /** A copy kept for Revert is named by its number alone, so a session file cannot point it elsewhere. */

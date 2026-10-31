@@ -963,6 +963,14 @@ whole of that. Three things follow.
   the question with the command or the file, and Allow once or Deny. Yes
   is only ever for that one thing: if the agent offers no such answer,
   Mate answers no. An ask that is still open when the turn ends is over.
+  The reader may say yes for the rest of the conversation: for the kind
+  of step the agent names (`execute`, `edit`, and so on), or for everything.
+  `allowances` in `sessions.ts` holds it, in memory. It is not in the session
+  file, which a context may ship, so no folder arrives with a yes given;
+  it ends with the app, or when the reader presses *Ask again*. It applies
+  only once the plan is approved, never to a question with answers to
+  pick from, and the guard and `judge` rule on what changes as before. A
+  step let through is noted in the turn's steps.
 - **The agent can be told something while it works.** A message sent
   mid-turn goes to it at once, and it takes it into the turn. An approval
   still waits behind the turn, as before. The reader can also send a
