@@ -433,6 +433,62 @@ rest hold as they are.
 - **Git, in architecture.md.** The sentence that gives push and pull to
   "a terminal, or an agent in a trusted context" gets the button.
 
+## 13. Two tiers, and a request to another project
+
+Most projects are self-contained. Their documents are the product, and
+nothing needs to reach the context. Sometimes a document must go further,
+and sometimes a project finds that another project has to change. The model
+has the shelf for the first and nothing for the second. This step adds the
+second, and makes the first the exception.
+
+Do these in this order. Each is usable on its own.
+
+**Organise a project's files.** Start a draft in the folder the reader
+picks, from a *+* on the folder row. Move a file or a folder inside one
+project: drag it in the tree, or *Move to…* in the palette. Its comments
+(`NAME.comments.md`) and its note (`NAME.notes.md`) go with it. A file
+moved into `draft/` becomes a draft, and one moved out of it becomes
+material, with a short warning. Nothing moves into `shelf/`: only the
+publish dialog puts a document there. Nothing moves while an agent works in
+the context. The index and the text twins follow, as they do for a rename.
+
+**Send to a project.** In one project, select a passage and choose *Send to
+project…*. Pick another project of the same context and write a short note:
+what is wrong, and what is proposed. The system asks once, naming the
+target. Mate then writes one file into that project's `dropbox/`, named for
+the sender and the date. It holds the note, the passage as a quote, and
+where it came from. Nothing else in the other project changes, and a file of
+that name is never written over. It arrives as intake, and the other
+project's exits apply: pull it into the drafts, or leave it outside with a
+note. The sender keeps a line in the note beside its file: sent to that
+project, on that date. The passage is all that goes, not the whole draft.
+
+To change a shelf document, the other project takes it down into a draft
+(already possible), works on it, and publishes. The old copy is kept as
+history. The first project then reads the new truth from the shelf. No
+project writes into another's drafts. An invited agent may still propose a
+change to a file of a sibling project, which waits for the reader to
+approve that file, as before.
+
+**Final, and the shelf as an exception.** A document says it is final in
+its front matter, as `status: final`. The bar and the tree show it. It
+says that the document is the project's own result. It does not mean it is
+the context's truth: only the shelf is that. An agent is told which of a
+project's documents are final. *Publish…* stays, and it is offered most
+where a document is final. The name offered on first publish starts with the
+project's name, so a shelf document shows where it came from, and two
+projects do not replace each other's documents by accident. A name the
+reader types still wins.
+
+No rule changes. `docs/model.md` says a draft is a proposal. For a
+self-contained project that wording is wrong, and it is changed when this
+step is built: a draft is a document of its project, and a proposal only
+against the shelf.
+
+Not this step: moving a file between projects, a request with a status that
+both projects can see, or a document that the shelf and a project both
+own.
+
 ## Beside the steps: an app you can install
 
 A signed and notarised app for macOS, as a disk image. It is not a step,
