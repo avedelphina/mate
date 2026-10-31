@@ -16,7 +16,9 @@ features are later steps in the roadmap or are out of scope on purpose:
 
 If you want to add something that is not on the roadmap, open an issue
 first and describe the problem. A change that adds a database, a server,
-accounts, or a second copy of a document will not be merged.
+accounts, or a second copy of a document will not be merged. This is about
+Mate's own: one that holds state. A git remote the reader runs is not that
+(roadmap step 12, the gateway, not built yet).
 
 ## Setting up
 
@@ -97,7 +99,8 @@ These are not style preferences. Breaking one will get a change sent back.
    path that calls it.
 6. **No silent network.** Nothing connects anywhere unless the reader starts
    it. The one exception: the installed app asks GitHub for a newer version
-   of itself, and sends nothing of a context.
+   of itself, and sends nothing of a context. The gateway of roadmap step
+   12 will be a host the reader enters, which counts as started by them.
 
 Three more follow from the security model. They are in
 [SECURITY.md](SECURITY.md) and [docs/architecture.md](docs/architecture.md):

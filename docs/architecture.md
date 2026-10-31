@@ -680,6 +680,13 @@ No remote is added, and nothing is pushed or pulled. Those bring
 credentials and conflicts, and they are what git's own tools are for: a
 terminal, or an agent in a trusted context.
 
+This is a choice about scope, not a security rule, and the roadmap changes
+it in step 12 (the gateway, not built yet). Then Mate adds a remote only
+when the reader enters the gateway, and pushes or pulls only when the
+reader presses the button for it. On the desktop that stays in a trusted
+context, because a push or a pull runs the repository's hooks. No agent
+has a tool for either.
+
 The copy for Revert is not git. A change by an agent is put back from
 the copy Mate took before it, whether or not anything was ever committed.
 
@@ -1159,6 +1166,6 @@ endpoint. So the two share none of these. See
 
 No mail and no issues of Mate's own: an agent shows them in a pane, and
 Mate connects to neither. Of git, only a repository started and a commit
-made, when the reader says so: no remote, no push, no pull, and no commit
-made on its own. No program from a context
+made, when the reader says so: no remote, no push, no pull (until the
+gateway of roadmap step 12), and no commit made on its own. No program from a context
 that runs in the window: a pane is markdown, and Mate draws its buttons.
