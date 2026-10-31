@@ -1523,7 +1523,7 @@ export function App() {
           {onPage && <span>Agent</span>}
           {onPage && <button className="quiet move" onClick={toMargin}>Back to the margin</button>}
           {!onPage && reading && <span className={`kind ${reading.kind}`}>{KINDS[reading.kind].label}</span>}
-          {!onPage && reading && <span>{reading.path}</span>}
+          {!onPage && reading && <span title={reading.path}>{reading.path}</span>}
           {!onPage && reading && tagChips(shownTags)}
           {!onPage && reading?.twin && (
             <span className="acts">
@@ -1564,9 +1564,9 @@ export function App() {
               )}
             </span>
           )}
-          {!onPage && !reading && view && <span className="meta">{view.project}</span>}
+          {!onPage && !reading && view && <span className="meta" title={view.project}>{view.project}</span>}
           {!onPage && !reading && file !== null && <span className="meta">/</span>}
-          {!onPage && !reading && file !== null && <span>{file}</span>}
+          {!onPage && !reading && file !== null && <span title={file}>{file}</span>}
           {!onPage && !reading && file !== null && tagChips(shownTags)}
           {!onPage && !reading && file !== null && (
             <span className="acts">

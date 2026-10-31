@@ -141,6 +141,13 @@ button.wide { width: 100%; }
 .steer { display: block; width: 100%; box-sizing: border-box; min-height: 8em; margin: 6px 0; padding: 8px; border: 1px solid var(--line, currentColor); border-radius: 6px; background: none; color: inherit; font: inherit; resize: vertical; field-sizing: content; }
 .editor { display: block; width: 100%; box-sizing: border-box; min-height: 70vh; border: 0; outline: 0; background: none; color: inherit; resize: none; field-sizing: content; }
 .bar .acts { display: flex; align-items: center; gap: 2px; margin-left: auto; -webkit-app-region: no-drag; }
+/* The bar of the page is one line. The names give way before the buttons do: the project first, then the file, with an ellipsis. */
+.center .bar { gap: 8px; white-space: nowrap; }
+.center .bar > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.center .bar > .meta { flex-shrink: 3; }
+.center .bar > .acts, .center .bar > .tags, .center .bar > .kind { flex: none; overflow: visible; }
+.center .bar > .tags { margin-left: 4px; }
+.center .bar button { flex: none; white-space: nowrap; }
 .bar .acts > .meta { margin-right: 6px; font-weight: 400; }
 .tree-new { margin: 0 0 6px 13px; padding-left: 4px; border-left: 1px solid var(--line); }
 .tree-new .row { height: 24px; padding: 0 8px 0 24px; border-radius: 5px; color: var(--soft); font-size: 12px; line-height: 24px; }

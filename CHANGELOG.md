@@ -5,6 +5,15 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Fixed
+
+- The bar above the page is one line. A long project or file name no
+  longer wraps and spills over the top: the names give way, with an
+  ellipsis, before the buttons do, and a name shows in full when you rest
+  the pointer on it.
+
 ## [0.14.0] - 2026-10-31
 
 Notifications when an agent needs you, and a yes that lasts for a
