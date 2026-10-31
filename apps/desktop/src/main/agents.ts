@@ -256,12 +256,19 @@ function listHosts(): string[] {
 
 export type AgentInfo = { kind: AgentKind; label: string; found: boolean; host: string | null }
 
-/** Which agents can be invited: the ones on this computer, and the ones reached over SSH. */
-export function listAgents(): AgentInfo[] {
-  const folders = (agentEnvironment().PATH ?? '').split(path.delimiter)
+/** Where to look for agents: the PATH of this computer, or the hosts in the reader's ssh config. */
+export type Way = 'here' | 'ssh'
+
+/** What a way finds. Those on this computer are offered as they are; those over ssh the reader picks from. */
+export function discoverAgents(way: Way): AgentInfo[] {
   const kinds = Object.keys(AGENTS) as AgentKind[]
+  if (way === 'ssh')
+    return listHosts().flatMap((host) =>
+      kinds.filter((kind) => AGENTS[kind].remoteArgs).map((kind) => ({ kind, label: `${AGENTS[kind].label} on ${host}`, found: true, host }))
+    )
+  const folders = (agentEnvironment().PATH ?? '').split(path.delimiter)
   const present = (command: string) => folders.some((folder) => existsSync(path.join(folder, command)))
-  const here = kinds.map((kind) => ({
+  return kinds.map((kind) => ({
     kind,
     label: AGENTS[kind].label,
     found:
@@ -269,8 +276,16 @@ export function listAgents(): AgentInfo[] {
       (kind !== 'private' || process.platform === 'darwin' || (process.platform === 'linux' && present('bwrap') && present('python3'))),
     host: null
   }))
-  const away = listHosts().flatMap((host) =>
-    kinds.filter((kind) => AGENTS[kind].remoteArgs).map((kind) => ({ kind, label: `${AGENTS[kind].label} on ${host}`, found: true, host }))
-  )
-  return [...here, ...away]
+}
+
+/** Whether the reader may add this agent: a known kind, and a host only for a kind that can be reached over ssh. */
+export function addable(kind: unknown, host: unknown): host is string | null {
+  if (typeof kind !== 'string' || !Object.hasOwn(AGENTS, kind)) return false
+  if (host === null) return true
+  return typeof host === 'string' && isHost(host) && !!AGENTS[kind as AgentKind].remoteArgs
+}
+
+/** An agent on another machine the reader added. The host is not asked: ssh finds out when the agent starts. */
+export function describeAgent(kind: AgentKind, host: string): AgentInfo {
+  return { kind, label: `${AGENTS[kind].label} on ${host}`, found: true, host }
 }

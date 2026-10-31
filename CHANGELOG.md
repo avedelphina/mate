@@ -5,6 +5,16 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## Unreleased
+
+### Changed
+
+- Agents on other machines are no longer found on their own, since
+  inviting one sends the text of your files there. In Settings, under
+  Agents, you look in your ssh config and add the hosts you want, or type
+  one. Agents on this computer are still found, and Settings lists them.
+  A host you used before must be added once.
+
 ## [0.10.0] - 2026-10-28
 
 Mate updates itself, and reads code as code: search reads every text

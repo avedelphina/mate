@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { AGENTS, SSH, listAgents, sshArgs } from '../src/main/agents.ts'
+import { AGENTS, SSH, addable, discoverAgents, sshArgs } from '../src/main/agents.ts'
 import { changesSince, fingerprints, put, takeSnapshot } from '../src/main/guard.ts'
 import { compare, judge, listSessions, loadSession, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
 import { isTrusted, keepTrustIn, setTrusted } from '../src/main/trust.ts'
@@ -229,7 +229,12 @@ test('an agent on another machine is sent the files, and what it asks to change 
   try {
     assert.deepEqual(sshArgs('agent-host.example', 'hermes', ["it's"]).slice(-4), ['agent-host.example', '--', "'hermes'", `'it'\\''s'`])
     assert.throws(() => sshArgs('-oProxyCommand=evil', 'hermes', []), /not a host/)
-    assert.equal(listAgents().filter((agent) => agent.host !== null).every((agent) => agent.kind === 'hermes'), true)
+    assert.equal(discoverAgents('ssh').every((agent) => agent.kind === 'hermes'), true)
+    assert.equal(addable('hermes', 'agent-host.example'), true)
+    assert.equal(addable('hermes', null), true)
+    assert.equal(addable('claude', 'agent-host.example'), false)
+    assert.equal(addable('hermes', '-oProxyCommand=evil'), false)
+    assert.equal(addable('nobody', null), false)
     await assert.rejects(startSession(root, 'review', 'claude', 'agent-host.example'), /another machine/)
 
     // A stand-in for ssh. It never touches the folder: it only says what it wants changed.

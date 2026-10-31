@@ -29,7 +29,7 @@ Every call has this shape. The whole of what the window can ask for:
 | Sources | `source:pick`, `source:note`, `source:pull`, `source:copy`, `dropbox:pull` | the file dialog, `noteSource`, `copySource`, `copyFolder`, `pullIn` |
 | A pane | `pane:tick` | `tickPane` |
 | A script | `script:run`, `script:stop` | `runScript`, `stopScript` |
-| Agents | `agents:list`, `mcp:bind` | which agents can be invited; the door for the reader's own |
+| Agents | `agents:list`, `agents:discover`, `agents:add`, `agents:remove`, `mcp:bind` | which agents can be invited; the hosts in the ssh config; the hosts added; the door for the reader's own |
 | A session | `session:list`, `session:start`, `session:send`, `session:stop`, `session:answer`, `session:revert`, `session:settle`, `session:compare`, `session:models`, `session:tune` | `sessions.ts` |
 | Trust | `trust:get`, `trust:set` | `isTrusted`, and `setTrusted` after a dialog of the system |
 | Privacy | `privacy:get`, `privacy:set`, `privacy:opened`, `privacy:open`, `endpoint:get`, `endpoint:set` | `isPrivate`, and `setPrivate`: at once to keep a context private, after a dialog of the system to let agents in again; `setOpenedToEndpoint` after a dialog that names the host; `setEndpoint` in `endpoint.ts` |
@@ -812,7 +812,12 @@ no Revert, as when the reader types. The guard is for agents.
 
 ## Agents
 
-An agent is invited into a project from the Agent tab of the margin. Mate
+An agent is invited into a project from the Agent tab of the margin. Agents on this
+computer are found on the PATH. An agent on another machine is offered only
+once the reader has added its host in Settings: a look in the ssh config
+(`discoverAgents('ssh')`) adds nothing, and the reader picks, or types a
+host. Those are kept in `agents.json` in the app's data folder, outside every
+context. Mate
 starts the agent's own command line tool, with the project folder as its
 working folder: Claude Code, Codex, or Hermes. `agents.ts` holds, for each,
 the arguments to run it without a terminal and how to read its output as

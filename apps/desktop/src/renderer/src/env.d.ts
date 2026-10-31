@@ -196,7 +196,13 @@ export type MateApi = {
   addReply: (project: string, file: string, id: string, text: string, author: string) => Promise<DocumentView>
   applySuggestion: (project: string, file: string, id: string) => Promise<DocumentView>
   anchorComment: (project: string, file: string, id: string, anchor: string, from?: number) => Promise<DocumentView>
+  /** The agents on this computer, found on the PATH; the ones on other machines the reader added; and their own agent. */
   listAgents: () => Promise<AgentInfo[]>
+  /** The hosts in the ssh config, as agents to add. Adds nothing. */
+  discoverAgents: () => Promise<AgentInfo[]>
+  /** Both return the agents on other machines afterwards. */
+  addAgent: (kind: AgentKind, host: string) => Promise<AgentInfo[]>
+  removeAgent: (kind: AgentKind, host: string) => Promise<AgentInfo[]>
   /** Point the MCP door at this session. Returns where the reader's own agent connects. */
   bindMcp: (project: string, id: string) => Promise<{ url: string; token: string }>
   listSessions: (project: string) => Promise<Session[]>

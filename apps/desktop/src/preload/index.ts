@@ -56,6 +56,9 @@ contextBridge.exposeInMainWorld('mate', {
   anchorComment: (project: string, file: string, id: string, anchor: string, from?: number) =>
     ipcRenderer.invoke('comment:anchor', project, file, id, anchor, from),
   listAgents: () => ipcRenderer.invoke('agents:list'),
+  discoverAgents: () => ipcRenderer.invoke('agents:discover'),
+  addAgent: (kind: string, host: string) => ipcRenderer.invoke('agents:add', kind, host),
+  removeAgent: (kind: string, host: string) => ipcRenderer.invoke('agents:remove', kind, host),
   bindMcp: (project: string, id: string) => ipcRenderer.invoke('mcp:bind', project, id),
   listSessions: (project: string) => ipcRenderer.invoke('session:list', project),
   startSession: (project: string, agent: string, host?: string) =>

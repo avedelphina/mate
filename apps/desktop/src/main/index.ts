@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { addReply, anchorComment, applySuggestion, fileLineOf } from '../shared/comments'
-import { agentEnvironment, listAgents } from './agents'
+import { addable, agentEnvironment, describeAgent, discoverAgents, type AgentKind } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
 import { commitContext, historyOf, inRepository, startRepository, uncommitted, versionAt } from './git'
 import { diffLines } from '../shared/diff'
@@ -679,7 +679,35 @@ app.whenReady().then(() => {
     editDraft(requireContext(event), project, file, (markdown) => anchorComment(markdown, id, anchor, from))
   )
 
-  ipcMain.handle('agents:list', () => [...listAgents(), { kind: 'mcp', label: 'Your own agent', found: true, host: null }])
+  // Agents on this computer are found on the PATH. Agents on other machines are only the ones the reader added
+  // in the settings, since inviting one sends text away. Your own agent is always there.
+  const agentsFile = () => path.join(app.getPath('userData'), 'agents.json')
+  const readRemote = (): { kind: AgentKind; host: string }[] => {
+    try {
+      const kept: unknown = JSON.parse(readFileSync(agentsFile(), 'utf8'))
+      return Array.isArray(kept) ? kept.filter((each) => typeof each?.host === 'string' && addable(each.kind, each.host)) : []
+    } catch {
+      return []
+    }
+  }
+  const remoteAgents = () => readRemote().map((each) => describeAgent(each.kind, each.host))
+  const keepRemote = (list: { kind: AgentKind; host: string }[]) => {
+    writeFileSync(agentsFile(), JSON.stringify(list, null, 2), { mode: 0o600 })
+    return remoteAgents()
+  }
+  ipcMain.handle('agents:list', () => [
+    ...discoverAgents('here'),
+    ...remoteAgents(),
+    { kind: 'mcp', label: 'Your own agent', found: true, host: null }
+  ])
+  ipcMain.handle('agents:discover', () => discoverAgents('ssh'))
+  ipcMain.handle('agents:add', (_event, kind: unknown, host: unknown) => {
+    if (typeof host !== 'string' || !addable(kind, host)) throw new Error('That agent cannot be added.')
+    return keepRemote([...readRemote().filter((each) => !(each.kind === kind && each.host === host)), { kind: kind as AgentKind, host }])
+  })
+  ipcMain.handle('agents:remove', (_event, kind: unknown, host: unknown) =>
+    keepRemote(readRemote().filter((each) => !(each.kind === kind && each.host === host)))
+  )
 
   ipcMain.handle('mcp:bind', (event, project: string, id: string) => {
     const contextDir = requireContext(event)

@@ -60,9 +60,10 @@ export function Agent(props: {
   const keep = (next: Session) =>
     setSessions((all) => (all.some((each) => each.id === next.id) ? all.map((each) => (each.id === next.id ? next : each)) : [next, ...all]))
 
+  // Read again when the settings close: the reader adds hosts there.
   useEffect(() => {
     void window.mate.listAgents().then(setAgents)
-  }, [])
+  }, [settingsOpen])
 
   useEffect(() => {
     setOpen(null)

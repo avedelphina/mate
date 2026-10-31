@@ -234,6 +234,16 @@ test('the window, on the example context: a comment into the file, the tree, a p
     // A checkout never updates itself, and says so when asked.
     await app.press('.settings .updates button', 'Check now')
     await app.until(`document.querySelector('.settings .updates [role=status]')?.textContent === 'Run from a checkout, Mate does not update itself.'`, 'the update check, refused in a checkout')
+    // An agent on another machine is not found on its own: the reader adds one, here by a host typed in, and it is kept in the app's own data.
+    assert.equal(await app.page(`document.querySelector('.settings .agents .remote li').textContent`), 'None yet.')
+    await app.page(`(() => {
+      const input = document.querySelector('.settings .agents form input')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'agent-host.example')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })()`)
+    await app.press('.settings .agents form button', 'Add')
+    await app.until(`document.querySelector('.settings .agents .remote li')?.textContent.startsWith('Hermes on agent-host.example')`, 'the agent, added')
+    assert.deepEqual(JSON.parse(await readFile(path.join(app.userData, 'agents.json'), 'utf8')), [{ kind: 'hermes', host: 'agent-host.example' }])
     await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
     await app.until(`!document.querySelector('.center .settings') && document.querySelector('.endpoint')?.textContent.includes('Your endpoint is llm.example.org')`, 'the Agent tab, with the endpoint')
     assert.deepEqual(await app.page(`[...document.querySelectorAll('.endpoint button')].map((each) => each.textContent)`), ['Allow your endpoint here…', 'Change the endpoint…'])

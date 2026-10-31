@@ -132,6 +132,9 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   - Hermes on another computer, over SSH (the folder stays on your machine);
   - an agent you run yourself, through a local MCP endpoint.
 
+  Agents on this computer are found on their own. Add a host for Hermes on
+  another computer in *Settings*, under *Agents*; Mate adds none for you.
+
   A conversation that is not about a draft can take the page (*Open in
   the page*). See [Agents](#agents) below.
 - **Private contexts.** *Keep this context private* in the *Agent* tab:

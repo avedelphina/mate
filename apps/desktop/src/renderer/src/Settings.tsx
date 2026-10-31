@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Settings as Held, Update } from './env'
+import type { AgentInfo, Settings as Held, Update } from './env'
 
 const unwrapped = (caught: unknown) => String((caught as Error)?.message ?? caught).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 
@@ -56,8 +56,18 @@ export function Settings(props: { onClose: () => void }) {
   const [saved, setSaved] = useState(false)
   // The editor command while it is changed. Null until then.
   const [editor, setEditor] = useState<string | null>(null)
+  // The agents on this computer and the hosts added, what a look in the ssh config found (null until it is made), and a host typed by hand.
+  const [added, setAdded] = useState<AgentInfo[]>([])
+  const [looked, setLooked] = useState<AgentInfo[] | null>(null)
+  const [hostName, setHostName] = useState('')
   const update = useUpdate()
   const mac = document.documentElement.dataset.platform === 'mac'
+  useEffect(() => {
+    void window.mate.listAgents().then((all) => setAdded(all.filter((each) => each.kind !== 'mcp')))
+  }, [])
+  const keepAgents = (all: AgentInfo[]) => setAdded(all)
+  const isAdded = (each: AgentInfo) => added.some((one) => one.kind === each.kind && one.host === each.host)
+
   const load = () => window.mate.settings().then(setHeld, (caught) => setError(String(caught?.message ?? caught)))
   useEffect(() => {
     void load()
@@ -130,6 +140,66 @@ export function Settings(props: { onClose: () => void }) {
                 {saved && host && <span className="meta"> Saved: {host}.</span>}
               </p>
               <p className="meta">A new host closes every private context that was open to the old one.</p>
+            </form>
+          </section>
+
+          <section className="agents">
+            <h2>Agents</h2>
+            <p className="meta">
+              Agents on this computer are found on their own. An agent on another machine is sent the text of your files, so Mate adds none:
+              look in your ssh config and add the ones you want, or type a host.
+            </p>
+            <ul>
+              {added.filter((each) => each.host === null).map((each) => (
+                <li key={each.label}>
+                  {each.label} <span className="meta">{each.found ? 'found' : 'not found'}</span>
+                </li>
+              ))}
+            </ul>
+            <h3>On other machines</h3>
+            <ul className="remote">
+              {added.filter((each) => each.host !== null).map((each) => (
+                <li key={each.label}>
+                  {each.label}
+                  <button className="quiet" onClick={() => act(() => window.mate.removeAgent(each.kind, each.host!).then(keepAgents))}>
+                    Remove
+                  </button>
+                </li>
+              ))}
+              {!added.some((each) => each.host !== null) && <li className="meta">None yet.</li>}
+            </ul>
+            <p>
+              <button onClick={() => act(() => window.mate.discoverAgents().then(setLooked))}>Look in your ssh config</button>
+            </p>
+            {looked && (
+              <ul>
+                {looked.map((each) => (
+                  <li key={each.label}>
+                    {each.label}
+                    <button
+                      className="quiet"
+                      disabled={isAdded(each)}
+                      onClick={() => act(() => window.mate.addAgent(each.kind, each.host!).then(keepAgents))}
+                    >
+                      {isAdded(each) ? 'Added' : 'Add'}
+                    </button>
+                  </li>
+                ))}
+                {looked.length === 0 && <li className="meta">No hosts in your ssh config.</li>}
+              </ul>
+            )}
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                act(() => window.mate.addAgent('hermes', hostName.trim()).then((all) => (keepAgents(all), setHostName(''))))
+              }}
+            >
+              <label>
+                Hermes on another machine <input value={hostName} placeholder="host name, as ssh takes it" onChange={(event) => setHostName(event.target.value)} />
+              </label>{' '}
+              <button type="submit" disabled={!hostName.trim()}>
+                Add
+              </button>
             </form>
           </section>
 
