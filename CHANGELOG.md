@@ -5,7 +5,10 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.14.0] - 2026-10-31
+
+Notifications when an agent needs you, and a yes that lasts for a
+conversation, so Hermes and Kimi do not ask the same thing again and again.
 
 ### Added
 
