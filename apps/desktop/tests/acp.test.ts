@@ -64,7 +64,7 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
   const answer = said.includes('quick') ? { outcome: { optionId: 'not asked' } } : await new Promise((resolve) => {
     answers.set(99, resolve)
     send({ id: 99, method: 'session/request_permission', params: { sessionId: 's1',
-      toolCall: { toolCallId: 't2', title: 'terminal: rm old.txt', rawInput: { tool: 'terminal', arguments: { command: 'rm old.txt' } } },
+      toolCall: { toolCallId: 't2', title: said.includes('edits') ? 'Write' : 'terminal: rm old.txt', rawInput: { tool: 'terminal', arguments: { command: 'rm old.txt' } } },
       options: [{ kind: 'allow_once', optionId: 'yes' }, { kind: 'reject_once', optionId: 'no' }] } })
   })
   text('The answer was ' + answer.outcome.optionId + '.')
@@ -287,6 +287,54 @@ test('left to finish by itself, an agent that asks is told no, and the work is k
     attend(true)
     stopAllTurns()
     AGENTS.hermes.command = command
+    await rm(root, { recursive: true, force: true })
+    await rm(out, { recursive: true, force: true })
+  }
+})
+
+test('Kimi works in a trusted context only, asks before everything but an edit, and edits once the plan is approved', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-kimi-'))
+  const out = `${root}-out`
+  const command = AGENTS.kimi.command
+  const until = async (found: () => boolean) => {
+    for (let waited = 0; !found(); waited += 20) {
+      if (waited > 5000) throw new Error('It did not happen.')
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+  }
+  try {
+    await mkdir(path.join(root, 'projects/review/draft'), { recursive: true })
+    await mkdir(out)
+    await writeFile(path.join(root, 'projects/review/draft/document.md'), 'Draft text.\n')
+    await writeFile(path.join(out, 'agent.mjs'), AGENT(path.join(out, 'log')))
+    await chmod(path.join(out, 'agent.mjs'), 0o755)
+    AGENTS.kimi.command = path.join(out, 'agent.mjs')
+    keepTrustIn(path.join(out, 'trusted.json'))
+    doors.forAgent = async () => ({ url: 'http://127.0.0.1:1/mcp', token: 'door' })
+    const session = await startSession(root, 'review', 'kimi')
+
+    // Kimi cannot be held to files, so it is not started where the reader has not trusted the context.
+    await assert.rejects(sendMessage(root, 'review', session.id, 'Hello.', false, () => {}), /works only in a context you trust/)
+
+    setTrusted(root, true)
+    let now: Session = session
+    const first = await sendMessage(root, 'review', session.id, 'Change the edits.', false, (next) => (now = next))
+    // Before the plan is approved even an edit goes to the reader.
+    await until(() => (now.asks ?? []).length === 1)
+    assert.equal(now.asks![0].title, 'Write')
+    answerAsk(session.id, 't2', false)
+    await first.finished
+    // After it, Mate says yes to the edit, and the reader is asked nothing.
+    const second = await sendMessage(root, 'review', session.id, 'Change the edits.', true, (next) => (now = next))
+    const done = await second.finished
+    assert.deepEqual(done.asks, [])
+    assert.match(done.messages.filter((each) => each.role === 'agent').at(-1)!.text, /The answer was yes\./)
+    // Always the mode that asks: Kimi's `auto` runs a shell and the web unasked.
+    const log = (await readFile(path.join(out, 'log'), 'utf8')).trim().split('\n').map((line) => JSON.parse(line))
+    assert.deepEqual(log.filter((each) => each.mode).map((each) => each.mode), ['default', 'default'])
+  } finally {
+    AGENTS.kimi.command = command
+    stopAllTurns()
     await rm(root, { recursive: true, force: true })
     await rm(out, { recursive: true, force: true })
   }

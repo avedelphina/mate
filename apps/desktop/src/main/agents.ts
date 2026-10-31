@@ -4,7 +4,7 @@ import path from 'node:path'
 import { EFFORTS } from '../shared/effort'
 import { PROFILE, preparePrivate } from './endpoint'
 
-export type AgentKind = 'claude' | 'codex' | 'hermes' | 'private'
+export type AgentKind = 'claude' | 'codex' | 'kimi' | 'hermes' | 'private'
 
 /** What an agent said or did, whichever agent it is. */
 export type AgentEvent =
@@ -44,6 +44,16 @@ type Adapter = {
    * It is started this way only in a context the reader trusts. See acp.ts and trust.ts.
    */
   acp?: string[]
+  /**
+   * Set for an agent that can be held to file tools only by nothing but its own command line, and has no
+   * such way here. It is started in a context the reader trusts and in no other.
+   */
+  trustedOnly?: boolean
+  /**
+   * The titles under which the agent asks to change a file. Once the plan is approved, Mate says yes to
+   * these, as `accept_edits` does for Hermes. It asks the reader about everything else.
+   */
+  edits?: string[]
   /**
    * The arguments on another machine, where the agent has no folder and is given no file tools.
    * Only an agent that has this can be invited over SSH.
@@ -141,6 +151,21 @@ export const AGENTS: Record<AgentKind, Adapter> = {
     }
   },
 
+  // `kimi acp` takes no list of tools: it has a shell and the web whatever its agent file says, and in
+  // its `auto` mode it runs them unasked. So it stays between turns, in a trusted context only, and
+  // asks before every step but a read.
+  kimi: {
+    label: 'Kimi',
+    command: 'kimi',
+    args: () => {
+      throw new Error('Kimi works only in a context you trust.')
+    },
+    read: () => [],
+    acp: ['acp'],
+    trustedOnly: true,
+    edits: ['Write', 'Edit']
+  },
+
   hermes: {
     label: 'Hermes',
     command: 'hermes',
@@ -225,7 +250,7 @@ function parse(line: string): Json {
 export function agentEnvironment(): NodeJS.ProcessEnv {
   const env = { ...process.env }
   for (const name of ['ELECTRON_RUN_AS_NODE', 'CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SSE_PORT']) delete env[name]
-  const extra = [path.join(os.homedir(), '.local/bin'), '/opt/homebrew/bin', '/usr/local/bin']
+  const extra = [path.join(os.homedir(), '.local/bin'), path.join(os.homedir(), '.kimi-code/bin'), '/opt/homebrew/bin', '/usr/local/bin']
   env.PATH = [env.PATH, ...extra].filter(Boolean).join(path.delimiter)
   return env
 }

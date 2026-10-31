@@ -78,7 +78,7 @@ export type Hit = {
 }
 
 /** `mcp` is an agent the reader runs themselves. It comes in over MCP. */
-export type AgentKind = 'claude' | 'codex' | 'hermes' | 'private' | 'mcp'
+export type AgentKind = 'claude' | 'codex' | 'kimi' | 'hermes' | 'private' | 'mcp'
 /** `host` is set for an agent on another machine, reached over SSH. */
 export type AgentInfo = { kind: AgentKind; label: string; found: boolean; host: string | null }
 

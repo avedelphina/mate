@@ -7,6 +7,12 @@ then, minor versions may change behaviour.
 
 ## Unreleased
 
+### Added
+
+- Kimi (Kimi Code CLI) can be invited, in a context you trust. It cannot be
+  held to file tools, so it runs there with all its tools and asks before
+  each step but a read. Once you approve the plan, Mate says yes to its edits.
+
 ### Changed
 
 - Agents on other machines are no longer found on their own, since

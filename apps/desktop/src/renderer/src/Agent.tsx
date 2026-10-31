@@ -158,13 +158,15 @@ export function Agent(props: {
           {agents.filter((agent) => (agent.kind === 'private') === kept).map((agent) => (
             <button
               key={agent.label}
-              disabled={!agent.found || (kept && !(opened && endpoint))}
+              disabled={!agent.found || (kept && !(opened && endpoint)) || (agent.kind === 'kimi' && !trusted)}
               title={
                 kept
                   ? opened && endpoint
                     ? `Hermes in ${document.documentElement.dataset.platform === 'mac' ? 'the macOS sandbox' : 'Bubblewrap'}, with your endpoint ${new URL(endpoint.url).host} as its only way out.`
                     : 'This context is private. Allow your endpoint here first.'
-                  : agent.host
+                  : agent.kind === 'kimi' && !trusted
+                    ? 'Kimi has a shell and the web, and cannot be held to files. It works only in a context you trust.'
+                    : agent.host
                     ? 'On another machine. It has no folder there: Mate sends it the text of the files.'
                     : agent.found
                       ? undefined
@@ -178,8 +180,8 @@ export function Agent(props: {
         </p>
         <p className="meta hint trust">
           {trusted
-            ? 'This context is trusted. Hermes on this computer runs here as it does in your terminal: its own tools, your connections, commands. Mate still rules on what changes in this folder, and does not see the rest. Other agents get tools for files only.'
-            : 'This context is not trusted. An agent gets tools for files and nothing else.'}
+            ? 'This context is trusted. Hermes on this computer runs here as it does in your terminal: its own tools, your connections, commands. Kimi runs here with all its tools too, and asks before each step but a read. Mate still rules on what changes in this folder, and does not see the rest. Other agents get tools for files only.'
+            : 'This context is not trusted. An agent gets tools for files and nothing else, and Kimi waits.'}
           <button onClick={() => window.mate.setTrusted(!trusted).then(setTrusted, (caught) => setError(reason(caught)))}>
             {trusted ? 'Stop trusting' : 'Trust this context…'}
           </button>

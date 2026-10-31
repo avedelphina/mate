@@ -163,7 +163,9 @@ export class Acp {
       this.asks.set(id, { request: message.id, options: Array.isArray(params.options) ? params.options : [] })
       // With nobody to ask, the answer is no.
       if (!this.hooks) return this.answer(id, false)
-      return this.hooks.ask({ id, title: short(call.title ?? 'The agent asks to go on', 200), detail: short(input.command ?? input.path ?? '', 600) })
+      // Kimi names no command or path, only what it wants to do in words.
+      const said = call.content?.[0]?.content?.text
+      return this.hooks.ask({ id, title: short(call.title ?? 'The agent asks to go on', 200), detail: short(input.command ?? input.path ?? said ?? '', 600) })
     }
     // Mate offers the agent nothing else, and says so if it is asked.
     if (message.id !== undefined) this.send({ id: message.id, error: { code: -32601, message: 'Mate does not do that.' } })

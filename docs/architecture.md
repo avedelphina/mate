@@ -857,6 +857,14 @@ app's own data folder, in `trusted.json`, by the real path of the
 folder. Nothing inside a context can make that context trusted.
 `trust.ts` is the whole of it.
 
+Kimi is the one agent that has no limit to start with: `kimi acp` takes no
+list of tools, and ignores the agent file that `kimi -p` obeys. So it is
+started in a trusted context only (`trustedOnly` in `agents.ts`), over ACP, so
+the message goes in on stdin. It stays in its `default` mode, which asks
+before every step but a read: its `auto` mode runs a shell and the web
+unasked. Once the plan is approved, Mate says yes to an ask titled `Write` or
+`Edit` (`edits`) and passes the rest to the reader.
+
 In a trusted context, Hermes on this computer is started without the
 limit. It has the tools it has in the reader's terminal: its own tools,
 its skills, the reader's connections, commands. So the reader can ask for
@@ -922,12 +930,12 @@ session and holds from the next turn on.
   context it thinks as hard as its own settings say, and the choice says
   so instead of offering one.
 
-Claude and Codex take their model from their own settings, and so does
+Claude, Codex and Kimi take their model from their own settings, and so does
 an agent on another machine, which has other models than this one offers.
 
 ### Instruction files
 
-Hermes, Codex and Claude Code each read some files of the folder they
+Hermes, Codex, Kimi and Claude Code each read some files of the folder they
 work in as their instructions: `AGENTS.md`, `CLAUDE.md`, `.hermes.md`,
 `.cursorrules` and a few more. Mate does not put them into a prompt. The
 agent loads them itself. So whoever can change such a file steers the

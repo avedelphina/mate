@@ -128,7 +128,7 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   so it works with no network and costs nothing. Only in a
   [context you trust](#a-context-you-trust).
 - **Invite an agent.** The *Agent* tab of the margin talks to:
-  - Claude Code, Codex, or Hermes on this computer;
+  - Claude Code, Codex, or Hermes on this computer, and Kimi in a context you trust;
   - Hermes on another computer, over SSH (the folder stays on your machine);
   - an agent you run yourself, through a local MCP endpoint.
 
@@ -291,6 +291,7 @@ that file.
 |---|---|---|
 | Claude Code | `claude -p` in the project folder, with file tools only | `claude` on your `PATH` and signed in |
 | Codex | `codex exec` in the project folder | `codex` on your `PATH` and `codex login` done |
+| Kimi | `kimi acp`, in a context you trust only, with all its tools. It asks before every step but a read | `kimi` on your `PATH` and signed in (`kimi login`) |
 | Hermes | `hermes chat` in the project folder, with the `file` toolset only. In a context you trust, `hermes acp` with all its tools | `hermes` on your `PATH` |
 | Hermes on another host | `ssh <host> hermes chat -Q …` with the `todo` toolset only | a host in `~/.ssh/config` with key login and Hermes installed there |
 | Your own agent | an MCP endpoint at `http://127.0.0.1:41757/mcp` | any MCP client; see below |
@@ -326,8 +327,11 @@ context can make it trusted. In a trusted context:
 - *Commit…* commits. A commit starts the hooks of the repository, and
   those are programs from the folder, like a script.
 
-Trust does not change Claude, Codex, or an agent on another machine. It
-does not change who decides either: the plan comes first, a change
+Kimi can be held to file tools by nothing Mate can pass it, so it works in
+a trusted context only. It runs there with all its tools, asks before each
+step but a read, and Mate says yes for it only to an edit, once you have
+approved the plan. Trust does not change Claude, Codex, or an agent on
+another machine. It does not change who decides either: the plan comes first, a change
 outside the project is held, and only you publish. Trust a folder whose
 files you know, because a file in it can ask the agent for anything.
 
@@ -428,7 +432,7 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
   had answered so far is lost, and nothing is put back. If the app is
   killed or crashes, the agent may go on working for a while with nothing
   checking it: look at the files the session names.
-- **Trust changes Hermes only.** Claude and Codex keep their limits in
+- **Trust changes Hermes and Kimi only.** Claude and Codex keep their limits in
   every context, and take their model from their own settings.
 - **No thinking effort in a trusted context.** Hermes 0.21.5 cannot be
   told one while it stays between turns, so it uses its own setting.

@@ -547,6 +547,7 @@ async function begin(
   // In a context the reader trusts, an agent that can stay between turns does, with all its tools.
   const acp = !session.host && isTrusted(contextDir) ? adapter.acp : undefined
   try {
+    if (adapter.trustedOnly && !acp) throw new Error(`${adapter.label} works only in a context you trust.`)
     // An agent on this computer reads the instruction files of the folder itself. The reader sees them first.
     if (!session.host) await gate.before(contextDir)
     const state = mayWrite
@@ -730,7 +731,8 @@ async function begin(
           : undefined
       )
       // Until the plan is approved the agent asks before every edit. After it, the guard is enough.
-      .then(() => agent.mode(mayWrite ? 'accept_edits' : 'default'))
+      // An agent with no mode for edits alone is asked each time, and Mate answers for its edits below.
+      .then(() => agent.mode(mayWrite && !adapter.edits ? 'accept_edits' : 'default'))
       .then(() =>
         agent.turn(prompt, {
           text: (text) => {
@@ -742,6 +744,8 @@ async function begin(
             update()
           },
           ask: (ask) => {
+            // The reader approved the plan, and this is an edit: the guard rules on it afterwards.
+            if (mayWrite && adapter.edits?.includes(ask.title)) return agent.answer(ask.id, true)
             // The reader left the agent to finish by itself. Nobody is there to say yes.
             if (!attended) return agent.answer(ask.id, false)
             session.asks = [...(session.asks ?? []), ask]

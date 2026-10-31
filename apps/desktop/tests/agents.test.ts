@@ -36,6 +36,9 @@ test('each agent is asked to plan first, and its output is read as the same even
   assert.deepEqual(AGENTS.hermes.args({ ...turn, model: '--yolo', effort: '--yolo' }).slice(-2), ['-t', 'file'])
   // Only Hermes has a way to stay between turns with all its tools. It is used in a trusted context only.
   assert.deepEqual([AGENTS.hermes.acp, AGENTS.claude.acp, AGENTS.codex.acp], [['acp'], undefined, undefined])
+  // Kimi cannot be held to files, so it has only that way, and no command line of its own.
+  assert.deepEqual([AGENTS.kimi.acp, AGENTS.kimi.trustedOnly], [['acp'], true])
+  assert.throws(() => AGENTS.kimi.args(turn), /only in a context you trust/)
 
   // Lines as the three tools print them.
   assert.deepEqual(AGENTS.claude.read('{"type":"system","subtype":"init","session_id":"151100d5"}'), [{ type: 'session', id: '151100d5' }])
