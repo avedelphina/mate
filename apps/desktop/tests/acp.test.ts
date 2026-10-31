@@ -19,6 +19,12 @@ test('a yes to an agent is for this once, and a yes it cannot take that way is a
   // Only "always" is offered: Mate does not allow for good on the reader's behalf.
   assert.deepEqual(outcome([offered[0], offered[2]], true), { outcome: { outcome: 'selected', optionId: 'no' } })
   assert.deepEqual(outcome([offered[0]], true), { outcome: { outcome: 'cancelled' } })
+  // An answer to a question is one of the options that say yes once, and nothing else.
+  const question = [{ kind: 'allow_once', optionId: 'q0_opt_0' }, { kind: 'allow_once', optionId: 'q0_opt_1' }, { kind: 'reject_once', optionId: 'q0_skip' }]
+  assert.deepEqual(outcome(question, true, undefined, 'q0_opt_1'), { outcome: { outcome: 'selected', optionId: 'q0_opt_1' } })
+  assert.deepEqual(outcome(question, true, undefined, 'q0_skip'), { outcome: { outcome: 'selected', optionId: 'q0_skip' } })
+  assert.deepEqual(outcome(question, true, undefined, 'elsewhere'), { outcome: { outcome: 'selected', optionId: 'q0_skip' } })
+  assert.deepEqual(outcome(question, false, undefined, 'q0_opt_1'), { outcome: { outcome: 'selected', optionId: 'q0_skip' } })
   // A no that names its option gets it, when it is a no.
   const two = [offered[1], { kind: 'reject_once', optionId: 'revise' }, offered[2]]
   assert.deepEqual(outcome(two, false, 'no'), { outcome: { outcome: 'selected', optionId: 'no' } })
@@ -73,9 +79,11 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
   const answer = said.includes('quick') ? { outcome: { optionId: 'not asked' } } : await new Promise((resolve) => {
     answers.set(99, resolve)
     send({ id: 99, method: 'session/request_permission', params: { sessionId: 's1',
-      toolCall: { toolCallId: 't2', title: said.includes('EDITASK') ? 'Write' : said.includes('PLANASK') ? 'ExitPlanMode' : 'terminal: rm old.txt',
-      content: [{ type: 'content', content: { type: 'text', text: 'Plan saved to: /x/plan.md\\n\\n# Plan\\nChange the line.' } }], rawInput: said.includes('PLANASK') ? undefined : { tool: 'terminal', arguments: { command: 'rm old.txt' } } },
-      options: said.includes('PLANASK')
+      toolCall: { toolCallId: 't2', title: said.includes('EDITASK') ? 'Write' : said.includes('PLANASK') ? 'ExitPlanMode' : said.includes('QUESTION') ? 'AskUserQuestion' : 'terminal: rm old.txt',
+      content: [{ type: 'content', content: { type: 'text', text: said.includes('QUESTION') ? 'Which color?' : 'Plan saved to: /x/plan.md\\n\\n# Plan\\nChange the line.' } }], rawInput: said.includes('PLANASK') || said.includes('QUESTION') ? undefined : { tool: 'terminal', arguments: { command: 'rm old.txt' } } },
+      options: said.includes('QUESTION')
+        ? [{ kind: 'allow_once', optionId: 'q0_opt_0', name: 'red' }, { kind: 'allow_once', optionId: 'q0_opt_1', name: 'blue' }, { kind: 'reject_once', optionId: 'q0_skip', name: 'Skip' }]
+        : said.includes('PLANASK')
         ? [{ kind: 'allow_once', optionId: 'plan_approve' }, { kind: 'reject_once', optionId: 'plan_revise' }, { kind: 'reject_once', optionId: 'plan_reject_and_exit' }]
         : [{ kind: 'allow_once', optionId: 'yes' }, { kind: 'reject_once', optionId: 'no' }] } })
   })
@@ -367,6 +375,48 @@ test('Kimi works in a trusted context only, plans in its own mode, and edits onc
     const log = await logged()
     assert.deepEqual(log.filter((each) => each.mode).map((each) => each.mode), ['plan', 'plan', 'default'])
     assert.deepEqual(log.filter((each) => each.option).map((each) => each.option), [['model', 'kimi/big'], ['thinking', 'low']])
+  } finally {
+    AGENTS.kimi.command = command
+    stopAllTurns()
+    await rm(root, { recursive: true, force: true })
+    await rm(out, { recursive: true, force: true })
+  }
+})
+
+test('a question from Kimi is shown with its answers, and the one the reader picks is what it hears', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-ask-'))
+  const out = `${root}-out`
+  const command = AGENTS.kimi.command
+  const until = async (found: () => boolean) => {
+    for (let waited = 0; !found(); waited += 20) {
+      if (waited > 5000) throw new Error('It did not happen.')
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+  }
+  try {
+    await mkdir(path.join(root, 'projects/review/draft'), { recursive: true })
+    await mkdir(out)
+    await writeFile(path.join(root, 'projects/review/draft/document.md'), 'Draft text.\n')
+    await writeFile(path.join(out, 'agent.mjs'), AGENT(path.join(out, 'log'), true))
+    await chmod(path.join(out, 'agent.mjs'), 0o755)
+    AGENTS.kimi.command = path.join(out, 'agent.mjs')
+    keepTrustIn(path.join(out, 'trusted.json'))
+    setTrusted(root, true)
+    doors.forAgent = async () => ({ url: 'http://127.0.0.1:1/mcp', token: 'door' })
+    const session = await startSession(root, 'review', 'kimi')
+    let now: Session = session
+    const ask = async (answer: (id: string) => void) => {
+      const turn = await sendMessage(root, 'review', session.id, 'QUESTION please.', false, (next) => (now = next))
+      await until(() => (now.asks ?? []).length === 1)
+      assert.deepEqual(now.asks![0].choices, [{ id: 'q0_opt_0', name: 'red' }, { id: 'q0_opt_1', name: 'blue' }])
+      assert.equal(now.asks![0].detail, 'Which color?')
+      answer(now.asks![0].id)
+      return (await turn.finished).messages.filter((each) => each.role === 'agent').at(-1)!.text
+    }
+    assert.match(await ask((id) => answerAsk(session.id, id, true, 'q0_opt_1')), /The answer was q0_opt_1\./)
+    // Skipped, or an answer that was not on offer: the agent hears no.
+    assert.match(await ask((id) => answerAsk(session.id, id, false)), /The answer was q0_skip\./)
+    assert.match(await ask((id) => answerAsk(session.id, id, true, 'made-up')), /The answer was q0_skip\./)
   } finally {
     AGENTS.kimi.command = command
     stopAllTurns()

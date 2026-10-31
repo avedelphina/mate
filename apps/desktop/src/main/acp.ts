@@ -16,7 +16,8 @@ type Json = Record<string, any> // eslint-disable-line @typescript-eslint/no-exp
 export type Door = { url: string; token: string }
 
 /** Something the agent will not do until the reader has said yes or no. */
-export type Ask = { id: string; title: string; detail: string }
+/** `choices` is there when the agent asks a question with answers to pick from (Kimi). */
+export type Ask = { id: string; title: string; detail: string; choices?: { id: string; name: string }[] }
 
 /** What a turn tells whoever started it. */
 export type Hooks = {
@@ -28,7 +29,7 @@ export type Hooks = {
   asked(id: string): void
 }
 
-type Option = { kind?: string; optionId?: string }
+type Option = { kind?: string; optionId?: string; name?: string }
 
 const short = (value: unknown, length: number) => (typeof value === 'string' ? value : JSON.stringify(value ?? '')).slice(0, length)
 
@@ -64,8 +65,13 @@ function modelsOf(told: Json | undefined, options: Json[]): Models {
  * The reader's yes or no, as the agent wants it. Yes is only ever "this once": if the agent does
  * not offer that, the answer is no, so that nothing is allowed for good on the reader's behalf.
  */
-export function outcome(options: Option[], allow: boolean, prefer?: string): Json {
+export function outcome(options: Option[], allow: boolean, prefer?: string, choice?: string): Json {
   const of = (kind: string) => options.find((each) => each?.kind === kind && typeof each.optionId === 'string')
+  // An answer to a question is one of the options offered, and only one that says yes once.
+  // One that is not on offer is a no, so a made-up answer never becomes another.
+  const chosen = allow && choice ? options.find((each) => each?.kind === 'allow_once' && each.optionId === choice) : undefined
+  if (chosen) return { outcome: { outcome: 'selected', optionId: chosen.optionId } }
+  if (allow && choice) allow = false
   // A no may name which of its no's it means.
   const named = !allow && prefer ? options.find((each) => each?.kind === 'reject_once' && each.optionId === prefer) : undefined
   const pick = named ?? (allow ? of('allow_once') : undefined) ?? of('reject_once')
@@ -178,12 +184,16 @@ export class Acp {
       const call: Json = params.toolCall ?? {}
       const id = String(call.toolCallId ?? message.id)
       const input: Json = call.rawInput?.arguments ?? call.rawInput ?? {}
-      this.asks.set(id, { request: message.id, options: Array.isArray(params.options) ? params.options : [] })
+      const options: Option[] = Array.isArray(params.options) ? params.options : []
+      this.asks.set(id, { request: message.id, options })
+      // More than one way to say yes is a question: the answers are offered to the reader as they are.
+      const yes = options.filter((each) => each?.kind === 'allow_once' && typeof each.optionId === 'string')
+      const choices = yes.length > 1 ? yes.map((each) => ({ id: each.optionId!, name: short(each.name ?? each.optionId, 200) })) : undefined
       // With nobody to ask, the answer is no.
       if (!this.hooks) return this.answer(id, false)
       // Kimi names no command or path, only what it wants to do in words.
       const said = call.content?.[0]?.content?.text
-      return this.hooks.ask({ id, title: short(call.title ?? 'The agent asks to go on', 200), detail: short(input.command ?? input.path ?? said ?? '', 20_000) })
+      return this.hooks.ask({ id, title: short(call.title ?? 'The agent asks to go on', 200), detail: short(input.command ?? input.path ?? said ?? '', 20_000), ...(choices ? { choices } : {}) })
     }
     // Mate offers the agent nothing else, and says so if it is asked.
     if (message.id !== undefined) this.send({ id: message.id, error: { code: -32601, message: 'Mate does not do that.' } })
@@ -236,11 +246,11 @@ export class Acp {
     return this.echo ? text.replace(this.echo, '') : text
   }
 
-  answer(id: string, allow: boolean, prefer?: string): void {
+  answer(id: string, allow: boolean, prefer?: string, choice?: string): void {
     const ask = this.asks.get(id)
     if (!ask) return
     this.asks.delete(id)
-    this.send({ id: ask.request, result: outcome(ask.options, allow, prefer) })
+    this.send({ id: ask.request, result: outcome(ask.options, allow, prefer, choice) })
     this.hooks?.asked(id)
   }
 

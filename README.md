@@ -332,7 +332,9 @@ a trusted context only. It runs there with all its tools, asks before each
 step but a read, and Mate says yes for it only to an edit, once you have
 approved the plan. Until then it is in its plan mode, and the plan it makes
 appears in the answer for you to approve. You can choose its model and how
-hard it thinks. A message you send while it works waits for the turn to end. Trust does not change Claude, Codex, or an agent on
+hard it thinks. When it asks a question with answers to pick from, you see
+the question and the answers, or you skip it. A message you send while it
+works waits for the turn to end. Trust does not change Claude, Codex, or an agent on
 another machine. It does not change who decides either: the plan comes first, a change
 outside the project is held, and only you publish. Trust a folder whose
 files you know, because a file in it can ask the agent for anything.

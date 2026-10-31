@@ -96,7 +96,7 @@ export type Opened = { dir: string; projects: string[]; shaped: boolean; tracked
 export type Compared = { lines?: DiffLine[]; note?: string }
 
 /** Something an agent will not do until the reader says yes or no. `detail` is the command or the file. */
-export type Ask = { id: string; title: string; detail: string }
+export type Ask = { id: string; title: string; detail: string; choices?: { id: string; name: string }[] }
 
 /** A conversation with one agent inside one project. See src/main/sessions.ts. */
 export type Session = {
@@ -211,7 +211,8 @@ export type MateApi = {
   sendMessage: (project: string, id: string, text: string, approve: boolean, wait?: boolean) => Promise<Session>
   stopTurn: (id: string) => Promise<void>
   /** Yes or no to what the agent asked. Yes is for that one thing, once. */
-  answerAsk: (id: string, ask: string, allow: boolean) => Promise<void>
+  /** `choice` is the answer to a question that has answers to pick from. Without one, `allow` is a plain yes or no. */
+  answerAsk: (id: string, ask: string, allow: boolean, choice?: string) => Promise<void>
   /** What Hermes on this computer offers to think with. Hermes is started to be asked, the first time. */
   listModels: (agent: 'hermes' | 'kimi') => Promise<Models>
   /** The model and the effort of a conversation, from its next turn on. Null gives the choice back to the agent. */

@@ -905,9 +905,12 @@ export async function compare(contextDir: string, project: string, id: string, w
   return lines.length === 0 ? { note: 'The file is as it was.' } : { lines: lines.slice(0, MAX_LINES) }
 }
 
-/** The reader's yes or no to what an agent asked. It counts only while the agent still waits for it. */
-export function answerAsk(id: string, ask: string, allow: boolean): void {
-  live.get(id)?.answer(ask, allow === true)
+/**
+ * The reader's yes or no to what an agent asked, or the answer they picked to its question. It counts
+ * only while the agent still waits for it, and a choice only if it is one of the answers on offer.
+ */
+export function answerAsk(id: string, ask: string, allow: boolean, choice?: string): void {
+  live.get(id)?.answer(ask, allow === true, undefined, typeof choice === 'string' ? choice : undefined)
 }
 
 /** A copy kept for Revert is named by its number alone, so a session file cannot point it elsewhere. */

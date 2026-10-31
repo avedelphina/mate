@@ -14,7 +14,9 @@ then, minor versions may change behaviour.
   each step but a read. Until you approve the plan it is in its own plan
   mode, and the plan it makes appears in the answer. Once you approve it,
   Mate says yes to its edits. You can choose its model and how hard it
-  thinks, and a message you send while it works waits for the turn to end.
+  thinks. When it asks a question with answers to pick from, you see the
+  question and the answers, or you skip it. A message you send while it
+  works waits for the turn to end.
 
 ### Changed
 

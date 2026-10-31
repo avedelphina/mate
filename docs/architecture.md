@@ -871,6 +871,10 @@ unasked. Mate says yes to an ask titled `Write` or `Edit` (`edits`) and
 passes the rest to the reader. It cannot be steered, so a message sent while
 it works waits behind the turn. Its models and its thinking (`low`, `high`,
 `max`) are options of the conversation, set with `session/set_config_option`.
+When it asks a question (`AskUserQuestion`) it sends one ask with several
+options that say yes once, and one that says no (skip). That is a question:
+the ask carries `choices`, the window shows them as buttons, and the answer
+is sent as that option. A choice that is not one of the options is a no.
 
 In a trusted context, Hermes on this computer is started without the
 limit. It has the tools it has in the reader's terminal: its own tools,

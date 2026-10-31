@@ -306,12 +306,27 @@ export function Agent(props: {
       {/* The agent waits here for a yes or a no. Yes is for this one thing, once. */}
       {(session.asks ?? []).map((ask) => (
         <div key={ask.id} className="decide" role="alert">
-          <p>{label(session)} asks: {ask.title}</p>
-          {ask.detail && <pre>{ask.detail}</pre>}
-          <p>
-            <button className="primary" onClick={() => void window.mate.answerAsk(session.id, ask.id, true)}>Allow once</button>
-            <button className="quiet" onClick={() => void window.mate.answerAsk(session.id, ask.id, false)}>Deny</button>
-          </p>
+          {ask.choices ? (
+            <>
+              <p>{label(session)} asks:</p>
+              <p>{ask.detail}</p>
+              <p>
+                {ask.choices.map((choice) => (
+                  <button key={choice.id} onClick={() => void window.mate.answerAsk(session.id, ask.id, true, choice.id)}>{choice.name}</button>
+                ))}
+                <button className="quiet" onClick={() => void window.mate.answerAsk(session.id, ask.id, false)}>Skip</button>
+              </p>
+            </>
+          ) : (
+            <>
+              <p>{label(session)} asks: {ask.title}</p>
+              {ask.detail && <pre>{ask.detail}</pre>}
+              <p>
+                <button className="primary" onClick={() => void window.mate.answerAsk(session.id, ask.id, true)}>Allow once</button>
+                <button className="quiet" onClick={() => void window.mate.answerAsk(session.id, ask.id, false)}>Deny</button>
+              </p>
+            </>
+          )}
         </div>
       ))}
 
