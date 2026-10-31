@@ -5,7 +5,11 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## Unreleased
+## [0.11.0] - 2026-10-31
+
+Kimi can be invited, and the agents you can invite are chosen in Settings:
+the ones on this computer are found, and the ones on other machines are
+added by you.
 
 ### Added
 
