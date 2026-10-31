@@ -9,6 +9,12 @@ then, minor versions may change behaviour.
 
 ### Changed
 
+- A new project has no `draft/` folder. Every markdown file of it is a
+  document to review and can be published, wherever you put it, and a
+  new draft starts in the project. The dropbox and the scripts are not
+  documents. A project that has a `draft/` folder, such as one brought in,
+  is as it was.
+
 - A markdown file that is not a draft can be reviewed. Material that came
   in, or a file you moved out of `draft/`, opens for comments and typing
   like any file of text: its comments are kept beside it in

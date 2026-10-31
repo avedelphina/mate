@@ -41,11 +41,13 @@ keeps its own, and stays what is true.
 
 ## What a project holds
 
-- `draft/` holds the documents being written and reviewed. They are the
-  project's own work, and proposals against the shelf. Folders inside it
-  keep drafts too. A project with no `draft/` folder, such as a repository
-  brought in as it is, has its markdown files as its drafts, where they
-  lie, but for the two files that steer it and its panes.
+- The documents being written and reviewed. A new project has no folder
+  for them: its markdown files are its documents, wherever they lie, but
+  for the two files that steer it, its panes, its dropbox and its scripts.
+  They are the project's own work, and proposals against the shelf when
+  published. A project may also keep a `draft/` folder, as one brought in
+  as it is may: then only what is in it, folders inside it too, is a draft,
+  and any other markdown file is material, which is reviewed too.
 - `intents.md` and `principles.md` steer the project.
 - `dropbox/` is intake. A file leaves it by one of three exits. It stays
   outside and its path is noted. It is pulled into the drafts. Or its

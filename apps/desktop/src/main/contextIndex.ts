@@ -169,6 +169,7 @@ export async function refreshIndex(contextDir: string): Promise<Index> {
   for (const file of files) {
     if (file.kind !== 'material' || !file.project || !looseDrafts.has(file.project) || !file.path.toLowerCase().endsWith('.md')) continue
     if (file.path.toLowerCase().endsWith('.notes.md')) continue
+    if (/^projects\/[^/]+\/(dropbox|scripts)\//.test(file.path)) continue
     file.kind = 'draft'
   }
   const index = { version: VERSION, files }

@@ -439,7 +439,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.row.project.active')?.textContent === 'Next thing'`, 'the new project, open')
     assert.deepEqual(await app.page(names('.projects .row.project')), ['Next thing*', 'document-review', 'sibling'])
     assert.deepEqual(await app.page(names('.projects .tree .row')), ['intents.md', 'principles.md'])
-    assert.deepEqual((await readdir(path.join(context, 'projects/Next thing'))).sort(), ['draft', 'intents.md', 'principles.md'])
+    assert.deepEqual((await readdir(path.join(context, 'projects/Next thing'))).sort(), ['intents.md', 'principles.md'])
     assert.equal(await app.page(`!!document.querySelector('.project-new .row')`), true)
 
     // The context is a context, and it is in no repository. The reader is asked about that, and git starts one.

@@ -301,7 +301,8 @@ my-context/
   dropbox/               intake for material not yet placed
   projects/
     my-project/
-      draft/             the documents being written and reviewed (*.md)
+      *.md               the documents being written and reviewed, anywhere in the project
+      draft/             optional: when it is there, only what is in it is a draft
       intents.md         which way to lean; never "done"
       principles.md      rules of engagement; not traded away
       dropbox/           intake for this project

@@ -259,7 +259,7 @@ test('a request goes into the dropbox of another project as one file, and the se
     assert.match(text, /^---\nfrom: review\/draft\/document\.md\nsent: \d{4}-/)
     assert.match(text, /# Request from review\n\nThe rule is too strict for the lab\.\n\n> Public data may leave\n> after review\.\n\nFrom `draft\/document\.md` in review, /)
     // The other project is changed in its dropbox and nowhere else. A second request in the same second is another file.
-    assert.deepEqual((await readdir(path.join(root, 'projects/regulations'))).sort(), ['dropbox', 'draft', 'intents.md', 'principles.md'].sort())
+    assert.deepEqual((await readdir(path.join(root, 'projects/regulations'))).sort(), ['dropbox', 'intents.md', 'principles.md'].sort())
     const again = await sendToProject(root, 'review', 'draft/document.md', 'regulations', 'Another passage.', '')
     assert.notEqual(again, sent)
     assert.equal((await readdir(path.join(root, 'projects/regulations/dropbox'))).length, 2)
@@ -428,13 +428,21 @@ test('a context and a project are started as new folders, and nothing that is th
     assert.deepEqual(await listProjects(dir), [])
     await assert.rejects(createContext(dir), /already there/)
 
-    // A project has a place for drafts and the two files that steer it. It opens with no draft.
+    // A project has the two files that steer it and no folder for drafts: every markdown file of it is a document to review. It opens with none.
     assert.equal(await createProject(dir, '  Client letter '), 'Client letter')
     assert.deepEqual(await listProjects(dir), ['Client letter'])
     const view = await readProject(dir, 'Client letter')
     assert.deepEqual([view.drafts, view.files], [[], ['intents.md', 'principles.md']])
     assert.match(await readFile(path.join(dir, 'projects/Client letter/intents.md'), 'utf8'), /^# Intents\n/)
-    assert.equal(existsSync(path.join(dir, 'projects/Client letter/draft')), true)
+    assert.equal(existsSync(path.join(dir, 'projects/Client letter/draft')), false)
+    // A draft started in it lies in the project, and one that came in by the intake is not a draft until it is pulled in.
+    assert.equal((await createDraft(dir, 'Client letter', 'reply')).file, 'reply.md')
+    assert.equal(existsSync(path.join(dir, 'projects/Client letter/reply.md')), true)
+    await mkdir(path.join(dir, 'projects/Client letter/dropbox'))
+    await writeFile(path.join(dir, 'projects/Client letter/dropbox/letter.md'), '# Letter\n')
+    assert.deepEqual((await readProject(dir, 'Client letter')).drafts, ['reply.md'])
+    assert.equal(placeOf('projects/Client letter/dropbox/letter.md').kind, 'material')
+    assert.equal((await refreshIndex(dir)).files.find((file) => file.path.endsWith('dropbox/letter.md'))?.kind, 'material')
 
     // One that is there is not started again, and a name is never a path.
     await assert.rejects(createProject(dir, 'Client letter'), /already there/)
@@ -538,7 +546,7 @@ test('a context and a project are renamed where they stand, and what belongs to 
     const first = path.join(root, 'Untitled')
     await createContext(first)
     await createProject(first, 'Clasification')
-    await writeFile(path.join(first, 'projects/Clasification/draft/scheme.md'), '# Scheme\n\nFour levels.\n')
+    await writeFile(path.join(first, 'projects/Clasification/scheme.md'), '# Scheme\n\nFour levels.\n')
     const session = await startSession(first, 'Clasification', 'hermes')
 
     // The context: its folder takes the name, with all that is in it. A name is never a path, and never another's folder.

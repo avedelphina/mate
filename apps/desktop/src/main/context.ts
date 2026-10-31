@@ -186,7 +186,10 @@ const STARTS = [
   ['principles.md', '# Principles\n\nThe rules of engagement for this project. They are not traded away to finish faster.\n']
 ]
 
-/** Start a project in the context: its folder, a place for its drafts, and the two files that steer it. */
+/**
+ * Start a project in the context: its folder and the two files that steer it. It has no `draft/`
+ * folder: every markdown file of a project is a document to review, wherever the reader puts it.
+ */
 export async function createProject(contextDir: string, name: string): Promise<string> {
   const title = String(name).trim()
   if (!NAME.test(title)) throw new Error('Name the project with letters and numbers. Spaces, dots, dashes and underscores may follow.')
@@ -198,7 +201,6 @@ export async function createProject(contextDir: string, name: string): Promise<s
   } catch {
     throw new Error('A project of that name is already there.')
   }
-  await mkdir(path.join(dir, 'draft'))
   for (const [file, text] of STARTS) {
     await writeFile(path.join(dir, file), text, { flag: 'wx' })
     // An agent may be working in the context. These are not its files.
@@ -309,9 +311,14 @@ export async function draftsOf(projectDir: string): Promise<string[]> {
   const beside = (name: string) => BESIDE.test(name) && existsSync(path.join(home, name.replace(BESIDE, '')))
   // A folder inside draft/ keeps drafts too.
   if (home !== projectDir) return (await listFiles(home)).filter((each) => each.toLowerCase().endsWith('.md') && !beside(each))
+  // The intake leaves by its exits, and a script's own notes are not documents.
   return (await listFiles(projectDir)).filter(
     (each) =>
-      each.toLowerCase().endsWith('.md') && each !== 'intents.md' && each !== 'principles.md' && !each.startsWith('panes/') && !beside(each)
+      each.toLowerCase().endsWith('.md') &&
+      each !== 'intents.md' &&
+      each !== 'principles.md' &&
+      !/^(panes|dropbox|scripts)\//.test(each) &&
+      !beside(each)
   )
 }
 

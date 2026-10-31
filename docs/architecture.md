@@ -710,8 +710,9 @@ disk is not moved: the reader moves or copies it beside the context
 first.
 
 A project is started from the rail, by its name. `createProject` makes
-`projects/<name>/` with a `draft/` folder, `intents.md` and
-`principles.md`. The two files say what they are for and nothing more,
+`projects/<name>/` with `intents.md` and `principles.md`, and no `draft/`
+folder: every markdown file of a project is then a document to review,
+wherever the reader puts it, and a new draft starts in the project. The two files say what they are for and nothing more,
 so an agent that reads them is told nothing the reader did not write.
 The name is a file name: letters and numbers first, and nothing that
 could be a path. A project of that name is never written over, and a

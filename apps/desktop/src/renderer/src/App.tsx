@@ -1648,8 +1648,8 @@ export function App() {
             !reading.path.endsWith('.source.md') &&
             (reading.path.startsWith('dropbox/') || reading.path.startsWith(`projects/${view.project}/dropbox/`)) && (
             <span className="acts">
-              <button className="quiet" title="It leaves the dropbox and becomes a draft of this project." onClick={() => void takeDown()}>
-                Pull into draft/
+              <button className="quiet" title="It leaves the dropbox and becomes a document of this project." onClick={() => void takeDown()}>
+                {view.draftsIn ? 'Pull into draft/' : 'Pull into the project'}
               </button>
             </span>
           )}
@@ -1782,7 +1782,7 @@ export function App() {
           ) : file === null ? (
             <p className="empty">
               {view.drafts.length === 0
-                ? 'This project has no draft. Its other files are on the left.'
+                ? 'This project has no document yet. Start one with + New draft, or add a source.'
                 : `This project has ${view.drafts.length} drafts. Pick one on the left.`}
             </p>
           ) : typing !== null ? (
