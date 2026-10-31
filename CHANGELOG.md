@@ -5,7 +5,10 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.16.0] - 2026-10-31
+
+Markdown that is not a draft can be reviewed, and a new project starts
+without a draft folder, so documents live where you put them.
 
 ### Changed
 
@@ -14,7 +17,6 @@ then, minor versions may change behaviour.
   new draft starts in the project. The dropbox and the scripts are not
   documents. A project that has a `draft/` folder, such as one brought in,
   is as it was.
-
 - A markdown file that is not a draft can be reviewed. Material that came
   in, or a file you moved out of `draft/`, opens for comments and typing
   like any file of text: its comments are kept beside it in
