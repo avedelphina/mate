@@ -272,7 +272,7 @@ export async function answer(
   message: Json,
   binding: () => Binding | null,
   changed: (binding: Binding, session: Session) => void,
-  who: { name: string },
+  who: { name: string; version?: string },
   reading = false
 ): Promise<Json | null> {
   if (message.id === undefined || message.id === null) return null
@@ -283,7 +283,7 @@ export async function answer(
       return reply({
         protocolVersion: typeof message.params?.protocolVersion === 'string' ? message.params.protocolVersion : '2025-06-18',
         capabilities: { tools: {} },
-        serverInfo: { name: 'mate', version: '0.2.0' },
+        serverInfo: { name: 'mate', version: who.version ?? '0' },
         instructions: 'Call mate_project first. Plan before you write.'
       })
     case 'ping':
@@ -315,8 +315,10 @@ export function startMcp(options: {
   changed: (binding: Binding, session: Session) => void
   /** The session a token that only reads leads to, or null when it leads nowhere. */
   guest?: (token: string) => Binding | null
+  /** The version of the app, which the door says it is. */
+  version?: string
 }): Promise<{ port: number; close: () => void }> {
-  const who = { name: 'agent' }
+  const who = { name: 'agent', version: options.version }
   const expected = Buffer.from(`Bearer ${options.token}`)
   const server = http.createServer((request, response) => {
     const send = (status: number, body?: Json) => {
@@ -344,7 +346,7 @@ export function startMcp(options: {
         const messages: Json[] = Array.isArray(body) ? body : [body]
         const replies: Json[] = []
         for (const message of messages) {
-          const reply = guest ? await answer(message, () => guest, options.changed, { name: 'agent' }, true) : await answer(message, options.binding, options.changed, who)
+          const reply = guest ? await answer(message, () => guest, options.changed, { name: 'agent', version: options.version }, true) : await answer(message, options.binding, options.changed, who)
           if (reply) replies.push(reply)
         }
         if (replies.length === 0) return send(202)

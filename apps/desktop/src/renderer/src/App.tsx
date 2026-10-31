@@ -861,7 +861,8 @@ export function App() {
     before.setEnd(range.startContainer, range.startOffset)
     setFrom(before.toString().length)
     setAnchor(picked)
-    setSuggestion((current) => (current ? picked : current))
+    // A replacement still as it began, a copy of the old passage, follows the new one. One the reader has typed in stays, and so does a removal.
+    setSuggestion((current) => (current === anchor ? picked : current))
 
     const rects = range.getClientRects()
     const last = rects[rects.length - 1] ?? range.getBoundingClientRect()

@@ -102,7 +102,16 @@ export function Agent(props: {
   const own = session?.agent === 'mcp' ? session.id : null
   useEffect(() => {
     setDoor(null)
-    if (own) window.mate.bindMcp(project, own).then(setDoor, (caught) => setError(reason(caught)))
+    if (!own) return
+    // The answer for a session the reader has left is not shown: it would give the address and token of another.
+    let current = true
+    window.mate.bindMcp(project, own).then(
+      (next) => current && setDoor(next),
+      (caught) => current && setError(reason(caught))
+    )
+    return () => {
+      current = false
+    }
   }, [project, own])
 
   const last = session?.messages[session.messages.length - 1]

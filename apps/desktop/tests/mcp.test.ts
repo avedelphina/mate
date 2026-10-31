@@ -26,7 +26,7 @@ test("an agent the reader runs comes in over MCP, and keeps the same rules", asy
 
   let bound: Binding | null = null
   let told = 0
-  const door = await startMcp({ port: 0, token: 'secret', binding: () => bound, changed: () => (told += 1) })
+  const door = await startMcp({ port: 0, token: 'secret', binding: () => bound, changed: () => (told += 1), version: '9.9.9' })
   const post = (body: unknown, headers: Record<string, string> = { authorization: 'Bearer secret' }) =>
     fetch(`http://127.0.0.1:${door.port}/mcp`, { method: 'POST', headers, body: JSON.stringify(body) })
   let next = 0
@@ -46,7 +46,8 @@ test("an agent the reader runs comes in over MCP, and keeps the same rules", asy
     assert.equal((await fetch(`http://127.0.0.1:${door.port}/mcp`, { headers: { authorization: 'Bearer secret' } })).status, 405)
 
     const hello = await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', clientInfo: { name: 'tester' } } })
-    assert.equal(((await hello.json()) as { result: { serverInfo: { name: string } } }).result.serverInfo.name, 'mate')
+    // The door says which version of the app it is, not a number written once and left.
+    assert.deepEqual(((await hello.json()) as { result: { serverInfo: { name: string; version: string } } }).result.serverInfo, { name: 'mate', version: '9.9.9' })
     assert.equal((await post({ jsonrpc: '2.0', method: 'notifications/initialized' })).status, 202)
     const listed = (await (await post({ jsonrpc: '2.0', id: 2, method: 'tools/list' })).json()) as { result: { tools: { name: string }[] } }
     assert.ok(listed.result.tools.some((tool) => tool.name === 'mate_write'))

@@ -5,6 +5,18 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Fixed
+
+- A replacement you have typed for a passage is no longer written over
+  when you select another passage while the form is open.
+- The address and token shown for your own agent are those of the
+  conversation you have open, even when you switch quickly.
+- The door for your own agent says which version of Mate it is.
+- The window has a Content-Security-Policy: it loads only its own files
+  and connects to nothing.
+
 ## [0.15.0] - 2026-10-31
 
 Organise a project, and ask another project for something. Files and

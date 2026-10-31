@@ -121,9 +121,17 @@ Also built, around the agent:
 - **The conversation can take the page,** for a session that is not
   about a draft.
 
-Not built yet: steering any other agent, and trust for any agent but
-Hermes. A turn that is running when the app quits is lost, though its
-session goes on, and what was waiting goes with the next message.
+Built since: Kimi over the same transport as Hermes, in a trusted context
+only, with its own plan mode, its models and its questions shown with
+their answers. Agents on other machines are added by hand in Settings,
+since inviting one sends the text of the files there. The reader may say
+yes for a kind of step, or for everything, for one conversation. The
+system tells the reader when an agent has finished, has a plan, is asking,
+or wants to change a file, when Mate is not in front.
+
+Not built yet: steering Claude Code or Codex, and trust for either. A
+turn that is running when the app quits is lost, though its session goes
+on, and what was waiting goes with the next message.
 
 ## 6. Write the draft, then publish it
 
@@ -208,9 +216,9 @@ source only.
   trusted context only.
 
 Not built: a pane that writes itself again on its own, a script that asks
-something while it runs, and connections for an agent other than Hermes.
-An invited Claude or Codex has tools for files only, so it fills no pane
-from a tracker.
+something while it runs, and connections for an agent other than Hermes
+or Kimi. An invited Claude or Codex has tools for files only, so it fills
+no pane from a tracker.
 
 ## 8. The phone joins the session
 
@@ -503,16 +511,18 @@ A signed and notarised app for macOS, as a disk image. It is not a step,
 because it changes no rule and adds nothing to the window.
 
 Built: the app is put together with one command, for Apple silicon, with
-the on-device helper inside and an icon. It was started from its bundle
-and gone through: a project, a draft, a comment into the file, a search,
-the helper, the agents found on a short PATH. An installed app does not
-act as Node and takes no debugging port.
+the on-device helper inside and an icon. A pushed tag signs it with a
+Developer ID, has Apple notarise it, and publishes the disk image and a
+zip on GitHub, with the Linux packages beside them. It was started from
+its bundle and gone through: a project, a draft, a comment into the file,
+a search, the helper, the agents found on a short PATH. An installed app
+does not act as Node and takes no debugging port. It updates itself: on a
+Mac it downloads the next release and puts it in when Mate quits, and on
+Linux it says one is out. The first Mac self-update was seen from 0.12.0.
 
-Not done: a disk image signed with a Developer ID and notarised by Apple,
-opened on a Mac that never had the checkout. Nothing has been published.
-
-It does not fetch its own updates: nothing connects anywhere unless the
-reader starts it.
+It asks GitHub for a newer version, and for nothing else. Nothing of a
+context is sent. This is the one connection rule 6 allows that the reader
+did not start.
 
 ## Not planned
 

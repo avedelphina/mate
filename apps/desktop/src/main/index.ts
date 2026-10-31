@@ -272,7 +272,8 @@ function startDoor(): Promise<{ port: number }> {
     token: doorToken(),
     binding: () => bound,
     changed: (at, session) => tell(at.contextDir, session),
-    guest: (token) => guests.get(token) ?? null
+    guest: (token) => guests.get(token) ?? null,
+    version: app.getVersion()
   })
   // A start that failed is not kept, or every later ask would get the same failure.
   door.catch(() => (door = null))
