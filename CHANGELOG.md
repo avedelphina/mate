@@ -5,7 +5,10 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.15.1] - 2026-10-31
+
+Small fixes: a Content-Security-Policy for the window, and three things in
+the window and the door for your own agent.
 
 ### Fixed
 
