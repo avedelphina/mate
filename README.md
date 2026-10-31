@@ -9,7 +9,7 @@ invited into a project to read the context, propose a plan, make changes
 that you approve, and show you what it gathered in a pane beside the
 draft. Nothing is copied into a database, and nothing needs a server.
 
-> **Status: early.** Version 0.11.1. Built and driven on macOS and Linux.
+> **Status: early.** Version 0.12.0. Built and driven on macOS and Linux.
 > [Download it](https://github.com/avedelphina/mate/releases/latest) for a
 > Mac with Apple silicon or an x86-64 Linux computer, or run it from a
 > checkout. See [Known limits](#known-limits) and the [changelog](CHANGELOG.md).

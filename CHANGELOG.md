@@ -5,7 +5,10 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.12.0] - 2026-10-31
+
+The intents and the principles of a project can be typed in Mate, in the
+margin and on the page.
 
 ### Added
 
