@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('mate', {
   newContext: () => ipcRenderer.invoke('context:create'),
   currentContext: () => ipcRenderer.invoke('context:current'),
   searchContext: (query: string) => ipcRenderer.invoke('context:search', query),
+  contextTags: () => ipcRenderer.invoke('context:tags'),
   searchMeaning: (query: string, limit?: number) => ipcRenderer.invoke('context:meaning', query, limit),
   judgingHost: (): Promise<string | null> => ipcRenderer.invoke('endpoint:judges'),
   judge: (question: string, leave?: { path: string; start: number; end: number }) => ipcRenderer.invoke('context:judge', question, leave),

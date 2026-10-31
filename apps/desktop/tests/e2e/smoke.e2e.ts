@@ -154,6 +154,19 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 
+    // The tags in a document's front matter show in its bar and in the rail, and a click searches for them.
+    await writeFile(path.join(project, 'draft/tagged.md'), '---\ntags: alpha, beta\n---\n# Tagged\n\nText.\n')
+    await app.page(`window.dispatchEvent(new Event('focus'))`)
+    await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'tagged.md')`, 'the tagged draft in the tree')
+    await app.press('.projects .tree .row', 'tagged.md')
+    await app.until(`${names('.center .bar .tag')}.join() === '#alpha,#beta'`, 'its tags in the bar')
+    await app.until(`[...document.querySelectorAll('.tag-list .tag')].some((each) => each.textContent.startsWith('#alpha'))`, 'the tags in use, in the rail')
+    await app.press('.center .bar .tag', '#alpha')
+    await app.until(`document.querySelector('input.search').value === '#alpha' && document.querySelector('.rail').textContent.includes('Tagged')`, 'the search for the tag finds the draft')
+    await app.page(`document.querySelector('input.search').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
+    await app.press('.projects .tree .row', 'document.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
+
     // A file of text that is not markdown is reviewed too, drawn as it is. Its comment goes beside it, and it stays as it was.
     const xml = '<Sysmon schemaversion="4.90">\n  <ProcessCreate onmatch="exclude"/>\n</Sysmon>\n'
     await writeFile(path.join(project, 'sysmon.xml'), xml)

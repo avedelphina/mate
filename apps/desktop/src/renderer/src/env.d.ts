@@ -156,6 +156,7 @@ export type MateApi = {
   onMoved: (listener: (opened: Opened) => void) => () => void
   currentContext: () => Promise<Opened | null>
   searchContext: (query: string) => Promise<Hit[]>
+  contextTags: () => Promise<{ tag: string; count: number }[]>
   readFile: (path: string) => Promise<FileView>
   /** Show a file of the context in the system's file manager. It is not opened. */
   revealFile: (path: string) => Promise<void>

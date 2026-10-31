@@ -11,6 +11,10 @@ then, minor versions may change behaviour.
 
 - *+ New folder* in the rail makes a folder in the project, such as
   `notes` or `draft/contracts`. An empty folder shows in the tree.
+- Tags. A markdown file names them in its front matter, as
+  `tags: contract, legal`. The bar of the open file shows them, the rail
+  lists the tags in use, and a click searches for the tag. Searching
+  `#contract` finds the files that name it, at the tag.
 - A folder inside `draft/` keeps drafts. They are reviewed, commented and
   published like the drafts in `draft/` itself, and a search calls them
   proposals.

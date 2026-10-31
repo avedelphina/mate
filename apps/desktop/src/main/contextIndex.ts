@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { readDocument } from '../shared/comments'
+import { tagsOf } from '../shared/tags'
 import { isTwinned, twinOf } from '../shared/twin'
 
 /**
@@ -25,6 +26,8 @@ type Entry = Place & {
   /** The text as the page shows it: comment markers cut out. */
   text: string
   comments: { id: string; text: string }[]
+  /** The tags in the front matter, as they are written. */
+  tags: string[]
 }
 
 export type Index = { version: number; files: Entry[] }
@@ -44,7 +47,7 @@ export type Hit = Place & {
   passage?: string
 }
 
-const VERSION = 4
+const VERSION = 5
 // ponytail: one JSON file, held in memory, searched from end to end. Good for some thousands of files.
 // Past that it wants an inverted index, still rebuilt from the files.
 const MAX_BYTES = 2 * 1024 * 1024
@@ -149,6 +152,7 @@ export async function refreshIndex(contextDir: string): Promise<Index> {
       mtime: info.mtimeMs,
       size: info.size,
       text,
+      tags: markdown ? tagsOf(text).map((each) => each.tag) : [],
       comments: comments.map((comment) => ({
         id: comment.id,
         text: [comment.text, ...comment.replies.map((reply) => reply.text)].filter(Boolean).join('\n')
@@ -193,6 +197,7 @@ export function searchIndex(index: Index, query: string): Hit[] {
   if (words.length === 0) return []
   const phrase = words.join(' ')
   const longest = words.reduce((longest, next) => (next.length > longest.length ? next : longest))
+  const hashes = words.filter((each) => each.length > 1 && each.startsWith('#'))
 
   const matching = index.files
     .map((entry) => {
@@ -200,7 +205,10 @@ export function searchIndex(index: Index, query: string): Hit[] {
       const text = fold(entry.text)
       const comments = entry.comments.map((comment) => fold(comment.text))
       const all = [title, text, ...comments].join('\n')
-      return { entry, title, text, comments, found: words.every((each) => all.includes(each)) }
+      // A #tag is also found where a document names it in its front matter.
+      const named = hashes.length > 0 ? tagsOf(entry.text).filter((each) => hashes.includes(`#${fold(each.tag)}`)) : []
+      const tagged = (word: string) => named.some((each) => `#${fold(each.tag)}` === word)
+      return { entry, title, text, comments, named, found: words.every((each) => all.includes(each) || tagged(each)) }
     })
     .filter((file) => file.found)
     .sort(
@@ -211,7 +219,7 @@ export function searchIndex(index: Index, query: string): Hit[] {
     )
 
   const hits: Hit[] = []
-  for (const { entry, text, comments } of matching) {
+  for (const { entry, text, comments, named } of matching) {
     const word = [text, ...comments].some((part) => part.includes(phrase)) ? phrase : longest
     const base = { path: entry.path, kind: entry.kind, project: entry.project, title: entry.title, length: word.length }
     const before = hits.length
@@ -242,6 +250,21 @@ export function searchIndex(index: Index, query: string): Hit[] {
       })
     })
 
+    // Named in the front matter only: the hit opens at the tag.
+    if (hits.length === before && named.length > 0) {
+      const [tag] = named
+      const to = Math.min(entry.text.length, tag.at + tag.length + 70)
+      hits.push({
+        ...base,
+        length: tag.length,
+        before: line(entry.text.slice(Math.max(0, tag.at - 40), tag.at)),
+        match: entry.text.slice(tag.at, tag.at + tag.length),
+        after: line(entry.text.slice(tag.at + tag.length, to)),
+        start: tag.at,
+        thread: null
+      })
+    }
+
     // The words are in the title only. The file is still an answer.
     if (hits.length === before) {
       hits.push({ ...base, before: '', match: '', after: line(entry.text.slice(0, 110)), start: null, thread: null })
@@ -249,4 +272,17 @@ export function searchIndex(index: Index, query: string): Hit[] {
     if (hits.length >= MAX_HITS) break
   }
   return hits.slice(0, MAX_HITS)
+}
+
+/** The tags the documents of the context name in their front matter, and how many documents name each. */
+export function tagsInUse(index: Index): { tag: string; count: number }[] {
+  const seen = new Map<string, { tag: string; count: number }>()
+  for (const entry of index.files) {
+    for (const tag of new Set(entry.tags.map(fold))) {
+      const known = seen.get(tag) ?? { tag: entry.tags.find((each) => fold(each) === tag)!, count: 0 }
+      known.count += 1
+      seen.set(tag, known)
+    }
+  }
+  return [...seen.values()].sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
 }

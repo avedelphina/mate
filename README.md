@@ -119,6 +119,14 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   it is: *Shelf* (what is true now), *Proposal*, *Project file*,
   *Material*, or *Pane*. The index lives in `.indexes/` and can be
   deleted at any time.
+- **Tags.** A markdown file names its tags in its front matter:
+  `tags: contract, legal`, or `tags: [contract, legal]`, or a list under
+  `tags:`. They are text in the file, so you type them in the draft and an
+  agent can write them too. The bar of the open file shows them, the rail
+  lists the tags in use under *Tags*, and a click searches for the tag.
+  Searching `#contract` finds the files that name it, and the comments
+  that use it. A tag is letters, numbers, dashes and underscores. Words
+  with a space in them become one with dashes.
 - **Read-only files.** Shelf files open to be read, not commented on. The
   intents and the principles of a project have a row each at the top of
   the project in the rail. A click opens the file on the page, and *Edit*

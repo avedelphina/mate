@@ -3,6 +3,7 @@ import { Agent } from './Agent'
 import { Boundary } from './Boundary'
 import { Palette, type Act } from './Palette'
 import { fileNamed } from '../../shared/named'
+import { tagsOf } from '../../shared/tags'
 import { isTwinned } from '../../shared/twin'
 import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran } from './env'
 import { History } from './History'
@@ -123,6 +124,8 @@ export function App() {
   const form = useRef(0)
   const [active, setActive] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  // The tags the documents of the context name, with how many name each. Read from the index.
+  const [tags, setTags] = useState<{ tag: string; count: number }[]>([])
   // Null while nothing is being searched for, and the rail lists the projects.
   const [hits, setHits] = useState<Hit[] | null>(null)
   // A file that is not a draft, opened from the tree or from a search. It takes the page, and cannot
@@ -240,6 +243,16 @@ export function App() {
 
   const project = view?.project
   const file = view?.file ?? null
+  // The tags of the document on the page are in its front matter, so they are the file's, and not kept anywhere else.
+  const shownTags = !contextDir ? '' : reading ? (reading.path.toLowerCase().endsWith('.md') ? reading.text : '') : file !== null && file.toLowerCase().endsWith('.md') ? (view?.text ?? '') : ''
+  useEffect(() => {
+    if (!contextDir) return setTags([])
+    let current = true
+    window.mate.contextTags().then((next) => current && setTags(next), () => {})
+    return () => {
+      current = false
+    }
+  }, [contextDir, view?.text, reading?.text])
   const readingPath = reading?.path
   // The open file, when it is the intents or the principles of the open project: the reader can type those.
   const steering = view && readingPath ? (['intents', 'principles'] as const).find((name) => readingPath === `projects/${view.project}/${name}.md`) ?? null : null
@@ -834,6 +847,21 @@ export function App() {
     if (anchored) clearComment()
   }
 
+  /** The tags a document names in its front matter. A click searches the context for the tag. */
+  const tagChips = (text: string) => {
+    const named = [...new Set(tagsOf(text).map((each) => each.tag))]
+    if (named.length === 0) return null
+    return (
+      <span className="tags">
+        {named.map((tag) => (
+          <button key={tag} className="tag" title={`Every document, comment and passage with #${tag}`} onClick={() => setQuery(`#${tag}`)}>
+            #{tag}
+          </button>
+        ))}
+      </span>
+    )
+  }
+
   /**
    * The words of a comment or a reply, with what they name. [[a file]] opens it when it names one file
    * of the project. A #tag searches the context for it, so every comment that has it is found.
@@ -1397,6 +1425,18 @@ export function App() {
                   </form>
                 )}
               </div>
+              {tags.length > 0 && (
+                <details className="tag-list">
+                  <summary>Tags</summary>
+                  <div className="tags">
+                    {tags.map(({ tag, count }) => (
+                      <button key={tag} className="tag" title={`Every document, comment and passage with #${tag}`} onClick={() => setQuery(`#${tag}`)}>
+                        #{tag} <span className="count">{count}</span>
+                      </button>
+                    ))}
+                  </div>
+                </details>
+              )}
             </>
           )}
         </div>
@@ -1458,6 +1498,7 @@ export function App() {
           {onPage && <button className="quiet move" onClick={toMargin}>Back to the margin</button>}
           {!onPage && reading && <span className={`kind ${reading.kind}`}>{KINDS[reading.kind].label}</span>}
           {!onPage && reading && <span>{reading.path}</span>}
+          {!onPage && reading && tagChips(shownTags)}
           {!onPage && reading?.twin && (
             <span className="acts">
               <span className="meta">Its text, as Mate took it out</span>
@@ -1500,6 +1541,7 @@ export function App() {
           {!onPage && !reading && view && <span className="meta">{view.project}</span>}
           {!onPage && !reading && file !== null && <span className="meta">/</span>}
           {!onPage && !reading && file !== null && <span>{file}</span>}
+          {!onPage && !reading && file !== null && tagChips(shownTags)}
           {!onPage && !reading && file !== null && (
             <span className="acts">
               {publishing !== null ? (

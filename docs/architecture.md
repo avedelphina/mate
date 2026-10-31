@@ -556,6 +556,20 @@ tuned on real contexts. An agent started for one turn, such as Hermes in
 a context that is not trusted, or Claude, gets no door: it reads the
 files and the twins.
 
+## Tags
+
+A document's tags are in its front matter, `tags: a, b`, in `[a, b]`, or as
+a list under `tags:`. `tagsOf` in `shared/tags.ts` reads them, with where
+each is written, and nothing else keeps them. The index holds the names
+(`tags`, in each entry), so it can be deleted and read again. A search for
+`#tag` finds a file that names the tag there as well as a comment or a
+passage that has it, and opens it at the tag. The rail lists the tags in
+use with how many files name each (`tagsInUse`, asked by `context:tags`),
+and the bar of the open file shows its own. They are drawn beside the page,
+not in it, so the page still holds the text of the file and nothing else.
+A tag is edited by typing the front matter in the draft: there is no other
+place for it to be written.
+
 ## The index and the search
 
 A context has an index: `.indexes/context.json` inside the context folder.

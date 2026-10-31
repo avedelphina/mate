@@ -41,7 +41,7 @@ import {
   writeDraft,
   writeSteering
 } from './context'
-import { refreshIndex, searchIndex, type Hit } from './contextIndex'
+import { refreshIndex, searchIndex, tagsInUse, type Hit } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
 import { checkForUpdate, installUpdate, startUpdates, updateNow } from './update'
 import { runScript, stopAllScripts, stopScript, wordsOf } from './scripts'
@@ -445,6 +445,9 @@ app.whenReady().then(() => {
     readTwins(contextDir)
     return searchIndex(await refreshIndex(contextDir), query)
   })
+
+  // The tags the documents name in their front matter. Read from the index, which the files can rebuild.
+  ipcMain.handle('context:tags', async (event) => tagsInUse(await refreshIndex(requireContext(event))))
 
   // The passages closest in meaning to the question, from what has its vectors so far.
   // The host of the reader's endpoint, when it may judge passages of this context: not in a private one that

@@ -10,7 +10,7 @@ import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
 import { commitContext, startRepository, uncommitted } from '../src/main/git.ts'
-import { placeOf, refreshIndex, searchIndex } from '../src/main/contextIndex.ts'
+import { placeOf, refreshIndex, searchIndex, tagsInUse } from '../src/main/contextIndex.ts'
 import { insertComment } from '../src/shared/comments.ts'
 
 async function context(): Promise<string> {
@@ -166,6 +166,24 @@ test('a task in a pane is ticked in the file, one character, and only from the t
     await assert.rejects(tickPane(root, 'review', 'tasks.md', shown, shown.indexOf('[ ] Call')), /has changed since it was shown/)
     await assert.rejects(tickPane(root, 'review', '../intents.md', now, 0), /not in this project/)
     await assert.rejects(tickPane(root, 'review', 'missing.md', now, 0), /not in this project/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a #tag finds the documents whose front matter names it, at the tag, and the tags in use are counted', async () => {
+  const root = await context()
+  try {
+    await writeFile(path.join(root, 'projects/review/draft/nda.md'), '---\ntags: Contract, legal\n---\n# NDA\n\nBoth sides keep it secret.\n')
+    await writeFile(path.join(root, 'shelf/policy.md'), '---\ntags:\n  - contract\n---\n# Policy\n\nA #contract is not a tag here, it is a word.\n')
+    const index = await refreshIndex(root)
+    const hits = searchIndex(index, '#contract')
+    assert.deepEqual(hits.map((hit) => hit.path).sort(), ['projects/review/draft/nda.md', 'shelf/policy.md'])
+    const nda = hits.find((hit) => hit.path.endsWith('nda.md'))!
+    assert.equal((await readFile(path.join(root, nda.path), 'utf8')).slice(nda.start!, nda.start! + nda.length), 'Contract')
+    // A word that is no tag of any document finds nothing, and the others are counted without regard to case.
+    assert.deepEqual(searchIndex(index, '#secret').map((hit) => hit.path), [])
+    assert.deepEqual(tagsInUse(index), [{ tag: 'Contract', count: 2 }, { tag: 'legal', count: 1 }])
   } finally {
     await rm(root, { recursive: true, force: true })
   }

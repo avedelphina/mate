@@ -392,3 +392,10 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 .note .named { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; cursor: pointer; }
 .note .tag { margin: 0 1px; padding: 0 6px; border: 0; border-radius: 9px; background: var(--hover); color: var(--ink); font: 12px/1.6 var(--ui); cursor: pointer; }
 .note .tag:hover { background: var(--line); }
+.bar .tag, .tag-list .tag { margin: 0; padding: 0 6px; border: 0; border-radius: 9px; background: var(--hover); color: var(--ink); font: 12px/1.6 var(--ui); cursor: pointer; }
+.bar .tag:hover, .tag-list .tag:hover { background: var(--line); }
+.tags { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.tag-list { margin: 8px 10px; }
+.tag-list > summary { cursor: pointer; font: 600 10.5px/1.6 var(--ui); letter-spacing: 0.07em; text-transform: uppercase; color: var(--soft); }
+.tag-list .tags { margin-top: 6px; }
+.tag .count { color: var(--soft); }
