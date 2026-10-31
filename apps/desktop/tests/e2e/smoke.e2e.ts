@@ -29,22 +29,14 @@ test('the window, on the example context: a comment into the file, the tree, a p
       ['README.md', 'README.md', 'count-words.py', 'document.md*', 'intents.md', 'principles.md', 'tasks.md', 'workflow.md']
     )
 
-    // The intents are typed in the margin, by the reader. The file holds what was typed, and the margin shows it.
+    // The margin does not hold the intents or the principles. The rail has a row for each, and the page has them.
+    assert.equal(await app.page(`!!document.querySelector('.margin details')`), false)
+    assert.deepEqual(await app.page(names('.projects .steering .row')), ['Intents', 'Principles'])
     const intents = path.join(project, 'intents.md')
     const before = await readFile(intents, 'utf8')
-    await app.press('.margin details button', 'Edit')
-    await app.until(`!!document.querySelector('.margin textarea.steer')`, 'the intents open to type in')
-    await app.page(`(() => {
-      const box = document.querySelector('.margin textarea.steer')
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(box, box.value + '\\nAdded by the test.\\n')
-      box.dispatchEvent(new Event('input', { bubbles: true }))
-    })()`)
-    await app.press('.margin details button', 'Save')
-    await app.until(`!document.querySelector('.margin textarea.steer') && document.querySelector('.margin details .prose').textContent.includes('Added by the test.')`, 'the intents saved and shown')
-    assert.equal(await readFile(intents, 'utf8'), before + '\nAdded by the test.\n')
 
-    // The same file opened on the page is typed there too, and the page shows what was saved.
-    await app.press('.projects .tree .row', 'intents.md')
+    // A row opens the file on the page, where the reader types it, and the page shows what was saved.
+    await app.press('.projects .steering .row', 'Intents')
     await app.until(`document.querySelector('.center .bar')?.textContent.includes('projects/document-review/intents.md')`, 'the intents on the page')
     await app.press('.center .bar button', 'Edit')
     await app.until(`!!document.querySelector('.center textarea.editor')`, 'the intents open to type in on the page')
@@ -55,7 +47,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     })()`)
     await app.press('.center .bar button', 'Save')
     await app.until(`!document.querySelector('.center textarea.editor') && document.querySelector('.center .page.prose').textContent.includes('Typed on the page.')`, 'the intents saved and shown on the page')
-    assert.equal(await readFile(intents, 'utf8'), before + '\nAdded by the test.\nTyped on the page.\n')
+    assert.equal(await readFile(intents, 'utf8'), before + 'Typed on the page.\n')
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 

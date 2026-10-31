@@ -9,7 +9,7 @@ import { History } from './History'
 import { Question, type Judged } from './Question'
 import { Rendered, type Passage } from './Rendered'
 import { Settings, UpdateNotice } from './Settings'
-import { Steering, useSteering } from './Steering'
+import { useSteering } from './Steering'
 import { Tree } from './Tree'
 import { asked, filled } from '../../shared/run'
 import './styles.css'
@@ -1286,6 +1286,18 @@ export function App() {
                     <button className={project === name ? 'row project active' : 'row project'} onClick={() => openProject(name)}>
                       {name}
                     </button>
+                    {view && project === name && (view.intents || view.principles) && (
+                      <div className="steering">
+                        {([['intents', 'Intents', 'Which way this project leans. An agent follows it.'], ['principles', 'Principles', 'The rules of engagement for this project. An agent follows them.']] as const).map(
+                          ([key, label, title]) =>
+                            view[key] && (
+                              <button key={key} className={reading?.path === `projects/${view.project}/${key}.md` ? 'row active' : 'row'} title={title} onClick={() => openFile(`${key}.md`)}>
+                                {label}
+                              </button>
+                            )
+                        )}
+                      </div>
+                    )}
                     {view && project === name && (
                       <Tree
                         paths={view.files}
@@ -1776,12 +1788,6 @@ export function App() {
                 )
               })}
             </>
-          )}
-          {shown === 'review' && view?.intents && (
-            <Steering key={`intents ${view.project}`} title="Intents" text={view.intents} onSave={(base, text) => steer('intents', base, text)} />
-          )}
-          {shown === 'review' && view?.principles && (
-            <Steering key={`principles ${view.project}`} title="Principles" text={view.principles} onSave={(base, text) => steer('principles', base, text)} />
           )}
         </div>
       </aside>

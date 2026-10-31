@@ -5,6 +5,14 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Changed
+
+- The intents and the principles are no longer at the foot of the Review
+  tab. The rail has a row for each at the top of the project. A click
+  opens the file on the page, and *Edit* in the bar types it.
+
 ## [0.12.0] - 2026-10-31
 
 The intents and the principles of a project can be typed in Mate, in the
