@@ -5,6 +5,25 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [0.11.1] - 2026-10-31
+
+Two fixes to the door for an agent you run yourself, and the roadmap now
+has a step for a gateway, so that the iPad and the iPhone can join a
+project through git.
+
+### Fixed
+
+- If the door for your own agent could not start, asking for it again
+  gave the same failure until you quit the app. It tries again now.
+- The door for your own agent can be bound only to a session made for
+  that agent. A session of Claude, Codex, Hermes or Kimi is refused.
+
+### Changed
+
+- The roadmap has a step 12, the gateway, and says which rules it changes.
+  Nothing of it is built. `AGENTS.md` is in the repository, and the review
+  of 0.3.0 is in `docs/` with what is fixed and what is still open.
+
 ## [0.11.0] - 2026-10-31
 
 Kimi can be invited, and the agents you can invite are chosen in Settings:
