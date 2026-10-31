@@ -70,6 +70,50 @@ test('the window, on the example context: a comment into the file, the tree, a p
     const draft = (await readFile(path.join(project, 'draft/document.md'), 'utf8')).split('\n')
     assert.match(draft[draft.indexOf(passage) + 1], /^<!-- @comment\{.*"text":"Said by the test\.".*\} -->$/)
 
+    // The page holds hidden markup, and a selection is counted in the file, not in what the reader sees.
+    // A word picked after markup lands on its own line, and a passage over markup is found as it is written.
+    const marked = '**a** **b** **bb**\n\nbb\n\nA **big** word here.\n'
+    await writeFile(path.join(project, 'draft/inline.md'), marked)
+    await app.page(`window.dispatchEvent(new Event('focus'))`)
+    await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'inline.md')`, 'inline.md in the tree')
+    await app.press('.projects .tree .row', 'inline.md')
+    await app.until(`document.querySelector('.page')?.textContent === ${JSON.stringify(marked)}`, 'the page holds the file, markup and all')
+    const span = (first: string, last: string) =>
+      app.page(`(() => {
+        const page = document.querySelector('.page')
+        const nodes = []
+        const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT)
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node)
+        const head = nodes.findLast((node) => node.data.includes(${JSON.stringify(first)}))
+        const tail = nodes.findLast((node) => node.data.includes(${JSON.stringify(last)}))
+        const range = document.createRange()
+        range.setStart(head, head.data.lastIndexOf(${JSON.stringify(first)}))
+        range.setEnd(tail, tail.data.lastIndexOf(${JSON.stringify(last)}) + ${last.length})
+        getSelection().removeAllRanges()
+        getSelection().addRange(range)
+        page.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+      })()`)
+    const note = async (words: string) => {
+      await app.until(`!!document.querySelector('.popover.menu')`, 'the menu under the selection')
+      await app.press('.popover.menu button', 'Comment')
+      await app.until(`!!document.querySelector('.composer textarea[aria-label="Note"]')`, 'the form for the note')
+      await app.page(`(() => {
+        const note = document.querySelector('.composer textarea[aria-label="Note"]')
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(note, ${JSON.stringify(words)})
+        note.dispatchEvent(new Event('input', { bubbles: true }))
+      })()`)
+      await app.press('.composer footer button', 'Add to the file')
+      await app.until(`[...document.querySelectorAll('.thread .note')].some((each) => each.textContent.includes(${JSON.stringify(words)}))`, 'the new thread')
+    }
+    await span('bb', 'bb')
+    await note('The second bb.')
+    await span('A ', ' word')
+    await note('Over markup.')
+    const inline = (await readFile(path.join(project, 'draft/inline.md'), 'utf8')).split('\n')
+    assert.equal(inline[1], '', 'the first line has no comment under it')
+    assert.match(inline[inline.indexOf('bb') + 1], /"text":"The second bb\."/)
+    assert.match(inline[inline.indexOf('A **big** word here.') + 1], /"anchor":"A \*\*big\*\* word".*"text":"Over markup\."/)
+
     // A file of text that is not markdown is reviewed too, drawn as it is. Its comment goes beside it, and it stays as it was.
     const xml = '<Sysmon schemaversion="4.90">\n  <ProcessCreate onmatch="exclude"/>\n</Sysmon>\n'
     await writeFile(path.join(project, 'sysmon.xml'), xml)
