@@ -183,14 +183,15 @@ export type MateApi = {
   /** Copy a shelf document into a project's drafts, to work on. The shelf keeps its own. */
   takeDown: (project: string, path: string) => Promise<DocumentView>
   /** Let the reader choose files and folders in the system dialog. Each comes back with a number that stands for its path. */
+  /** Files dropped on the window, each with a number, as if the reader had picked them in the dialog. */
+  takeDropped: (files: File[]) => Promise<{ id: string; name: string; where: string; markdown: boolean; folder: boolean }[]>
   pickSources: (near?: string) => Promise<{ id: string; name: string; where: string; markdown: boolean; folder: boolean }[]>
-  /** Note where a file outside the context lies, in the project's dropbox. `source` is a number from pickSources, or a path. */
+  /** Note where a file outside the context lies, in the project's dropbox. `source` is a number from pickSources or takeDropped. */
   noteSource: (project: string, source: string) => Promise<string>
   /** Copy a markdown file the reader chose into the project's drafts. */
   pullSource: (project: string, id: string) => Promise<DocumentView>
   /** Copy a folder the reader chose into the project, with all its folders. Gives its path in the context. */
   copyFolder: (project: string, id: string) => Promise<string>
-  pathOf: (file: File) => string
   /** Move a document out of a dropbox into a project's drafts. */
   pullIn: (project: string, path: string) => Promise<DocumentView>
   /** Publish a draft as a named document of the shelf. The reader confirms in a system dialog. Null when they do not. */

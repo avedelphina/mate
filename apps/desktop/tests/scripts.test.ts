@@ -54,7 +54,9 @@ test('a script of a trusted project is run as the line says, with no agent and n
     // Time enough for the script to start and print, also when the computer is busy with the other tests.
     const slow = runScript(root, 'review', 'scripts/slow.sh', 2)
     await assert.rejects(runScript(root, 'review', 'scripts/note.sh'), /A script is running/)
-    assert.deepEqual([(await slow).stopped, (await slow).output], [true, 'started\n'])
+    // The shell may add a line of its own about the sleep it ended, when it gets to say it before it is gone.
+    assert.equal((await slow).stopped, true)
+    assert.match((await slow).output, /^started\n(?:.*Terminated.*\n)?$/)
     const stopped = runScript(root, 'review', 'scripts/slow.sh')
     setTimeout(() => stopScript(root), 1000)
     assert.equal((await stopped).stopped, true)

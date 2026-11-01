@@ -12,6 +12,7 @@ import { commitContext, historyOf, inRepository, startRepository, uncommitted, v
 import { diffLines } from '../shared/diff'
 import { forgetMeaning, meaningMissing, moveMeaning, ollamaEmbed, refreshMeaning, searchMeaning } from './meaning'
 import { docxToMarkdown, reflow } from './docx'
+import { keep } from './sources'
 import { extract, refreshTwins } from './twins'
 import { isTwinned, twinOf } from '../shared/twin'
 import {
@@ -664,20 +665,22 @@ app.whenReady().then(() => {
       ...(typeof near === 'string' && path.isAbsolute(near) ? { defaultPath: near } : {})
     }
     const result = await (window ? dialog.showOpenDialog(window, options) : dialog.showOpenDialog(options))
-    return result.canceled
-      ? []
-      : result.filePaths.map((each) => {
-          const id = randomBytes(8).toString('hex')
-          chosen.set(id, each)
-          const folder = statSync(each).isDirectory()
-          return { id, name: path.basename(each), where: each, markdown: !folder && each.toLowerCase().endsWith('.md'), folder }
-        })
+    return result.canceled ? [] : keep(chosen, result.filePaths)
   })
 
-  // Only where the file lies is written down, so a path from a file dropped on the window is taken too.
-  ipcMain.handle('source:note', (event, project: string, source: string) =>
-    noteSource(requireContext(event), project, chosen.get(String(source)) ?? String(source))
-  )
+  // Files dropped on the window are known the same way. The preload takes each path from the file the system gave the
+  // page, which only a real drop or a real pick can make, so the page cannot name a path of its own.
+  ipcMain.handle('source:drop', (event, paths: unknown) => {
+    requireContext(event)
+    return keep(chosen, Array.isArray(paths) ? paths.slice(0, 200) : [])
+  })
+
+  // Only where the file lies is written down. The file is one the reader picked or dropped, known by its number: the page names no path.
+  ipcMain.handle('source:note', (event, project: string, source: string) => {
+    const picked = chosen.get(String(source))
+    if (!picked) throw new Error('Choose the file with Add a source first.')
+    return noteSource(requireContext(event), project, picked)
+  })
 
   // The document itself is copied in, so only a file the reader chose in the dialog is.
   ipcMain.handle('source:pull', (event, project: string, id: string) => {

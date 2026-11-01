@@ -1150,24 +1150,24 @@ export function App() {
   }
 
   /** A file dropped on the window comes in the same way. The window learns where it lies, and cannot read it. */
-  function dropped(event: DragEvent<HTMLDivElement>) {
+  async function dropped(event: DragEvent<HTMLDivElement>) {
     event.preventDefault()
+    // Taken at once: the files of a drop are gone when the handler has returned.
     const files = [...event.dataTransfer.items].flatMap((each) => {
       const file = each.kind === 'file' ? each.getAsFile() : null
-      if (!file) return []
-      const folder = !!each.webkitGetAsEntry()?.isDirectory
-      return [{ name: file.name, where: window.mate.pathOf(file), markdown: !folder && /\.md$/i.test(file.name), folder }]
+      return file ? [file] : []
     })
     if (files.length === 0) return
     if (!view) return setError('Open a project first. A file that comes in belongs to a project.')
-    setSources(files.filter((each) => each.where))
+    // Each has a number now, as if it had been picked in the dialog, so no exit asks for it again.
+    setSources((await window.mate.takeDropped(files)).map((each) => ({ ...each })))
   }
 
   /** The first exit: the file stays where it is, and a note in the dropbox says where. */
   async function noteSource(source: Source) {
     if (!view) return
     try {
-      const note = await window.mate.noteSource(view.project, source.id ?? source.where)
+      const note = await window.mate.noteSource(view.project, source.id ?? '')
       settled(source)
       setView(await window.mate.openProject(view.project, view.file ?? undefined))
       await read(note)
@@ -1178,8 +1178,7 @@ export function App() {
 
   /**
    * The second exit: a document is copied into the drafts. Only one the reader chose in the dialog of
-   * the system is copied. So for a file that was dropped on the window the dialog opens at it, and the
-   * reader chooses it there.
+   * the system, or dropped on the window, is copied: it has a number from either.
    */
   async function pullSource(source: Source) {
     if (!view || !(await leaveEditor())) return
@@ -1199,7 +1198,7 @@ export function App() {
 
   /**
    * The exit for a folder: a copy of the whole of it in the project, as material, which search then
-   * reads. As with a document, a folder that was dropped is chosen once more in the dialog.
+   * reads. As with a document, a folder that was dropped has its number from the drop.
    */
   async function copyFolder(source: Source) {
     if (!view) return

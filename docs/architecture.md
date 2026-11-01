@@ -334,12 +334,16 @@ the window shows a card for it, with the exits that fit. A file of the
 project that Mate cannot draw has the same card, with "Show it in
 Finder" in place of the first exit.
 
-The window never names a path for main to read. A file chosen in the
-dialog is known to the window by a number, and only such a file is
-copied in. A file that was dropped is known by its path, and that is
-used for the note alone: to copy it in, the reader chooses it once more
-in the dialog, which opens at it. A file dropped on the window is never
-opened in its place: the window does not go to another page.
+The window never names a path for main to read. A file or a folder the
+reader chose in the dialog, or dropped on the window, is known to the
+window by a number, and only such a file is copied in, noted or has its
+text taken out. A drop is given its number by the preload, which takes the
+path from the `File` the system gave the page (`webUtils.getPathForFile`):
+only a real drop or a real pick makes a `File` with a path, so the page
+cannot make one of its own choosing, and `source:drop` in main keeps only
+an absolute path that is there (`keep` in `sources.ts`). The page is not
+given a path to hand back. A file dropped on the window is never opened in
+its place: the window does not go to another page.
 
 **Publishing.** Publish on a draft asks for a name on the shelf and
 offers the ones that are there. Then the system asks once more, in a

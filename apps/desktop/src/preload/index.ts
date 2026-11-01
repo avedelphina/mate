@@ -37,11 +37,12 @@ contextBridge.exposeInMainWorld('mate', {
   listContextFiles: (): Promise<string[]> => ipcRenderer.invoke('context:files'),
   takeDown: (project: string, path: string) => ipcRenderer.invoke('shelf:take', project, path),
   pickSources: (near?: string) => ipcRenderer.invoke('source:pick', near),
+  // Only a File that the system gave the page has a path, so the page cannot ask for one of its own choosing.
+  takeDropped: (files: File[]) => ipcRenderer.invoke('source:drop', files.map((each) => webUtils.getPathForFile(each)).filter(Boolean)),
   noteSource: (project: string, source: string) => ipcRenderer.invoke('source:note', project, source),
   pullSource: (project: string, id: string) => ipcRenderer.invoke('source:pull', project, id),
   copyFolder: (project: string, id: string) => ipcRenderer.invoke('source:copy', project, id),
   /** Where a file dropped on the window lies. The window cannot read it: it can only have it noted. */
-  pathOf: (file: File) => webUtils.getPathForFile(file),
   pullIn: (project: string, path: string) => ipcRenderer.invoke('dropbox:pull', project, path),
   publishDraft: (project: string, file: string, name: string) => ipcRenderer.invoke('draft:publish', project, file, name),
   writeDraft: (project: string, file: string, base: string, text: string) => ipcRenderer.invoke('draft:write', project, file, base, text),

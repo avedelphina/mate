@@ -12,6 +12,7 @@ import { listSessions, moveSessions, startSession } from '../src/main/sessions.t
 import { commitContext, startRepository, uncommitted } from '../src/main/git.ts'
 import { placeOf, refreshIndex, searchIndex, tagsInUse } from '../src/main/contextIndex.ts'
 import { insertComment } from '../src/shared/comments.ts'
+import { keep } from '../src/main/sources.ts'
 import { reviewableMarkdown } from '../src/shared/reviewable.ts'
 
 async function context(): Promise<string> {
@@ -345,6 +346,22 @@ test('the text taken out of a file becomes a draft with where it came from, and 
     await assert.rejects(draftFromSource(root, 'review', 'Smlouva 2026 (v2).docx', 'x', 'a'), /already in this project/)
     assert.equal((await draftFromSource(root, 'review', '***.pdf', 'text', 'a\nb')).file, 'extract.md')
     assert.match(await readFile(path.join(root, 'projects/review/draft/extract.md'), 'utf8'), /^---\nsource: a b\n/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a file or a folder dropped on the window is known by a number, and a path that is not there, or not whole, is not', async () => {
+  const root = await context()
+  try {
+    await writeFile(path.join(root, 'a.docx'), 'x')
+    await writeFile(path.join(root, 'b.md'), 'x')
+    const chosen = new Map<string, string>()
+    const kept = keep(chosen, [path.join(root, 'a.docx'), path.join(root, 'b.md'), path.join(root, 'projects'), path.join(root, 'missing.pdf'), 'relative/a.pdf', 42, null, { path: '/etc/passwd' }])
+    assert.deepEqual(kept.map((each) => [each.name, each.markdown, each.folder]), [['a.docx', false, false], ['b.md', true, false], ['projects', false, true]])
+    assert.equal(new Set(kept.map((each) => each.id)).size, 3)
+    assert.equal(chosen.get(kept[0].id), path.join(root, 'a.docx'))
+    assert.equal(chosen.size, 3)
   } finally {
     await rm(root, { recursive: true, force: true })
   }
