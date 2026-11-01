@@ -79,9 +79,13 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   be taken down into a project, as a copy the project owns.
 - **Sources.** *Add a source*, or drop a file on the window. A markdown
   file is pulled into the drafts. A file that stays where it is gets a
-  note with its path, so a search finds it. For a Word file or a PDF, one
-  button asks the agent to take its text out into a draft, with its
-  headings and its form. A folder is copied into the project whole, with
+  note with its path, so a search finds it. For a Word
+  file, a PDF, a page or a table, *Make a draft from its text* takes the
+  text out itself, with no agent, and writes it as a draft with where it
+  came from at the top. A Word file keeps its headings, lists, tables,
+  bold and links; a PDF comes as paragraphs, and a scan is read off its
+  pictures. *Or ask the agent to write it* is for form Mate cannot see. A
+  folder is copied into the project whole, with
   its folders, so search reads what is in it.
 - **The files of a context.** The rail lists the shelf, then under
   *Context* the rest of the context that is not a project, such as its

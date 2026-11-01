@@ -301,11 +301,19 @@ remembered.
   date. Nothing of what is in the file is read. The note is a document,
   so a search finds the file by its name, and an agent is told of it.
 - *Its text taken out, into a draft.* For a file that is not markdown,
-  such as a Word file or a PDF. The reader asks the agent, with one
-  button, and the agent writes the draft through the guard like any
-  other change. Mate's own text of the file, its twin (see "Text
-  twins"), is plain text for search and reading. The agent makes a
-  draft of it, with its headings and its form.
+  such as a Word file or a PDF. *Make a draft from its text* does it with
+  no agent: `source:extract` in `index.ts`, for a file of the project by
+  its path or one the reader chose in the dialog by its number, never a
+  path the window names. A Word file goes through `docxToMarkdown` in
+  `docx.ts`, which reads the zip and its XML with Node's own zlib and
+  makes headings, lists, tables, bold and links from what the file says,
+  after a size is capped and with nothing in it run. The text of a PDF,
+  which is the twin (see "Text twins") or is taken out on the spot, is
+  joined into paragraphs by `reflow`. Other kinds are the twin as it is.
+  `draftFromSource` writes the draft, never over one, with `source` and
+  `extracted` in its front matter. The original stays where it was. The
+  reader can still ask the agent, for form Mate cannot see, and the agent
+  writes through the guard like any other change.
 
 A folder from outside has one exit of its own. `copyFolder` copies it
 into the project whole, with its folders, under its own name, as

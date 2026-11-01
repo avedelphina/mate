@@ -3,7 +3,7 @@ import { endpointView, judgeOnEndpoint, keepEndpointIn, keyRefusal, linuxRelay, 
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
-import { readFile } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { addReply, anchorComment, applySuggestion, fileLineOf } from '../shared/comments'
 import { addable, AGENTS, agentEnvironment, describeAgent, discoverAgents, type AgentKind } from './agents'
@@ -11,7 +11,9 @@ import { checkAssist, runAssist, type AssistTask } from './assist'
 import { commitContext, historyOf, inRepository, startRepository, uncommitted, versionAt } from './git'
 import { diffLines } from '../shared/diff'
 import { forgetMeaning, meaningMissing, moveMeaning, ollamaEmbed, refreshMeaning, searchMeaning } from './meaning'
-import { refreshTwins } from './twins'
+import { docxToMarkdown, reflow } from './docx'
+import { extract, refreshTwins } from './twins'
+import { isTwinned, twinOf } from '../shared/twin'
 import {
   addComment,
   copyFolder,
@@ -28,6 +30,7 @@ import {
   renameProject,
   sendToProject,
   describeContext,
+  draftFromSource,
   editDraft,
   listContextFiles,
   listShelf,
@@ -693,6 +696,32 @@ app.whenReady().then(() => {
     const copied = await copyFolder(contextDir, project, source)
     readTwins(contextDir)
     return copied
+  })
+
+  // The text of a PDF, a Word file or the like becomes a draft, with no agent. A file of this project, or one the reader chose in
+  // the dialog. A Word file keeps its headings, lists and tables, since it says which they are; the text of the others is what the twin holds.
+  ipcMain.handle('source:extract', async (event, project: string, how: string, value: string) => {
+    const contextDir = requireContext(event)
+    let full: string
+    let relative: string | null = null
+    if (how === 'path') {
+      relative = String(value)
+      if (!relative.startsWith(`projects/${String(project)}/`)) throw new Error('That file is not in this project.')
+      full = await placeOnDisk(contextDir, relative)
+    } else {
+      const picked = chosen.get(String(value))
+      if (!picked) throw new Error('Choose the file with Add a source first.')
+      full = picked
+    }
+    const name = path.basename(full)
+    const info = await stat(full)
+    if (!info.isFile() || !isTwinned(name)) throw new Error('Mate takes the text out of a PDF, a Word file, a page or a table. That is not one.')
+    if (info.size > 200 * 1024 * 1024) throw new Error('That file is too large to take the text out of here.')
+    const lower = name.toLowerCase()
+    const twin = relative ? await readFile(path.join(contextDir, twinOf(relative)), 'utf8').catch(() => null) : null
+    const text = lower.endsWith('.docx') ? docxToMarkdown(await readFile(full)) : lower.endsWith('.pdf') ? reflow(twin ?? (await extract(full, assistHelper))) : (twin ?? (await extract(full, assistHelper)))
+    if (!text.trim()) throw new Error('Mate found no text in that file. It may be locked, or hold pictures with no words in them.')
+    return draftFromSource(contextDir, String(project), name, text, relative ? relative.slice(`projects/${String(project)}/`.length) : name)
   })
 
   // A document in a dropbox is pulled into the project's drafts. It leaves the dropbox.

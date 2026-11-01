@@ -201,6 +201,8 @@ export type MateApi = {
   createDraft: (project: string, name: string, folder?: string) => Promise<DocumentView>
   /** The path of the request in the other project's dropbox, or null when the reader said no. */
   sendToProject: (project: string, file: string, target: string, passage: string, note: string) => Promise<string | null>
+  /** A draft made of the text of a file, with no agent: a file of the project by its path, or one chosen in the dialog by its number. */
+  extractSource: (project: string, how: 'path' | 'id', value: string) => Promise<DocumentView>
   moveFile: (project: string, from: string, to: string) => Promise<DocumentView>
   addComment: (
     project: string,

@@ -5,6 +5,16 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- *Make a draft from its text* on the card of a Word file, a PDF, a page
+  or a table takes the text out itself, with no agent, and writes it as a
+  draft with `source` and the date at the top. A Word file keeps its
+  headings, lists, tables, bold and links. A PDF comes as paragraphs. The
+  agent is still there as *Or ask the agent to write it*.
+
 ## [0.16.0] - 2026-10-31
 
 Markdown that is not a draft can be reviewed, and a new project starts

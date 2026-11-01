@@ -180,7 +180,11 @@ test('the window, on the example context: a comment into the file, the tree, a p
         target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data }))
       })()`)
     await drag('inline.md', 'contracts')
-    await app.until(`![...document.querySelectorAll('.projects .tree summary + ul .row')].some((each) => each.textContent === 'inline.md') || [...document.querySelectorAll('.projects .tree summary')].find((each) => each.firstChild?.textContent === 'contracts')?.parentElement.textContent.includes('inline.md')`, 'the file in its new folder in the tree')
+    // The file is moved in the folder on disk; the tree follows when the window has read it again.
+    for (let waited = 0; !existsSync(path.join(project, 'draft/contracts/inline.md')); waited += 50) {
+      if (waited > 5000) throw new Error('The file was not moved.')
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
     assert.equal(existsSync(path.join(project, 'draft/inline.md')), false)
     // It came with its comments, which are in the file.
     assert.match(await readFile(path.join(project, 'draft/contracts/inline.md'), 'utf8'), /A \*\*big\*\* word here\.\n<!-- @comment\{.*"text":"Over markup\."/)
@@ -210,6 +214,18 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await note('Which port?')
     assert.equal(await readFile(path.join(project, 'material.md'), 'utf8'), material, 'the file is as it was')
     assert.match(await readFile(path.join(project, 'material.md.comments.md'), 'utf8'), /Which port\?/)
+    await app.press('.projects .tree .row', 'document.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
+
+    // The text of a page, a PDF or a Word file becomes a draft with no agent, and where it came from is at its top.
+    await writeFile(path.join(project, 'page.html'), '<html><body><h1>Terms</h1><p>Pay in 30 days.</p></body></html>')
+    await app.page(`window.dispatchEvent(new Event('focus'))`)
+    await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'page.html')`, 'the page in the tree')
+    await app.press('.projects .tree .row', 'page.html')
+    await app.until(`[...document.querySelectorAll('.source button')].some((each) => each.textContent === 'Make a draft from its text')`, 'the card, with the button that needs no agent')
+    await app.press('.source button', 'Make a draft from its text')
+    await app.until(`document.querySelector('.center .bar')?.textContent.includes('page.md')`, 'the draft made of the page')
+    assert.match(await readFile(path.join(project, 'draft/page.md'), 'utf8'), /^---\nsource: page\.html\nextracted: \d{4}-\d{2}-\d{2}\n---\n\n[\s\S]*Terms[\s\S]*Pay in 30 days\./)
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 
@@ -343,7 +359,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.margin .pane h1')?.textContent.includes('Deadlines')`, 'the new pane on show')
     assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review', 'Notes', 'Agent', 'deadlines*', 'tasks', 'workflow'])
 
-    // A file Mate cannot draw has a card with what can be done with it. Its text is taken out by the agent, when asked.
+    // A file Mate cannot draw has a card with what can be done with it. Its text is taken out by Mate, or by the agent when asked.
     await writeFile(path.join(project, 'dropbox/scan.pdf'), 'not a real pdf')
     await app.page(`window.dispatchEvent(new Event('focus'))`)
     await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'scan.pdf')`, 'the file in the tree')
@@ -351,12 +367,13 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.source strong')?.textContent === 'scan.pdf'`, 'the card of the file')
     assert.deepEqual(await app.page(`[...document.querySelectorAll('.source .acts button')].map((each) => each.textContent.trim())`), [
       mac ? 'Show it in Finder' : 'Show it in the file manager',
-      'Ask the agent to extract its text into draft/',
+      'Make a draft from its text',
+      'Or ask the agent to write it',
       'Close'
     ])
     await app.press('.margin .tabs button', 'Agent')
     await app.until(`!!document.querySelector('.margin .talk')`, 'the session that is still open')
-    await app.press('.source .acts button', 'Ask the agent to extract its text into draft/')
+    await app.press('.source .acts button', 'Or ask the agent to write it')
     await app.until(`[...document.querySelectorAll('.said.you')].some((each) => each.textContent.includes('Extract the text of dropbox/scan.pdf into draft/scan.md.'))`, 'the request in the conversation')
     assert.equal(await app.page(`document.querySelectorAll('.source').length`), 0)
 

@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('mate', {
   writeDraft: (project: string, file: string, base: string, text: string) => ipcRenderer.invoke('draft:write', project, file, base, text),
   createDraft: (project: string, name: string, folder?: string) => ipcRenderer.invoke('draft:create', project, name, folder),
   sendToProject: (project: string, file: string, target: string, passage: string, note: string) => ipcRenderer.invoke('project:send', project, file, target, passage, note),
+  extractSource: (project: string, how: 'path' | 'id', value: string) => ipcRenderer.invoke('source:extract', project, how, value),
   moveFile: (project: string, from: string, to: string) => ipcRenderer.invoke('file:move', project, from, to),
   addComment: (
     project: string,

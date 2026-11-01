@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { addComment, createContext, createDraft, createProject, describeContext, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
+import { addComment, createContext, createDraft, createProject, describeContext, draftFromSource, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
@@ -328,6 +328,23 @@ test('a markdown file that is not a draft is reviewed too, with its comments bes
       assert.equal(reviewableMarkdown(no), false, no)
     }
     await assert.rejects(addComment(root, 'review', '/dropbox/letter.md', 'x', 'y', 'you', 0))
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('the text taken out of a file becomes a draft with where it came from, and nothing is written over', async () => {
+  const root = await context()
+  try {
+    const made = await draftFromSource(root, 'review', 'Smlouva 2026 (v2).docx', '# Terms\n\nPay in 30 days.\n', 'dropbox/Smlouva 2026 (v2).docx')
+    assert.equal(made.file, 'Smlouva 2026 -v2-.md')
+    const text = await readFile(path.join(root, 'projects/review/draft/Smlouva 2026 -v2-.md'), 'utf8')
+    assert.match(text, /^---\nsource: dropbox\/Smlouva 2026 \(v2\)\.docx\nextracted: \d{4}-\d{2}-\d{2}\n---\n\n# Terms\n\nPay in 30 days\.\n$/)
+    assert.equal(made.text.includes('Pay in 30 days.'), true)
+    // The same file again is not written over, and a name that is all marks still has a name.
+    await assert.rejects(draftFromSource(root, 'review', 'Smlouva 2026 (v2).docx', 'x', 'a'), /already in this project/)
+    assert.equal((await draftFromSource(root, 'review', '***.pdf', 'text', 'a\nb')).file, 'extract.md')
+    assert.match(await readFile(path.join(root, 'projects/review/draft/extract.md'), 'utf8'), /^---\nsource: a b\n/)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

@@ -1214,7 +1214,24 @@ export function App() {
     }
   }
 
-  /** The third exit: the agent takes the text out of the file and writes it as a draft. Mate reads no such file itself. */
+  /** The third exit, with no agent: the text of the file becomes a draft. A Word file keeps its headings, lists and tables. */
+  async function extractHere(source: Source) {
+    if (!view || !(await leaveEditor())) return
+    try {
+      const id = source.inContext ? null : (source.id ?? (await window.mate.pickSources(source.where)).find((each) => !each.markdown && !each.folder)?.id)
+      if (!source.inContext && !id) return
+      const made = await window.mate.extractSource(view.project, source.inContext ? 'path' : 'id', source.inContext ?? id!)
+      settled(source)
+      setError(null)
+      setReading(null)
+      setAgentOnPage(false)
+      setView(made)
+    } catch (caught) {
+      setError(reason(caught, 'Could not take the text out of that file.'))
+    }
+  }
+
+  /** The third exit, by the agent: it takes the text out of the file and writes it as a draft, with the form it can see in it. */
   async function extract(source: Source) {
     if (!view) return
     const from = source.inContext ? source.inContext.replace(`projects/${view.project}/`, '') : `the file at ${source.where}`
@@ -1742,9 +1759,16 @@ export function App() {
                     </button>
                   )}
                   {!source.markdown && !source.folder && !source.where.startsWith('scripts/') && (
-                    <button title="Said to the agent in the open session. Mate reads no such file itself." onClick={() => void extract(source)}>
-                      Ask the agent to extract its text into draft/
-                    </button>
+                    <>
+                      {isTwinned(source.name) && (
+                        <button className="primary" title="Mate takes the text out itself, with no agent. A Word file keeps its headings, lists and tables." onClick={() => void extractHere(source)}>
+                          Make a draft from its text
+                        </button>
+                      )}
+                      <button title="Said to the agent in the open session, for a file Mate cannot read, or form it cannot see." onClick={() => void extract(source)}>
+                        {isTwinned(source.name) ? 'Or ask the agent to write it' : 'Ask the agent to extract its text into draft/'}
+                      </button>
+                    </>
                   )}
                   {source.inContext && source.where.startsWith('scripts/') && (
                     <button title="Run this script here, given nothing. No agent is asked." onClick={() => run(`card:${source.where}`, source.where)}>

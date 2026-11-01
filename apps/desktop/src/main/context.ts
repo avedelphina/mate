@@ -527,6 +527,18 @@ export async function makeFolder(contextDir: string, project: string, where: str
   return readProject(contextDir, project)
 }
 
+/**
+ * Write the text taken out of a file as a new draft of the project, with where it came from at the top.
+ * A draft of that name is never written over. `from` is how the file is told of: a path of the project, or its name.
+ */
+export async function draftFromSource(contextDir: string, project: string, name: string, text: string, from: string): Promise<DocumentView> {
+  const stem = String(name).replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N} ._-]+/gu, '-').replace(/^[^\p{L}\p{N}]+/u, '').trim().slice(0, 80) || 'extract'
+  const file = `${stem}.md`
+  const body = `---\nsource: ${String(from).replace(/[\r\n]+/g, ' ')}\nextracted: ${new Date().toISOString().slice(0, 10)}\n---\n\n${text.trim()}\n`
+  await putDraft(contextDir, project, file, body, 'A draft of that name is already in this project.')
+  return readProject(contextDir, project, file)
+}
+
 /** Start a new draft in a project: a file with its title and nothing else. An existing file is never written over. */
 export async function createDraft(contextDir: string, project: string, name: string, folder = ''): Promise<DocumentView> {
   const title = String(name).trim().replace(/\.md$/i, '')

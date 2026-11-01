@@ -145,6 +145,8 @@ Key modules in `apps/desktop/src/main/`:
 - `notify.ts` — the system's notification when Mate is not in front: an agent
   needs the reader, or a new version is ready. Words of ours, nothing of a file.
 - `twins.ts` — the text of PDF and Word files, kept in `.indexes/text/`.
+- `docx.ts` — a Word file as markdown, headings and tables kept, with no
+  program; and a PDF's lines as paragraphs.
 - `meaning.ts` — search by meaning: passages, vectors, `meaningRuns`.
 - `mcp.ts` — the local MCP endpoint (`http://127.0.0.1:41757/mcp`).
 - `assist.ts` — questions for the on-device helper.
