@@ -64,6 +64,17 @@ export async function launch(contextDir: string, kept: Record<string, string> = 
       socket.send(JSON.stringify({ id, method: 'Runtime.evaluate', params: { expression, awaitPromise: true, returnByValue: true } }))
     })
 
+  /** Drop a file of the computer on the window, as a person does: the system's own drag, so the page is given a File with a path. */
+  const drop = async (file: string): Promise<void> => {
+    const send = (type: string) =>
+      new Promise<void>((resolve) => {
+        const id = ++next
+        waiting.set(id, () => resolve())
+        socket.send(JSON.stringify({ id, method: 'Input.dispatchDragEvent', params: { type, x: 600, y: 300, data: { items: [], files: [file], dragOperationsMask: 1 } } }))
+      })
+    for (const type of ['dragEnter', 'dragOver', 'drop']) await send(type)
+  }
+
   /** Wait until an expression in the page is true. `what` says what was waited for, when it never comes. */
   const until = async (expression: string, what: string): Promise<void> => {
     for (let waited = 0; waited < 10_000; waited += 100) {
@@ -90,5 +101,5 @@ export async function launch(contextDir: string, kept: Record<string, string> = 
     await rm(userData, { recursive: true, force: true })
   }
 
-  return { page, until, press, close, userData }
+  return { page, until, press, close, userData, drop }
 }

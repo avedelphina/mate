@@ -229,6 +229,18 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 
+    // A file dropped on the window has its number from the drop, so nothing asks the reader to choose it again: the dialog
+    // of the system cannot be pressed here, and a draft that appears shows that none was opened.
+    const outside = path.join(root, 'outside.html')
+    await writeFile(outside, '<html><body><h1>Dropped</h1><p>Pay in 45 days.</p></body></html>')
+    await app.drop(outside)
+    await app.until(`[...document.querySelectorAll('.source button')].some((each) => each.textContent === 'Make a draft from its text')`, 'the card of the dropped file')
+    await app.press('.source button', 'Make a draft from its text')
+    await app.until(`document.querySelector('.center .bar')?.textContent.includes('outside.md')`, 'the draft, made with no dialog')
+    assert.match(await readFile(path.join(project, 'draft/outside.md'), 'utf8'), /^---\nsource: outside\.html\n[\s\S]*Pay in 45 days\./)
+    await app.press('.projects .tree .row', 'document.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
+
     // A file of text that is not markdown is reviewed too, drawn as it is. Its comment goes beside it, and it stays as it was.
     const xml = '<Sysmon schemaversion="4.90">\n  <ProcessCreate onmatch="exclude"/>\n</Sysmon>\n'
     await writeFile(path.join(project, 'sysmon.xml'), xml)
