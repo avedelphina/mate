@@ -5,7 +5,10 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.17.0] - 2026-11-01
+
+The text of a Word file, a PDF, a page or a table becomes a draft without
+an agent, and a file you drop on the window is not asked for again.
 
 ### Added
 
@@ -14,6 +17,12 @@ then, minor versions may change behaviour.
   draft with `source` and the date at the top. A Word file keeps its
   headings, lists, tables, bold and links. A PDF comes as paragraphs. The
   agent is still there as *Or ask the agent to write it*.
+
+### Changed
+
+- A file or a folder dropped on the window is known as if you had picked
+  it in the dialog, so copying it in, noting it or taking its text out no
+  longer asks you to choose it again.
 
 ## [0.16.0] - 2026-10-31
 
