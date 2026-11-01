@@ -307,7 +307,11 @@ remembered.
   path the window names. A Word file goes through `docxToMarkdown` in
   `docx.ts`, which reads the zip and its XML with Node's own zlib and
   makes headings, lists, tables, bold and links from what the file says,
-  after a size is capped and with nothing in it run. The text of a PDF,
+  after a size is capped and with nothing in it run. A paragraph that has a
+  heading's style is a heading only if it is short and does not end like a
+  sentence, with a colon or a comma, or start with a small letter: contracts
+  number their clauses with heading styles, and a clause is text. Runs of
+  spaces are one space. The text of a PDF,
   which is the twin (see "Text twins") or is taken out on the spot, is
   joined into paragraphs by `reflow`. Other kinds are the twin as it is.
   `draftFromSource` writes the draft, never over one, with `source` and

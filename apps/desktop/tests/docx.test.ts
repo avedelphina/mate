@@ -68,6 +68,11 @@ const document = `<?xml version="1.0"?><w:document ${W}><w:body>
   ${p('<w:outlineLvl w:val="2"/>', r('By outline'))}
   ${p('')}
   ${p('', r('- not a list'))}
+  ${p('<w:pStyle w:val="Nadpis2"/>', r('9.1  Both sides agree that they will cooperate in the framework of this contract.'))}
+  ${p('<w:pStyle w:val="Nadpis2"/>', r('The parties undertake the following:'))}
+  ${p('<w:pStyle w:val="Nadpis2"/>', r('which are not known to the public,'))}
+  ${p('<w:pStyle w:val="Heading1"/>', r('Article II.'))}
+  ${p('', r('Sídlo:   Pri  Rajčianke\u00a02927'))}
   <w:tbl>
     <w:tr><w:tc><w:p>${r('Name')}</w:p></w:tc><w:tc><w:p>${r('Port')}</w:p></w:tc></w:tr>
     <w:tr><w:tc><w:p>${r('WinRM | HTTPS')}</w:p></w:tc><w:tc><w:p>${r('5986')}</w:p></w:tc></w:tr>
@@ -95,6 +100,16 @@ const expected = [
   '### By outline',
   '',
   '\\- not a list',
+  '',
+  '9.1 Both sides agree that they will cooperate in the framework of this contract.',
+  '',
+  'The parties undertake the following:',
+  '',
+  'which are not known to the public,',
+  '',
+  '# Article II.',
+  '',
+  'Sídlo: Pri Rajčianke 2927',
   '',
   '| Name | Port |',
   '| --- | --- |',

@@ -188,6 +188,22 @@ function marked(parts: Piece[]): string {
     .join('')
 }
 
+/** Runs of spaces, tabs and no-break spaces are one space, as the page shows them. A hard break keeps its two. */
+const tidy = (text: string): string => text.replace(/[\u00a0\t]/g, ' ').replace(/ {2,}(?!\n)/g, ' ').trim()
+
+/**
+ * Whether the words can be a heading: one short line. Not one that ends with a colon, and not one of
+ * more than a few words that ends with a full stop or a semicolon, which is a sentence of the text.
+ */
+function heading(words: string): boolean {
+  const plain = words.replace(/\*+/g, '').trim()
+  const count = plain.split(/\s+/).length
+  if (plain.length > 100 || count > 15 || plain.includes('\n')) return false
+  // A line that ends with a comma or a colon, or starts with a small letter, is the middle of a sentence or a lead-in.
+  if (/[,:]$/.test(plain) || /^\p{Ll}/u.test(plain)) return false
+  return !(/[.;]$/.test(plain) && count > 6)
+}
+
 /** A line that would turn into markdown structure when it is not meant to has its first mark shown as text. */
 const literal = (text: string): string => text.replace(/^(#{1,6}\s|[-+*>]\s|\d+[.)]\s|>)/, '\\$1')
 
@@ -204,7 +220,7 @@ export function docxToMarkdown(file: Buffer): string {
   const paragraph = (node: Node): { kind: string; line: string } | null => {
     const properties = child(node, 'w:pPr')
     const style = known.get(val(child(properties, 'w:pStyle')) ?? '')
-    const words = marked(pieces(node, targets)).replace(/[ \t]+$/gm, '').trim()
+    const words = tidy(marked(pieces(node, targets)))
     if (!words) return null
 
     const named = style?.name ?? (val(child(properties, 'w:pStyle')) ?? '').toLowerCase()
@@ -214,8 +230,9 @@ export function docxToMarkdown(file: Buffer): string {
     if (!level && named === 'subtitle') level = '2'
     if (!level && outline !== undefined && /^\d$/.test(outline)) level = String(Number(outline) + 1)
     if (!level && style?.outline !== null && style?.outline !== undefined) level = String(style.outline + 1)
-    // A heading is one line, and its own bold is the heading's.
-    if (level) return { kind: 'heading', line: `${'#'.repeat(Math.min(6, Math.max(1, Number(level))))} ${words.replace(/\*\*/g, '').replace(/\s*\n\s*/g, ' ')}` }
+    // A heading is one line, and its own bold is the heading's. A paragraph that only has a heading's style, such as a clause that
+    // is numbered with one, stays a paragraph: a heading is short, and a line that ends like a sentence or leads into a list is not one.
+    if (level && heading(words)) return { kind: 'heading', line: `${'#'.repeat(Math.min(6, Math.max(1, Number(level))))} ${words.replace(/\*\*/g, '').replace(/\s*\n\s*/g, ' ')}` }
 
     const direct = child(properties, 'w:numPr')
     const list = direct ? { id: val(child(direct, 'w:numId')) ?? '0', level: Number(val(child(direct, 'w:ilvl')) ?? 0) } : style?.list
@@ -232,7 +249,7 @@ export function docxToMarkdown(file: Buffer): string {
     const rows = kids(node, 'w:tr').map((row) =>
       kids(row, 'w:tc').flatMap((cell) => {
         const words = kids(cell, 'w:p')
-          .map((each) => marked(pieces(each, targets)).replace(/\s*\n\s*/g, ' ').trim())
+          .map((each) => tidy(marked(pieces(each, targets)).replace(/\s*\n\s*/g, ' ')))
           .filter(Boolean)
           .join(' ')
           .replace(/\|/g, '\\|')
