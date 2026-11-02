@@ -64,6 +64,8 @@ export function Agent(props: {
   const [opened, setOpened] = useState(false)
   const [endpoint, setEndpoint] = useState<{ url: string; model: string; hasKey: boolean } | null>(null)
 
+  const [sending, setSending] = useState(false)
+
   const session = sessions.find((each) => each.id === open) ?? null
   useEffect(() => onSession(session?.id ?? null), [session?.id])
   const label = (each: { agent: AgentKind; host: string | null }) =>
@@ -119,13 +121,15 @@ export function Agent(props: {
     end.current?.scrollIntoView({ block: 'end' })
   }, [open, session?.messages.length, last?.text, session?.running, session?.asks?.length, session?.held.length, session?.changes.length, into])
 
-  async function act(action: () => Promise<Session>, after?: () => void) {
+  async function act(action: () => Promise<Session>, after?: () => void): Promise<boolean> {
     setError(null)
     try {
       keep(await action())
       after?.()
+      return true
     } catch (caught) {
       setError(reason(caught))
+      return false
     }
   }
 
@@ -159,9 +163,17 @@ export function Agent(props: {
       <p className="meta diff-note">{compared.note}</p>
     ))
 
+  // The agent takes a moment to start, and the message shows only when it has. The box is emptied at once, so
+  // Send is seen to work, and the words come back if the message was not taken.
   const send = (approve: boolean, wait = false) => {
-    if (!session) return
-    void act(() => window.mate.sendMessage(project, session.id, text, approve, wait), () => setText(''))
+    if (!session || sending) return
+    const said = text
+    setText('')
+    setSending(true)
+    void act(() => window.mate.sendMessage(project, session.id, said, approve, wait)).then((taken) => {
+      if (!taken) setText((now) => now || said)
+      setSending(false)
+    })
   }
 
   if (!into) return null
@@ -453,8 +465,8 @@ export function Agent(props: {
               After this turn
             </button>
           )}
-          <button className="primary" title={document.documentElement.dataset.platform === 'mac' ? '⌘↵' : 'Ctrl+Enter'} disabled={!text.trim()} onClick={() => send(false)}>
-            Send
+          <button className="primary" title={document.documentElement.dataset.platform === 'mac' ? '⌘↵' : 'Ctrl+Enter'} disabled={!text.trim() || sending} onClick={() => send(false)}>
+            {sending ? 'Sending…' : 'Send'}
           </button>
         </footer>
       </div>

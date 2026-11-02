@@ -765,7 +765,9 @@ async function begin(
       .then(() =>
         model && agent.model !== model
           ? agent.setModel(model).catch((caught: Error) => {
-              throw new Error(`${adapter.label} did not take the model ${model}.\n\n${caught.message}`)
+              // A choice the agent refuses is given back, so the next message goes to its own model.
+              session.model = undefined
+              throw new Error(`${adapter.label} did not take the model ${model}. The choice is given back: send the message again to use its own.\n\n${caught.message}`)
             })
           : undefined
       )
