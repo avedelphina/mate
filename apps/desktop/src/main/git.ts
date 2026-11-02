@@ -19,7 +19,9 @@ const git = (dir: string, env: NodeJS.ProcessEnv, args: string[], input?: string
     const child = execFile('git', args, { cwd: dir, env, maxBuffer: 8 * 1024 * 1024 }, (failed, out, complaint) =>
       failed ? reject(new Error((complaint || out || failed.message).trim().slice(0, 600))) : resolve(out)
     )
-    child.stdin?.end(input ?? '')
+    // A command that reads nothing may exit before its input is closed. The broken pipe is not its failure.
+    child.stdin?.on('error', () => {})
+    child.stdin?.end(input)
   })
 
 /** Whether a folder is in a git repository. The folders are looked at. Git is not asked. */
