@@ -5,6 +5,14 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Fixed
+
+- A button of a pane with a long line, such as a script given a path,
+  was drawn as a large oval. It is a rounded box now, with *▶ Run* on it
+  for a script, and the script's line in a fixed-width face beside it.
+
 ## [0.18.0] - 2026-11-02
 
 The window looks and behaves like a Mac app, with menus of the system,

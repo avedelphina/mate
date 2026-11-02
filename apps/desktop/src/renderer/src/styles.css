@@ -363,10 +363,15 @@ details .prose h2, details .prose h3, .pane h2, .pane h3 { font-size: 1em; }
 /* What the reader can press in a pane: a task box, and a line that says its own words to the agent. */
 .pane .box { cursor: pointer; }
 .pane .box:hover::before { color: var(--accent); }
-.say { display: inline-block; margin: 2px 0; padding: 3px 12px; border-radius: 99px; background: var(--card); box-shadow: var(--edge); color: var(--ink); font: 12.5px/1.5 var(--ui); cursor: default; }
+/* A rounded box, not a capsule: a long line wraps, and a capsule of several lines is an oval. */
+.say { display: inline-block; max-width: 100%; box-sizing: border-box; margin: 2px 0; padding: 4px 12px; border-radius: 10px; background: var(--card); box-shadow: var(--edge); color: var(--ink); font: 12.5px/1.5 var(--ui); overflow-wrap: anywhere; cursor: default; }
 .say:hover { background: color-mix(in srgb, var(--card), var(--ink) 4%); }
 /* A button that runs a script, and what the script printed. */
-.run::before { content: '▶︎ '; color: var(--accent); font-size: 0.8em; }
+.say.run { position: relative; padding: 6px 12px 6px 66px; font: 12px/1.55 var(--mono); }
+/* What a press does, said on the button itself. Drawn by the style, so the pane's text is still the file's. */
+.run::before { content: '▶︎ Run'; position: absolute; top: 6px; left: 7px; padding: 0 8px; border-radius: 99px; background: var(--accent); color: var(--accent-ink); font: 600 11px/18.5px var(--ui); }
+.say.run:hover::before { filter: brightness(1.12); }
+.say.run:active { background: color-mix(in srgb, var(--card), var(--ink) 9%); }
 .ran { margin: 8px 0 0; }
 .ran p { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 4px; overflow-wrap: anywhere; }
 .ran p span { min-width: 0; }
