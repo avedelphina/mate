@@ -5,7 +5,9 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.18.1] - 2026-11-02
+
+A script's button in a pane reads as a button again.
 
 ### Fixed
 
