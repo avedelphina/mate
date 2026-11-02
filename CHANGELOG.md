@@ -5,6 +5,17 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [0.21.1] - 2026-11-02
+
+Send shows that it worked, and a model the agent refuses is given back.
+
+### Fixed
+
+- Send empties the box and says *Sending…* while the agent starts. It looked
+  as if nothing happened, and a message could be sent twice.
+- When Hermes or Kimi refuses the model you chose, Mate gives the choice
+  back. The next message goes to the agent's own model.
+
 ## [0.21.0] - 2026-11-02
 
 A comment can be changed, closed, moved or deleted from the margin.
