@@ -99,6 +99,34 @@ test('the window, on the example context: a comment into the file, the tree, a p
     const draft = (await readFile(path.join(project, 'draft/document.md'), 'utf8')).split('\n')
     assert.match(draft[draft.indexOf(passage) + 1], /^<!-- @comment\{.*"text":"Said by the test\.".*\} -->$/)
 
+    // The comment can be changed and closed from the margin. It ends as it began, so the steps below find it so.
+    const inThread = (words: string, label: string) =>
+      app.page(`(() => {
+        const thread = [...document.querySelectorAll('.thread')].find((each) => each.textContent.includes(${JSON.stringify(words)}))
+        ;[...thread.querySelectorAll('button')].find((each) => each.textContent === ${JSON.stringify(label)}).click()
+      })()`)
+    await inThread('Said by the test.', 'Edit')
+    await app.until(`!!document.querySelector('.thread textarea[aria-label="Comment"]')`, 'the comment, open for change')
+    await app.page(`(() => {
+      const box = document.querySelector('.thread textarea[aria-label="Comment"]')
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(box, 'Changed by the test.')
+      box.form.requestSubmit()
+    })()`)
+    await app.until(`[...document.querySelectorAll('.thread .note')].some((each) => each.textContent === 'Changed by the test.')`, 'the new words')
+    assert.match(await readFile(path.join(project, 'draft/document.md'), 'utf8'), /"text":"Changed by the test\."/)
+    await inThread('Changed by the test.', 'Resolve')
+    await app.until(`!![...document.querySelectorAll('.thread.resolved')].find((each) => each.textContent.includes('Changed by the test.'))`, 'the comment, resolved')
+    assert.match(await readFile(path.join(project, 'draft/document.md'), 'utf8'), /"status":"resolved"/)
+    await inThread('Changed by the test.', 'Reopen')
+    await app.until(`!document.querySelector('.thread.resolved')`, 'the comment, open again')
+    await inThread('Changed by the test.', 'Edit')
+    await app.page(`(() => {
+      const box = document.querySelector('.thread textarea[aria-label="Comment"]')
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(box, 'Said by the test.')
+      box.form.requestSubmit()
+    })()`)
+    await app.until(`[...document.querySelectorAll('.thread .note')].some((each) => each.textContent === 'Said by the test.')`, 'the first words again')
+
     // The page holds hidden markup, and a selection is counted in the file, not in what the reader sees.
     // A word picked after markup lands on its own line, and a passage over markup is found as it is written.
     const marked = '**a** **b** **bb**\n\nbb\n\nA **big** word here.\n'

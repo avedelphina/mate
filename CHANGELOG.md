@@ -5,6 +5,17 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## Unreleased
+
+### Added
+
+- A comment in the margin can be changed or taken away. *Edit* changes the
+  words of your own comment or reply. *Delete* removes a comment with its
+  replies, or one reply. *Resolve* closes a comment, and *Reopen* opens it
+  again. A suggestion is closed by applying it, or removed with *Delete*.
+  *Move to selection* puts an open comment under another passage: select
+  the passage in the document, then press it.
+
 ## [0.20.0] - 2026-11-02
 
 A web page can be added to a project as a draft, through your own Firecrawl.

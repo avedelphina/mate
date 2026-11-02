@@ -256,6 +256,9 @@ export type MateApi = {
   ) => Promise<DocumentView>
   addReply: (project: string, file: string, id: string, text: string, author: string) => Promise<DocumentView>
   applySuggestion: (project: string, file: string, id: string) => Promise<DocumentView>
+  editComment: (project: string, file: string, id: string, text: string, reply?: number) => Promise<DocumentView>
+  removeComment: (project: string, file: string, id: string, reply?: number) => Promise<DocumentView>
+  resolveComment: (project: string, file: string, id: string, resolved: boolean) => Promise<DocumentView>
   anchorComment: (project: string, file: string, id: string, anchor: string, from?: number) => Promise<DocumentView>
   /** The Gitea and GitHub hosts the reader added, to review pull requests on. A token is sealed by the keychain and never shown again. */
   listForges: () => Promise<Forge[]>

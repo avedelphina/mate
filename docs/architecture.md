@@ -24,7 +24,7 @@ Every call has this shape. The whole of what the window can ask for:
 | Pull requests | `forge:list`, `forge:add`, `forge:remove`, `pulls:reviewing`, `pulls:list`, `pulls:take`, `pulls:changes`, `pulls:send`, `pulls:merge`, `pulls:leave` | `forge.ts`; `addForge` after the forge took the token; `sendReview` and `mergePull` after a dialog of the system |
 | A file | `file:read`, `file:reveal` | a file that is read and not reviewed; a file shown in the file manager |
 | A project | `project:open`, `project:create` | `readProject`: the draft, its comments, the panes, the tree; `createProject` |
-| Comments | `comment:add`, `comment:reply`, `comment:apply`, `comment:anchor` | `insertComment`, `addReply`, `applySuggestion`, `anchorComment` |
+| Comments | `comment:add`, `comment:reply`, `comment:apply`, `comment:anchor`, `comment:edit`, `comment:remove`, `comment:resolve` | `insertComment`, `addReply`, `applySuggestion`, `anchorComment`, `editComment`, `removeComment`, `setResolved` |
 | A draft | `draft:write`, `draft:create`, `draft:publish` | `writeDraft`, `createDraft`, and `publish` after a dialog of the system |
 | The shelf | `shelf:list`, `shelf:take` | `listShelf`, `takeDown` |
 | Sources | `source:pick`, `source:note`, `source:pull`, `source:copy`, `dropbox:pull` | the file dialog, `noteSource`, `copySource`, `copyFolder`, `pullIn` |

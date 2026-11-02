@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { addComment, createDraft, placeOnDisk, readProject, resolveInside, writeDraft } from '../src/main/context.ts'
-import { addReply, anchorComment, applySuggestion, combine, fileLineOf, insertComment, parseComments, readDocument, retype, separate } from '../src/shared/comments.ts'
+import { addReply, anchorComment, applySuggestion, combine, editComment, removeComment, setResolved, fileLineOf, insertComment, parseComments, readDocument, retype, separate } from '../src/shared/comments.ts'
 
 test('a comment is written on the line after the sentence it quotes', () => {
   const next = insertComment('Alpha stays.\nBeta changes.\n', 'Beta changes.', 'Say why.', 'ada')
@@ -246,4 +246,38 @@ test("a place in the text the reader sees is on the file's line that counts the 
   // The marker under "First." is a line of the file, and not of the page.
   assert.equal(fileLineOf(draft, shown.indexOf('Second.')), 6)
   assert.equal(fileLineOf(draft, 0), 1)
+})
+
+test('a comment can be edited, resolved, reopened and deleted, and a reply with it', () => {
+  let md = insertComment('One.\nTwo.\n', 'One.', 'first', 'you')
+  md = addReply(md, '1', 'a', 'you')
+  md = addReply(md, '1', 'b', 'agent')
+  md = editComment(md, '1', ' changed ')
+  md = editComment(md, '1', 'b2', 1)
+  assert.deepEqual(parseComments(md)[0].replies.map((reply) => reply.text), ['a', 'b2'])
+  assert.equal(parseComments(md)[0].text, 'changed')
+  assert.throws(() => editComment(md, '1', ' '), /empty/)
+
+  md = setResolved(md, '1', true)
+  assert.equal(parseComments(md)[0].resolved, true)
+  md = setResolved(md, '1', false)
+  assert.equal(parseComments(md)[0].resolved, false)
+
+  md = removeComment(md, '1', 0)
+  assert.deepEqual(parseComments(md)[0].replies.map((reply) => reply.text), ['b2'])
+  assert.equal(removeComment(md, '1'), 'One.\nTwo.\n')
+  assert.throws(() => removeComment(md, '9'), /no longer/)
+})
+
+test('a suggestion is not resolved by hand', () => {
+  const md = insertComment('One.\n', 'One.', '', 'you', 0, 'Uno.')
+  assert.throws(() => setResolved(md, '1', true), /applying/)
+})
+
+test('a comment that is anchored can be moved to another passage', () => {
+  const md = insertComment('One.\nTwo.\n', 'One.', 'first', 'you')
+  const moved = anchorComment(md, '1', 'Two.')
+  assert.equal(moved, 'One.\nTwo.\n' + moved.split('\n')[2] + '\n')
+  assert.equal(parseComments(moved)[0].anchor, 'Two.')
+  assert.equal(parseComments(moved)[0].text, 'first')
 })

@@ -66,6 +66,12 @@ contextBridge.exposeInMainWorld('mate', {
     ipcRenderer.invoke('comment:reply', project, file, id, text, author),
   applySuggestion: (project: string, file: string, id: string) =>
     ipcRenderer.invoke('comment:apply', project, file, id),
+  editComment: (project: string, file: string, id: string, text: string, reply?: number) =>
+    ipcRenderer.invoke('comment:edit', project, file, id, text, reply),
+  removeComment: (project: string, file: string, id: string, reply?: number) =>
+    ipcRenderer.invoke('comment:remove', project, file, id, reply),
+  resolveComment: (project: string, file: string, id: string, resolved: boolean) =>
+    ipcRenderer.invoke('comment:resolve', project, file, id, resolved),
   anchorComment: (project: string, file: string, id: string, anchor: string, from?: number) =>
     ipcRenderer.invoke('comment:anchor', project, file, id, anchor, from),
   listForges: () => ipcRenderer.invoke('forge:list'),

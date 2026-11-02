@@ -354,6 +354,9 @@ ins { background: var(--ok-bg); text-decoration: none; }
 .flag { color: var(--soft); font-size: 12px; }
 .reply { margin: 8px 0 0 2px; padding-left: 10px; border-left: 2px solid var(--line); }
 .thread form { display: flex; gap: 4px; align-items: center; margin-top: 10px; }
+.thread textarea { flex: 1; min-width: 0; padding: 4px 9px; border: 0; border-radius: 8px; outline: 0; background: var(--page); resize: none; field-sizing: content; max-height: 10em; }
+.thread .actions, .reply .meta { display: flex; gap: 2px; align-items: center; }
+.thread .meta button.quiet, .thread .actions button.quiet { padding: 0 6px; height: 22px; font-size: 12px; }
 .thread input { flex: 1; min-width: 0; height: 28px; border-radius: 99px; padding: 0 12px; background: var(--page); }
 
 details { margin-top: 18px; padding-top: 10px; border-top: 0.5px solid var(--line); }

@@ -137,6 +137,8 @@ export function App() {
   // Counts the forms opened so far, so text the model wrote for a form that has closed is dropped.
   const form = useRef(0)
   const [active, setActive] = useState<string | null>(null)
+  // The comment (and reply, by its place in the thread) whose words are being changed.
+  const [editing, setEditing] = useState<{ id: string; reply?: number } | null>(null)
   const [query, setQuery] = useState('')
   // The tags the documents of the context name, with how many name each. Read from the index.
   const [tags, setTags] = useState<{ tag: string; count: number }[]>([])
@@ -988,6 +990,24 @@ export function App() {
   async function applySuggestion(id: string) {
     if (!project || !file) return
     await change(() => window.mate.applySuggestion(project, file, id), 'Could not apply the suggestion.')
+  }
+
+  async function editComment(event: FormEvent<HTMLFormElement>, id: string, reply?: number) {
+    event.preventDefault()
+    if (!project || !file) return
+    const words = String(new FormData(event.currentTarget).get('words') ?? '')
+    const done = await change(() => window.mate.editComment(project, file, id, words, reply), 'Could not change the comment.')
+    if (done) setEditing(null)
+  }
+
+  async function removeComment(id: string, reply?: number) {
+    if (!project || !file) return
+    await change(() => window.mate.removeComment(project, file, id, reply), 'Could not delete the comment.')
+  }
+
+  async function resolveComment(id: string, resolved: boolean) {
+    if (!project || !file) return
+    await change(() => window.mate.resolveComment(project, file, id, resolved), 'Could not change the comment.')
   }
 
   async function anchorComment(id: string) {
@@ -2192,7 +2212,15 @@ export function App() {
                         {thread.suggestion ? <ins>{thread.suggestion}</ins> : <span className="meta">(remove)</span>}
                       </p>
                     )}
-                    {thread.text && <p className="note">{note(thread.text)}</p>}
+                    {editing?.id === thread.id && editing.reply === undefined ? (
+                      <form onSubmit={(event) => editComment(event, thread.id)}>
+                        <textarea name="words" defaultValue={thread.text} aria-label="Comment" autoFocus />
+                        <button className="primary">Save</button>
+                        <button type="button" className="quiet" onClick={() => setEditing(null)}>Cancel</button>
+                      </form>
+                    ) : (
+                      thread.text && <p className="note">{note(thread.text)}</p>
+                    )}
                     <p className="meta">
                       {thread.author}
                       {unanchored && <span className="pill warn">Unanchored</span>}
@@ -2206,13 +2234,43 @@ export function App() {
                         <button disabled={!anchor} onClick={() => anchorComment(thread.id)}>Anchor to selection</button>
                       </p>
                     )}
+                    <p className="actions">
+                      {thread.author === 'you' && (
+                        <button className="quiet" onClick={() => setEditing({ id: thread.id })}>Edit</button>
+                      )}
+                      {thread.suggestion === undefined && (
+                        <button className="quiet" onClick={() => resolveComment(thread.id, !thread.resolved)}>
+                          {thread.resolved ? 'Reopen' : 'Resolve'}
+                        </button>
+                      )}
+                      {!thread.resolved && !unanchored && (
+                        <button className="quiet" disabled={!anchor} title="Select the new passage in the document first" onClick={() => anchorComment(thread.id)}>
+                          Move to selection
+                        </button>
+                      )}
+                      <button className="quiet" onClick={() => removeComment(thread.id)}>Delete</button>
+                    </p>
                     {thread.suggestion !== undefined && !thread.resolved && (
                       <p><button className="primary" disabled={unanchored} onClick={() => applySuggestion(thread.id)}>Apply</button></p>
                     )}
                     {thread.replies.map((reply, replyIndex) => (
                       <div className="reply" key={replyIndex}>
-                        <p className="note">{note(reply.text)}</p>
-                        <p className="meta">{reply.author}</p>
+                        {editing?.id === thread.id && editing.reply === replyIndex ? (
+                          <form onSubmit={(event) => editComment(event, thread.id, replyIndex)}>
+                            <textarea name="words" defaultValue={reply.text} aria-label="Reply" autoFocus />
+                            <button className="primary">Save</button>
+                            <button type="button" className="quiet" onClick={() => setEditing(null)}>Cancel</button>
+                          </form>
+                        ) : (
+                          <p className="note">{note(reply.text)}</p>
+                        )}
+                        <p className="meta">
+                          {reply.author}
+                          {reply.author === 'you' && (
+                            <button className="quiet" onClick={() => setEditing({ id: thread.id, reply: replyIndex })}>Edit</button>
+                          )}
+                          <button className="quiet" onClick={() => removeComment(thread.id, replyIndex)}>Delete</button>
+                        </p>
                       </div>
                     ))}
                     <form onSubmit={(event) => addReply(event, thread.id)}>

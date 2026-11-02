@@ -6,7 +6,7 @@ import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 
 import { spawn } from 'node:child_process'
 import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
-import { addReply, anchorComment, applySuggestion, fileLineOf } from '../shared/comments'
+import { addReply, anchorComment, applySuggestion, editComment, fileLineOf, removeComment, setResolved } from '../shared/comments'
 import { addable, AGENTS, agentEnvironment, describeAgent, discoverAgents, type AgentKind } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
 import { commitContext, historyOf, inRepository, startRepository, uncommitted, versionAt } from './git'
@@ -679,6 +679,19 @@ app.whenReady().then(() => {
 
   ipcMain.handle('comment:reply', (event, project: string, file: string, id: string, text: string, author: string) =>
     editDraft(requireContext(event), project, file, (markdown) => addReply(markdown, id, text, author))
+  )
+
+  // Words, removal and closing of a comment are the reader's. No agent can reach these three.
+  ipcMain.handle('comment:edit', (event, project: string, file: string, id: string, text: string, reply?: number) =>
+    editDraft(requireContext(event), project, file, (markdown) => editComment(markdown, id, text, reply))
+  )
+
+  ipcMain.handle('comment:remove', (event, project: string, file: string, id: string, reply?: number) =>
+    editDraft(requireContext(event), project, file, (markdown) => removeComment(markdown, id, reply))
+  )
+
+  ipcMain.handle('comment:resolve', (event, project: string, file: string, id: string, resolved: boolean) =>
+    editDraft(requireContext(event), project, file, (markdown) => setResolved(markdown, id, resolved))
   )
 
   // The reader types in the open draft, or starts a new one. No agent can reach these two.

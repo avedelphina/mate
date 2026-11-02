@@ -244,6 +244,52 @@ export function addReply(markdown: string, id: string, text: string, author: str
   })
 }
 
+/** Where reply number `n` sits among the stored replies. `toComment` skips the ones without text, so the two lists differ. */
+function storedReply(replies: unknown[], n: number): number {
+  const at = replies.flatMap((reply, i) => (typeof (reply as Reply | null)?.text === 'string' ? [i] : []))[n]
+  if (at === undefined) throw new Error('That reply is no longer in the file.')
+  return at
+}
+
+/** Change the words of a comment, or of one of its replies. The author and the rest stay. */
+export function editComment(markdown: string, id: string, text: string, reply?: number): string {
+  const trimmed = text.trim()
+  return rewrite(markdown, id, (value) => {
+    if (reply === undefined) {
+      if (!trimmed && typeof value.suggestion !== 'string') throw new Error('The comment is empty.')
+      return { ...value, text: trimmed }
+    }
+    if (!trimmed) throw new Error('The reply is empty.')
+    const replies: unknown[] = Array.isArray(value.replies) ? [...value.replies] : []
+    const at = storedReply(replies, reply)
+    replies[at] = { ...(replies[at] as object), text: trimmed }
+    return { ...value, replies }
+  })
+}
+
+/** Take a comment out of the file with its replies, or only one reply. */
+export function removeComment(markdown: string, id: string, reply?: number): string {
+  if (reply !== undefined) {
+    return rewrite(markdown, id, (value) => {
+      const replies: unknown[] = Array.isArray(value.replies) ? [...value.replies] : []
+      replies.splice(storedReply(replies, reply), 1)
+      return { ...value, replies }
+    })
+  }
+  const { markers, spans } = strip(markdown)
+  const span = spans[indexOfComment(markers, id)]
+  return markdown.slice(0, span.start) + markdown.slice(span.end)
+}
+
+/** Close a comment, or open it again. A suggestion is closed by applying it, or taken out by deleting it. */
+export function setResolved(markdown: string, id: string, resolved: boolean): string {
+  return rewrite(markdown, id, (value) => {
+    if (typeof value.suggestion === 'string') throw new Error('A suggestion is closed by applying it. Delete it to dismiss it.')
+    const { resolved: _old, status: _status, ...rest } = value
+    return resolved ? { ...rest, status: 'resolved' } : rest
+  })
+}
+
 /** Replace the quoted passage with the comment's suggestion, and mark the comment resolved. */
 export function applySuggestion(markdown: string, id: string): string {
   const marked = rewrite(markdown, id, (value) => {
