@@ -27,6 +27,10 @@ then, minor versions may change behaviour.
 
 ### Added
 
+- A window with no context open greets as Xcode does: the app and its
+  version, *Open context…* and *New context…*, and the contexts you opened
+  last. One click opens one. The list is kept in Mate's own folder, not
+  in a context, and a folder that is gone is not shown.
 - A right click in a field gives cut, copy, paste and the spelling, and
   on chosen words copy, and on a Mac Look Up.
 - *New folder…* in ⌘K.

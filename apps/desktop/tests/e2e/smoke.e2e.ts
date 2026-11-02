@@ -498,6 +498,23 @@ test('the window, on the example context: a comment into the file, the tree, a p
   }
 })
 
+test('with no context open, the window offers the contexts opened last, and opens one with a click', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-e2e-'))
+  const context = path.join(root, 'example')
+  await cp(path.resolve(import.meta.dirname, '../../../../contexts/_example'), context, { recursive: true })
+  // As if the reader had opened these on an earlier day. The second folder is gone since.
+  const app = await launch('', { 'recent.json': JSON.stringify([context, path.join(root, 'gone')]) })
+  try {
+    await app.until(`document.querySelectorAll('.welcome .recent .row').length === 1`, 'the context opened last, and not the one that is gone')
+    assert.match(await app.page<string>(`document.querySelector('.welcome .meta').textContent`), /^Version \d+\.\d+\.\d+/)
+    await app.press('.welcome .recent strong', 'example')
+    await app.until(`document.querySelector('.rail h2')?.textContent === 'example'`, 'the context is open')
+  } finally {
+    await app.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('in a context the reader trusts, a script of the project runs from its button, with no agent', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'mate-e2e-'))
   const context = path.join(root, 'example')

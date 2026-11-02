@@ -273,9 +273,10 @@ pnpm install
 pnpm dev
 ```
 
-Then choose **Open context** and pick a folder, or **New context…** to
+Then choose **Open context…** and pick a folder, or **New context…** to
 start one. To try it without touching your own files, pick
-`contexts/_example` in this repository.
+`contexts/_example` in this repository. The next time, the contexts you
+opened last are listed in the window, and one click opens one.
 
 Other commands:
 

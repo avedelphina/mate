@@ -17,6 +17,7 @@ import { Notes } from './Notes'
 import { useTyping } from './Steering'
 import { dropOn, fileIcon, Tree } from './Tree'
 import { Icon } from './Icon'
+import { Welcome } from './Welcome'
 import { dropMenu, onRightClick, type Item } from './menu'
 import { asked, filled } from '../../shared/run'
 import './styles.css'
@@ -470,6 +471,15 @@ export function App() {
   async function openContext() {
     setError(null)
     enter(await window.mate.openContext())
+  }
+
+  async function reopenContext(dir: string) {
+    setError(null)
+    try {
+      enter(await window.mate.reopenContext(dir))
+    } catch (caught) {
+      setError(reason(caught, 'Could not open that context.'))
+    }
   }
 
   async function newContext() {
@@ -1335,6 +1345,9 @@ export function App() {
   // Where the page is in the tree of the open project, when it is in it at all.
   const inTree = reading ? (reading.project === project ? reading.path.split('/').slice(2).join('/') : null) : file && (outside ? file.replace(/^\//, '') : `${view?.draftsIn ?? ''}${file}`)
 
+  // With no context open, the window greets as Xcode does. Settings still open over it.
+  if (!contextDir && !settingsOpen) return <Welcome error={error} onOpen={() => void openContext()} onNew={() => void newContext()} onReopen={(dir) => void reopenContext(dir)} />
+
   return (
     <div
       className="app"
@@ -1354,8 +1367,6 @@ export function App() {
         </header>
         <div className="scroll">
           {/* With no context there is one thing to do. With one, its name heads the rail, and another is a small step away. */}
-          {!contextDir && <button className="wide primary" onClick={openContext}>Open context</button>}
-          {!contextDir && <button className="wide quiet" title="A new folder with a shelf, a dropbox and room for projects" onClick={newContext}>New context…</button>}
           {contextDir && (
             <div className="context" {...onRightClick(contextMenu)}>
               <Icon name="context" />
@@ -1858,7 +1869,7 @@ export function App() {
               </Boundary>
             </div>
           ) : !view ? (
-            <div className="empty"><p>Open a context, then a project. The draft is the page.</p></div>
+            <div className="empty"><p>Open a project on the left. The draft is the page.</p></div>
           ) : file === null ? (
             <div className="empty">
               {view.drafts.length === 0 ? (

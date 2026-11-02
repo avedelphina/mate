@@ -487,3 +487,22 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 .status.final { padding: 0 7px; border-radius: 99px; background: var(--accent); color: var(--accent-ink); font: 600 11px/1.7 var(--ui); letter-spacing: 0.02em; }
 .tree .row.final::after { content: '✓'; margin-left: auto; color: var(--accent); font-size: 11px; }
 
+/* The window while no context is open, as Xcode greets: the app, how to start, and the contexts opened last. */
+.welcome { display: grid; place-items: center; height: 100%; overflow: auto; background: var(--page); -webkit-app-region: drag; }
+.welcome .card { display: flex; flex-direction: column; align-items: center; width: min(460px, calc(100vw - 48px)); padding: 48px 0 32px; text-align: center; -webkit-app-region: no-drag; }
+.welcome .logo { display: block; margin-bottom: 14px; }
+.welcome h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+.welcome > .card > .meta { margin: 2px 0 0; font-size: 14px; }
+.welcome .acts { display: flex; gap: 10px; margin: 26px 0 22px; }
+.welcome .acts button { padding: 8px 22px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 7%, transparent); box-shadow: none; font-size: 14px; font-weight: 500; }
+.welcome .acts button:hover { background: color-mix(in srgb, var(--ink) 11%, transparent); }
+.welcome .error { align-self: stretch; }
+.welcome .recent { align-self: stretch; min-height: 220px; margin: 0; padding: 8px; border-radius: 16px; background: var(--rail); list-style: none; text-align: left; }
+.welcome .recent .row { gap: 12px; padding: 8px 12px; border-radius: 10px; }
+.welcome .recent .row .icon { color: var(--accent); }
+.welcome .recent .row > span { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
+.welcome .recent strong { overflow: hidden; font-size: 14px; font-weight: 600; text-overflow: ellipsis; }
+.welcome .recent .meta { overflow: hidden; text-overflow: ellipsis; }
+.welcome .recent .row:hover { background: var(--accent); color: var(--accent-ink); }
+.welcome .recent .row:hover .icon, .welcome .recent .row:hover .meta { color: inherit; }
+.welcome .recent .none { padding: 80px 12px 0; text-align: center; }

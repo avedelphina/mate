@@ -134,6 +134,7 @@ Key modules in `apps/desktop/src/main/`:
   whether an agent's change is kept or held. Also the note of an open
   turn, and what is said when one was cut off.
 - `trust.ts` — the contexts the reader trusts.
+- `recent.ts` — the contexts opened last, for the window that has none open.
 - `pins.ts` — the instruction files the reader approved.
 - `scripts.ts` — runs a script of a project from its button, with no agent
   and no shell.
@@ -156,7 +157,8 @@ highlights, and the buttons of a pane), `Agent.tsx` (the Agent tab, the
 model and the effort), `Tree.tsx` (the files of a project), `Palette.tsx`
 (⌘K), `Settings.tsx` (agents, the endpoint, the editor, updates), `History.tsx` (what
 changed in a file), `Question.tsx` (asking the context), `Boundary.tsx` (keeps the window working when one piece cannot be
-drawn), `Icon.tsx` (the pictures of rows and buttons), `menu.ts` (a menu of
+drawn), `Icon.tsx` (the pictures of rows and buttons), `Welcome.tsx` (the window
+with no context open), `menu.ts` (a menu of
 the system, for a right click or a button), `markdown.ts` (the markdown tree), `env.d.ts` (the `window.mate`
 types, shared by both sides).
 

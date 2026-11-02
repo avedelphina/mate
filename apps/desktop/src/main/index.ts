@@ -13,6 +13,7 @@ import { diffLines } from '../shared/diff'
 import { forgetMeaning, meaningMissing, moveMeaning, ollamaEmbed, refreshMeaning, searchMeaning } from './meaning'
 import { docxToMarkdown, reflow } from './docx'
 import { keep } from './sources'
+import { keepRecentIn, moveRecent, recentContexts, rememberContext } from './recent'
 import { extract, refreshTwins } from './twins'
 import { isTwinned, twinOf } from '../shared/twin'
 import {
@@ -379,6 +380,7 @@ app.whenReady().then(() => {
   keepTrustIn(path.join(app.getPath('userData'), 'trusted.json'))
   keepPrivacyIn(path.join(app.getPath('userData'), 'private.json'))
   keepOpenedIn(path.join(app.getPath('userData'), 'opened.json'))
+  keepRecentIn(path.join(app.getPath('userData'), 'recent.json'))
   keepEndpointIn(path.join(app.getPath('userData'), 'endpoint.json'), {
     encrypt: (text) => {
       const refusal = keyRefusal(process.platform, safeStorage.isEncryptionAvailable(), process.platform === 'linux' ? safeStorage.getSelectedStorageBackend() : '')
@@ -419,6 +421,7 @@ app.whenReady().then(() => {
     const chosen = result.filePaths[0]
     if (!chosen) return null
     contexts.set(event.sender.id, chosen)
+    rememberContext(chosen)
     // Built now so that it is there for whatever reads it next. A search brings it up to date again.
     void refreshIndex(chosen).catch(() => {})
     readTwins(chosen)
@@ -474,6 +477,7 @@ app.whenReady().then(() => {
     if (result.canceled || !result.filePath) return null
     await createContext(result.filePath)
     contexts.set(event.sender.id, result.filePath)
+    rememberContext(result.filePath)
     readTwins(result.filePath)
     return describeContext(result.filePath)
   })
@@ -481,10 +485,29 @@ app.whenReady().then(() => {
   // What a window has open when it starts: the context it inherited, or nothing.
   ipcMain.handle('context:current', async (event) => {
     const dir = contexts.get(event.sender.id)
-    if (dir) readTwins(dir)
+    if (dir) (readTwins(dir), rememberContext(dir))
     return dir ? describeContext(dir) : null
   })
 
+  // What the window shows while no context is open: the version, and the contexts opened last.
+  ipcMain.handle('context:recent', () => {
+    const home = app.getPath('home')
+    return {
+      version: app.getVersion(),
+      recent: recentContexts().map((dir) => ({ name: path.basename(dir), dir, shown: dir.startsWith(`${home}/`) ? `~${dir.slice(home.length)}` : dir }))
+    }
+  })
+
+  // One of the contexts opened last, opened again. The window names it from the list main gave it,
+  // and main opens only what is on that list: the window never names a folder of its own.
+  ipcMain.handle('context:reopen', async (event, dir: string) => {
+    if (!recentContexts().includes(dir)) throw new Error('That context is not among the ones opened last.')
+    contexts.set(event.sender.id, dir)
+    rememberContext(dir)
+    void refreshIndex(dir).catch(() => {})
+    readTwins(dir)
+    return describeContext(dir)
+  })
 
   // The search is made with what is read so far. A file read since is found by the next one.
   ipcMain.handle('context:search', async (event, query: string) => {
@@ -613,6 +636,7 @@ app.whenReady().then(() => {
     movePrivacy(was, moved)
     moveOpened(was, moved)
     movePins(was, moved)
+    moveRecent(contextDir, moved)
     forgetMeaning(contextDir)
     for (const [id, dir] of contexts) if (dir === contextDir) contexts.set(id, moved)
     if (bound?.contextDir === contextDir) bound = { ...bound, contextDir: moved }

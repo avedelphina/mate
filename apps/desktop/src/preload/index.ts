@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('mate', {
   countChanges: (): Promise<number> => ipcRenderer.invoke('context:changes'),
   commit: (message: string): Promise<number> => ipcRenderer.invoke('context:commit', message),
   newContext: () => ipcRenderer.invoke('context:create'),
+  recentContexts: () => ipcRenderer.invoke('context:recent'),
+  reopenContext: (dir: string) => ipcRenderer.invoke('context:reopen', dir),
   currentContext: () => ipcRenderer.invoke('context:current'),
   searchContext: (query: string) => ipcRenderer.invoke('context:search', query),
   contextTags: () => ipcRenderer.invoke('context:tags'),

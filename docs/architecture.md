@@ -1258,6 +1258,13 @@ A new window starts in the context of the window it was opened from, with
 no project open. It can open any other context after that, and the first
 window does not follow.
 
+A window with no context open shows the app, its version, and the
+contexts opened last (`recent.ts`), newest first. The list is kept in
+`recent.json` in Mate's data folder, like the trusted contexts, and a
+folder that is no longer there is left out. A row is opened with
+`context:reopen`, which takes the folder only when it is on that list:
+the window never names a folder of its own for main to open.
+
 Command/Ctrl+K opens the palette: one list of what the window can go to or do just
 now, found by typing. The files of the open project, the shelf, the other
 projects, the tabs of the margin, and what the buttons do. It is made
