@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, safeStorage, shell, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from 'electron'
+import { firecrawlView, keepFirecrawlIn, scrapePage, setFirecrawl } from './firecrawl'
 import { endpointView, judgeOnEndpoint, keepEndpointIn, keyRefusal, linuxRelay, setEndpoint, stopRelay } from './endpoint'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
@@ -392,6 +393,7 @@ app.whenReady().then(() => {
   }
   keepEndpointIn(path.join(app.getPath('userData'), 'endpoint.json'), seal)
   keepForgesIn(path.join(app.getPath('userData'), 'forges.json'), seal, net.fetch as typeof fetch)
+  keepFirecrawlIn(path.join(app.getPath('userData'), 'firecrawl.json'), seal)
   keepPinsIn(path.join(app.getPath('userData'), 'pins.json'))
 
   // Before an agent starts: has what the context tells it changed since the reader last saw it?
@@ -768,6 +770,15 @@ app.whenReady().then(() => {
     return copied
   })
 
+  // A web page becomes a draft, through the reader's Firecrawl. Only its address goes out, and not from a private
+  // context: nothing of that leaves this computer.
+  ipcMain.handle('source:link', async (event, project: string, link: string) => {
+    const contextDir = requireContext(event)
+    if (isPrivate(contextDir)) throw new Error(PRIVATE)
+    const page = await scrapePage(String(link))
+    return draftFromSource(contextDir, String(project), page.title, page.markdown, new URL(String(link).trim()).href)
+  })
+
   // The text of a PDF, a Word file or the like becomes a draft, with no agent. A file of this project, or one the reader chose in
   // the dialog. A Word file keeps its headings, lists and tables, since it says which they are; the text of the others is what the twin holds.
   ipcMain.handle('source:extract', async (event, project: string, how: string, value: string) => {
@@ -989,6 +1000,13 @@ app.whenReady().then(() => {
     return isPrivate(contextDir)
   })
 
+  // The reader's Firecrawl: whether a key is saved and where it asks, never the key.
+  ipcMain.handle('firecrawl:get', () => firecrawlView())
+  ipcMain.handle('firecrawl:set', async (_event, key: string | undefined, base: string) => {
+    const checked = await setFirecrawl(typeof key === 'string' && key ? key : undefined, String(base))
+    return { ...firecrawlView(), checked }
+  })
+
   // The reader's endpoint: what the window may know of it, never the key.
   ipcMain.handle('endpoint:get', () => endpointView())
 
@@ -1166,6 +1184,7 @@ app.whenReady().then(() => {
     notifications: notifying(),
     endpoint: endpointView(),
     forges: forgesView(),
+    firecrawl: firecrawlView(),
     trusted: trustedContexts(),
     private: privateContexts().map((dir) => ({ dir, opened: isOpenedToEndpoint(dir) })),
     meaning: await meaningMissing(),

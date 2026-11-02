@@ -451,7 +451,8 @@ Tools: `mate_project`, `mate_read`, `mate_search`, `mate_comments`,
 
 - Mate sends nothing to any server of its own, and has no telemetry. The
   only network connections are the ones you start: an agent you invite, an
-  SSH session you choose, and the local MCP endpoint. The one exception:
+  SSH session you choose, a page you add by its link (through your own
+  Firecrawl, which is sent only the address), and the local MCP endpoint. The one exception:
   the installed app asks GitHub for a newer version of itself when it
   starts and every six hours. It sends nothing of your contexts.
 - Agents are given file tools and no shell or web access. Claude Code is

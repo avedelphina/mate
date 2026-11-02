@@ -474,6 +474,31 @@ twin yet. A workbook gives the values of its cells: a formula gives the
 value it last had, and a date the number Excel keeps for it. Any other
 twin is plain text: headings, tables and pictures are gone. Up to 50 MB a file, 2 MB of text.
 
+## A web page as a draft
+
+*Add a link* in a project takes an address and writes the page as a draft,
+through `firecrawl.ts`. It is the same exit as the text of a PDF: the
+draft begins with `source:` (the address) and the day, and the search, the
+comments and the agents treat it as any draft.
+
+- The reader's own Firecrawl does the work: its cloud (`api.firecrawl.dev`),
+  or an address they give. `POST /v2/scrape` with the key as a bearer
+  token, asking for markdown of the main content. Settings keeps the key
+  in `firecrawl.json`, sealed like the endpoint's, and the window never
+  sees it.
+- Only the address of the page goes out, only when the reader presses the
+  button. The text of the context goes nowhere. A private context does not
+  fetch: nothing of it leaves this computer.
+- The address must be http or https, with no name or password in it. The
+  cloud cannot reach this computer or a private network, so an address
+  there is refused at once, unless the reader runs their own Firecrawl.
+- Saving the key tries it: `GET /v2/team/credit-usage` costs nothing and
+  says the credits left. A refusal (401 or 403) means the key is wrong and
+  nothing is saved. Any other trouble, such as a Firecrawl you run that has
+  no such call, saves the key and says it was not checked.
+- A draft of the same name is never written over. There is no *fetch
+  again*: take the draft away and add the link again.
+
 ## Notifications
 
 When Mate is not what the reader is looking at, the system tells them that

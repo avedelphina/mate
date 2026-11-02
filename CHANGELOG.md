@@ -5,6 +5,21 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- *Add a link* in a project (the menu of the project, or ⌘K) turns a web
+  page into a draft, with its address and the day at the top. Your own
+  Firecrawl does the work, so a page that is drawn by JavaScript reads too.
+  Only the address of the page goes out, only when you press, and not from a
+  private context. Settings has the key, sealed by the keychain, and an
+  address for a Firecrawl you run. A draft of the same name is never written
+  over: to get a page again, take the draft away and add the link again.
+  While Firecrawl works, the window says so, and when the draft is made it
+  says which. Saving the key tries it first and tells you the credits left;
+  a key Firecrawl refuses is not saved.
+
 ## [0.19.1] - 2026-11-02
 
 A pull request on your Gitea, GitHub or GitHub Enterprise is reviewed,

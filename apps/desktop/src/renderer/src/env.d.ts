@@ -87,6 +87,7 @@ export type Settings = {
   endpoint: { url: string; model: string; hasKey: boolean } | null
   /** The forges the reader added. Never a token. */
   forges: Forge[]
+  firecrawl: { hasKey: boolean; base: string }
   trusted: string[]
   private: { dir: string; opened: boolean }[]
   /** Null when search by meaning can be had here, else what is missing. */
@@ -236,6 +237,12 @@ export type MateApi = {
   /** The path of the request in the other project's dropbox, or null when the reader said no. */
   sendToProject: (project: string, file: string, target: string, passage: string, note: string) => Promise<string | null>
   /** A draft made of the text of a file, with no agent: a file of the project by its path, or one chosen in the dialog by its number. */
+  /** Fetch a web page through the reader's Firecrawl and write it as a draft, with its address at the top. Not in a private context. */
+  addLink: (project: string, link: string) => Promise<DocumentView>
+  /** The reader's Firecrawl: whether a key is saved and where it asks. Never the key. */
+  getFirecrawl: () => Promise<{ hasKey: boolean; base: string }>
+  /** Try the key, then save it. Firecrawl refusing it is an error and nothing is saved. An empty key keeps the saved one, unless the address changed. An empty address is Firecrawl's cloud. `checked` says what the try found. */
+  setFirecrawl: (key: string | undefined, base: string) => Promise<{ hasKey: boolean; base: string; checked: string }>
   extractSource: (project: string, how: 'path' | 'id', value: string) => Promise<DocumentView>
   moveFile: (project: string, from: string, to: string) => Promise<DocumentView>
   addComment: (

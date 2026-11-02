@@ -186,6 +186,8 @@ export function App() {
   const [moving, setMoving] = useState<{ from: string; to: string } | null>(null)
   // The name or path of a new folder, while the reader is typing it in the rail. Null when they are not.
   const [making, setMaking] = useState<string | null>(null)
+  // The address of a page while it is typed, and whether Firecrawl has it yet. Null when no one is adding a link.
+  const [linking, setLinking] = useState<{ link: string; busy: boolean } | null>(null)
   // The name of a project that is being started, while the reader types it.
   const [founding, setFounding] = useState<string | null>(null)
   // The context or the open project being given a new name, while the reader types it.
@@ -666,6 +668,26 @@ export function App() {
 
   /** The name a draft is offered under on the shelf: its project, then its own path. Two projects do not replace each other's documents by accident. */
   const publishName = (draft: string) => `${project ?? ''}/${draft}`.replace(/^\//, '')
+
+  /** A web page becomes a draft of the open project. The wait can be long, so the field stays, shut, until it is done. */
+  async function addLink(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!view || !linking?.link.trim() || linking.busy || !(await leaveEditor())) return
+    setNotice(null)
+    setLinking({ ...linking, busy: true })
+    try {
+      const made = await window.mate.addLink(view.project, linking.link)
+      setLinking(null)
+      setError(null)
+      setNotice(`Added ${made.file ?? 'the page'} from ${new URL(linking.link.trim()).host}.`)
+      setReading(null)
+      setAgentOnPage(false)
+      setView(made)
+    } catch (caught) {
+      setLinking({ ...linking, busy: false })
+      setError(reason(caught, 'Could not fetch that page.'))
+    }
+  }
 
   async function newFolder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -1328,6 +1350,7 @@ export function App() {
       add('Rename this project…', 'Do', () => setRenaming({ what: 'project', name: view.project }))
       add(review ? `Pull request #${review.number}` : 'Pull requests', 'Show', openPulls)
       add('Add a source…', 'Do', () => void addSources())
+      add('Add a link…', 'Do', () => setLinking({ link: '', busy: false }))
       add(agentOnPage ? 'Put the conversation back in the margin' : 'Open the conversation in the page', 'Do', agentOnPage ? toMargin : toPage)
     }
     for (const each of shelf) add(each, 'Shelf', () => void read(`shelf/${each}`))
@@ -1363,6 +1386,7 @@ export function App() {
           { label: 'New Draft', run: () => (setNamingIn(''), setNaming('')) },
           { label: 'New Folder…', run: () => setMaking('') },
           { label: 'Add a Source…', run: () => void addSources() },
+          { label: 'Add a Link…', run: () => setLinking({ link: '', busy: false }) },
           null,
           { label: 'Pull Requests…', run: openPulls },
           { label: 'Rename Project…', run: () => setRenaming({ what: 'project', name }) },
@@ -1622,6 +1646,20 @@ export function App() {
                               onBlur={() => setMoving(null)}
                             />
                             <datalist id="project-folders">{view.folders.map((each) => <option key={each} value={each} />)}</datalist>
+                          </form>
+                        ) : linking !== null ? (
+                          <form onSubmit={addLink}>
+                            <input
+                              autoFocus
+                              disabled={linking.busy}
+                              value={linking.link}
+                              placeholder={linking.busy ? 'Fetching…' : 'https://… (sent to your Firecrawl)'}
+                              aria-label="Address of the page to add"
+                              title="Your Firecrawl turns the page into markdown. Only the address leaves this computer."
+                              onChange={(event) => setLinking({ link: event.target.value, busy: false })}
+                              onKeyDown={(event) => event.key === 'Escape' && !linking.busy && setLinking(null)}
+                              onBlur={() => linking.link.trim() === '' && setLinking(null)}
+                            />
                           </form>
                         ) : making !== null ? (
                           <form onSubmit={newFolder}>
@@ -2093,6 +2131,11 @@ export function App() {
         </header>
         <div className="scroll">
           {error && <p className="error" role="alert">{error}</p>}
+          {linking?.busy && (
+            <p className="notice" role="status">
+              <span className="spin" aria-hidden="true" /> Fetching {linking.link.trim()} through Firecrawl. A page can take up to a minute.
+            </p>
+          )}
           {notice && <p className="notice" role="status">{notice}</p>}
           {reading && (!view || shown === 'review') && <p className="meta hint">{KINDS[reading.kind].note}</p>}
           {view && shown === 'notes' && noteTarget && (

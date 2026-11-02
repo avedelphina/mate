@@ -323,6 +323,17 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the first draft again')
 
+    // A link asks Firecrawl, which has no key here: the reader is told where to put one, and nothing was sent.
+    await fromPalette(app, 'Add a link…')
+    await app.page(`(() => {
+      const input = document.querySelector('.tree-new input[aria-label="Address of the page to add"]')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'https://example.com/page')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.form.requestSubmit()
+    })()`)
+    await app.until(`document.querySelector('.error')?.textContent.includes('Firecrawl key in Settings')`, 'the reader is told to add a Firecrawl key')
+    await app.page(`document.querySelector('.tree-new input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
+
     // Publishing asks for a name on the shelf, and offers the ones that are there. The system asks once more, so it stops here.
     await app.press('.center .bar button', 'Publish…')
     await app.until(`document.querySelector('.publish input')?.value === 'document-review/document.md'`, 'the name to publish under, which starts with the project')

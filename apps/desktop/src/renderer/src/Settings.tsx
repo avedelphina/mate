@@ -57,6 +57,11 @@ export function Settings(props: { onClose: () => void }) {
   // A forge being added: its address and a token, which is never shown back. While the forge is asked, and what it said.
   const [forge, setForge] = useState({ url: '', token: '' })
   const [forgeSaid, setForgeSaid] = useState<{ failed: boolean; text: string } | null>(null)
+  // The Firecrawl form: a key that is never shown back, and the address when it is changed. Null until then.
+  const [crawl, setCrawl] = useState<{ key: string; base: string } | null>(null)
+  // What the try of the key found, and whether it is under way.
+  const [crawlSaid, setCrawlSaid] = useState<string | null>(null)
+  const [crawling, setCrawling] = useState(false)
   // The editor command while it is changed. Null until then.
   const [editor, setEditor] = useState<string | null>(null)
   // The agents on this computer and the hosts added, what a look in the ssh config found (null until it is made), and a host typed by hand.
@@ -143,6 +148,53 @@ export function Settings(props: { onClose: () => void }) {
                 {saved && host && <span className="meta"> Saved: {host}.</span>}
               </p>
               <p className="meta">A new host closes every private context that was open to the old one.</p>
+            </form>
+          </section>
+
+          <section className="endpoint">
+            <h2>Your Firecrawl</h2>
+            <p className="meta">
+              Turns a web page into a draft when you press Add a link. Only the address of the page goes to Firecrawl, never your files, and not from a private context.
+              Leave the address empty for Firecrawl&apos;s cloud, or give one you run. The key is kept sealed by the keychain of this computer, and never shown again.
+            </p>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                setCrawlSaid(null)
+                setCrawling(true)
+                act(async () => {
+                  try {
+                    setCrawlSaid((await window.mate.setFirecrawl(crawl?.key || undefined, crawl?.base ?? '')).checked)
+                    setCrawl(null)
+                  } finally {
+                    setCrawling(false)
+                  }
+                })
+              }}
+            >
+              <label>
+                Address{' '}
+                <input
+                  value={crawl?.base ?? (held?.firecrawl.base === 'https://api.firecrawl.dev' ? '' : (held?.firecrawl.base ?? ''))}
+                  placeholder="https://api.firecrawl.dev"
+                  onChange={(event) => setCrawl({ key: crawl?.key ?? '', base: event.target.value })}
+                />
+              </label>
+              <label>
+                Key{' '}
+                <input
+                  type="password"
+                  value={crawl?.key ?? ''}
+                  placeholder={held?.firecrawl.hasKey ? 'Saved. Leave empty to keep it.' : 'fc-…'}
+                  onChange={(event) => setCrawl({ key: event.target.value, base: crawl?.base ?? (held?.firecrawl.base === 'https://api.firecrawl.dev' ? '' : (held?.firecrawl.base ?? '')) })}
+                />
+              </label>
+              <p>
+                <button type="submit" disabled={!crawl || crawling}>
+                  {crawling ? 'Trying the key…' : 'Save'}
+                </button>
+                {crawlSaid && !crawl && <span className="meta" role="status"> {crawlSaid}</span>}
+              </p>
             </form>
           </section>
 

@@ -149,6 +149,8 @@ Key modules in `apps/desktop/src/main/`:
   tried, the pull request listed and checked out, its conversations in
   the margin, the review sent, the merge asked for.
 - `endpoint.ts` — the reader's own inference endpoint, and what may go to it.
+- `firecrawl.ts` — a web page as markdown, through the reader's own Firecrawl:
+  the key, and the page asked for when they press Add a link.
 - `update.ts` — the installed app's check for a newer version.
 - `notify.ts` — the system's notification when Mate is not in front: an agent
   needs the reader, or a new version is ready. Words of ours, nothing of a file.

@@ -158,6 +158,8 @@ button.tool { display: inline-flex; align-items: center; justify-content: center
 .rail .section[open] > summary::after, .tag-list[open] > summary::after { margin-top: -5px; transform: rotate(45deg); }
 .rail .section > summary:hover::after, .tag-list > summary:hover::after, .rail .section:not([open]) > summary::after, .tag-list:not([open]) > summary::after { opacity: 0.8; }
 .publish { display: flex; gap: 4px; align-items: center; }
+.spin { display: inline-block; width: 0.9em; height: 0.9em; margin-right: 4px; vertical-align: -0.1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .notice { margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; background: var(--ok-bg); }
 
 /* The files of the open project. A folder is a <details>, so it folds with no code. Each level stands a step in. */
