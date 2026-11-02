@@ -5,7 +5,10 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.18.0] - 2026-11-02
+
+The window looks and behaves like a Mac app, with menus of the system,
+and a window with no context open lists the contexts you opened last.
 
 ### Changed
 
@@ -16,7 +19,8 @@ then, minor versions may change behaviour.
   the title, where the file is under it, and its buttons are pictures in
   a capsule. The margin's tabs are a segmented control, and its comments
   are cards. Buttons are capsules, fields have a ring, the palette floats
-  like Spotlight, and Settings is in rounded groups.
+  like Spotlight and its button shows ⌘K, and Settings is in rounded
+  groups.
 - What can be made in a project, a context or the list of projects is in
   a menu of the system: a right click on its row, or its chevron, plus or
   three dots. The rows *+ New draft*, *+ New folder*, *+ Add a source*,
