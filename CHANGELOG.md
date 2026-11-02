@@ -5,10 +5,12 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [0.19.0] - 2026-11-02
+## [0.19.1] - 2026-11-02
 
 A pull request on your Gitea, GitHub or GitHub Enterprise is reviewed,
-edited and merged in Mate, and the forge shows it as yours.
+edited and merged in Mate, and the forge shows it as yours. 0.19.0 was
+tagged but never released, since a test failed on Linux before it was
+built, so what it held comes out here.
 
 ### Added
 
