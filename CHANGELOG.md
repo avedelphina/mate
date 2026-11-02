@@ -5,6 +5,32 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Changed
+
+- The window looks and behaves more like a Mac app. On a Mac the rail is
+  the system's side bar material, tinted with paper. Its parts are named
+  as Mail names them, every row has a picture of what it is, and the
+  chosen row is a soft grey band. The bar over the page is a toolbar with
+  the title, where the file is under it, and its buttons are pictures in
+  a capsule. The margin's tabs are a segmented control, and its comments
+  are cards. Buttons are capsules, fields have a ring, the palette floats
+  like Spotlight, and Settings is in rounded groups.
+- What can be made in a project, a context or the list of projects is in
+  a menu of the system: a right click on its row, or its chevron, plus or
+  three dots. The rows *+ New draft*, *+ New folder*, *+ Add a source*,
+  *Rename project…*, *+ New project* and *Bring in a project…* are gone
+  from the rail. Every one of them is in ⌘K as well.
+- A project with no draft says so with *New draft* and *Add a source…*
+  buttons on the page.
+
+### Added
+
+- A right click in a field gives cut, copy, paste and the spelling, and
+  on chosen words copy, and on a Mac Look Up.
+- *New folder…* in ⌘K.
+
 ## [0.17.0] - 2026-11-01
 
 The text of a Word file, a PDF, a page or a table becomes a draft without

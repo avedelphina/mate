@@ -11,6 +11,13 @@ const names = (selector: string) =>
   `[...document.querySelectorAll(${JSON.stringify(selector)})].map((each) => each.textContent + (each.classList.contains('active') ? '*' : ''))`
 const mac = process.platform === 'darwin'
 
+/** Do what a menu of the rail offers, from the palette. A menu of the system cannot be pressed from a test. */
+async function fromPalette(app: Awaited<ReturnType<typeof launch>>, label: string): Promise<void> {
+  await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: ${mac}, ctrlKey: ${!mac}, bubbles: true }))`)
+  await app.until(`document.querySelector('dialog.palette')?.open === true`, 'the palette')
+  await app.press('dialog.palette .row span:first-child', label)
+}
+
 test('the window, on the example context: a comment into the file, the tree, a pane, the conversation on the page', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'mate-e2e-'))
   const context = path.join(root, 'example')
@@ -137,7 +144,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.match(inline[inline.indexOf('A **big** word here.') + 1], /"anchor":"A \*\*big\*\* word".*"text":"Over markup\."/)
 
     // A folder is made from the rail, shows while it is empty, and a draft in it is a draft.
-    await app.press('.projects .tree-new button', '+ New folder')
+    await fromPalette(app, 'New folder…')
     await app.until(`!!document.querySelector('input[aria-label="Name of the new folder"]')`, 'the field for the folder')
     await app.page(`(() => {
       const field = document.querySelector('input[aria-label="Name of the new folder"]')
@@ -145,7 +152,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
       field.dispatchEvent(new Event('input', { bubbles: true }))
       field.form.requestSubmit()
     })()`)
-    await app.until(`[...document.querySelectorAll('.projects .tree summary')].some((each) => each.firstChild?.textContent === 'contracts')`, 'the new folder in the tree')
+    await app.until(`[...document.querySelectorAll('.projects .tree summary')].some((each) => each.textContent === 'contracts')`, 'the new folder in the tree')
     await writeFile(path.join(project, 'draft/contracts/nda.md'), '# NDA\n\nBoth sides keep it secret.\n')
     await app.page(`window.dispatchEvent(new Event('focus'))`)
     await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'nda.md')`, 'the draft in the folder')
@@ -173,7 +180,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     const drag = (rowText: string, folder: string) =>
       app.page(`(() => {
         const row = [...document.querySelectorAll('.projects .tree .row')].find((each) => each.textContent === ${JSON.stringify(rowText)})
-        const target = [...document.querySelectorAll('.projects .tree summary')].find((each) => each.firstChild?.textContent === ${JSON.stringify(folder)})
+        const target = [...document.querySelectorAll('.projects .tree summary')].find((each) => each.textContent === ${JSON.stringify(folder)})
         const data = new DataTransfer()
         row.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: data }))
         target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: data }))
@@ -188,7 +195,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.equal(existsSync(path.join(project, 'draft/inline.md')), false)
     // It came with its comments, which are in the file.
     assert.match(await readFile(path.join(project, 'draft/contracts/inline.md'), 'utf8'), /A \*\*big\*\* word here\.\n<!-- @comment\{.*"text":"Over markup\."/)
-    await app.page(`[...document.querySelectorAll('.projects .tree summary')].find((each) => each.firstChild?.textContent === 'contracts').querySelector('.add').click()`)
+    await app.page(`[...document.querySelectorAll('.projects .tree summary')].find((each) => each.textContent === 'contracts').querySelector('.add').click()`)
     await app.until(`document.querySelector('input[aria-label="Name of the new draft"]')?.placeholder === 'Name of the draft in contracts'`, 'the name of a draft in the folder')
     await app.page(`(() => {
       const field = document.querySelector('input[aria-label="Name of the new draft"]')
@@ -304,7 +311,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.equal(await app.page(`document.querySelectorAll('.thread').length`), 2)
 
     // A new draft is a file with its title, open to be written. Then back to the first one.
-    await app.press('.tree-new .row', '+ New draft')
+    await fromPalette(app, 'New draft…')
     await app.page(`(() => {
       const input = document.querySelector('.tree-new input')
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Second draft')
@@ -326,7 +333,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.rail .shelf .tree .row', 'README.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('shelf/README.md')`, 'the shelf document on the page')
     await app.press('.center .bar button', 'Take a copy into document-review')
-    await app.until(`document.querySelector('.center .bar').textContent.includes('document-review/README.md')`, 'the copy, open as a draft')
+    await app.until(`document.querySelector('.center .bar .title strong')?.textContent === 'README.md' && document.querySelector('.center .bar .title .meta')?.textContent === 'document-review'`, 'the copy, open as a draft')
     assert.equal(await readFile(path.join(project, 'draft/README.md'), 'utf8'), await readFile(path.join(context, 'shelf/README.md'), 'utf8'))
     // A document dropped into the project's dropbox is read there, and pulled into the drafts. It leaves the dropbox.
     await writeFile(path.join(project, 'dropbox/letter.md'), '# A letter\n\nIt came in today.\n')
@@ -335,7 +342,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.projects .tree .row', 'letter.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('dropbox/letter.md')`, 'the dropped file on the page')
     await app.press('.center .bar button', 'Pull into draft/')
-    await app.until(`document.querySelector('.center .bar').textContent.includes('document-review/letter.md')`, 'the file, open as a draft')
+    await app.until(`document.querySelector('.center .bar .title strong')?.textContent === 'letter.md' && document.querySelector('.center .bar .title .meta')?.textContent === 'document-review'`, 'the file, open as a draft')
     assert.equal(existsSync(path.join(project, 'dropbox/letter.md')), false)
     assert.equal(await readFile(path.join(project, 'draft/letter.md'), 'utf8'), '# A letter\n\nIt came in today.\n')
     await app.press('.projects .tree .row', 'document.md')
@@ -458,7 +465,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.equal(await app.page(`document.querySelector('dialog.palette').open`), false)
 
     // A project is started from the rail. It is in the folder with the two files that steer it, and it is open.
-    await app.press('.project-new .row', '+ New project')
+    await fromPalette(app, 'New project…')
     await app.page(`(() => {
       const input = document.querySelector('.project-new input')
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Next thing')
@@ -469,7 +476,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.deepEqual(await app.page(names('.projects .row.project')), ['Next thing*', 'document-review', 'sibling'])
     assert.deepEqual(await app.page(names('.projects .tree .row')), ['intents.md', 'principles.md'])
     assert.deepEqual((await readdir(path.join(context, 'projects/Next thing'))).sort(), ['intents.md', 'principles.md'])
-    assert.equal(await app.page(`!!document.querySelector('.project-new .row')`), true)
+    assert.equal(await app.page(`!!document.querySelector('.project-new input')`), false)
 
     // The context is a context, and it is in no repository. The reader is asked about that, and git starts one.
     assert.deepEqual(await app.page(names('.rail .ask button')), ['Start a repository'])

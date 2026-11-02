@@ -47,8 +47,10 @@ export function History(props: { path: string; onClose: () => void }) {
   return (
     <>
       <header className="bar">
-        <span className="meta">History</span>
-        <span>{path}</span>
+        <span className="title" title={path}>
+          <strong>History</strong>
+          <span className="meta">{path}</span>
+        </span>
         <span className="acts">
           <button className="quiet" title="Esc" onClick={onClose}>
             Close

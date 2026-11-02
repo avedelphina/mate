@@ -797,7 +797,7 @@ The copy for Revert is not git. A change by an agent is put back from
 the copy Mate took before it, whether or not anything was ever committed.
 
 A context is renamed by clicking its name in the rail, and the open
-project with Rename project… under it, or from the palette. The folder
+project with Rename Project… in its menu, or from the palette. The folder
 is renamed where it stands, and all that is in it goes with it. For a
 project its sessions are moved and told their new project, and its text
 twins and learned passages move too, so nothing is read or learned
@@ -814,11 +814,11 @@ The rail lists the files of the open project as a tree, under its name.
 `readProject` sends the path of every file in the project folder. Hidden
 names are left out, and a link is not followed. A folder in the tree is
 a `<details>` element, so it folds with no code of ours. `draft/` starts
-unfolded. Each level stands a step in, with a line down its side, and the
-project is the root of its own tree.
+unfolded. Each level stands a step in, each row has the picture of what
+it is, and the project is the root of its own tree.
 
 `readProject` sends the folders too (`listFolders`), so a folder with
-nothing in it is drawn. *+ New folder* in the rail asks `makeFolder` in
+nothing in it is drawn. *New Folder…* in the project's menu asks `makeFolder` in
 `context.ts`. It takes a path from the project, makes only its last name,
 and needs the folders before it to be there. Each name is checked like the
 name of a draft. The folders a project keeps for itself, `draft`,
@@ -1264,6 +1264,23 @@ projects, the tabs of the margin, and what the buttons do. It is made
 from the same functions the buttons call, so it adds no way to do
 anything that has none. It is a dialog of the platform, which takes the
 focus and closes on Escape.
+
+The window is drawn as a Mac app is. On a Mac the rail is the system's
+side bar material (`vibrancy` in `createWindow`), tinted with paper in
+`styles.css`; elsewhere it is paper. The bar over each column is one
+toolbar, and what can be done from it sits in a capsule of pictures, each
+named by its words for a screen reader and a tooltip. The margin's tabs
+are a segmented control.
+
+A right click on a row of the rail, the context or *Projects* opens a
+menu of the system, and so do the buttons with a chevron, a plus or three
+dots. The page asks for it with `menu:show`: it names the items, main
+shows them and says which one was chosen, and the page does what it says.
+Main does nothing an item says. Every item is also in the palette, which
+is how the end-to-end test reaches them: a menu of the system cannot be
+pressed from a test. A right click anywhere else gives what the system
+gives there: in a field cut, copy, paste and the spelling, and on chosen
+words copy, and on a Mac Look Up.
 
 The reader sets the width of the rail and of the margin by dragging the
 edge between two columns, or with the arrow keys when the edge has the

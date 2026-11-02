@@ -86,7 +86,7 @@ export function Settings(props: { onClose: () => void }) {
   return (
     <>
       <header className="bar">
-        <span>Settings</span>
+        <span className="title"><strong>Settings</strong></span>
         <span className="acts">
           <button className="quiet" title="Esc" onClick={onClose}>
             Close

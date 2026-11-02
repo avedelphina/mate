@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage, shell, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage, shell, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from 'electron'
 import { endpointView, judgeOnEndpoint, keepEndpointIn, keyRefusal, linuxRelay, setEndpoint, stopRelay } from './endpoint'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
@@ -149,9 +149,12 @@ function createWindow(from?: BrowserWindow | null, open?: string): void {
     title: 'Mate',
     // On the Mac the window buttons sit in the rail's top bar. styles.css leaves room for them.
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-    trafficLightPosition: { x: 16, y: 16 },
-    // The page colour from styles.css, so the window does not flash white before it loads.
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1f1e1b' : '#fbfaf7',
+    trafficLightPosition: { x: 20, y: 19 },
+    // On the Mac the rail is the system's side bar material, which styles.css tints with paper. Elsewhere
+    // the page colour from styles.css, so the window does not flash white before it loads.
+    ...(process.platform === 'darwin'
+      ? { vibrancy: 'sidebar' as const, backgroundColor: '#00000000' }
+      : { backgroundColor: nativeTheme.shouldUseDarkColors ? '#1f1e1b' : '#fbfaf7' }),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
@@ -164,6 +167,24 @@ function createWindow(from?: BrowserWindow | null, open?: string): void {
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   window.webContents.on('will-navigate', (event, url) => {
     if (url !== window.webContents.getURL()) event.preventDefault()
+  })
+  // A right click in a field, or on chosen words, gives what a Mac gives there. A row or a button with a
+  // menu of its own asks for it with `menu:show`, and the page then keeps this one from showing.
+  window.webContents.on('context-menu', (_event, params) => {
+    const words = params.selectionText.trim()
+    const items: MenuItemConstructorOptions[] = [
+      ...params.dictionarySuggestions.slice(0, 5).map((word) => ({ label: word, click: () => window.webContents.replaceMisspelling(word) })),
+      ...(params.misspelledWord ? [{ type: 'separator' as const }] : []),
+      ...(words && process.platform === 'darwin'
+        ? [{ label: `Look Up “${words.length > 24 ? `${words.slice(0, 24)}…` : words}”`, click: () => window.webContents.showDefinitionForSelection() }, { type: 'separator' as const }]
+        : []),
+      ...(params.isEditable
+        ? [{ role: 'cut' as const }, { role: 'copy' as const }, { role: 'paste' as const }, { type: 'separator' as const }, { role: 'selectAll' as const }]
+        : words
+          ? [{ role: 'copy' as const }]
+          : [])
+    ]
+    if (items.length > 0) Menu.buildFromTemplate(items).popup({ window })
   })
 
   const id = window.webContents.id
@@ -464,6 +485,7 @@ app.whenReady().then(() => {
     return dir ? describeContext(dir) : null
   })
 
+
   // The search is made with what is read so far. A file read since is found by the next one.
   ipcMain.handle('context:search', async (event, query: string) => {
     const contextDir = requireContext(event)
@@ -513,6 +535,24 @@ app.whenReady().then(() => {
   // A file Mate cannot draw is shown where it lies, for the reader to open with what they have.
   // It is shown, never opened: opening a file from a context could run it.
   ipcMain.handle('file:reveal', async (event, relative: string) => shell.showItemInFolder(await placeOnDisk(requireContext(event), relative)))
+
+  // A menu of the system, for a right click or a button with a menu: under the pointer, or at `at` in the
+  // window, below the button. The page names the items and is told which one was chosen, or null when
+  // none was. An item does nothing here: the page does what it says.
+  ipcMain.handle('menu:show', (event, items: unknown, at?: { x: unknown; y: unknown }) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window || !Array.isArray(items)) return null
+    const place = at && Number.isFinite(at.x) && Number.isFinite(at.y) ? { x: Math.round(Number(at.x)), y: Math.round(Number(at.y)) } : {}
+    return new Promise<string | null>((resolve) => {
+      const template = items.slice(0, 40).map((item): MenuItemConstructorOptions =>
+        item && typeof item.id === 'string' && typeof item.label === 'string'
+          ? { label: item.label.slice(0, 120), enabled: item.enabled !== false, click: () => resolve(item.id) }
+          : { type: 'separator' }
+      )
+      // The item's click comes before the menu closes, so a choice is not undone by the close.
+      Menu.buildFromTemplate(template).popup({ window, ...place, callback: () => resolve(null) })
+    })
+  })
 
   ipcMain.handle('project:open', (event, project: string, file?: string) =>
     readProject(requireContext(event), project, file)

@@ -55,13 +55,15 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   drawn. The markup stays in the text and is hidden, so the page is the
   file, character for character.
 - **Start a context and a project.** *New context…* makes a folder with
-  a shelf, a dropbox and room for projects, where you say. *+ New
-  project* in the rail makes a project in it, with its intents and its
-  principles. A folder you already have can be opened and made a context
-  where it stands, and Mate offers to start a git repository for a
-  context that is in none. Click the context's name to rename it;
-  *Rename project…* sits under the open project.
-- **Bring in a project.** *Bring in a project…* moves a folder you have,
+  a shelf, a dropbox and room for projects, where you say. *New
+  Project…* under the *+* by *Projects* in the rail makes a project in
+  it, with its intents and its principles. A folder you already have can
+  be opened and made a context where it stands, and Mate offers to start
+  a git repository for a context that is in none. Click the context's
+  name to rename it; *Rename Project…* is in the open project's menu.
+  A right click on a row of the rail, or its chevron, plus or three dots,
+  opens a menu of the system with what can be done there.
+- **Bring in a project.** *Bring In a Project…* moves a folder you have,
   such as a git repository, into the context as a project, as it is.
   Mate writes nothing into it: its markdown files are its drafts where
   they lie, and a repository keeps its history and remote. The context's
@@ -72,12 +74,12 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
 - **Write the draft.** *Edit* turns the page into the text of the file,
   to type in. Comments stay with their lines, and a save never writes
   over what an agent or another program wrote in the meantime. *New
-  draft* in the rail starts one.
+  Draft* in the project's menu starts one.
 - **The shelf.** The rail lists what is on it. *Publish* puts a draft on
   the shelf under a name, after you confirm it in a system dialog. The
   document it replaces is kept in `shelf/.history/`. A shelf document can
   be taken down into a project, as a copy the project owns.
-- **Sources.** *Add a source*, or drop a file on the window. A markdown
+- **Sources.** *Add a Source…* in the project's menu, or drop a file on the window. A markdown
   file is pulled into the drafts. A file that stays where it is gets a
   note with its path, so a search finds it. For a Word
   file, a PDF, a page or a table, *Make a draft from its text* takes the
@@ -96,7 +98,7 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   `NAME.md.comments.md`, and the file itself is left as it was. Only a
   draft can be published. The dropbox, the panes, the scripts and the
   intents and principles open to be read, and a file Mate cannot draw is
-  shown in the file manager. *+ New folder* makes a
+  shown in the file manager. *New Folder…* in the project's menu makes a
   folder in the project: `notes`, or `draft/contracts`. A folder inside
   `draft/` keeps drafts, and they are reviewed and published as the others
   are. A folder of the drafts has a *+* that starts a draft in it. A file

@@ -169,6 +169,8 @@ export type MateApi = {
   readFile: (path: string) => Promise<FileView>
   /** Show a file of the context in the system's file manager. It is not opened. */
   revealFile: (path: string) => Promise<void>
+  /** A menu of the system, under the pointer or at `at` in the window. `null` is a line between items. Gives the id of the chosen item, or null. */
+  menu: (items: ({ id: string; label: string; enabled?: boolean } | null)[], at?: { x: number; y: number }) => Promise<string | null>
   openProject: (project: string, file?: string) => Promise<DocumentView>
   /** Tick a task box in a pane, or clear it. `at` is where the box is in `base`, the text that was shown. */
   readNote: (project: string, file: string) => Promise<string>

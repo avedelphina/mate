@@ -1,5 +1,7 @@
 import type { DragEvent } from 'react'
 import { isTwinned } from '../../shared/twin'
+import { Icon, type IconName } from './Icon'
+import { onRightClick, type Item } from './menu'
 
 /** What a row carries when it is dragged: its path from the project. */
 export const MOVE = 'text/x-mate-path'
@@ -26,8 +28,11 @@ export function Tree(props: {
   draftsIn?: string
   /** Files that say they are final, by their path from the project. */
   final?: string[]
+  /** What a right click on a row offers. */
+  onMenu?: (path: string, folder: boolean) => Item[]
 }) {
-  const { paths, folders = [], base = '', current, onOpen, onReveal, unfolded = 'draft', onMove, onNewDraft, draftsIn = 'draft/', final = [] } = props
+  const { paths, folders = [], base = '', current, onOpen, onReveal, unfolded = 'draft', onMove, onNewDraft, draftsIn = 'draft/', final = [], onMenu } = props
+  const menu = (full: string, folder: boolean) => (onMenu ? onRightClick(() => onMenu(full, folder)) : {})
   const manager = document.documentElement.dataset.platform === 'mac' ? 'Finder' : 'the file manager'
   const isFile = (name: string) => paths.includes(base + name)
   // What is directly in this folder: a file, or the folder that something deeper is in.
@@ -47,10 +52,12 @@ export function Tree(props: {
             <li key={name}>
               <button
                 {...drag(full)}
+                {...menu(full, false)}
                 className={`${current === full ? 'row active' : markdown || isTwinned(name) ? 'row' : 'row other'}${final.includes(full) ? ' final' : ''}`}
                 title={final.includes(full) ? 'Final: the finished document of this project' : markdown ? undefined : isTwinned(name) ? 'Mate reads its text.' : `A file of text opens to be reviewed, its comments kept beside it. Any other is shown with what can be done with it, or in ${manager}.`}
                 onClick={() => (markdown ? onOpen(full) : onReveal(full))}
               >
+                <Icon name={fileIcon(full)} />
                 {name}
               </button>
             </li>
@@ -64,7 +71,9 @@ export function Tree(props: {
               <summary
                 {...drag(full)}
                 {...(onMove && !['panes', 'scripts'].includes(full.split('/')[0]) ? dropOn(full, onMove) : {})}
+                {...menu(full, true)}
               >
+                <Icon name={FOLDERS.get(full) ?? 'folder'} />
                 {name}
                 {onNewDraft && (draftsIn === '' ? !['dropbox', 'panes', 'scripts'].includes(full.split('/')[0]) : full === draftsIn.slice(0, -1) || full.startsWith(draftsIn)) && (
                   <button
@@ -73,17 +82,28 @@ export function Tree(props: {
                     aria-label={`A new draft in ${name}`}
                     onClick={(event) => (event.preventDefault(), event.stopPropagation(), onNewDraft(full.slice(draftsIn.length)))}
                   >
-                    +
+                    <Icon name="plus" size={14} />
                   </button>
                 )}
               </summary>
-              <Tree paths={paths.filter((each) => each.startsWith(`${full}/`))} folders={folders.filter((each) => each.startsWith(`${full}/`))} base={`${full}/`} current={current} onOpen={onOpen} onReveal={onReveal} unfolded={unfolded} onMove={onMove} onNewDraft={onNewDraft} draftsIn={draftsIn} final={final} />
+              <Tree paths={paths.filter((each) => each.startsWith(`${full}/`))} folders={folders.filter((each) => each.startsWith(`${full}/`))} base={`${full}/`} current={current} onOpen={onOpen} onReveal={onReveal} unfolded={unfolded} onMove={onMove} onNewDraft={onNewDraft} draftsIn={draftsIn} final={final} onMenu={onMenu} />
             </details>
           </li>
         )
       })}
     </ul>
   )
+}
+
+/** The folders a project keeps for itself have pictures of their own. */
+const FOLDERS = new Map<string, IconName>([['dropbox', 'dropbox'], ['panes', 'pane'], ['scripts', 'script']])
+
+/** The picture of a file: the two that steer, a script, a document Mate draws, or any other file. */
+export function fileIcon(path: string): IconName {
+  if (path === 'intents.md') return 'intents'
+  if (path === 'principles.md') return 'principles'
+  if (path.startsWith('scripts/')) return 'script'
+  return /\.md$/i.test(path) || isTwinned(path) ? 'text' : 'file'
 }
 
 /** What a place that takes a dropped row does: it says so while a row is over it, and gives the path of the row that fell. */

@@ -42,7 +42,7 @@ export function Question(props: {
   return (
     <>
       <header className="bar">
-        <span className="meta">Question</span>
+        <span className="title"><strong>Question</strong></span>
         <span className="acts">
           <button className="quiet" title="Esc" onClick={onClose}>
             Close

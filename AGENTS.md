@@ -156,7 +156,8 @@ highlights, and the buttons of a pane), `Agent.tsx` (the Agent tab, the
 model and the effort), `Tree.tsx` (the files of a project), `Palette.tsx`
 (⌘K), `Settings.tsx` (agents, the endpoint, the editor, updates), `History.tsx` (what
 changed in a file), `Question.tsx` (asking the context), `Boundary.tsx` (keeps the window working when one piece cannot be
-drawn), `markdown.ts` (the markdown tree), `env.d.ts` (the `window.mate`
+drawn), `Icon.tsx` (the pictures of rows and buttons), `menu.ts` (a menu of
+the system, for a right click or a button), `markdown.ts` (the markdown tree), `env.d.ts` (the `window.mate`
 types, shared by both sides).
 
 Shared: `comments.ts` (the marker, and `retype` for typing in a draft),

@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('mate', {
   judge: (question: string, leave?: { path: string; start: number; end: number }) => ipcRenderer.invoke('context:judge', question, leave),
   readFile: (path: string) => ipcRenderer.invoke('file:read', path),
   revealFile: (path: string) => ipcRenderer.invoke('file:reveal', path),
+  menu: (items: unknown, at?: { x: number; y: number }): Promise<string | null> => ipcRenderer.invoke('menu:show', items, at),
   openProject: (project: string, file?: string) => ipcRenderer.invoke('project:open', project, file),
   createProject: (name: string) => ipcRenderer.invoke('project:create', name),
   renameContext: (name: string) => ipcRenderer.invoke('context:rename', name),

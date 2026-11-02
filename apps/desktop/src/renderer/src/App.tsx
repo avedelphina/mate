@@ -15,7 +15,9 @@ import { Rendered, type Passage } from './Rendered'
 import { Settings, UpdateNotice } from './Settings'
 import { Notes } from './Notes'
 import { useTyping } from './Steering'
-import { dropOn, Tree } from './Tree'
+import { dropOn, fileIcon, Tree } from './Tree'
+import { Icon } from './Icon'
+import { dropMenu, onRightClick, type Item } from './menu'
 import { asked, filled } from '../../shared/run'
 import './styles.css'
 
@@ -34,6 +36,10 @@ const QUICK_NOTES = [
 ]
 
 const POPOVER_WIDTH = 360
+
+/** A file or folder of a project that can be moved. What a project keeps for itself stays where it is. */
+const movable = (path: string) =>
+  !/^(draft|dropbox|panes|scripts|intents\.md|principles\.md)$/.test(path) && !/^(panes|scripts)\//.test(path) && !/\.(comments|notes)\.md$/i.test(path)
 
 /** What a search hit is called, and what the margin says of a file that is only read. */
 const KINDS: Record<Kind, { label: string; note: string }> = {
@@ -772,6 +778,16 @@ export function App() {
     else void read(`projects/${view.project}/${path}`)
   }
 
+  /** A file of the open project that Mate does not draw as markdown, picked in the tree. */
+  function openOther(path: string) {
+    if (!view) return
+    // A file of text opens for review. A script has its card, to run it.
+    if (!isTwinned(path) && !path.startsWith('scripts/')) return void openText(path)
+    // A file Mate cannot draw gets its card, with what can be done with it. A PDF or a Word file is read as its text as well.
+    setSources([{ name: path.split('/').pop()!, where: path, inContext: `projects/${view.project}/${path}`, markdown: false }])
+    if (isTwinned(path)) void read(`projects/${view.project}/${path}`)
+  }
+
   /**
    * Ask the whole context a question, by meaning. The passages closest to it go on the page, whole.
    * `heading` is what the page says was asked, when it is not the words themselves. `leave` is a
@@ -1261,9 +1277,8 @@ export function App() {
       if (file !== null && typing === null && !reading) add('Edit this draft', 'Do', edit)
       if (file !== null && !reading && !outside) add('Publish this draft…', 'Do', () => setPublishing(publishName(file)))
       add('New draft…', 'Do', () => (setNamingIn(''), setNaming('')))
-      if (inTree && !/^(draft|dropbox|panes|scripts|intents\.md|principles\.md)$/.test(inTree) && !/^(panes|scripts)\//.test(inTree) && !/\.(comments|notes)\.md$/i.test(inTree)) {
-        add('Move this file to…', 'Do', () => setMoving({ from: inTree, to: '' }))
-      }
+      add('New folder…', 'Do', () => setMaking(''))
+      if (inTree && movable(inTree)) add('Move this file to…', 'Do', () => setMoving({ from: inTree, to: '' }))
       add('Rename this project…', 'Do', () => setRenaming({ what: 'project', name: view.project }))
       add('Add a source…', 'Do', () => void addSources())
       add(agentOnPage ? 'Put the conversation back in the margin' : 'Open the conversation in the page', 'Do', agentOnPage ? toMargin : toPage)
@@ -1294,6 +1309,29 @@ export function App() {
     return () => window.removeEventListener('keydown', key)
   })
 
+  // What a right click on a project offers. The open one has all that can be made in it.
+  const projectMenu = (name: string): Item[] =>
+    view?.project === name
+      ? [
+          { label: 'New Draft', run: () => (setNamingIn(''), setNaming('')) },
+          { label: 'New Folder…', run: () => setMaking('') },
+          { label: 'Add a Source…', run: () => void addSources() },
+          null,
+          { label: 'Rename Project…', run: () => setRenaming({ what: 'project', name }) },
+          { label: 'Show in Finder', run: () => void window.mate.revealFile(`projects/${name}`) }
+        ]
+      : [{ label: 'Open Project', run: () => void openProject(name) }, { label: 'Show in Finder', run: () => void window.mate.revealFile(`projects/${name}`) }]
+  const contextMenu = (): Item[] => [
+    { label: 'Rename Context…', run: () => setRenaming({ what: 'context', name: contextName ?? '' }) },
+    null,
+    { label: 'Open Another Context…', run: () => void openContext() },
+    { label: 'New Context…', run: () => void newContext() }
+  ]
+  const projectsMenu = (): Item[] => [
+    { label: 'New Project…', run: () => setFounding('') },
+    { label: 'Bring In a Project…', run: () => void importProject() }
+  ]
+
   // Where the page is in the tree of the open project, when it is in it at all.
   const inTree = reading ? (reading.project === project ? reading.path.split('/').slice(2).join('/') : null) : file && (outside ? file.replace(/^\//, '') : `${view?.draftsIn ?? ''}${file}`)
 
@@ -1307,17 +1345,20 @@ export function App() {
       <aside className="rail">
         <Divider which="rail" width={rail} set={setRail} />
         <header className="bar">
-          Mate
-          <button className="quiet key" title="Go to a file, or do something" onClick={() => setPalette(acts())}>
-            {document.documentElement.dataset.platform === 'mac' ? '⌘K' : 'Ctrl+K'}
-          </button>
+          <span className="acts">
+            {/* The button is its shortcut, so the key is learned by looking. */}
+            <button className="quiet key" title="Go to a file, or do something" aria-label="Go to, or do" onClick={() => setPalette(acts())}>
+              {document.documentElement.dataset.platform === 'mac' ? '⌘K' : 'Ctrl+K'}
+            </button>
+          </span>
         </header>
         <div className="scroll">
           {/* With no context there is one thing to do. With one, its name heads the rail, and another is a small step away. */}
-          {!contextDir && <button className="wide" onClick={openContext}>Open context</button>}
+          {!contextDir && <button className="wide primary" onClick={openContext}>Open context</button>}
           {!contextDir && <button className="wide quiet" title="A new folder with a shelf, a dropbox and room for projects" onClick={newContext}>New context…</button>}
           {contextDir && (
-            <div className="context">
+            <div className="context" {...onRightClick(contextMenu)}>
+              <Icon name="context" />
               {renaming?.what === 'context' ? (
                 renameField('New name of the context')
               ) : (
@@ -1325,8 +1366,9 @@ export function App() {
                   {contextName}
                 </h2>
               )}
-              <button className="quiet" title="Open another context" onClick={openContext}>Open…</button>
-              <button className="quiet" title="Start a new context, in a folder of its own" onClick={newContext}>New…</button>
+              <button className="quiet tool" title="Open another context, start one, or rename this one" aria-label="Context" {...dropMenu(contextMenu)}>
+                <Icon name="down" size={14} />
+              </button>
             </div>
           )}
           {contextDir && (
@@ -1422,6 +1464,10 @@ export function App() {
                     current={reading?.kind === 'shelf' ? reading.path.slice('shelf/'.length) : null}
                     onOpen={(path) => void read(`shelf/${path}`)}
                     onReveal={(path) => isTwinned(path) && void read(`shelf/${path}`)}
+                    onMenu={(path, folder) => [
+                      ...(folder ? [] : [{ label: 'Open', run: () => void read(`shelf/${path}`), enabled: /\.md$/i.test(path) || isTwinned(path) }]),
+                      { label: 'Show in Finder', run: () => void window.mate.revealFile(`shelf/${path}`) }
+                    ]}
                   />
                 </details>
               )}
@@ -1435,10 +1481,19 @@ export function App() {
                     unfolded="dropbox"
                     onOpen={(path) => void read(path)}
                     onReveal={(path) => (isTwinned(path) ? void read(path) : void window.mate.revealFile(path))}
+                    onMenu={(path, folder) => [
+                      ...(folder ? [] : [{ label: 'Open', run: () => void read(path), enabled: /\.md$/i.test(path) || isTwinned(path) }]),
+                      { label: 'Show in Finder', run: () => void window.mate.revealFile(path) }
+                    ]}
                   />
                 </details>
               )}
-              <h2>Projects</h2>
+              <h2 className="head" {...onRightClick(projectsMenu)}>
+                Projects
+                <button className="quiet tool" title="A new project, or one you bring in" aria-label="New project" {...dropMenu(projectsMenu)}>
+                  <Icon name="plus" size={14} />
+                </button>
+              </h2>
               {projects.length === 0 && <p className="meta hint">No projects here yet.</p>}
               <ul className="projects">
                 {projects.map((name) => (
@@ -1447,15 +1502,23 @@ export function App() {
                       className={project === name ? 'row project active' : 'row project'}
                       onClick={() => openProject(name)}
                       {...(view && project === name ? dropOn('', moveTo) : {})}
+                      {...onRightClick(() => projectMenu(name))}
                     >
+                      <Icon name="project" />
                       {name}
                     </button>
+                    {view && project === name && (
+                      <button className="quiet tool more" title="New draft, folder or source, and the project's name" aria-label={`${name}: more`} {...dropMenu(() => projectMenu(name))}>
+                        <Icon name="more" />
+                      </button>
+                    )}
                     {view && project === name && (view.intents || view.principles) && (
                       <div className="steering">
                         {([['intents', 'Intents', 'Which way this project leans. An agent follows it.'], ['principles', 'Principles', 'The rules of engagement for this project. An agent follows them.']] as const).map(
                           ([key, label, title]) =>
                             view[key] && (
                               <button key={key} className={reading?.path === `projects/${view.project}/${key}.md` ? 'row active' : 'row'} title={title} onClick={() => openFile(`${key}.md`)}>
+                                <Icon name={key} />
                                 {label}
                               </button>
                             )
@@ -1472,13 +1535,13 @@ export function App() {
                         onNewDraft={(folder) => (setNamingIn(folder), setNaming(''))}
                         current={inTree}
                         onOpen={openFile}
-                        onReveal={(path) => {
-                          // A file of text opens for review. A script has its card, to run it.
-                          if (!isTwinned(path) && !path.startsWith('scripts/')) return void openText(path)
-                          // A file Mate cannot draw gets its card, with what can be done with it. A PDF or a Word file is read as its text as well.
-                          setSources([{ name: path.split('/').pop()!, where: path, inContext: `projects/${view.project}/${path}`, markdown: false }])
-                          if (isTwinned(path)) void read(`projects/${view.project}/${path}`)
-                        }}
+                        onReveal={openOther}
+                        onMenu={(path, folder) => [
+                          ...(folder ? [{ label: 'New Folder Inside…', run: () => setMaking(`${path}/`) }] : [{ label: 'Open', run: () => (/\.md$/i.test(path) ? openFile(path) : openOther(path)) }]),
+                          ...(movable(path) ? [{ label: 'Move To…', run: () => setMoving({ from: path, to: '' }) }] : []),
+                          null,
+                          { label: 'Show in Finder', run: () => void window.mate.revealFile(`projects/${view.project}/${path}`) }
+                        ]}
                       />
                     )}
                     {view && project === name && (
@@ -1517,18 +1580,7 @@ export function App() {
                               onBlur={() => making.trim() === '' && setMaking(null)}
                             />
                           </form>
-                        ) : naming === null ? (
-                          <>
-                            <button className="row" onClick={() => (setNamingIn(''), setNaming(''))}>+ New draft</button>
-                            <button className="row" title="A folder in this project. Inside draft/, it holds drafts." onClick={() => setMaking('')}>+ New folder</button>
-                            <button className="row" title="A file or a folder from outside this context. You choose what becomes of it." onClick={() => void addSources()}>
-                              + Add a source
-                            </button>
-                            <button className="row" title="Its folder is renamed, and its sessions go with it" onClick={() => setRenaming({ what: 'project', name: view.project })}>
-                              Rename project…
-                            </button>
-                          </>
-                        ) : (
+                        ) : naming === null ? null : (
                           <form onSubmit={newDraft}>
                             <input
                               autoFocus
@@ -1547,14 +1599,7 @@ export function App() {
                 ))}
               </ul>
               <div className="tree-new project-new">
-                {founding === null ? (
-                  <>
-                    <button className="row" onClick={() => setFounding('')}>+ New project</button>
-                    <button className="row" title="A folder you have, such as a repository, moved in as it is" onClick={() => void importProject()}>
-                      + Bring in a project…
-                    </button>
-                  </>
-                ) : (
+                {founding === null ? null : (
                   <form onSubmit={newProject}>
                     <input
                       autoFocus
@@ -1590,6 +1635,7 @@ export function App() {
             {committing === null ? (
               <>
                 <button className="quiet" title="Put what has changed in this context into one git commit" onClick={() => void startCommit()}>
+                  <Icon name="commit" />
                   Commit…
                 </button>
                 {committed && <span className="meta" role="status">{committed}</span>}
@@ -1635,16 +1681,24 @@ export function App() {
           />
         )}
         <header className="bar" hidden={inquiry !== null || settingsOpen || historyPath !== null}>
-          {onPage && <span className="meta">{view.project}</span>}
-          {onPage && <span className="meta">/</span>}
-          {onPage && <span>Agent</span>}
-          {onPage && <button className="quiet move" onClick={toMargin}>Back to the margin</button>}
-          {!onPage && reading && <span className={`kind ${reading.kind}`}>{KINDS[reading.kind].label}</span>}
-          {!onPage && reading && <span title={reading.path}>{reading.path}</span>}
+          {/* The title of the page, as a Mac app has it: the name, and under it where it is. */}
+          {onPage && (
+            <span className="title">
+              <strong>Agent</strong>
+              <span className="meta">{view.project}</span>
+            </span>
+          )}
+          {onPage && <span className="acts move"><button className="quiet" onClick={toMargin}>Back to the margin</button></span>}
+          {!onPage && reading && (
+            <span className="title" title={reading.path}>
+              <strong><Icon name={fileIcon(reading.path.split('/').slice(reading.project ? 2 : 0).join('/'))} />{reading.path.split('/').pop()}</strong>
+              <span className="meta"><span className={`kind ${reading.kind}`}>{KINDS[reading.kind].label}</span> {reading.path}</span>
+            </span>
+          )}
           {!onPage && reading && tagChips(shownTags)}
+          {!onPage && reading?.twin && <span className="meta aside">Its text, as Mate took it out</span>}
           {!onPage && reading?.twin && (
             <span className="acts">
-              <span className="meta">Its text, as Mate took it out</span>
               <button className="quiet" title="The file itself, in the file manager" onClick={() => void window.mate.revealFile(reading.path)}>
                 Show the original
               </button>
@@ -1681,9 +1735,12 @@ export function App() {
               )}
             </span>
           )}
-          {!onPage && !reading && view && <span className="meta" title={view.project}>{view.project}</span>}
-          {!onPage && !reading && file !== null && <span className="meta">/</span>}
-          {!onPage && !reading && file !== null && <span title={file}>{file}</span>}
+          {!onPage && !reading && view && (
+            <span className="title" title={file ?? view.project}>
+              <strong>{file !== null && <Icon name={outside ? fileIcon(file.replace(/^\//, '')) : 'text'} />}{file ?? view.project}</strong>
+              {file !== null && <span className="meta">{view.project}</span>}
+            </span>
+          )}
           {!onPage && !reading && file !== null && tagChips(shownTags)}
           {!onPage && !reading && file !== null && (
             <span className="acts">
@@ -1801,13 +1858,21 @@ export function App() {
               </Boundary>
             </div>
           ) : !view ? (
-            <p className="empty">Open a context, then a project. The draft is the page.</p>
+            <div className="empty"><p>Open a context, then a project. The draft is the page.</p></div>
           ) : file === null ? (
-            <p className="empty">
-              {view.drafts.length === 0
-                ? 'This project has no document yet. Start one with + New draft, or add a source.'
-                : `This project has ${view.drafts.length} drafts. Pick one on the left.`}
-            </p>
+            <div className="empty">
+              {view.drafts.length === 0 ? (
+                <>
+                  <p>This project has no document yet.</p>
+                  <p className="acts">
+                    <button className="primary" onClick={() => (setNamingIn(''), setNaming(''))}>New draft</button>
+                    <button onClick={() => void addSources()}>Add a source…</button>
+                  </p>
+                </>
+              ) : (
+                <p>This project has {view.drafts.length} drafts. Pick one on the left.</p>
+              )}
+            </div>
           ) : typing !== null ? (
             // The text of the file, to type in. What is saved is this text, with the comments kept where they are.
             <textarea
