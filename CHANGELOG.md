@@ -5,7 +5,9 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.20.0] - 2026-11-02
+
+A web page can be added to a project as a draft, through your own Firecrawl.
 
 ### Added
 
