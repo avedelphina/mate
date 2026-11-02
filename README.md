@@ -71,6 +71,24 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
 - **Commit.** *Commit…* at the foot of the rail puts what has changed in
   the context into one git commit, in your words. Nothing is committed
   for you. Only in a [context you trust](#a-context-you-trust).
+- **Review a pull request on Gitea or GitHub.** A project that is a
+  clone of a repository on your Gitea, GitHub or GitHub Enterprise lists
+  its open pull requests: *Pull Requests…* in its menu, or ⌘K. *Review*
+  checks one out, and the comments made on it there come into the
+  margin. You read it, edit it, see what it changed
+  against its base, and comment and reply alone or with an agent. *Comment*,
+  *Request changes* or *Approve* sends one review, under your
+  name, each comment on its line; an agent's comment says whose it is.
+  What you changed in the text goes first, as one commit of yours pushed
+  to the pull request's branch; *Draft* words it with the model on your
+  computer.
+  *Merge* asks the forge to merge it, as the repository merges. The forge
+  then shows what it would had you done it there. Add the forge and a
+  token of yours in Settings; Mate tries the token first. On Gitea it
+  needs the scope `write:repository`. On GitHub, a fine-grained token
+  needs *Pull requests* and *Contents*, read and write, and a classic
+  one `repo`. Only in a context you trust, and never in a private one.
+  Your agents keep their own accounts: Mate gives your token to none.
 - **Write the draft.** *Edit* turns the page into the text of the file,
   to type in. Comments stay with their lines, and a save never writes
   over what an agent or another program wrote in the meantime. *New
@@ -462,8 +480,14 @@ Tools: `mate_project`, `mate_read`, `mate_search`, `mate_comments`,
 - Git starts programs a repository names: its hooks, and what its config
   says. So Mate runs it in two cases only. *Start a repository* runs
   `git init` where there is no repository, in any context. *Commit…*
-  runs in a context you marked as trusted, and nowhere else. Mate adds no
-  remote, and never pushes or pulls.
+  runs in a context you marked as trusted, and nowhere else. So does
+  checking out a pull request to review. Mate adds no remote, and pushes
+  only your own commit to the branch of the pull request under review,
+  after a system dialog, never with force.
+- Mate asks a Gitea or GitHub only one you added in Settings, and only when you
+  press: to list pull requests, check one out, send a review or merge.
+  Sending and merging are confirmed in a system dialog that names the
+  host. The token is sealed by the keychain of the computer.
 - The list of models is asked of Hermes only when you open the choice,
   because Hermes may look its models up on the network.
 - The renderer is sandboxed (`sandbox`, `contextIsolation`, no
@@ -511,9 +535,17 @@ Read [SECURITY.md](SECURITY.md) for how to report a problem.
   minutes.
 - **What a publish replaced is kept but not shown.** It is in
   `shelf/.history/`, to be read with any other tool.
-- **No remote, no push, no pull from Mate.** Connecting a context to a
-  repository elsewhere, and moving commits, are done with git: in a
-  terminal, or by an agent in a context you trust.
+- **No remote, and no push but to a pull request.** Connecting a context
+  to a repository elsewhere, and moving commits, are done with git: in a
+  terminal, or by an agent in a context you trust. A pull request on
+  Gitea or GitHub is the one thing Mate fetches, and its branch the one
+  place Mate pushes your commit, on your press. A pull request whose
+  branch is on a fork takes comments only.
+- **Resolving a conversation is done on the forge.** A conversation
+  resolved on Gitea stays there. GitHub says whether one is resolved only
+  in its GraphQL API, so on GitHub a resolved one comes in too. GitHub
+  takes a comment only on a line its diff shows; one on another line
+  goes in the words of the review.
 - **A commit takes everything that changed in the context.** There is no
   choosing of files and no look at the difference before it. For that,
   use git.

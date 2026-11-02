@@ -21,6 +21,7 @@ Every call has this shape. The whole of what the window can ask for:
 |---|---|---|
 | The context | `context:open`, `context:create`, `context:shape`, `context:current`, `context:search`, `context:meaning` | the folder dialog, `createContext` after a dialog of the system, `shapeContext`, the projects, the index, `searchMeaning` |
 | Git | `context:track`, `context:changes`, `context:commit` | `startRepository`, `uncommitted`, `commitContext` in `git.ts` |
+| Pull requests | `forge:list`, `forge:add`, `forge:remove`, `pulls:reviewing`, `pulls:list`, `pulls:take`, `pulls:changes`, `pulls:send`, `pulls:merge`, `pulls:leave` | `forge.ts`; `addForge` after the forge took the token; `sendReview` and `mergePull` after a dialog of the system |
 | A file | `file:read`, `file:reveal` | a file that is read and not reviewed; a file shown in the file manager |
 | A project | `project:open`, `project:create` | `readProject`: the draft, its comments, the panes, the tree; `createProject` |
 | Comments | `comment:add`, `comment:reply`, `comment:apply`, `comment:anchor` | `insertComment`, `addReply`, `applySuggestion`, `anchorComment` |
@@ -74,6 +75,7 @@ preload as CommonJS. Leave that as it is.
 | Search by meaning: passages, vectors, the model | `src/main/meaning.ts` |
 | Which files have a text twin, and how it is made | `src/shared/twin.ts`, then `src/main/twins.ts`, and `--pdf` in `assist/main.swift` |
 | Starting a repository, and committing | `src/main/git.ts`, and who may in `src/main/index.ts` |
+| A pull request on Gitea or GitHub: what comes in, what is sent | `src/main/forge.ts`, then `Pull.tsx` |
 | What a run button leaves open, and how it is filled | `src/shared/run.ts` |
 | What a pane is, and how it is read | `readProject` in `src/main/context.ts`, then `App.tsx` |
 | What the reader can press in a pane | `tickPane` in `src/main/context.ts`, then `Rendered.tsx` |
@@ -737,7 +739,7 @@ could be a path. A project of that name is never written over, and a
 ## Git
 
 Git is how a context has a history and moves between computers. Mate
-does three things with it, and `git.ts` is the whole of them.
+does four things with it, and `git.ts` is the whole of them.
 
 - **Start a repository.** `startRepository` runs `git init` in the
   context folder, when the reader presses the button.
@@ -755,6 +757,15 @@ does three things with it, and `git.ts` is the whole of them.
   diff an agent's changes are shown with, so no diff program a repository
   names is run. A revision is taken only as a hash, a hash with `^`, or
   `HEAD`.
+- **Check out a pull request.** `fetchPull` fetches `refs/pull/N/head`
+  from `origin`, `switchTo` checks it out on no branch and back again,
+  and `fastForward` brings the branch that was checked out up to the
+  merge. `commitTexts` commits the reader's text on top of it, through
+  the index alone, so the files on disk keep the review's comments, and
+  `pushTo` pushes that commit to the pull request's branch, as a
+  fast-forward only. Only for the review of a pull request on the
+  reader's Gitea or GitHub, below, on their press. A remote that asks for
+  a password fails at once: there is no terminal to type it in.
 
 A commit is the reader's act, like publishing. Nothing is committed for
 them, at no moment and by no rule: a commit made on its own would take
@@ -782,9 +793,10 @@ holds more than the context, what else was changed or staged there is
 left as it was. What Mate keeps for itself, `.indexes/` and `.sessions/`,
 ignores itself and is not committed.
 
-No remote is added, and nothing is pushed or pulled. Those bring
-credentials and conflicts, and they are what git's own tools are for: a
-terminal, or an agent in a trusted context.
+No remote is added. Pushing brings credentials and conflicts, and it is
+what git's own tools are for: a terminal, or an agent in a trusted
+context. The one fetch is a pull request's, and the one push is the
+reader's commit to that pull request's branch.
 
 This is a choice about scope, not a security rule, and the roadmap changes
 it in step 12 (the gateway, not built yet). Then Mate adds a remote only
@@ -796,17 +808,94 @@ has a tool for either.
 The copy for Revert is not git. A change by an agent is put back from
 the copy Mate took before it, whether or not anything was ever committed.
 
-A context is renamed by clicking its name in the rail, and the open
-project with Rename Project… in its menu, or from the palette. The folder
-is renamed where it stands, and all that is in it goes with it. For a
-project its sessions are moved and told their new project, and its text
-twins and learned passages move too, so nothing is read or learned
-again. A context keeps its trust and its approved instruction files:
-they were given to the folder, and follow it to its new name. The old
-path is trusted no more. Nothing is renamed while an agent works in the
-context or Mate is still reading its files, and an agent that stayed
-between turns is sent away first: it works in a folder that will not be
-there. It starts again with the conversation so far.
+## A pull request on Gitea or GitHub
+
+A project that is a clone of a repository on the reader's Gitea, GitHub
+or GitHub Enterprise is reviewed in Mate as a pull request, and the forge
+shows the review as the reader's. This is a piece of roadmap step 12,
+built ahead of it. `forge.ts` is the whole of it.
+
+- **The forge.** The reader adds its address and a token of theirs in
+  Settings. github.com is GitHub. At any other address Mate asks: Gitea
+  says its version to anyone, and GitHub Enterprise marks every answer
+  of its API. The token is tried before it is kept. One the forge does
+  not know is refused, and so is one that cannot write to a repository,
+  when the forge says so: Gitea names a token's scopes when it refuses
+  one, and GitHub names a classic token's. The forge's name for the
+  reader is shown beside it, when the token may read it. The token is
+  sealed by the keychain, as the endpoint's key is, never shown again,
+  and given to no agent. A project's forge is the one whose host is the
+  host of `origin` in the repository's `.git/config`, read as a file: an
+  https or ssh address, or ssh's `user@host:path`. Mate asks only that
+  forge, and only when the reader adds it, opens the pull requests, or
+  presses a button there (rule 6).
+- **Checked out.** *Review* is refused while the repository has a change
+  since its last commit, so that nothing of the reader's is mixed in.
+  Mate fetches `refs/pull/N/head`, which both forges keep, also for a
+  pull request from a fork, and checks it out on no branch. What it was
+  on before, the commit the pull request branched from, and its files
+  are kept in `.git/mate-review.json`, in the repository's own folder,
+  which no agent reads. The bar, the rail and ⌘K know the project is on a
+  pull request from that file alone: the forge is not asked for it.
+- **The forge's conversations come into the margin.** Each comes in as a
+  thread under its line, its first comment and its replies, with the
+  names the forge has. Gitea keeps the comments on one line together;
+  GitHub links a reply to the comment it answers. A comment on the old
+  side of the diff, or on a line the branch no longer has, stays on the
+  forge. A conversation resolved on Gitea stays there; GitHub says so
+  only in its GraphQL API, so a resolved one comes in too. The ids of
+  the threads that came in, and how many replies each had, are kept, so
+  they are not sent back. A draft holds its threads as markers; any
+  other file of the pull request has them beside it, as always.
+- **The review is a draft's review.** The reader and an agent comment,
+  reply and suggest as on any draft. *Changes* shows what the pull
+  request changed in a file against the commit it branched from, with
+  Mate's own diff.
+- **Sent as one review.** *Comment*, *Request changes* or *Approve* posts
+  one review, under the reader's name, after a dialog of the system that
+  names the host and how many comments go. Each new thread goes on the
+  line of its quote in the branch's file, counted as the forge counts it.
+  The quote is in the comment when it is less than the whole line. A
+  suggestion goes as text. A comment by an agent begins with its name,
+  since the forge shows it as the reader's. On Gitea a reply goes in the
+  review, on the line of its thread, and joins it. On GitHub a reply is
+  sent to its conversation first, and a comment goes on its line only
+  when the diff shows that line, as GitHub requires; one on another line
+  goes in the words of the review, with its file and line. The files are
+  then put back as the branch has them, and the conversations come in
+  again from the forge, the reader's among them. A private context sends
+  no review.
+- **The reader's change, as their commit.** The reader may edit the
+  files of the pull request, as any draft. While the text differs from
+  the branch, the review waits: the comments are to go on the lines of
+  what the branch will hold. *Commit and push…* commits the text the page
+  shows, without the review's comment markers, under the reader's git
+  name and in their words, after a dialog of the system that names the
+  branch and the host, and pushes it to the pull request's branch on
+  `origin`. A branch that has moved on refuses the push, and the commit
+  is taken off again: the reader presses *Review* to have the new
+  commits. A pull request whose branch is on a fork takes comments only,
+  since Mate pushes nowhere but `origin`. *Draft* asks the on-device
+  model to word the commit from the lines the reader took out and put
+  in; nothing leaves the computer for it.
+- **Nothing else.** A change to a file the pull request does not change
+  stops both the review and the commit, and the reader is told which
+  file. *Back to* and *Merge* are refused while a comment or a change of
+  the reader's is not sent: it would be lost.
+- **Merged by the forge.** *Merge* asks the forge to merge, after a dialog
+  of the system: on Gitea in the style the repository is set to, on
+  GitHub in the first way the repository allows, a merge commit when the
+  reader may not see which. The forge's branch rules, such as approvals
+  it needs, are the forge's to keep: Mate shows what it answers. The
+  project then goes back to what it was on, and if that is the branch
+  the pull request went into, it is brought up to the merge. Mate pushes
+  nothing.
+
+Every press that runs git is for a context the reader trusts, and none
+while an agent works in it: the guard would take the files git changes
+for the agent's. Not done: resolving a conversation. A comment with markers committed in a file of
+the repository lands a few lines off when it comes in, since the forge
+counts the marker lines and the page does not.
 
 ## The files of a project
 

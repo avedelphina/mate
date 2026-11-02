@@ -72,7 +72,14 @@ they show that the model is broken, for example:
   that file;
 - a way to make Mate run git in a repository of a context the reader has
   not trusted, or make a commit the reader did not ask for, or reach a
-  remote.
+  remote the reader did not press for;
+- a way to make Mate send a forge's token, a review or a merge anywhere
+  but the Gitea or GitHub the reader added, or without the system dialog
+  that names it, or to give the token to an agent;
+- a way to make Mate push anything but the reader's own commit, to any
+  branch but that of the pull request under review, with force, or
+  without the system dialog that names the branch,
+  or send a review from a private context.
 
 ## What is not in scope
 

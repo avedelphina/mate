@@ -54,6 +54,9 @@ export function Settings(props: { onClose: () => void }) {
   // The endpoint form: address, model, and a key that is never shown back. Null until it is changed.
   const [editing, setEditing] = useState<{ url: string; model: string; key: string } | null>(null)
   const [saved, setSaved] = useState(false)
+  // A forge being added: its address and a token, which is never shown back. While the forge is asked, and what it said.
+  const [forge, setForge] = useState({ url: '', token: '' })
+  const [forgeSaid, setForgeSaid] = useState<{ failed: boolean; text: string } | null>(null)
   // The editor command while it is changed. Null until then.
   const [editor, setEditor] = useState<string | null>(null)
   // The agents on this computer and the hosts added, what a look in the ssh config found (null until it is made), and a host typed by hand.
@@ -200,6 +203,62 @@ export function Settings(props: { onClose: () => void }) {
               <button type="submit" disabled={!hostName.trim()}>
                 Add
               </button>
+            </form>
+          </section>
+
+          <section className="endpoint forges">
+            <h2>Gitea and GitHub</h2>
+            <p className="meta">
+              A project that is a clone of a repository on your Gitea, GitHub or GitHub Enterprise has its pull requests in its menu. You check one
+              out, comment on it as on any draft, and send your review, approve and merge from Mate. The forge shows them as yours. Mate asks only a
+              forge you add here, and only when you press. The token is tried when you add it, then kept sealed by the keychain of this computer and
+              never shown again. On Gitea it needs the scope write:repository. On GitHub, a fine-grained token needs Pull requests and Contents, read
+              and write; a classic one, repo.
+            </p>
+            <ul>
+              {held?.forges.map((each) => (
+                <li key={each.url}>
+                  <span className="dir">{each.url}</span>
+                  <span className="meta">
+                    {' '}
+                    · {each.kind === 'github' ? 'GitHub' : 'Gitea'}
+                    {each.user && `, as ${each.user}`}
+                  </span>
+                  <button className="quiet" onClick={() => act(() => window.mate.removeForge(each.url))}>
+                    Remove
+                  </button>
+                </li>
+              ))}
+              {held && held.forges.length === 0 && <li className="meta">None yet.</li>}
+            </ul>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                // Said here, under the form: the forge can take a while, and a refusal at the top of the page is out of sight.
+                setForgeSaid({ failed: false, text: 'Trying the token…' })
+                window.mate.addForge(forge.url, forge.token).then(
+                  () => (setForge({ url: '', token: '' }), setForgeSaid(null), void load()),
+                  (caught) => setForgeSaid({ failed: true, text: unwrapped(caught) })
+                )
+              }}
+            >
+              <label>
+                Address <input value={forge.url} placeholder="https://git.example.org, or https://github.com" onChange={(event) => setForge({ ...forge, url: event.target.value })} />
+              </label>
+              <label>
+                Token <input type="password" value={forge.token} placeholder="Made in the forge's settings, for you" onChange={(event) => setForge({ ...forge, token: event.target.value })} />
+              </label>
+              <p>
+                <button type="submit" disabled={!forge.url.trim() || !forge.token.trim() || forgeSaid?.failed === false}>
+                  Add
+                </button>
+              </p>
+              {forgeSaid && (
+                <p className={forgeSaid.failed ? 'error' : 'meta'} role={forgeSaid.failed ? 'alert' : 'status'}>
+                  {forgeSaid.text}
+                </p>
+              )}
+              <p className="meta">A forge added again with a new token keeps only the new one.</p>
             </form>
           </section>
 

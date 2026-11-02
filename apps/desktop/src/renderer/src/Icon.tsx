@@ -12,6 +12,14 @@ const PATHS = {
   edit: <path d="M4 20l4-1 11-11a2.1 2.1 0 0 0-3-3L5 16l-1 4z" />,
   publish: <path d="M12 15V3.5M7.5 8 12 3.5 16.5 8M8 11H6.5A1.5 1.5 0 0 0 5 12.5v6A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5v-6a1.5 1.5 0 0 0-1.5-1.5H16" />,
   plus: <path d="M12 5v14M5 12h14" />,
+  pull: (
+    <>
+      <circle cx="6.5" cy="6" r="2" />
+      <circle cx="6.5" cy="18" r="2" />
+      <circle cx="17.5" cy="18" r="2" />
+      <path d="M6.5 8v8M17.5 16v-6.5a3 3 0 0 0-3-3H11m2-2.5-2.5 2.5L13 9" />
+    </>
+  ),
   more: (
     <>
       <circle cx="6" cy="12" r="1.1" fill="currentColor" />

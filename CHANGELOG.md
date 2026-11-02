@@ -5,6 +5,39 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- Review a pull request on your Gitea, GitHub or GitHub Enterprise in
+  Mate. A project that is a clone of a repository on a forge you added
+  in Settings lists its open pull requests: *Pull Requests…* in its
+  menu, or ⌘K. *Review* checks one out, and the comments made on it there
+  come into the margin. *Changes* shows what it changed in a file against
+  its base. You comment and reply alone or with an agent, then *Comment*,
+  *Request changes* or *Approve* sends one review under your name, each
+  comment on its line. *Merge into…* asks the forge to merge it. The
+  forge shows all of it as if you had done it there. Both ask first in a
+  dialog of the system, and both are for a context you trust. A private
+  context sends no review. On GitHub, a comment on a line the diff does
+  not show goes in the words of the review, with its file and line.
+- Edit a pull request's files while you review it. What you changed goes
+  to the pull request's branch as one commit of yours, after a dialog of
+  the system, and your comments then go on its lines. *Draft* beside the
+  commit's words asks the model on your computer to word it from your
+  change. A pull request whose branch is on a fork takes comments only.
+- Settings has a *Gitea and GitHub* section: an address, and a token
+  that is tried on the forge before the keychain keeps it sealed. A
+  token the forge does not know, or one that cannot write to a
+  repository, is refused, and the list says whose each token is.
+
+### Changed
+
+- Mate now fetches and checks out a pull request when you press *Review*,
+  brings the branch you were on up to a merge it asked for, and pushes
+  your commit to a pull request's branch when you press *Commit and
+  push…*. It adds no remote, pushes nowhere else, and never forces a push.
+
 ## [0.18.1] - 2026-11-02
 
 A script's button in a pane reads as a button again.

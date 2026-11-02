@@ -25,6 +25,10 @@ test('the question carries the passage, and the reviewer note when there is one'
   assert.equal(rewrite.prompt, 'The shelf is current.')
   assert.match(rewrite.instructions, /Make it shorter\./)
   assert.doesNotMatch(assistRequest('rewrite', 'The shelf is current.', '').instructions, /reviewer/)
+  // A commit is worded from the lines a change took out and put in, as a subject and nothing else.
+  const commit = assistRequest('commit', '- old line\n+ new line', '')
+  assert.equal(commit.prompt, '- old line\n+ new line')
+  assert.match(commit.instructions, /imperative mood/)
   assert.match(assistRequest('note', 'The shelf is current.', '').instructions, /unclear, missing/)
 })
 

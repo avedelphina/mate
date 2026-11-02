@@ -32,9 +32,9 @@ type Stored = { url: string; model: string; key?: string }
  * to a store sealed with a password that is the same on every computer: that is no seal at all.
  */
 export function keyRefusal(platform: string, available: boolean, backend: string): string | null {
-  if (!available) return 'Keep an endpoint key only where the system keychain is available.'
+  if (!available) return 'Keep a key or a token only where the system keychain is available.'
   if (platform === 'linux' && (backend === 'basic_text' || backend === 'unknown')) {
-    return 'Keep an endpoint key only where a keyring runs, such as GNOME Keyring or KWallet. Without one, the key would be sealed with a password every computer knows.'
+    return 'Keep a key or a token only where a keyring runs, such as GNOME Keyring or KWallet. Without one, it would be sealed with a password every computer knows.'
   }
   return null
 }

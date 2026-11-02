@@ -473,6 +473,14 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 /* The history of a file: a list, with the change under it. */
 .history ul { margin: 12px 0; padding: 0; list-style: none; font: 13px/1.5 var(--ui); }
 .history .row { display: block; border-radius: 8px; }
+/* The pull requests of a project: a row with its buttons at the end, and the review under the files. */
+.page.pulls { font: 13.5px/1.5 var(--ui); }
+.pulls h2 { margin: 20px 0 4px; font: 600 14px/1.4 var(--ui); }
+.pulls .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pulls .row > button:first-child { color: var(--accent); }
+.pulls textarea { width: 100%; }
+.pulls .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.pulls form.acts input { flex: 1; min-width: 12em; }
 
 /* In a comment: a file it names, and its tags. */
 .note .named { padding: 0; border: 0; background: none; box-shadow: none; color: var(--accent); font: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; cursor: pointer; }

@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 
-export type AssistTask = 'rewrite' | 'note'
+export type AssistTask = 'rewrite' | 'note' | 'commit'
 
 /** `present`: the helper is on this machine. `available`: the model behind it can answer now. */
 export type AssistState = { present: boolean; available: boolean; reason: string }
@@ -11,6 +11,16 @@ const ONLY = 'Answer with that text only: no quotation marks around it, no expla
 /** What to ask the model. The helper only carries the question, so the wording lives here. */
 export function assistRequest(task: AssistTask, passage: string, note: string): { instructions: string; prompt: string } {
   const asked = note.trim()
+  if (task === 'commit') {
+    return {
+      instructions: [
+        'You write the subject of a git commit. You are given the lines a change to a document took out, marked -, and put in, marked +.',
+        'Say what the change does, in the imperative mood, in English, in fewer than 70 characters. Say what changed, not that a file changed.',
+        ONLY
+      ].join('\n'),
+      prompt: passage
+    }
+  }
   if (task === 'rewrite') {
     return {
       instructions: [

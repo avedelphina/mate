@@ -51,6 +51,31 @@ export type Commit = { hash: string; author: string; date: string; subject: stri
 /** Where the update of the installed app is. `ready`: downloaded, on a Mac. `out`: a newer version, on Linux. */
 export type Update = { state: 'idle' | 'checking' | 'none' | 'downloading' | 'ready' | 'out' | 'failed'; version?: string; message?: string }
 
+/** An open pull request on the reader's Gitea or GitHub. `head` and `base` are its branches. */
+export type Pull = { number: number; title: string; author: string; head: string; base: string }
+
+/** The pull request a project is checked out on. `back` is the branch or commit it was on before. `base` is the commit it branched from. */
+export type Review = { number: number; title: string; url: string; head: string; headRef: string; base: string; baseRef: string; back: string; files: string[] }
+
+/** A Gitea or GitHub the reader added. `user`: whose its token is, when the forge said. Never the token. */
+export type Forge = { url: string; kind: 'gitea' | 'github'; user: string | null }
+
+/** What the forge says of a pull request. `pending`: how many comments are to be sent, or why none can be. */
+export type Pulls = {
+  /** Gitea or GitHub. */
+  forge: string
+  host: string
+  repo: string
+  pulls: Pull[]
+  review: Review | null
+  verdicts: { author: string; state: string; body: string; stale: boolean }[]
+  pending: number | string
+  /** The files whose text the reader changed, to be committed to the pull request first. */
+  edited: string[]
+  /** The pull request's branch is on a fork, where Mate does not push. */
+  fork: boolean
+}
+
 /** What the settings page shows. Folders are as main holds them: real paths. */
 export type Settings = {
   folder: string
@@ -60,6 +85,8 @@ export type Settings = {
   /** Whether the reader is told, outside the window, when an agent needs them. */
   notifications: boolean
   endpoint: { url: string; model: string; hasKey: boolean } | null
+  /** The forges the reader added. Never a token. */
+  forges: Forge[]
   trusted: string[]
   private: { dir: string; opened: boolean }[]
   /** Null when search by meaning can be had here, else what is missing. */
@@ -223,6 +250,29 @@ export type MateApi = {
   addReply: (project: string, file: string, id: string, text: string, author: string) => Promise<DocumentView>
   applySuggestion: (project: string, file: string, id: string) => Promise<DocumentView>
   anchorComment: (project: string, file: string, id: string, anchor: string, from?: number) => Promise<DocumentView>
+  /** The Gitea and GitHub hosts the reader added, to review pull requests on. A token is sealed by the keychain and never shown again. */
+  listForges: () => Promise<Forge[]>
+  /** Tries the token on the forge first: one it does not know, or that cannot write to a repository, is refused. */
+  addForge: (url: string, token: string) => Promise<Forge[]>
+  removeForge: (url: string) => Promise<Forge[]>
+  /** The pull request the project is checked out on, from its files. Nothing connects. */
+  reviewing: (project: string) => Promise<Review | null>
+  /** Asks the project's forge for its open pull requests, and what was said of the one under review. */
+  listPulls: (project: string) => Promise<Pulls>
+  /** Check out a pull request, and put its conversations on the forge in the margin. In a context the reader trusts. */
+  takePull: (project: string, number: number) => Promise<Review>
+  /** What the pull request changed in one of its files, against the commit it branched from. */
+  pullChanges: (project: string, path: string) => Promise<DiffLine[]>
+  /** Post the comments as one review on the forge. The reader confirms in a system dialog. Null when they do not, else how many comments went. */
+  sendReview: (project: string, verdict: 'COMMENT' | 'REQUEST_CHANGES' | 'APPROVED', body: string) => Promise<number | null>
+  /** Commit the text the reader changed to the pull request's branch, and push it, after a system dialog. Null when they did not. */
+  commitToPull: (project: string, message: string) => Promise<{ files: string[]; branch: string } | null>
+  /** Words for the commit, from the on-device model, out of the reader's change. Nothing is committed. */
+  draftCommit: (project: string) => Promise<string>
+  /** The forge merges the pull request, after a system dialog, and the project goes back to where it was. Null when the reader did not. */
+  mergePull: (project: string) => Promise<{ number: number; base: string; moved: boolean } | null>
+  /** Go back to where the project was. Refused while comments are not sent. */
+  leavePull: (project: string) => Promise<Review>
   /** The agents on this computer, found on the PATH; the ones on other machines the reader added; and their own agent. */
   listAgents: () => Promise<AgentInfo[]>
   /** The hosts in the ssh config, as agents to add. Adds nothing. */

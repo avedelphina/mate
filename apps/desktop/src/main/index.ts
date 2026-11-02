@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage, shell, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, safeStorage, shell, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from 'electron'
 import { endpointView, judgeOnEndpoint, keepEndpointIn, keyRefusal, linuxRelay, setEndpoint, stopRelay } from './endpoint'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
@@ -9,6 +9,7 @@ import { addReply, anchorComment, applySuggestion, fileLineOf } from '../shared/
 import { addable, AGENTS, agentEnvironment, describeAgent, discoverAgents, type AgentKind } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
 import { commitContext, historyOf, inRepository, startRepository, uncommitted, versionAt } from './git'
+import { addForge, changeToCommit, commitToPull, commitToSend, forgesView, keepForgesIn, leavePull, listPulls, mergePull, mergeStyle, pullChanges, removeForge, reviewing, reviewToSend, sendReview, takePull, type Verdict } from './forge'
 import { diffLines } from '../shared/diff'
 import { forgetMeaning, meaningMissing, moveMeaning, ollamaEmbed, refreshMeaning, searchMeaning } from './meaning'
 import { docxToMarkdown, reflow } from './docx'
@@ -381,14 +382,16 @@ app.whenReady().then(() => {
   keepPrivacyIn(path.join(app.getPath('userData'), 'private.json'))
   keepOpenedIn(path.join(app.getPath('userData'), 'opened.json'))
   keepRecentIn(path.join(app.getPath('userData'), 'recent.json'))
-  keepEndpointIn(path.join(app.getPath('userData'), 'endpoint.json'), {
-    encrypt: (text) => {
+  const seal = {
+    encrypt: (text: string) => {
       const refusal = keyRefusal(process.platform, safeStorage.isEncryptionAvailable(), process.platform === 'linux' ? safeStorage.getSelectedStorageBackend() : '')
       if (refusal) throw new Error(refusal)
       return safeStorage.encryptString(text)
     },
-    decrypt: (sealed) => safeStorage.decryptString(sealed)
-  })
+    decrypt: (sealed: Buffer) => safeStorage.decryptString(sealed)
+  }
+  keepEndpointIn(path.join(app.getPath('userData'), 'endpoint.json'), seal)
+  keepForgesIn(path.join(app.getPath('userData'), 'forges.json'), seal, net.fetch as typeof fetch)
   keepPinsIn(path.join(app.getPath('userData'), 'pins.json'))
 
   // Before an agent starts: has what the context tells it changed since the reader last saw it?
@@ -1068,6 +1071,93 @@ app.whenReady().then(() => {
     return diffLines(before ?? '', after ?? '')
   })
 
+  // A pull request on the reader's Gitea or GitHub, reviewed in a project that is a clone of its repository. The
+  // list asks the forge when the reader opens it. Anything that runs git is for a context they trust, as a commit is, and
+  // none of it while an agent works: the guard would take the files git changes for the agent's.
+  const mayReview = (event: IpcMainInvokeEvent): string => {
+    const contextDir = requireContext(event)
+    if (!isTrusted(contextDir)) throw new Error('Mate reviews a pull request in a context you trust: git runs what a repository names. Trust this context in the Agent tab.')
+    if (isBusy(contextDir)) throw new Error('An agent is working in this context. Do this when it has finished.')
+    return contextDir
+  }
+  ipcMain.handle('forge:list', () => forgesView())
+  // The token is tried on the forge before it is kept: a reader's press, to the address they typed.
+  ipcMain.handle('forge:add', (_event, url: string, token: string) => addForge(String(url), String(token)))
+  ipcMain.handle('forge:remove', (_event, url: string) => removeForge(String(url)))
+  // Read from the repository's own folder. Nothing connects.
+  ipcMain.handle('pulls:reviewing', (event, project: string) => reviewing(requireContext(event), String(project)))
+  ipcMain.handle('pulls:list', (event, project: string) => {
+    const contextDir = requireContext(event)
+    return listPulls(contextDir, String(project), agentEnvironment(), isTrusted(contextDir))
+  })
+  ipcMain.handle('pulls:take', (event, project: string, number: number) => takePull(mayReview(event), String(project), Number(number), agentEnvironment()))
+  ipcMain.handle('pulls:changes', (event, project: string, where: string) => pullChanges(mayReview(event), String(project), String(where), agentEnvironment()))
+  ipcMain.handle('pulls:leave', (event, project: string) => leavePull(mayReview(event), String(project), agentEnvironment()))
+  // What goes to the forge goes under the reader's name, so they say yes in a dialog of the system that names the host.
+  ipcMain.handle('pulls:send', async (event, project: string, verdict: Verdict, body: string) => {
+    const contextDir = mayReview(event)
+    // A review quotes the document. Nothing of a private context leaves this computer.
+    if (isPrivate(contextDir)) throw new Error('This context is private, so nothing of it leaves this computer. The review was not sent.')
+    const env = agentEnvironment()
+    const going = await reviewToSend(contextDir, String(project), env)
+    const how = ({ COMMENT: 'Comment', REQUEST_CHANGES: 'Request changes', APPROVED: 'Approve' } as Record<string, string>)[String(verdict)]
+    if (!how) throw new Error('A review comments, asks for changes, or approves.')
+    const comments = going.comments === 0 ? 'no comment on a line' : going.comments === 1 ? 'one comment' : `${going.comments} comments`
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      type: 'question' as const,
+      buttons: ['Cancel', how],
+      defaultId: 0,
+      cancelId: 0,
+      message: `${how} on pull request #${going.number}?`,
+      detail: `${going.title}\n\nYour review goes to ${going.host} under your name, with ${comments}${String(body).trim() ? ' and what you wrote for it' : ''}. ${going.forge} shows it as if you had written it there.`
+    }
+    const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+    return response === 1 ? sendReview(contextDir, String(project), verdict, String(body), env) : null
+  })
+  // The reader's change to the text goes to the pull request's branch as their commit. A push reaches everyone who
+  // uses the repository, so the reader says yes in a dialog of the system that names the branch and the host.
+  ipcMain.handle('pulls:commit', async (event, project: string, message: string) => {
+    const contextDir = mayReview(event)
+    if (isPrivate(contextDir)) throw new Error('This context is private, so nothing of it leaves this computer. Nothing was pushed.')
+    if (!String(message).trim()) throw new Error('Say what you changed.')
+    const going = await commitToSend(contextDir, String(project), agentEnvironment())
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      type: 'question' as const,
+      buttons: ['Cancel', 'Commit and Push'],
+      defaultId: 0,
+      cancelId: 0,
+      message: `Push your change to ${going.branch}?`,
+      detail: `${going.files.join('\n')}\n\nOne commit of yours, “${String(message).trim()}”, goes to ${going.branch} on ${going.host}, the branch of pull request #${going.number}. Your comments are not in it. Nothing else is pushed.`
+    }
+    const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+    return response === 1 ? commitToPull(contextDir, String(project), String(message), agentEnvironment()) : null
+  })
+  // The on-device model words the commit from the reader's change. Nothing leaves this computer, and nothing is committed.
+  ipcMain.handle('pulls:draft-commit', async (event, project: string) => {
+    const said = await runAssist(assistHelper, 'commit', await changeToCommit(mayReview(event), String(project), agentEnvironment()), '')
+    return said.split('\n').map((line) => line.trim()).find(Boolean)?.replace(/^["'`]+|["'`.]+$/g, '').slice(0, 120) ?? ''
+  })
+  // A merge changes the repository for everyone who uses it, so it is the reader's, in a dialog of the system.
+  ipcMain.handle('pulls:merge', async (event, project: string) => {
+    const contextDir = mayReview(event)
+    const review = reviewing(contextDir, String(project))
+    if (!review) throw new Error('This project is on no pull request.')
+    const { host, style } = await mergeStyle(contextDir, String(project))
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      type: 'warning' as const,
+      buttons: ['Cancel', 'Merge'],
+      defaultId: 0,
+      cancelId: 0,
+      message: `Merge pull request #${review.number} into ${review.baseRef}?`,
+      detail: `${review.title}\n\n${host} merges ${review.headRef} into ${review.baseRef}, as this repository merges (${style}), under your name. The project then goes back to ${review.back.length === 40 ? 'the commit it was on' : review.back}.`
+    }
+    const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+    return response === 1 ? mergePull(contextDir, String(project), style, agentEnvironment()) : null
+  })
+
   // Everything the reader has set, in one place, and what this computer has. No key, ever.
   ipcMain.handle('settings:get', async () => ({
     folder: app.getPath('userData'),
@@ -1075,6 +1165,7 @@ app.whenReady().then(() => {
     editor: readEditor(),
     notifications: notifying(),
     endpoint: endpointView(),
+    forges: forgesView(),
     trusted: trustedContexts(),
     private: privateContexts().map((dir) => ({ dir, opened: isOpenedToEndpoint(dir) })),
     meaning: await meaningMissing(),

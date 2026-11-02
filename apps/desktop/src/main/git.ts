@@ -5,19 +5,22 @@ import path from 'node:path'
 
 /**
  * What Mate does with git, and it is not much. Git is the sync a context has, so Mate can start a
- * repository and put what has changed into a commit. It adds no remote, and it never pushes or pulls.
+ * repository and put what has changed into a commit. It adds no remote. It fetches and pushes only
+ * for the review of a pull request on a forge the reader added, when they press for it (forge.ts),
+ * and pushes nothing but the reader's own commit, to that pull request's branch.
  *
  * Git starts programs a repository names: hooks, and whatever its config says. So it is run only
  * where that cannot be turned against the reader: to start a repository where there is none, and
  * otherwise in a context the reader trusts. Main checks that. See index.ts.
  */
 
-const git = (dir: string, env: NodeJS.ProcessEnv, args: string[]) =>
-  new Promise<string>((resolve, reject) =>
-    execFile('git', args, { cwd: dir, env, maxBuffer: 8 * 1024 * 1024 }, (failed, out, complaint) =>
+const git = (dir: string, env: NodeJS.ProcessEnv, args: string[], input?: string) =>
+  new Promise<string>((resolve, reject) => {
+    const child = execFile('git', args, { cwd: dir, env, maxBuffer: 8 * 1024 * 1024 }, (failed, out, complaint) =>
       failed ? reject(new Error((complaint || out || failed.message).trim().slice(0, 600))) : resolve(out)
     )
-  )
+    child.stdin?.end(input ?? '')
+  })
 
 /** Whether a folder is in a git repository. The folders are looked at. Git is not asked. */
 export function inRepository(dir: string): boolean {
@@ -100,4 +103,86 @@ export async function versionAt(full: string, env: NodeJS.ProcessEnv, rev: strin
   if (!/^(?:[0-9a-f]{7,64}\^?|HEAD)$/.test(rev)) throw new Error('That is not a commit.')
   if (!inRepository(full)) return null
   return git(path.dirname(full), env, ['cat-file', 'blob', `${rev}:./${path.basename(full)}`]).catch(() => null)
+}
+
+/**
+ * The files of a repository that differ from its last commit, by their path in it. A file git does
+ * not keep is left out: it goes with the reader from one branch to the next and is lost by none.
+ */
+export async function changedIn(dir: string, env: NodeJS.ProcessEnv): Promise<string[]> {
+  const said = await git(dir, env, ['status', '--porcelain', '--untracked-files=no', '-z'])
+  return said.split('\0').filter(Boolean).map((line) => line.slice(3))
+}
+
+/** The branch the repository is on, or the commit when it is on none. */
+export async function whereIs(dir: string, env: NodeJS.ProcessEnv): Promise<string> {
+  const branch = (await git(dir, env, ['symbolic-ref', '--short', '-q', 'HEAD']).catch(() => '')).trim()
+  return branch || (await git(dir, env, ['rev-parse', 'HEAD'])).trim()
+}
+
+// A remote that asks for a password fails at once. There is no terminal to type it in.
+const quiet = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv => ({ ...env, GIT_TERMINAL_PROMPT: '0' })
+
+/**
+ * Fetch the last commit of a pull request from `origin`, where a forge such as Gitea keeps it as
+ * refs/pull/N/head, and gives its hash. Only on the reader's press, in a context they trust.
+ */
+export async function fetchPull(dir: string, env: NodeJS.ProcessEnv, number: number): Promise<string> {
+  if (!Number.isInteger(number) || number < 1) throw new Error('That is not a pull request.')
+  await git(dir, quiet(env), ['fetch', '--no-tags', 'origin', `refs/pull/${number}/head`]).catch((failed: Error) => {
+    throw new Error(`Git could not fetch pull request #${number} from origin. ${failed.message}`)
+  })
+  return (await git(dir, env, ['rev-parse', 'FETCH_HEAD'])).trim()
+}
+
+/** Check out a commit, on no branch, or a branch by its name. Git refuses when that would lose a change. */
+export async function switchTo(dir: string, env: NodeJS.ProcessEnv, target: string): Promise<void> {
+  const commit = /^[0-9a-f]{40,64}$/.test(target)
+  if (!commit && !/^[\w][\w./-]*$/.test(target)) throw new Error('That is not a branch.')
+  await git(dir, env, commit ? ['switch', '--detach', target] : ['switch', target])
+}
+
+/** Bring a branch that is checked out up to `origin`'s, when only that is new. Gives whether it moved. */
+export async function fastForward(dir: string, env: NodeJS.ProcessEnv, branch: string): Promise<boolean> {
+  if (!/^[\w][\w./-]*$/.test(branch)) throw new Error('That is not a branch.')
+  await git(dir, quiet(env), ['fetch', '--no-tags', 'origin', branch])
+  const before = (await git(dir, env, ['rev-parse', 'HEAD'])).trim()
+  await git(dir, env, ['merge', '--ff-only', 'FETCH_HEAD']).catch(() => '')
+  return (await git(dir, env, ['rev-parse', 'HEAD'])).trim() !== before
+}
+
+/**
+ * Commit these texts of files git keeps on top of the commit checked out, with the reader's words,
+ * and give the new commit's hash. Only the index is given them: the files on disk, with the review's
+ * comments in them, stay as they are. The texts are stored as given, with no filter of the repository.
+ */
+export async function commitTexts(dir: string, env: NodeJS.ProcessEnv, texts: { path: string; text: string }[], message: string): Promise<string> {
+  const said = String(message).trim()
+  if (!said) throw new Error('Say what changed.')
+  for (const { path: where, text } of texts) {
+    const mode = (await git(dir, env, ['ls-files', '--stage', '--', where])).split(' ')[0]
+    if (!/^100(644|755)$/.test(mode)) throw new Error(`${where} is not a file git keeps here.`)
+    const blob = (await git(dir, env, ['hash-object', '-w', '--no-filters', '--stdin'], text)).trim()
+    await git(dir, env, ['update-index', '--cacheinfo', `${mode},${blob},${where}`])
+  }
+  // A hook may refuse the commit. The index is then as it was, and nothing waits staged.
+  await git(dir, env, ['commit', `--message=${said}`]).catch(async (failed: Error) => {
+    await git(dir, env, ['reset', '--quiet']).catch(() => '')
+    throw new Error(`Git did not commit. ${failed.message}`)
+  })
+  return (await git(dir, env, ['rev-parse', 'HEAD'])).trim()
+}
+
+/** Take a commit that was not pushed back off: what is checked out is that commit again, and the files on disk stay as they are. */
+export async function undoCommit(dir: string, env: NodeJS.ProcessEnv, to: string): Promise<void> {
+  if (!/^[0-9a-f]{40,64}$/.test(to)) throw new Error('That is not a commit.')
+  await git(dir, env, ['reset', '--quiet', '--mixed', to])
+}
+
+/** Push what is checked out to one branch of `origin`, as a fast-forward only: never with force. */
+export async function pushTo(dir: string, env: NodeJS.ProcessEnv, branch: string): Promise<void> {
+  if (!/^[\w][\w./-]*$/.test(branch)) throw new Error('That is not a branch.')
+  await git(dir, quiet(env), ['push', '--no-tags', 'origin', `HEAD:refs/heads/${branch}`]).catch((failed: Error) => {
+    throw new Error(`Git could not push to ${branch}. ${/rejected|fetch first|non-fast-forward/.test(failed.message) ? 'The branch has commits you do not have yet: press Review again to have them.' : failed.message}`)
+  })
 }

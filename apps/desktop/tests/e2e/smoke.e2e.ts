@@ -427,6 +427,8 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.settings .endpoint button', 'Save')
     await app.until(`document.querySelector('.settings .endpoint')?.textContent.includes('Saved: llm.example.org.')`, 'the endpoint, saved')
     assert.equal(await app.page(`[...document.querySelectorAll('.settings li .dir')].some((each) => each.textContent.endsWith('/example'))`), true)
+    // No forge is added yet, so no project has pull requests to review.
+    assert.equal(await app.page(`document.querySelector('.settings .forges li').textContent`), 'None yet.')
     // A checkout never updates itself, and says so when asked.
     await app.press('.settings .updates button', 'Check now')
     await app.until(`document.querySelector('.settings .updates [role=status]')?.textContent === 'Run from a checkout, Mate does not update itself.'`, 'the update check, refused in a checkout')
@@ -625,6 +627,14 @@ test('in a context the reader trusts, a script of the project runs from its butt
     await app.until(`[...document.querySelectorAll('.history .diff .in')].some((each) => each.textContent === '+ A line after the commit.')`, 'the line added since')
     await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
     await app.until(`!document.querySelector('.center .history')`, 'the draft again')
+
+    // Pull requests are a project's that is a clone of a repository on a forge the reader added. This one is not, and the page says so.
+    await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))`)
+    await app.until(`!!document.querySelector('.palette')`, 'the palette')
+    await app.press('.palette .row', 'Pull requestsShow')
+    await app.until(`document.querySelector('.pulls .error')?.textContent.includes('not a git repository of its own')`, 'why there is no pull request')
+    await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
+    await app.until(`!document.querySelector('.center .pulls')`, 'the draft again')
 
     // The reader's editor opens the file at the line of the comment that is active: a marker line above it counts.
     // touch stands in for an editor: it makes a file named as the editor would be given it, FILE:LINE.

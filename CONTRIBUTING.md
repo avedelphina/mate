@@ -99,8 +99,9 @@ These are not style preferences. Breaking one will get a change sent back.
    path that calls it.
 6. **No silent network.** Nothing connects anywhere unless the reader starts
    it. The one exception: the installed app asks GitHub for a newer version
-   of itself, and sends nothing of a context. The gateway of roadmap step
-   12 will be a host the reader enters, which counts as started by them.
+   of itself, and sends nothing of a context. A Gitea or GitHub the reader added is a
+   host they entered, which counts as started by them, and it is asked only
+   when they press for it. So will the gateway of roadmap step 12 be.
 
 Three more follow from the security model. They are in
 [SECURITY.md](SECURITY.md) and [docs/architecture.md](docs/architecture.md):

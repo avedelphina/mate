@@ -8,8 +8,9 @@ import { reviewableMarkdown } from '../../shared/reviewable'
 import { statusOf } from '../../shared/status'
 import { tagsOf } from '../../shared/tags'
 import { isTwinned } from '../../shared/twin'
-import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran } from './env'
+import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran, Review } from './env'
 import { History } from './History'
+import { PullRequests } from './Pull'
 import { Question, type Judged } from './Question'
 import { Rendered, type Passage } from './Rendered'
 import { Settings, UpdateNotice } from './Settings'
@@ -216,10 +217,14 @@ export function App() {
   const openSettings = () => {
     setInquiry(null)
     setHistoryPath(null)
+    setPullsOpen(false)
     setSettingsOpen(true)
   }
   // The history of the open file, in the center like the settings. Its path from the context.
   const [historyPath, setHistoryPath] = useState<string | null>(null)
+  // The pull requests of the open project, in the center like the history, and the one it is checked out on.
+  const [pullsOpen, setPullsOpen] = useState(false)
+  const [review, setReview] = useState<Review | null>(null)
   // Whether the reader trusts the open context: git is asked for a file's history only there.
   const [trustedHere, setTrustedHere] = useState(false)
   useEffect(() => window.mate.onSettings(openSettings), [])
@@ -275,6 +280,17 @@ export function App() {
   const steering = view && readingPath ? (['intents', 'principles'] as const).find((name) => readingPath === `projects/${view.project}/${name}.md`) ?? null : null
   const steerPage = useTyping((base, text) => (steering ? steer(steering, base, text) : Promise.resolve()))
   useEffect(() => steerPage.cancel(), [readingPath])
+
+  // The pull request the open project is checked out on is read from its files. The forge is not asked.
+  useEffect(() => {
+    setPullsOpen(false)
+    if (!project) return setReview(null)
+    let current = true
+    window.mate.reviewing(project).then((next) => current && setReview(next), () => current && setReview(null))
+    return () => {
+      current = false
+    }
+  }, [project])
 
   // A window opened from another starts in that window's context.
   useEffect(() => {
@@ -696,6 +712,7 @@ export function App() {
 
   async function openProject(name: string, draft?: string) {
     if (!(await leaveEditor())) return
+    setPullsOpen(false)
     setError(null)
     setNotice(null)
     setPublishing(null)
@@ -718,6 +735,7 @@ export function App() {
   /** Put a file on the page to be read, not reviewed. `path` is counted from the context folder. */
   async function read(path: string) {
     if (!(await leaveEditor())) return
+    setPullsOpen(false)
     setAgentOnPage(false)
     setNotice(null)
     setPublishing(null)
@@ -744,6 +762,7 @@ export function App() {
     if (!(await leaveEditor())) return
     try {
       const next = await window.mate.openProject(project, path)
+      setPullsOpen(false)
       setError(null)
       setNotice(null)
       setPublishing(null)
@@ -774,7 +793,23 @@ export function App() {
     if (!where) return
     setInquiry(null)
     setSettingsOpen(false)
+    setPullsOpen(false)
     setHistoryPath(where)
+  }
+
+  function openPulls() {
+    setInquiry(null)
+    setSettingsOpen(false)
+    setHistoryPath(null)
+    setPullsOpen(true)
+  }
+
+  /** After a pull request was checked out, sent or left: the files of the project are others now. */
+  async function refreshProject() {
+    if (!view) return
+    const name = view.project
+    setView(await window.mate.openProject(name, file ?? undefined).catch(() => window.mate.openProject(name)))
+    setReview(await window.mate.reviewing(name).catch(() => null))
   }
 
   /** A file picked in the tree of the open project. A draft opens for review. Anything else is read. */
@@ -812,6 +847,7 @@ export function App() {
       setInquiry((now) => (now?.question === heading ? { ...now, found: { ...found, hits: found.hits.filter(source) } } : now))
     setSettingsOpen(false)
     setHistoryPath(null)
+    setPullsOpen(false)
     setInquiry({ question: heading, query: question, keep: source, leave, found: null })
     setJudged(null)
     window.mate.judgingHost().then(setJudgeHost, () => setJudgeHost(null))
@@ -1290,6 +1326,7 @@ export function App() {
       add('New folder…', 'Do', () => setMaking(''))
       if (inTree && movable(inTree)) add('Move this file to…', 'Do', () => setMoving({ from: inTree, to: '' }))
       add('Rename this project…', 'Do', () => setRenaming({ what: 'project', name: view.project }))
+      add(review ? `Pull request #${review.number}` : 'Pull requests', 'Show', openPulls)
       add('Add a source…', 'Do', () => void addSources())
       add(agentOnPage ? 'Put the conversation back in the margin' : 'Open the conversation in the page', 'Do', agentOnPage ? toMargin : toPage)
     }
@@ -1327,6 +1364,7 @@ export function App() {
           { label: 'New Folder…', run: () => setMaking('') },
           { label: 'Add a Source…', run: () => void addSources() },
           null,
+          { label: 'Pull Requests…', run: openPulls },
           { label: 'Rename Project…', run: () => setRenaming({ what: 'project', name }) },
           { label: 'Show in Finder', run: () => void window.mate.revealFile(`projects/${name}`) }
         ]
@@ -1523,6 +1561,13 @@ export function App() {
                         <Icon name="more" />
                       </button>
                     )}
+                    {view && project === name && review && (
+                      <div className="steering">
+                        <button className={pullsOpen ? 'row active' : 'row'} title={`Checked out from ${review.headRef}. Its review, its changes, and the merge.`} onClick={openPulls}>
+                          <Icon name="pull" />#{review.number} {review.title}
+                        </button>
+                      </div>
+                    )}
                     {view && project === name && (view.intents || view.principles) && (
                       <div className="steering">
                         {([['intents', 'Intents', 'Which way this project leans. An agent follows it.'], ['principles', 'Principles', 'The rules of engagement for this project. An agent follows them.']] as const).map(
@@ -1669,6 +1714,14 @@ export function App() {
       </aside>
       <main className="center">
         {historyPath && <History path={historyPath} onClose={() => setHistoryPath(null)} />}
+        {pullsOpen && view && (
+          <PullRequests
+            project={view.project}
+            onOpen={(where) => openFile(where)}
+            onChanged={refreshProject}
+            onClose={() => setPullsOpen(false)}
+          />
+        )}
         {settingsOpen && (
           <Settings
             onClose={() => setSettingsOpen(false)}
@@ -1691,7 +1744,7 @@ export function App() {
             onClose={() => setInquiry(null)}
           />
         )}
-        <header className="bar" hidden={inquiry !== null || settingsOpen || historyPath !== null}>
+        <header className="bar" hidden={inquiry !== null || settingsOpen || historyPath !== null || pullsOpen}>
           {/* The title of the page, as a Mac app has it: the name, and under it where it is. */}
           {onPage && (
             <span className="title">
@@ -1789,7 +1842,7 @@ export function App() {
             </span>
           )}
         </header>
-        <div className="scroll" hidden={inquiry !== null || settingsOpen || historyPath !== null}>
+        <div className="scroll" hidden={inquiry !== null || settingsOpen || historyPath !== null || pullsOpen}>
           {/* A file the reader is deciding about. It leaves by one of the exits. There is no exit where it is just remembered. */}
           {view &&
             sources.map((source) => (

@@ -47,8 +47,12 @@ docs/                  model.md (the rules), architecture.md, roadmap.md
   with `swiftc`. The binary (`assist/mate-assist`) is not committed.
 - Packaging: `electron-builder`, a development dependency. Nothing of it is
   in the app, and the app loads nothing from `node_modules` when it runs.
-- `git` on the PATH, for starting a repository and committing. Mate runs
-  no other git command.
+- `git` on the PATH, for starting a repository, committing, a file's
+  history, and a pull request under review: fetch, switch, a fast-forward
+  after its merge, and a push of the reader's own commit to its branch.
+- Pull requests on the reader's own Gitea, GitHub or GitHub Enterprise,
+  through its API with their token. Optional: without one, nothing
+  changes.
 - Text of PDF and Word files: PDFKit and Vision in the Swift helper
   (`mate-assist --pdf`, scans read off their pictures), and `textutil`.
   macOS only; the rest of the app works without them.
@@ -140,7 +144,10 @@ Key modules in `apps/desktop/src/main/`:
   and no shell.
 - `git.ts` — starts a repository, and commits what changed in the context;
   leaves out a project that is a repository of its own. Reads a file's
-  history.
+  history. Fetches and checks out a pull request.
+- `forge.ts` — a pull request on the reader's Gitea or GitHub: the token
+  tried, the pull request listed and checked out, its conversations in
+  the margin, the review sent, the merge asked for.
 - `endpoint.ts` — the reader's own inference endpoint, and what may go to it.
 - `update.ts` — the installed app's check for a newer version.
 - `notify.ts` — the system's notification when Mate is not in front: an agent
@@ -156,7 +163,7 @@ Renderer: `App.tsx` (window layout), `Rendered.tsx` (draws markdown,
 highlights, and the buttons of a pane), `Agent.tsx` (the Agent tab, the
 model and the effort), `Tree.tsx` (the files of a project), `Palette.tsx`
 (⌘K), `Settings.tsx` (agents, the endpoint, the editor, updates), `History.tsx` (what
-changed in a file), `Question.tsx` (asking the context), `Boundary.tsx` (keeps the window working when one piece cannot be
+changed in a file), `Pull.tsx` (the pull requests of a project), `Question.tsx` (asking the context), `Boundary.tsx` (keeps the window working when one piece cannot be
 drawn), `Icon.tsx` (the pictures of rows and buttons), `Welcome.tsx` (the window
 with no context open), `menu.ts` (a menu of
 the system, for a right click or a button), `markdown.ts` (the markdown tree), `env.d.ts` (the `window.mate`
@@ -199,7 +206,9 @@ back.
    path that calls it).
 6. **No silent network.** Nothing connects anywhere unless the reader
    starts it. The one exception: the installed app asks GitHub for a newer
-   version of itself (`update.ts`), and sends nothing of a context.
+   version of itself (`update.ts`), and sends nothing of a context. A
+   Gitea or GitHub the reader added counts as started by them, and is
+   asked only when they press for it (`forge.ts`).
 
 More follow from the security model. They are as firm.
 
@@ -213,24 +222,33 @@ More follow from the security model. They are as firm.
    runs, or a plugin from a context or from an agent. Ask the owner first.
 9. **What only the reader may decide is asked in a dialog of the system**,
    which the page cannot press: trusting a context, approving instruction
-   files, publishing, starting a context, quitting while an agent works.
+   files, publishing, starting a context, quitting while an agent works,
+   sending a review to a forge, pushing a commit to a pull request,
+   merging a pull request.
 10. **Only the reader publishes, and only the reader commits.** No agent
     has a tool for either, and nothing is committed on its own. Mate adds
-    no remote and never pushes or pulls.
+    no remote. It fetches and checks out a pull request, brings a branch
+    up to its merge, and pushes the reader's own commit to the branch of
+    the pull request under review, never with force, only when the reader
+    presses for it, in a trusted context. The forge merges, not Mate.
 11. **An agent does not outlive the app.** What it changes is checked from
     the app. On quit the reader chooses: let it finish first, or stop it.
 12. **Mate does not reshape what the reader brings in.** A project brought
     in is moved as it is; Mate adapts to it, not the other way round.
 13. **A document's text goes nowhere but this computer,** unless the
     reader sends it to their own endpoint, by pressing a button that
-    names it (judging a question), or by inviting an agent. Text twins
+    names it (judging a question), or by inviting an agent, or to their
+    Gitea or GitHub, as a review they send in a dialog that names it.
+    The token is the reader's, and no agent is given it. Text twins
     are made by the system's own tools; vectors come from Ollama on
     `127.0.0.1`. What is under a `.git` folder is never kept for an agent.
     Mate sends to the endpoint only what the button says, and never in a
     private context that is not opened to it.
 
 Rules 6, 9, 10, 11 and 13 change in roadmap step 12, the gateway. It is
-not built, and until it is, these rules hold as written. Then: a gateway
+not built, and until it is, these rules hold as written. One piece of it
+is built ahead: the review of a pull request on the reader's Gitea or
+GitHub, and the rules above say what it may do. Then: a gateway
 host the reader entered counts as started by them (6); a native app may
 confirm inside itself, a PWA cannot publish or trust (9); Mate pushes and
 pulls on the reader's button, and no agent has a tool for either (10); an

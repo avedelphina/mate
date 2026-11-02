@@ -397,6 +397,15 @@ the session, and the thin service sends the notice. With a forge such as
 Gitea, the request is its pull request, and Mate reads its state. The
 reader chooses the level. The first version needs only the branch.
 
+Built ahead of this step, on the reader's word: the review of a pull
+request on their own Gitea, GitHub or GitHub Enterprise. Mate checks out
+its branch, brings the forge's conversations into the margin, pushes
+the reader's change to its branch as their commit, sends the reader's
+review as one review there, and asks the forge to merge. The
+review stays on the forge, not in a commit on the branch, so the forge
+shows it as the reader's. See *A pull request on Gitea or GitHub* in
+[architecture.md](architecture.md).
+
 **Two devices.** A comment is a line, so two devices that change the same
 passage give a git conflict, and Mate does not invent a merge (step 10).
 Agent proposals do not collide with the reader, because they are on their
