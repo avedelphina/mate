@@ -322,6 +322,11 @@ test('the window, on the example context: a comment into the file, the tree, a p
     // Type in the draft. The file gets the new text, and each comment stays under its passage.
     await app.press('.center .bar button', 'Edit')
     await app.until(`!!document.querySelector('textarea.editor')`, 'the editor on the page')
+    // A button with a title shows it as a tooltip of ours, and the system's own stays quiet.
+    await app.page(`document.querySelector('.format button[aria-label="Bold"]').dispatchEvent(new PointerEvent('pointerover', { bubbles: true }))`)
+    await app.until(`document.querySelector('.tip:popover-open')?.textContent === 'Bold (⌘B)' && !document.querySelector('.format button[aria-label="Bold"]').title`, 'the tooltip of a button')
+    await app.page(`document.querySelector('.center').dispatchEvent(new PointerEvent('pointerover', { bubbles: true }))`)
+    await app.until(`!document.querySelector('.tip:popover-open') && document.querySelector('.format button[aria-label="Bold"]').title === 'Bold (⌘B)'`, 'the tooltip gone and the title back')
     // The bar over the field: Bold wraps the selected words, as typing, and pressed again takes the marks off.
     const bold = `(() => {
       const editor = document.querySelector('textarea.editor')

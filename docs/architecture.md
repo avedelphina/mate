@@ -1404,6 +1404,11 @@ toolbar, and what can be done from it sits in a capsule of pictures, each
 named by its words for a screen reader and a tooltip. The margin's tabs
 are a segmented control.
 
+A button names itself with `title`. `tooltip.ts` shows that title as one
+tooltip of our own, in the top layer, after a short pause, and holds the
+title back while it shows so the system draws none. The words are still the
+button's name for a screen reader.
+
 A right click on a row of the rail, the context or *Projects* opens a
 menu of the system, and so do the buttons with a chevron, a plus or three
 dots. The page asks for it with `menu:show`: it names the items, main

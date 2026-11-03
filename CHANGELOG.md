@@ -13,6 +13,9 @@ then, minor versions may change behaviour.
   code, link, heading, lists, task list and quote. Pressed again, a button
   takes its markup off. ⌘B, ⌘I and ⌘L (link) work too. The buttons only change the
   text, as typing does, so undo takes them back.
+- A tooltip on every button that has a title, the pictures in the bars and
+  rail among them. It shows after a short pause, under the button. The
+  system's own tooltip came late, or not at all, in parts of the window.
 
 ## [0.22.0] - 2026-11-03
 

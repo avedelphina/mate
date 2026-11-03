@@ -531,3 +531,6 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 .welcome .recent .row:hover { background: var(--accent); color: var(--accent-ink); }
 .welcome .recent .row:hover .icon, .welcome .recent .row:hover .meta { color: inherit; }
 .welcome .recent .none { padding: 80px 12px 0; text-align: center; }
+
+/* The tooltip of tooltip.ts: small, under the button, in the same glass as the bars. */
+.tip { position: fixed; inset: auto; margin: 0; max-width: 280px; padding: 5px 10px; border: 0; border-radius: 8px; background: var(--glass); color: var(--ink); box-shadow: var(--float); -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8); font: 12px/1.4 var(--ui); pointer-events: none; overflow: visible; }
