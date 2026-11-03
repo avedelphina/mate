@@ -5,6 +5,15 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## Unreleased
+
+### Added
+
+- A bar of buttons over the field where you type in a file: bold, italic,
+  code, link, heading, lists, task list and quote. Pressed again, a button
+  takes its markup off. ⌘B, ⌘I and ⌘L (link) work too. The buttons only change the
+  text, as typing does, so undo takes them back.
+
 ## [0.22.0] - 2026-11-03
 
 A file can be started in any folder of a project.

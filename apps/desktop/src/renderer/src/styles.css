@@ -217,6 +217,13 @@ button.tool { display: inline-flex; align-items: center; justify-content: center
 .steering { margin: 0; }
 .steer { display: block; width: 100%; min-height: 8em; margin: 6px 0; padding: 8px 10px; resize: vertical; field-sizing: content; }
 .editor { display: block; width: 100%; box-sizing: border-box; min-height: 70vh; border: 0; outline: 0; background: none; color: inherit; resize: none; field-sizing: content; }
+/* The buttons over the field: a capsule that stays at the top while the text scrolls under it. */
+.format { position: sticky; top: 8px; z-index: 1; display: flex; width: max-content; max-width: calc(100% - 24px); margin: 8px auto 0; padding: 2px; border-radius: 99px; background: var(--glass); box-shadow: var(--float); -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8); font: 13px/1 var(--ui); }
+.format button { min-width: 30px; height: 28px; padding: 0 8px; border-radius: 99px; background: none; box-shadow: none; color: var(--ink); font-weight: 500; }
+.format button:hover { background: var(--tint); }
+.format .kind-bold { font-weight: 800; }
+.format .kind-italic { font-style: italic; font-family: var(--read); }
+.format .kind-code { font-family: var(--mono); font-size: 12px; }
 
 /* A file the reader is deciding about, above the page. */
 .source { max-width: 720px; box-sizing: border-box; margin: 12px auto 0; padding: 14px 16px; border-radius: 12px; background: var(--card); box-shadow: var(--lift); }

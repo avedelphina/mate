@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type F
 import { Agent } from './Agent'
 import { BarButton } from './BarButton'
 import { Boundary } from './Boundary'
+import { Editor } from './Editor'
 import { Palette, type Act } from './Palette'
 import { fileNamed } from '../../shared/named'
 import { reviewableMarkdown } from '../../shared/reviewable'
@@ -1967,14 +1968,7 @@ export function App() {
           ) : reading && steerPage.typing !== null ? (
             <>
               {steerPage.error && <p className="error" role="alert">{steerPage.error}</p>}
-              <textarea
-                className="page editor"
-                aria-label={`The text of ${reading.path}`}
-                value={steerPage.typing}
-                spellCheck
-                autoFocus
-                onChange={(event) => steerPage.change(event.target.value)}
-              />
+              <Editor label={`The text of ${reading.path}`} value={steerPage.typing} onChange={steerPage.change} />
             </>
           ) : reading ? (
             <div className="page prose">
@@ -2001,13 +1995,10 @@ export function App() {
             </div>
           ) : typing !== null ? (
             // The text of the file, to type in. What is saved is this text, with the comments kept where they are.
-            <textarea
-              className="page editor"
-              aria-label={`The text of ${file}`}
+            <Editor
+              label={`The text of ${file}`}
               value={typing}
-              spellCheck
-              autoFocus
-              onChange={(event) => setTyping(event.target.value)}
+              onChange={setTyping}
               onBlur={() => void save()}
               onKeyDown={(event) => {
                 if (event.key !== 's' || !(event.metaKey || event.ctrlKey)) return

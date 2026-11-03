@@ -255,6 +255,13 @@ or *New File…* for the project itself. Not in `dropbox/`, `panes/` or
 `scripts/`, and not as `intents.md` or `principles.md`. The name is a
 markdown file unless it ends in a known text ending.
 
+A bar of buttons stays over the field (`Editor.tsx`): bold, italic, code,
+link, heading, lists, task list and quote. `format` in `src/shared/format.ts`
+works out each one as a replacement of a range of the text. The field
+applies it as typing, so undo takes it back, and pressed again a button
+takes its markup off. It is not a second editor: the file is still the text
+in the field.
+
 `retype` gives the file its new text. It compares the old text and the
 new one line by line. A line the reader did not touch keeps its bytes,
 and the markers under it stay under it. A new line takes the line ending

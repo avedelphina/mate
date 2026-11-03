@@ -322,6 +322,20 @@ test('the window, on the example context: a comment into the file, the tree, a p
     // Type in the draft. The file gets the new text, and each comment stays under its passage.
     await app.press('.center .bar button', 'Edit')
     await app.until(`!!document.querySelector('textarea.editor')`, 'the editor on the page')
+    // The bar over the field: Bold wraps the selected words, as typing, and pressed again takes the marks off.
+    const bold = `(() => {
+      const editor = document.querySelector('textarea.editor')
+      const at = editor.value.indexOf('Replace this text with the copy.')
+      editor.focus()
+      editor.setSelectionRange(at, at + 'Replace'.length)
+      document.querySelector('.format button[aria-label="Bold"]').click()
+      return editor.value.includes('**Replace** this text')
+    })()`
+    assert.equal(await app.page(bold), true)
+    assert.equal(await app.page(`(() => {
+      document.querySelector('.format button[aria-label="Bold"]').click()
+      return !document.querySelector('textarea.editor').value.includes('**')
+    })()`), true)
     await app.page(`(() => {
       const editor = document.querySelector('textarea.editor')
       const text = editor.value.replace('Replace this text with the copy.', 'Replace this text with the copy, soon.') + '\\nA line typed in the window.\\n'
