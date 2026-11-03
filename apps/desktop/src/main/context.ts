@@ -559,6 +559,32 @@ export async function createDraft(contextDir: string, project: string, name: str
 }
 
 /**
+ * Start a file in any folder of a project, such as notes or material. `folder` is from the project folder,
+ * empty for the project itself. A name with no known ending is a markdown file. It opens as any text file
+ * does, for review. An existing file is never written over. The intake, the panes and the scripts keep
+ * their own files, and so does the project's steering, so none is made here.
+ */
+export async function createFile(contextDir: string, project: string, name: string, folder = ''): Promise<DocumentView> {
+  const given = String(name).trim()
+  const file = /\.(md|txt|json|xml|ya?ml|toml|log)$/i.test(given) ? given : `${given}.md`
+  const inside = String(folder).split('/').filter(Boolean)
+  if (!NAME.test(file) || BESIDE.test(file)) throw new Error('Name the file with letters and numbers. Spaces, dots, dashes and underscores may follow.')
+  if (!inside.every((part) => NAME.test(part)) || ['dropbox', 'panes', 'scripts'].includes(inside[0])) throw new Error('A file cannot be started in that folder.')
+  if (inside.length === 0 && ['intents.md', 'principles.md'].includes(file)) throw new Error('A project keeps that file for itself.')
+  const dir = await realInside(contextDir, 'projects', project, ...inside).catch(() => null)
+  if (!dir || !(await stat(dir)).isDirectory()) throw new Error('That folder is not in this project.')
+  const text = /\.md$/i.test(file) ? `# ${file.replace(/\.md$/i, '')}\n` : ''
+  try {
+    await writeFile(path.join(dir, file), text, { flag: 'wx' })
+  } catch {
+    throw new Error('A file of that name is already there.')
+  }
+  const where = [...inside, file].join('/')
+  mateWrote(contextDir, `projects/${project}/${where}`, Buffer.from(text))
+  return readProject(contextDir, project, `/${where}`)
+}
+
+/**
  * Move a file or a folder of a project into another folder of the same project. `from` and `to` are
  * paths from the project folder, and `to` is a folder that is there already: empty for the project's
  * own. The comments beside a file and its note go with it. It is the reader's act, so nothing asks the

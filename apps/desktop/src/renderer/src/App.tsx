@@ -183,6 +183,7 @@ export function App() {
   // The name of a new draft, while the reader is typing it in the rail. Null when they are not.
   const [naming, setNaming] = useState<string | null>(null)
   // The folder of the drafts a new draft goes into, while it is named. Empty for the place the project keeps its drafts.
+  // With a slash first, a file of the project rather than a draft, and the folder counts from the project folder.
   const [namingIn, setNamingIn] = useState('')
   // A file the reader is moving by typing where, in the rail, from the palette. Null when they are not.
   const [moving, setMoving] = useState<{ from: string; to: string } | null>(null)
@@ -653,7 +654,7 @@ export function App() {
     event.preventDefault()
     if (!project || !naming?.trim() || !(await leaveEditor())) return
     try {
-      const made = await window.mate.createDraft(project, naming, namingIn)
+      const made = namingIn.startsWith('/') ? await window.mate.createFile(project, naming, namingIn) : await window.mate.createDraft(project, naming, namingIn)
       setError(null)
       setNaming(null)
       setNamingIn('')
@@ -1365,6 +1366,7 @@ export function App() {
       if (file !== null && typing === null && !reading) add('Edit this draft', 'Do', edit)
       if (file !== null && !reading && !outside) add('Publish this draft…', 'Do', () => setPublishing(publishName(file)))
       add('New draft…', 'Do', () => (setNamingIn(''), setNaming('')))
+      add('New file…', 'Do', () => (setNamingIn('/'), setNaming('')))
       add('New folder…', 'Do', () => setMaking(''))
       if (inTree && movable(inTree)) add('Move this file to…', 'Do', () => setMoving({ from: inTree, to: '' }))
       add('Rename this project…', 'Do', () => setRenaming({ what: 'project', name: view.project }))
@@ -1404,6 +1406,7 @@ export function App() {
     view?.project === name
       ? [
           { label: 'New Draft', run: () => (setNamingIn(''), setNaming('')) },
+          { label: 'New File…', run: () => (setNamingIn('/'), setNaming('')) },
           { label: 'New Folder…', run: () => setMaking('') },
           { label: 'Add a Source…', run: () => void addSources() },
           { label: 'Add a Link…', run: () => setLinking({ link: '', busy: false }) },
@@ -1633,6 +1636,7 @@ export function App() {
                         final={view.final.map((each) => `${view.draftsIn}${each}`)}
                         draftsIn={view.draftsIn}
                         onNewDraft={(folder) => (setNamingIn(folder), setNaming(''))}
+                        onNewFile={(folder) => (setNamingIn(`/${folder}`), setNaming(''))}
                         current={inTree}
                         onOpen={openFile}
                         onReveal={openOther}
@@ -1699,8 +1703,8 @@ export function App() {
                             <input
                               autoFocus
                               value={naming}
-                              placeholder={namingIn ? `Name of the draft in ${namingIn}` : 'Name of the draft'}
-                              aria-label="Name of the new draft"
+                              placeholder={namingIn.startsWith('/') ? `Name of the file in ${namingIn.slice(1) || 'the project'}` : namingIn ? `Name of the draft in ${namingIn}` : 'Name of the draft'}
+                              aria-label={namingIn.startsWith('/') ? 'Name of the new file' : 'Name of the new draft'}
                               onChange={(event) => setNaming(event.target.value)}
                               onKeyDown={(event) => event.key === 'Escape' && setNaming(null)}
                               onBlur={() => naming.trim() === '' && setNaming(null)}

@@ -249,7 +249,11 @@ Edit turns the page into the text of the file, to type in. It is the
 text the page shows: the comment markers are not in it, so the reader
 cannot break one. Save, or leaving the field, writes what was typed.
 Done goes back to the drawn page. A new draft is started from the rail:
-a file with its title, open to be written.
+a file with its title, open to be written. A file can also be started in
+any other folder of the project (`createFile`): the plus on the folder,
+or *New File…* for the project itself. Not in `dropbox/`, `panes/` or
+`scripts/`, and not as `intents.md` or `principles.md`. The name is a
+markdown file unless it ends in a known text ending.
 
 `retype` gives the file its new text. It compares the old text and the
 new one line by line. A line the reader did not touch keeps its bytes,

@@ -25,13 +25,15 @@ export function Tree(props: {
   onMove?: (from: string, to: string) => void
   /** A draft is to be started in this folder. With this, a folder of the drafts has a plus. `draftsIn` is where the drafts are. */
   onNewDraft?: (folder: string) => void
+  /** A file is to be started in this folder of the project, one that does not keep drafts. `folder` is counted from the project folder. */
+  onNewFile?: (folder: string) => void
   draftsIn?: string
   /** Files that say they are final, by their path from the project. */
   final?: string[]
   /** What a right click on a row offers. */
   onMenu?: (path: string, folder: boolean) => Item[]
 }) {
-  const { paths, folders = [], base = '', current, onOpen, onReveal, unfolded = 'draft', onMove, onNewDraft, draftsIn = 'draft/', final = [], onMenu } = props
+  const { paths, folders = [], base = '', current, onOpen, onReveal, unfolded = 'draft', onMove, onNewDraft, onNewFile, draftsIn = 'draft/', final = [], onMenu } = props
   const menu = (full: string, folder: boolean) => (onMenu ? onRightClick(() => onMenu(full, folder)) : {})
   const manager = document.documentElement.dataset.platform === 'mac' ? 'Finder' : 'the file manager'
   const isFile = (name: string) => paths.includes(base + name)
@@ -41,6 +43,8 @@ export function Tree(props: {
   const kept = (full: string) => ['draft', 'dropbox', 'panes', 'scripts', 'intents.md', 'principles.md'].includes(full) || /\.(comments|notes)\.md$/i.test(full)
   const drag = (full: string) =>
     onMove && !kept(full) ? { draggable: true, onDragStart: (event: DragEvent) => (event.dataTransfer.setData(MOVE, full), (event.dataTransfer.effectAllowed = 'move')) } : {}
+  // Where the project keeps its drafts, a new file is a draft. Elsewhere it is a file of the project.
+  const drafts = (full: string) => draftsIn === '' || full === draftsIn.slice(0, -1) || full.startsWith(draftsIn)
   here.sort((a, b) => Number(isFile(a)) - Number(isFile(b)) || a.localeCompare(b))
   return (
     <ul className="tree">
@@ -75,18 +79,18 @@ export function Tree(props: {
               >
                 <Icon name={FOLDERS.get(full) ?? 'folder'} />
                 {name}
-                {onNewDraft && (draftsIn === '' ? !['dropbox', 'panes', 'scripts'].includes(full.split('/')[0]) : full === draftsIn.slice(0, -1) || full.startsWith(draftsIn)) && (
+                {onNewDraft && !['dropbox', 'panes', 'scripts'].includes(full.split('/')[0]) && (
                   <button
                     className="add"
-                    title={`A new draft in ${name}`}
-                    aria-label={`A new draft in ${name}`}
-                    onClick={(event) => (event.preventDefault(), event.stopPropagation(), onNewDraft(full.slice(draftsIn.length)))}
+                    title={drafts(full) ? `A new draft in ${name}` : `A new file in ${name}`}
+                    aria-label={drafts(full) ? `A new draft in ${name}` : `A new file in ${name}`}
+                    onClick={(event) => (event.preventDefault(), event.stopPropagation(), drafts(full) ? onNewDraft(full.slice(draftsIn.length)) : onNewFile?.(full))}
                   >
                     <Icon name="plus" size={14} />
                   </button>
                 )}
               </summary>
-              <Tree paths={paths.filter((each) => each.startsWith(`${full}/`))} folders={folders.filter((each) => each.startsWith(`${full}/`))} base={`${full}/`} current={current} onOpen={onOpen} onReveal={onReveal} unfolded={unfolded} onMove={onMove} onNewDraft={onNewDraft} draftsIn={draftsIn} final={final} onMenu={onMenu} />
+              <Tree paths={paths.filter((each) => each.startsWith(`${full}/`))} folders={folders.filter((each) => each.startsWith(`${full}/`))} base={`${full}/`} current={current} onOpen={onOpen} onReveal={onReveal} unfolded={unfolded} onMove={onMove} onNewDraft={onNewDraft} onNewFile={onNewFile} draftsIn={draftsIn} final={final} onMenu={onMenu} />
             </details>
           </li>
         )

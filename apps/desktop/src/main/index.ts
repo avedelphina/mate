@@ -24,6 +24,7 @@ import {
   copySource,
   createContext,
   createDraft,
+  createFile,
   moveEntry,
   createProject,
   importProject,
@@ -700,6 +701,9 @@ app.whenReady().then(() => {
   )
   ipcMain.handle('draft:create', (event, project: string, name: string, folder?: string) =>
     createDraft(requireContext(event), project, String(name), typeof folder === 'string' ? folder : '')
+  )
+  ipcMain.handle('file:create', (event, project: string, name: string, folder?: string) =>
+    createFile(requireContext(event), project, String(name), typeof folder === 'string' ? folder : '')
   )
   // A request to another project. The reader is asked once, in a dialog of the system that names the project it goes to.
   ipcMain.handle('project:send', async (event, project: string, file: string, target: string, passage: string, note: string) => {

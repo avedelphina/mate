@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { addComment, createContext, createDraft, createProject, describeContext, draftFromSource, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
+import { addComment, createContext, createDraft, createFile, createProject, describeContext, draftFromSource, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
@@ -203,6 +203,19 @@ test('a draft is started in a folder, and a file or a folder is moved with what 
     await assert.rejects(createDraft(root, 'review', 'x', 'missing'), /not in the drafts/)
     await assert.rejects(createDraft(root, 'review', 'x', '../outside'), /not a folder of the drafts/)
     await assert.rejects(createDraft(root, 'review', 'design', 'WEF'), /already there/)
+
+    // A file can be started in any folder of the project, but not where the project keeps its own.
+    await makeFolder(root, 'review', 'material')
+    const note = await createFile(root, 'review', 'ideas', '/material')
+    assert.equal(note.file, '/material/ideas.md')
+    assert.equal(await readFile(path.join(project, 'material/ideas.md'), 'utf8'), '# ideas\n')
+    assert.equal((await createFile(root, 'review', 'todo.txt')).file, '/todo.txt')
+    await rm(path.join(project, 'todo.txt'))
+    await assert.rejects(createFile(root, 'review', 'ideas', 'material'), /already there/)
+    await assert.rejects(createFile(root, 'review', 'x', 'panes'), /cannot be started/)
+    await assert.rejects(createFile(root, 'review', 'x', '../outside'), /cannot be started/)
+    await assert.rejects(createFile(root, 'review', 'intents'), /keeps that file/)
+    await assert.rejects(createFile(root, 'review', 'x', 'missing'), /not in this project/)
 
     // A text file goes with its comments and its note, and its twin goes with it.
     await writeFile(path.join(project, 'sysmon.xml'), '<a/>\n')

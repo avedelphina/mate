@@ -5,6 +5,14 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## Unreleased
+
+### Added
+
+- A new file can be started in any folder of a project, not only in the
+  drafts. Press the plus on a folder, or choose *New File…* from the menu of
+  the project. A name with no ending is a markdown file.
+
 ## [0.21.1] - 2026-11-02
 
 Send shows that it worked, and a model the agent refuses is given back.
