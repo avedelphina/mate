@@ -5,7 +5,9 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## Unreleased
+## [0.23.0] - 2026-11-07
+
+The editor has a bar of buttons, diagrams can be drawn, and every button has a tooltip.
 
 ### Added
 
@@ -23,6 +25,13 @@ then, minor versions may change behaviour.
 - A tooltip on every button that has a title, the pictures in the bars and
   rail among them. It shows after a short pause, under the button. The
   system's own tooltip came late, or not at all, in parts of the window.
+
+### Changed
+
+- The tabs of the margin fade at the edge when they do not all fit, and the
+  tab in use is brought into view.
+- Mermaid is part of the app now, so the app is larger. It is loaded only
+  when a diagram is drawn.
 
 ## [0.22.0] - 2026-11-03
 
