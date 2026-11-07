@@ -22,7 +22,10 @@ export function showTooltips(): void {
   }
 
   document.addEventListener('pointerover', (event) => {
-    const from = (event.target as Element).closest?.<HTMLElement>('[title]') ?? null
+    const target = event.target as Element
+    // The title is held back while the tip is on, so the button no longer matches [title]: moving between its parts must not end the tip.
+    if (on?.contains(target)) return
+    const from = target.closest?.<HTMLElement>('[title]') ?? null
     if (from === on) return
     hide()
     if (!from || !from.title) return

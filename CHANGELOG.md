@@ -5,6 +5,13 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Fixed
+
+- A tooltip no longer goes away when the pointer moves between the parts of
+  the same button.
+
 ## [0.23.0] - 2026-11-07
 
 The editor has a bar of buttons, diagrams can be drawn, and every button has a tooltip.
