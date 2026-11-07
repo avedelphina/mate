@@ -343,10 +343,14 @@ test('the window, on the example context: a comment into the file, the tree, a p
     })()`), true)
     await app.page(`(() => {
       const editor = document.querySelector('textarea.editor')
-      const text = editor.value.replace('Replace this text with the copy.', 'Replace this text with the copy, soon.') + '\\nA line typed in the window.\\n'
+      const text = editor.value.replace('Replace this text with the copy.', 'Replace this text with the copy, soon.') + '\\nA line typed in the window.\\n\\n\\x60\\x60\\x60mermaid\\nflowchart TD\\n  A --> B\\n\\x60\\x60\\x60\\n'
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(editor, text)
       editor.dispatchEvent(new Event('input', { bubbles: true }))
     })()`)
+    // While the reader types, the margin has a Preview tab with the page drawn, and a diagram in it is a picture.
+    await app.until(`!!document.querySelector('.margin .preview figure.diagram img')`, 'the diagram drawn in the preview while it is typed')
+    // Drawn, not only present: an image with no size is an empty box.
+    await app.until(`(() => { const r = document.querySelector('.margin .preview figure.diagram img').getBoundingClientRect(); return r.width > 50 && r.height > 50 && r.width < 700 })()`, 'the diagram has a size')
     await app.press('.center .bar button', 'Save')
     await app.until(`[...document.querySelectorAll('.center .bar button')].find((each) => each.textContent === 'Save')?.disabled === true`, 'the draft is saved')
     const typed = (await readFile(path.join(project, 'draft/document.md'), 'utf8')).split('\n')
@@ -355,6 +359,9 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.match(typed[typed.indexOf(passage) + 1], /Said by the test/)
     await app.press('.center .bar button', 'Done')
     await app.until(`document.querySelector('.page.prose')?.textContent.includes('A line typed in the window.')`, 'the page shows what was typed')
+    // On the page the diagram is a picture beside its code block, and adds no word to the page.
+    await app.until(`!!document.querySelector('.page.prose figure.diagram img')`, 'the diagram drawn on the page')
+    assert.equal(await app.page(`document.querySelector('.page.prose figure.diagram').textContent`), '')
     assert.equal(await app.page(`document.querySelectorAll('.thread').length`), 2)
 
     // A new draft is a file with its title, open to be written. Then back to the first one.

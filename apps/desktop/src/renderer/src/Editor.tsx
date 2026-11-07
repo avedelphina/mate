@@ -1,5 +1,7 @@
 import { useRef, type KeyboardEventHandler } from 'react'
-import { format, type Format } from '../../shared/format'
+import { insertDiagram, STARTERS } from '../../shared/diagrams'
+import { format, type Edit, type Format } from '../../shared/format'
+import { popMenu } from './menu'
 
 const BUTTONS: { kind: Format; label: string; face: string; key?: string }[] = [
   { kind: 'bold', label: 'Bold', face: 'B', key: 'b' },
@@ -20,10 +22,9 @@ const BUTTONS: { kind: Format; label: string; face: string; key?: string }[] = [
 export function Editor(props: { value: string; label: string; onChange: (text: string) => void; onBlur?: () => void; onKeyDown?: KeyboardEventHandler<HTMLTextAreaElement> }) {
   const field = useRef<HTMLTextAreaElement>(null)
 
-  const press = (kind: Format) => {
+  const apply = (edit: Edit) => {
     const area = field.current
     if (!area) return
-    const edit = format(area.value, area.selectionStart, area.selectionEnd, kind)
     area.focus()
     area.setSelectionRange(edit.from, edit.to)
     // ponytail: execCommand is deprecated but is the one way to type into a field and keep its undo; fall back to a plain set.
@@ -33,14 +34,36 @@ export function Editor(props: { value: string; label: string; onChange: (text: s
     area.setSelectionRange(edit.select[0], edit.select[1])
   }
 
+  const press = (kind: Format) => {
+    const area = field.current
+    if (area) apply(format(area.value, area.selectionStart, area.selectionEnd, kind))
+  }
+
+  const diagram = (button: Element) =>
+    popMenu(
+      STARTERS.map((each) => ({
+        label: each.name,
+        run: () => {
+          const area = field.current
+          if (area) apply(insertDiagram(area.value, area.selectionEnd, each.source))
+        }
+      })),
+      button
+    )
+
   return (
     <>
-      <div className="format" role="toolbar" aria-label="Format the text" onMouseDown={(event) => event.preventDefault()}>
-        {BUTTONS.map((each) => (
-          <button key={each.kind} className={`quiet kind-${each.kind}`} title={each.key ? `${each.label} (⌘${each.key.toUpperCase()})` : each.label} aria-label={each.label} onClick={() => press(each.kind)}>
-            {each.face}
+      <div className="editing">
+        <div className="format" role="toolbar" aria-label="Format the text" onMouseDown={(event) => event.preventDefault()}>
+          {BUTTONS.map((each) => (
+            <button key={each.kind} className={`quiet kind-${each.kind}`} title={each.key ? `${each.label} (⌘${each.key.toUpperCase()})` : each.label} aria-label={each.label} onClick={() => press(each.kind)}>
+              {each.face}
+            </button>
+          ))}
+          <button className="quiet" title="Start a diagram. The Preview tab draws it as you type." aria-label="Diagram" onClick={(event) => void diagram(event.currentTarget)}>
+            ◇
           </button>
-        ))}
+        </div>
       </div>
       <textarea
         ref={field}

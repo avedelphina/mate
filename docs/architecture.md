@@ -262,6 +262,23 @@ applies it as typing, so undo takes it back, and pressed again a button
 takes its markup off. It is not a second editor: the file is still the text
 in the field.
 
+**Diagrams.** A fenced block with `mermaid` after the fence is a diagram.
+It stays the code block it is in the file. `renderMarkdown` marks where its
+source is (`diagram`), and `Rendered` draws `Diagram.tsx` before the block.
+Mermaid is bundled with the window and loaded the first time a diagram is
+drawn. It runs in `strict` mode, and its drawing is shown as an `<img>`
+with the SVG in its address, so nothing in it can run, nothing is fetched,
+and no word of it is in the page: a mistake is said from `data-error` by
+the stylesheet. So the text of the page is still the text of the file, and
+a comment on a diagram is a comment on its source. In the editor, the
+Diagram button inserts a starter (`src/shared/diagrams.ts`) as typing.
+
+**Preview.** While the reader types in a draft, the margin has a Preview
+tab, opened by *Edit*. It draws the text in the field with `Rendered`, as
+the page will draw it, diagrams included. It follows the typing a little
+late (`useDeferredValue`), so a long draft does not slow the keys. It is
+drawn from the text in the field, not from the file: nothing is saved by it.
+
 `retype` gives the file its new text. It compares the old text and the
 new one line by line. A line the reader did not touch keeps its bytes,
 and the markers under it stay under it. A new line takes the line ending

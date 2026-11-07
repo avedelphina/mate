@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from 'react'
+import { useDeferredValue, useEffect, useRef, useState, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from 'react'
 import { Agent } from './Agent'
 import { BarButton } from './BarButton'
 import { Boundary } from './Boundary'
@@ -596,6 +596,7 @@ export function App() {
     clearComment()
     based.current = view.text
     setTyping(view.text)
+    setTab('preview')
   }
 
   /** Write what was typed into the file. Nothing is written when nothing was typed. */
@@ -1088,7 +1089,23 @@ export function App() {
     const target = reading ? (reading.project === view.project ? reading.path.slice(`projects/${view.project}/`.length) : null) : file === null ? null : outside ? file.replace(/^\//, '') : `${view.draftsIn}${file}`
     return target && !/\.(comments|notes)\.md$/i.test(target) && !target.split('/').some((part) => part.startsWith('.')) ? target : null
   })()
-  const shown = pane ? 'pane' : tab === 'agent' && !agentOnPage ? 'agent' : tab === 'notes' && noteTarget ? 'notes' : 'review'
+  // The drawn page of what is being typed. It exists only while the reader types.
+  const previewing = typing !== null && tab === 'preview'
+  const typed = useDeferredValue(typing ?? '')
+  const shown = pane ? 'pane' : previewing ? 'preview' : tab === 'agent' && !agentOnPage ? 'agent' : tab === 'notes' && noteTarget ? 'notes' : 'review'
+  // The tabs of the margin scroll when they do not fit. The one in use is brought into view, and a fade at the edge says there is more.
+  const tabsBar = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    const bar = tabsBar.current
+    if (!bar) return
+    const fade = () => (bar.dataset.more = String(bar.scrollLeft + bar.clientWidth < bar.scrollWidth - 1))
+    bar.querySelector('.active')?.scrollIntoView({ inline: 'nearest', block: 'nearest' })
+    fade()
+    bar.addEventListener('scroll', fade)
+    const watch = new ResizeObserver(fade)
+    watch.observe(bar)
+    return () => (bar.removeEventListener('scroll', fade), watch.disconnect())
+  }, [shown, view?.panes.length, typing === null, noteTarget])
   // The note about the file on the page. Read again when the file changes, and kept apart from the draft.
   const [fileNote, setFileNote] = useState('')
   useEffect(() => {
@@ -2116,8 +2133,11 @@ export function App() {
         <header className="bar">
           {reading && !view && 'Read only'}
           {view && (
-            <span className="tabs">
+            <span className="tabs" ref={tabsBar}>
               <button className={shown === 'review' ? 'quiet active' : 'quiet'} onClick={() => setTab('review')}>Review</button>
+              {typing !== null && (
+                <button className={shown === 'preview' ? 'quiet active' : 'quiet'} title="The page as it will be drawn, with its diagrams" onClick={() => setTab('preview')}>Preview</button>
+              )}
               {noteTarget && (
                 <button className={shown === 'notes' ? 'quiet active' : 'quiet'} title="Your note about this file" onClick={() => setTab('notes')}>
                   {fileNote.trim() ? 'Notes •' : 'Notes'}
@@ -2153,6 +2173,13 @@ export function App() {
           )}
           {notice && <p className="notice" role="status">{notice}</p>}
           {reading && (!view || shown === 'review') && <p className="meta hint">{KINDS[reading.kind].note}</p>}
+          {view && shown === 'preview' && (
+            <div className="prose pane preview">
+              <Boundary what="This preview" of={typed}>
+                <Rendered text={typed} />
+              </Boundary>
+            </div>
+          )}
           {view && shown === 'notes' && noteTarget && (
             <Notes key={`${view.project} ${noteTarget}`} project={view.project} files={view.files} target={noteTarget} text={fileNote} onSave={saveNote} onOpen={openFile} />
           )}

@@ -1,4 +1,5 @@
 import { createElement, Fragment, useMemo, type KeyboardEvent, type ReactNode } from 'react'
+import { Diagram } from './Diagram'
 import { renderMarkdown, type Piece } from './markdown'
 
 /** A stretch of the document that a thread quotes. `id` is null for the passage being commented now. */
@@ -71,7 +72,15 @@ export function Rendered(props: {
   })
   const draw = (piece: Piece, index: number): ReactNode => {
     if ('tag' in piece) {
-      const { tag, children, ...rest } = piece
+      const { tag, children, diagram, ...rest } = piece
+      if (diagram) {
+        return (
+          <Fragment key={index}>
+            <Diagram source={text.slice(diagram[0], diagram[1])} />
+            {createElement(tag, rest, children.map(draw))}
+          </Fragment>
+        )
+      }
       const first = children[0]
       if (onTick && rest.className?.startsWith('box') && first && !('tag' in first)) {
         const act = { role: 'checkbox', 'aria-checked': rest.className.includes('checked'), ...pressable(() => onTick(first.from)) }

@@ -9,6 +9,13 @@ then, minor versions may change behaviour.
 
 ### Added
 
+- Diagrams. A code block written as `mermaid` is drawn as a picture above
+  its text, on the page. In the editor, a Diagram button offers a few
+  starters (flowchart, sequence, states, timeline) to change. A mistake in a
+  diagram is said under the picture. The text of the file is not changed
+  by any of this, and nothing in a diagram can run.
+- A Preview tab in the margin while you type in a draft: the page as it will
+  be drawn, diagrams included, updated as you type. Edit opens it.
 - A bar of buttons over the field where you type in a file: bold, italic,
   code, link, heading, lists, task list and quote. Pressed again, a button
   takes its markup off. ⌘B, ⌘I and ⌘L (link) work too. The buttons only change the

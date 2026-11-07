@@ -114,3 +114,12 @@ test('words in an answer name a file of the project when they name exactly one',
   assert.equal(fileNamed('../../shelf/terms.md', 'acme', files), null)
   assert.equal(fileNamed('npm install', 'acme', files), null)
 })
+
+test('a mermaid block is a code block with the place of its source marked', () => {
+  const text = 'Before\n\n```mermaid\nflowchart TD\n  A --> B\n```\n\nAfter\n'
+  const code = renderMarkdown(text).find((each) => 'tag' in each && each.tag === 'pre')
+  assert.ok(code && 'tag' in code && code.diagram)
+  assert.equal(text.slice(code.diagram[0], code.diagram[1]), 'flowchart TD\n  A --> B')
+  const plain = renderMarkdown('```js\nlet x\n```\n').find((each) => 'tag' in each && each.tag === 'pre')
+  assert.ok(plain && 'tag' in plain && !plain.diagram)
+})

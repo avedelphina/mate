@@ -4,7 +4,7 @@ type SyntaxNode = ReturnType<typeof parser.parse>['topNode']
 
 /** A stretch of the text. Hidden when it is markup the reader should not see, such as `**`. */
 export type Leaf = { from: number; to: number; hidden: boolean }
-export type Element = { tag: string; className?: string; title?: string; start?: number; children: Piece[] }
+export type Element = { tag: string; className?: string; title?: string; start?: number; diagram?: [from: number, to: number]; children: Piece[] }
 export type Piece = Leaf | Element
 
 const markdown = parser.configure(GFM)
@@ -121,7 +121,10 @@ export function renderMarkdown(text: string): Piece[] {
         const closing = node.lastChild?.name === 'CodeMark' && node.lastChild.from >= bodyStart ? node.lastChild : null
         const bodyEnd = closing ? Math.max(bodyStart, source.lastIndexOf('\n', closing.from)) : to
         const children = filled([leaf(from, bodyStart, true), leaf(bodyStart, bodyEnd), leaf(bodyEnd, to, true)])
-        return [{ tag: 'pre', children }]
+        // A diagram is still the code block it is in the file. The page draws its picture beside it.
+        const info = node.getChild('CodeInfo')
+        const diagram = info && /^mermaid$/i.test(source.slice(info.from, info.to).trim()) && bodyEnd > bodyStart
+        return [diagram ? { tag: 'pre', className: 'diagram-source', diagram: [base + bodyStart, base + bodyEnd], children } : { tag: 'pre', children }]
       }
     }
 
