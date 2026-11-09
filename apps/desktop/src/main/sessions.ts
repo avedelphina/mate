@@ -73,6 +73,13 @@ const autoOf = (id: string): Auto | undefined => {
 /** What an allowance is for: the kind of step the agent names, else its words for the step. */
 const askKey = (ask: Ask): string => ask.kind || ask.title
 
+/** How an agent that writes the files itself answers a comment: in its thread, not beside it. */
+const ANSWER = `   To answer a comment, add your reply to the end of the "replies" list in its marker, on the same line:
+   {"id":"ID.N","text":"your answer","author":"your name"}, where ID is the id of the comment and N is
+   the number of the reply. Make the list if there is none. Change nothing else in the marker.
+   When you are asked to review a draft, first answer each open comment of the reviewer in its thread.
+   Add a new comment only about a passage no comment is about.`
+
 const RULES = `You have been invited into a project on a Mate desk. Mate is a tool for reviewing documents.
 Your working folder is one project. The project is part of a context: a folder of related work.
 
@@ -104,9 +111,10 @@ Rules:
    file and why. Mate puts back any edit made outside this project until the reviewer approves that one file.
 3. Propose a plan first, then stop. Edit files only after the reviewer has approved the plan.
 4. A line of the form <!-- @comment{...} --> in a draft is a review comment. Leave such lines exactly as
-   they are, unless you are asked to answer one. A file that is not markdown, such as a CSV or an XML
-   config, keeps its comments beside it, in NAME.comments.md: each quotes a passage of NAME ("anchor")
-   and names the line it sits under. Read it with the file.
+   they are, but for one thing: you may answer a comment. A file that is not markdown, such as a CSV or
+   an XML config, keeps its comments beside it, in NAME.comments.md: each quotes a passage of NAME
+   ("anchor") and names the line it sits under. Read it with the file.
+${ANSWER}
 5. To show the reviewer something that is not the draft, such as tasks or deadlines, write it as markdown
    to panes/SHORT-NAME.md. Say in it where each thing comes from. Write the file again to bring it up to date.
    In a pane the reviewer can tick a task written as "- [ ]", which changes the file. And a link whose
@@ -151,9 +159,10 @@ Rules:
    </mate-file>
    Mate writes it if the rules allow it, and holds it for the reviewer if they do not.
 5. A line of the form <!-- @comment{...} --> in a draft is a review comment. Keep such lines exactly as
-   they are, unless you are asked to answer one. A file that is not markdown, such as a CSV or an XML
-   config, keeps its comments beside it, in NAME.comments.md: each quotes a passage of NAME ("anchor")
-   and names the line it sits under. Read it with the file.
+   they are, but for one thing: you may answer a comment. A file that is not markdown, such as a CSV or
+   an XML config, keeps its comments beside it, in NAME.comments.md: each quotes a passage of NAME
+   ("anchor") and names the line it sits under. Read it with the file.
+${ANSWER}
 6. To show the reviewer something that is not the draft, such as tasks or deadlines, give it as a file
    at projects/NAME/panes/SHORT-NAME.md. Say in it where each thing comes from.
    In a pane the reviewer can tick a task written as "- [ ]", which changes the file. And a link whose

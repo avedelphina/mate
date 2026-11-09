@@ -1325,7 +1325,10 @@ A door that only reads, as Mate hands to an agent it starts, offers the
 first four.
 Reading and searching say whether a file is the shelf or a proposal.
 `mate_comment` and `mate_reply` work on a draft of the session's own
-project only. `mate_write` goes through `judge`, the same function that
+project only. Asked to review, an agent answers the reader's open comments
+in their threads first, and adds a comment only about a passage no comment
+is about. An agent Mate starts is told the same, and how to add a reply to
+the marker, since it writes the file itself. `mate_write` goes through `judge`, the same function that
 rules on an invited agent's edits. Every call is noted in the session, so
 the reader sees each step.
 

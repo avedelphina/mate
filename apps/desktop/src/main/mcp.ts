@@ -58,6 +58,9 @@ Rules:
 4. mate_write replaces a whole file. It is written only inside your project, and only after the plan is
    approved. Anything else is held for the reviewer.
 5. A line of the form <!-- @comment{...} --> in a draft is a review comment. Keep such lines exactly as they are.
+   To answer one, use mate_reply with its id: mate_comments gives them. When you are asked to review a draft,
+   first answer each open comment of the reviewer in its thread. Use mate_comment only about a passage no
+   comment is about.
    A file that is not markdown, such as a CSV or an XML config, keeps its comments beside it, in
    NAME.comments.md: each quotes a passage of NAME ("anchor") and names the line it sits under.
 6. To show the reviewer something that is not the draft, such as tasks, deadlines, or mail you can reach,
@@ -100,7 +103,7 @@ export const TOOLS = [
     { path: text, passage: text, note: text, replacement: text },
     ['path', 'passage', 'note']
   ),
-  tool('mate_reply', 'Answer a review comment on a draft of your project.', { path: text, id: text, text }),
+  tool('mate_reply', 'Answer a review comment on a draft of your project, in its thread. Use this, not mate_comment, to answer the reviewer.', { path: text, id: text, text }),
   tool('mate_plan', 'Propose your plan to the reviewer. Then wait: do not write before it is approved.', { plan: text }),
   tool('mate_status', 'Whether the plan is approved, what the reviewer has said, and which of your changes are held.'),
   tool('mate_write', 'Replace the whole text of a file. Held for the reviewer unless it is in your project and the plan is approved.', {

@@ -11,6 +11,12 @@ then, minor versions may change behaviour.
 
 - While a project or a file takes a moment to open, the margin says so.
 
+### Changed
+
+- An agent asked to review a draft answers your comments in their threads,
+  as replies. It adds a comment of its own only about a passage you did not
+  comment on. A conversation already under way keeps the old rules: start a
+  new one.
 ### Fixed
 
 - A project in a folder synced on demand, such as Synology Drive or iCloud,
