@@ -192,6 +192,8 @@ export function App() {
   const [making, setMaking] = useState<string | null>(null)
   // The address of a page while it is typed, and whether Firecrawl has it yet. Null when no one is adding a link.
   const [linking, setLinking] = useState<{ link: string; busy: boolean } | null>(null)
+  // What is being opened, once it takes long enough to say so.
+  const [opening, setOpening] = useState<string | null>(null)
   // The name of a project that is being started, while the reader types it.
   const [founding, setFounding] = useState<string | null>(null)
   // The context or the open project being given a new name, while the reader types it.
@@ -737,6 +739,17 @@ export function App() {
     }
   }
 
+  /** Say what is being opened when it takes a moment: a file a sync service keeps in the cloud is fetched first. */
+  async function whileOpening<T>(what: string, work: Promise<T>): Promise<T> {
+    const slow = setTimeout(() => setOpening(what), 300)
+    try {
+      return await work
+    } finally {
+      clearTimeout(slow)
+      setOpening((now) => (now === what ? null : now))
+    }
+  }
+
   async function openProject(name: string, draft?: string) {
     if (!(await leaveEditor())) return
     setPullsOpen(false)
@@ -748,7 +761,7 @@ export function App() {
     setFound(null)
     clearComment()
     try {
-      const next = await window.mate.openProject(name, draft)
+      const next = await whileOpening(draft ?? name, window.mate.openProject(name, draft))
       setView(next)
       // A project with no draft has nothing to review, so its page goes to the conversation.
       setAgentOnPage(next.drafts.length === 0)
@@ -771,7 +784,7 @@ export function App() {
     setFound(null)
     clearComment()
     try {
-      setReading(await window.mate.readFile(path))
+      setReading(await whileOpening(path.split('/').pop() ?? path, window.mate.readFile(path)))
     } catch (caught) {
       setReading(null)
       setError(reason(caught, 'Could not open that file.'))
@@ -788,7 +801,7 @@ export function App() {
     const project = view.project
     if (!(await leaveEditor())) return
     try {
-      const next = await window.mate.openProject(project, path)
+      const next = await whileOpening(path.split('/').pop() ?? path, window.mate.openProject(project, path))
       setPullsOpen(false)
       setError(null)
       setNotice(null)
@@ -2169,6 +2182,11 @@ export function App() {
           {linking?.busy && (
             <p className="notice" role="status">
               <span className="spin" aria-hidden="true" /> Fetching {linking.link.trim()} through Firecrawl. A page can take up to a minute.
+            </p>
+          )}
+          {opening && (
+            <p className="notice" role="status">
+              <span className="spin" aria-hidden="true" /> Opening {opening}. A file kept only in the cloud is fetched first, and that can take a minute.
             </p>
           )}
           {notice && <p className="notice" role="status">{notice}</p>}

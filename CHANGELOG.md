@@ -7,6 +7,10 @@ then, minor versions may change behaviour.
 
 ## Unreleased
 
+### Added
+
+- While a project or a file takes a moment to open, the margin says so.
+
 ### Fixed
 
 - A project in a folder synced on demand, such as Synology Drive or iCloud,
