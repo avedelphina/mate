@@ -5,7 +5,9 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## Unreleased
+## [0.24.0] - 2026-11-09
+
+Projects synced on demand open at once, and agents answer your comments in their threads.
 
 ### Added
 
@@ -17,6 +19,7 @@ then, minor versions may change behaviour.
   as replies. It adds a comment of its own only about a passage you did not
   comment on. A conversation already under way keeps the old rules: start a
   new one.
+
 ### Fixed
 
 - A project in a folder synced on demand, such as Synology Drive or iCloud,
