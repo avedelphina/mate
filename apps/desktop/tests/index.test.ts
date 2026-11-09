@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, truncate, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { addComment, createContext, createDraft, createFile, createProject, describeContext, draftFromSource, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
+import { addComment, createContext, inCloudOnly, createDraft, createFile, createProject, describeContext, draftFromSource, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
@@ -307,6 +307,24 @@ test('the drafts that say they are final are told with the project, and a long f
     await writeFile(path.join(root, 'projects/review/draft/long.md'), `---\ntitle: ${'x'.repeat(5000)}\nstatus: final\n---\n# Long\n`)
     const view = await readProject(root, 'review')
     assert.deepEqual(view.final, ['done.md'])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a file kept only in the cloud is told by its size with no blocks, and is not fetched to be looked into', async () => {
+  const root = await context()
+  try {
+    const draft = path.join(root, 'projects/review/draft')
+    await writeFile(path.join(draft, 'here.md'), '---\nstatus: final\n---\n# Here\n')
+    await writeFile(path.join(draft, 'empty.md'), '')
+    // A sparse file stands in for one a sync service has not brought down: a size, no blocks.
+    await writeFile(path.join(draft, 'cloud.md'), '')
+    await truncate(path.join(draft, 'cloud.md'), 4096)
+    assert.equal(inCloudOnly(await stat(path.join(draft, 'here.md'))), false)
+    assert.equal(inCloudOnly(await stat(path.join(draft, 'empty.md'))), false)
+    assert.equal(inCloudOnly(await stat(path.join(draft, 'cloud.md'))), true)
+    assert.deepEqual((await readProject(root, 'review')).final, ['here.md'])
   } finally {
     await rm(root, { recursive: true, force: true })
   }

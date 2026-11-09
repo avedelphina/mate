@@ -196,7 +196,10 @@ shows the note, the files it names as buttons, and the box to type it in.
 `status: final` in the front matter says a draft is its project's finished
 document (`statusOf` in `shared/status.ts`). Nothing else keeps it.
 `readProject` tells the window which drafts say so (`final`), from the
-first 4 KB of each, so a long front matter is not seen. The bar shows a
+first 4 KB of each, so a long front matter is not seen. A draft that a sync
+service still keeps only in the cloud (a size, no blocks on the disk) is not
+read for it: fetching every draft made a project slow to open. Its check
+shows once it has been opened. The bar shows a
 *Final* mark and the tree a check. It changes no rule: a final draft is not
 the shelf, and the agent is told so in the same words. *Publish…* is on
 every draft, drawn in the accent colour on a final one, and the name it

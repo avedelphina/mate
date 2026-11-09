@@ -5,6 +5,15 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## Unreleased
+
+### Fixed
+
+- A project in a folder synced on demand, such as Synology Drive or iCloud,
+  opens at once. Mate fetched every draft that was still in the cloud
+  before it showed the project. A draft still in the cloud gets its
+  *Final* check once it has been opened.
+
 ## [0.23.1] - 2026-11-07
 
 A fix for the tooltip.

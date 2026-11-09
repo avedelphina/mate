@@ -238,10 +238,21 @@ async function listFiles(dir: string, base = ''): Promise<string[]> {
 // ponytail: the front matter is looked for in the first 4 KB of each draft. A longer one is not seen. Read it whole when that is wanted.
 const META_BYTES = 4096
 
+/**
+ * A file a sync service keeps only in the cloud, such as Synology Drive, iCloud or OneDrive with
+ * files on demand. It has a size but no blocks on this disk, and reading it fetches it first:
+ * seconds each, a minute when the server wakes.
+ */
+export const inCloudOnly = (info: { size: number; blocks: number }): boolean => info.size > 0 && info.blocks === 0
+
 /** The drafts whose front matter says `status: final`. Only the start of each is read. */
+// ponytail: a draft still in the cloud is not fetched to be looked into, so it shows as final only
+// once it has been opened. Read its status from the index if that is wanted.
 async function finalOf(home: string, drafts: string[]): Promise<string[]> {
   const final: string[] = []
   for (const name of drafts) {
+    const info = await stat(path.join(home, name)).catch(() => null)
+    if (!info || inCloudOnly(info)) continue
     const handle = await open(path.join(home, name), 'r').catch(() => null)
     if (!handle) continue
     try {
@@ -416,27 +427,29 @@ export async function readProject(contextDir: string, project: string, file?: st
   if (file !== undefined && !drafts.includes(file) && !text) throw new Error('That draft is not in this project.')
   // With several drafts the reader picks. Opening the first sorted name would be a guess.
   const chosen = file ?? (drafts.length === 1 ? drafts[0] : null)
-  const document =
-    chosen === null
-      ? { text: '', comments: [] }
-      : readDocument(text ? await readWithComments(text) : await readFile(path.join(draftDir, chosen), 'utf8'))
-  const intents = existsSync(path.join(projectDir, 'intents.md'))
-    ? await readFile(path.join(projectDir, 'intents.md'), 'utf8')
-    : ''
-  const principles = existsSync(path.join(projectDir, 'principles.md'))
-    ? await readFile(path.join(projectDir, 'principles.md'), 'utf8')
-    : ''
+  const steering = (name: string) => (existsSync(path.join(projectDir, name)) ? readFile(path.join(projectDir, name), 'utf8') : '')
   // A pane is read like any file that is not reviewed, so it passes the same path check.
   const names = (await listMarkdown(path.join(projectDir, 'panes'))).filter((name) => !name.startsWith('.'))
-  const panes = await Promise.all(
-    names.map(async (name) => ({
-      name,
-      text: (await readContextFile(contextDir, `projects/${project}/panes/${name}`)).text,
-      written: (await stat(path.join(projectDir, 'panes', name))).mtimeMs
-    }))
-  )
+  // Read side by side: a file still in the cloud is fetched first, and fetches wait less together.
+  const [document, intents, principles, panes, files, folders, final] = await Promise.all([
+    chosen === null
+      ? { text: '', comments: [] }
+      : (text ? readWithComments(text) : readFile(path.join(draftDir, chosen), 'utf8')).then(readDocument),
+    steering('intents.md'),
+    steering('principles.md'),
+    Promise.all(
+      names.map(async (name) => ({
+        name,
+        text: (await readContextFile(contextDir, `projects/${project}/panes/${name}`)).text,
+        written: (await stat(path.join(projectDir, 'panes', name))).mtimeMs
+      }))
+    ),
+    listFiles(projectDir),
+    listFolders(projectDir),
+    finalOf(draftDir, drafts)
+  ])
   const draftsIn = draftDir === projectDir ? '' : 'draft/'
-  return { project, drafts, draftsIn, file: chosen, ...document, intents, principles, panes, files: await listFiles(projectDir), folders: await listFolders(projectDir), final: await finalOf(draftDir, drafts) }
+  return { project, drafts, draftsIn, file: chosen, ...document, intents, principles, panes, files, folders, final }
 }
 
 /** Read the draft, change it, and put it back whole. */
