@@ -15,7 +15,7 @@
     "build:assist": "swiftc -O -target arm64-apple-macosx26.0 assist/main.swift -o assist/mate-assist",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "node --experimental-strip-types --import ./tests/register.mjs --test tests/*.test.ts",
-    "test:e2e": "electron-vite build && node --experimental-strip-types --import ./tests/register.mjs --test tests/e2e/*.e2e.ts",
+    "test:e2e": "electron-vite build && node --experimental-strip-types --import ./tests/register.mjs --test-concurrency=1 --test tests/e2e/*.e2e.ts",
     "icon": "electron build/icon.mjs",
     "pack:mac": "pnpm build:assist && electron-vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --arm64 --dir",
     "dist:mac": "pnpm build:assist && electron-vite build && electron-builder --mac --arm64",
