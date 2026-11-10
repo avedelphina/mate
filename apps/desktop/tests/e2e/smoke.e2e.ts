@@ -275,7 +275,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'material.md')`, 'the material in the tree')
     await app.press('.projects .tree .row', 'material.md')
     await app.until(`document.querySelector('.center .bar')?.textContent.includes('material.md') && !!document.querySelector('.page')`, 'the material open for review')
-    assert.equal(await app.page(`[...document.querySelectorAll('.center .bar button')].map((each) => each.textContent.trim()).join()`), 'Open in editor,Edit')
+    assert.equal(await app.page(`[...document.querySelectorAll('.center .bar button')].map((each) => each.textContent.trim()).join()`), 'Open in editor,Edit,Tags…')
     await span('collector', 'collector')
     await note('Which port?')
     assert.equal(await readFile(path.join(project, 'material.md'), 'utf8'), material, 'the file is as it was')
@@ -292,6 +292,17 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.source button', 'Make a draft from its text')
     await app.until(`document.querySelector('.center .bar')?.textContent.includes('page.md')`, 'the draft made of the page')
     assert.match(await readFile(path.join(project, 'draft/page.md'), 'utf8'), /^---\nsource: page\.html\nextracted: \d{4}-\d{2}-\d{2}\n---\n\n[\s\S]*Terms[\s\S]*Pay in 30 days\./)
+    // Tags from the bar go into the front matter that is there, and the rest of it stays.
+    await app.press('.center .bar .acts button', 'Tags…')
+    await app.until(`!!document.querySelector('input[aria-label="Tags of the document"]')`, 'the field for the tags')
+    await app.page(`(() => {
+      const field = document.querySelector('input[aria-label="Tags of the document"]')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, 'terms/payment, Legal review')
+      field.dispatchEvent(new Event('input', { bubbles: true }))
+      field.form.requestSubmit()
+    })()`)
+    await app.until(`[...document.querySelectorAll('.center .bar .tag')].map((each) => each.textContent).join() === '#terms/payment,#Legal-review'`, 'the tags in the bar')
+    assert.match(await readFile(path.join(project, 'draft/page.md'), 'utf8'), /^---\nsource: page\.html\nextracted: \d{4}-\d{2}-\d{2}\ntags: terms\/payment, Legal-review\n---\n/)
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 

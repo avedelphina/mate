@@ -1,4 +1,5 @@
 import { GFM, parser } from '@lezer/markdown'
+import { metaOf } from '../../shared/meta'
 
 type SyntaxNode = ReturnType<typeof parser.parse>['topNode']
 
@@ -71,8 +72,8 @@ const RAW: Record<string, string> = {
  */
 export function renderMarkdown(text: string): Piece[] {
   // Front matter is not markdown. Read as markdown, its closing line would underline a heading.
-  const meta = /^---\n[\s\S]*?\n(?:---|\.\.\.)[ \t]*(?:\n|$)/.exec(text)
-  const base = meta ? meta[0].length : 0
+  const meta = metaOf(text)
+  const base = meta ? meta.to : 0
   const source = text.slice(base)
 
   const leaf = (from: number, to: number, hidden = false): Leaf => ({ from: base + from, to: base + to, hidden })

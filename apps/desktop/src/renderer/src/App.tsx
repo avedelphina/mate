@@ -162,6 +162,8 @@ export function App() {
   const [shelf, setShelf] = useState<string[]>([])
   // The name a draft is being published under, while the reader is choosing it. Null when they are not.
   const [publishing, setPublishing] = useState<string | null>(null)
+  // The tags of the open document as the reader types them in the bar, comma between.
+  const [tagging, setTagging] = useState<string | null>(null)
   // The margin shows the threads of the draft, the agent invited into the project, or one of its panes.
   const [tab, setTab] = useState('review')
   // A session that is not about a draft is a conversation, and the conversation may have the page.
@@ -636,6 +638,21 @@ export function App() {
       }
     )
     return saving.current
+  }
+
+  useEffect(() => setTagging(null), [project, file])
+
+  /** Write the tags typed in the bar into the front matter of the open document. */
+  async function saveTags(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!project || file === null || tagging === null) return
+    try {
+      setView(await window.mate.setTags(project, file, tagging.split(',')))
+      setTagging(null)
+      setError(null)
+    } catch (caught) {
+      setError(reason(caught, 'Could not write the tags.'))
+    }
   }
 
   /** Publish the draft on the page under the name the reader chose. Main asks them once more, by name. */
@@ -1975,6 +1992,20 @@ export function App() {
                   <button className="primary">Publish</button>
                   <button type="button" className="quiet" onClick={() => setPublishing(null)}>Cancel</button>
                 </form>
+              ) : tagging !== null ? (
+                <form className="publish" onSubmit={saveTags}>
+                  <input
+                    autoFocus
+                    value={tagging}
+                    placeholder="work/clients, legal"
+                    aria-label="Tags of the document"
+                    title="Comma between tags. A slash nests one. They are written in the front matter of the file."
+                    onChange={(event) => setTagging(event.target.value)}
+                    onKeyDown={(event) => event.key === 'Escape' && setTagging(null)}
+                  />
+                  <button className="primary">Save</button>
+                  <button type="button" className="quiet" onClick={() => setTagging(null)}>Cancel</button>
+                </form>
               ) : typing === null ? (
                 <>
                   <BarButton icon="editor" label="Open in editor" title="Open it in your editor, at the comment or the selection" onClick={() => void openInEditor()} />
@@ -1982,6 +2013,9 @@ export function App() {
                     <BarButton icon="history" label="History" title="What changed since the last commit, and each commit that changed it" onClick={() => openHistory()} />
                   )}
                   <BarButton icon="edit" label="Edit" onClick={edit} />
+                  {file.toLowerCase().endsWith('.md') && (
+                    <BarButton icon="tag" label="Tags…" title="The tags of this document, in its front matter" onClick={() => setTagging(tagsOf(view?.text ?? '').map((each) => each.tag).join(', '))} />
+                  )}
                   {!outside && <BarButton icon="publish" label="Publish…" fit={statusOf(view?.text ?? '') === 'final'} title={statusOf(view?.text ?? '') === 'final' ? 'The draft is final. Make it a document of the shelf, which every project of the context reads as true.' : 'Make this draft a document of the shelf, which every project of the context reads as true.'} onClick={() => setPublishing(publishName(file))} />}
                 </>
               ) : (

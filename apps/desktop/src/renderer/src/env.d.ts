@@ -262,6 +262,8 @@ export type MateApi = {
     suggestion?: string
   ) => Promise<DocumentView>
   addReply: (project: string, file: string, id: string, text: string, author: string) => Promise<DocumentView>
+  /** Write these tags into the front matter of a document: where its tags were, or in a block made at the top. */
+  setTags: (project: string, file: string, tags: string[]) => Promise<DocumentView>
   applySuggestion: (project: string, file: string, id: string) => Promise<DocumentView>
   editComment: (project: string, file: string, id: string, text: string, reply?: number) => Promise<DocumentView>
   removeComment: (project: string, file: string, id: string, reply?: number) => Promise<DocumentView>

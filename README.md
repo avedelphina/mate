@@ -177,8 +177,11 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   in a note is an instruction to the agent.
 - **Tags.** A markdown file names its tags in its front matter:
   `tags: contract, legal`, or `tags: [contract, legal]`, or a list under
-  `tags:`. They are text in the file, so you type them in the draft and an
-  agent can write them too. The bar of the open file shows them, the rail
+  `tags:`. The front matter is the first thing in the file, between two
+  `---` lines, as other tools expect it. *Tags…* in the bar writes them
+  for you. They
+  are text in the file, so you can type them in the draft and an agent can
+  write them too. The bar of the open file shows them, the rail
   lists the tags in use under *Tags*, and a click searches for the tag.
   Searching `#contract` finds the files that name it, and the comments
   that use it. A tag is letters, numbers, dashes and underscores. Words

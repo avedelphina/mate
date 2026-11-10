@@ -707,8 +707,12 @@ passage that has it, and opens it at the tag. The rail lists the tags in
 use with how many files name each (`tagsInUse`, asked by `context:tags`),
 and the bar of the open file shows its own. They are drawn beside the page,
 not in it, so the page still holds the text of the file and nothing else.
-A tag is edited by typing the front matter in the draft: there is no other
-place for it to be written.
+A tag is typed in the front matter of the draft, or set with *Tags…* in the
+bar, which writes one `tags:` line where the old one was and keeps the rest
+of the block (`withTags`, by `editDraft`). With no block, it makes one at
+the top. Front matter is the first thing in the file only, as other tools
+read it (`metaOf` in `shared/meta.ts`): the same lines at the end are
+markdown.
 
 A slash nests a tag: `work/clients` is under `work`, and a search for
 `#work` finds it too (`under`). The tree of an open project can show its

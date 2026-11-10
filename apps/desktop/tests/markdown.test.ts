@@ -49,7 +49,8 @@ Setext
 `
 
 test('every character of the draft is on the page once, in order', () => {
-  for (const text of [draft, '', 'No newline at the end', '```\nnever closed', '\n\n  \n# Late\n\n']) {
+  const last = '# Title\n\nText.\n\n---\ntags: a, b\n---\n'
+  for (const text of [draft, '', 'No newline at the end', '```\nnever closed', '\n\n  \n# Late\n\n', last]) {
     const all = leaves(renderMarkdown(text))
     let at = 0
     for (const leaf of all) {
@@ -78,6 +79,10 @@ test('front matter and a fenced block are shown as written, without their fences
   assert.ok(code && 'tag' in code)
   const body = leaves(code.children).filter((leaf) => !leaf.hidden)
   assert.deepEqual(body.map((leaf) => draft.slice(leaf.from, leaf.to)), ['const a = 1'])
+})
+
+test('front matter is only the first thing in the file: the same lines at the end are markdown', () => {
+  assert.deepEqual(tags(renderMarkdown('# Title\n\nText.\n\n---\ntags: a\n---\n')), ['h1', 'p', 'div', 'h2'])
 })
 
 test('a task box and a line to say are found on the page by what they are in the text', () => {

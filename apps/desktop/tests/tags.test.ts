@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { tagPaths, tagsOf, under } from '../src/shared/tags.ts'
+import { statusOf } from '../src/shared/status.ts'
+import { tagPaths, tagsOf, under, withTags } from '../src/shared/tags.ts'
 
 const read = (text: string) => tagsOf(text).map((each) => [each.tag, text.slice(each.at, each.at + each.length)])
 
@@ -33,4 +34,19 @@ test('a slash nests a tag, a file shows under every tag it names, and #work find
   assert.equal(under('work/clients', 'work'), true)
   assert.equal(under('work', 'work'), true)
   assert.equal(under('workshop', 'work'), false)
+})
+
+test('the button writes the tags where they were, or makes a block at the top, where front matter is', () => {
+  // Front matter is first in the file, as other tools read it. The same lines at the end are text.
+  const last = '# NDA\n\nText.\n\n---\nstatus: final\ntags: legal\n---\n'
+  assert.deepEqual(tagsOf(last), [])
+  assert.equal(statusOf(last), null)
+  assert.equal(withTags(last, ['work']), `---\ntags: work\n---\n${last}`)
+  assert.equal(withTags('---\ntags:\n  - legal\n  - work\nstatus: final\n---\n# A\n', ['legal']), '---\ntags: legal\nstatus: final\n---\n# A\n')
+
+  assert.equal(withTags('# A\n', ['work / clients', 'legal', 'Legal', '']), '---\ntags: work/clients, legal\n---\n# A\n')
+  assert.equal(withTags('---\ntitle: A\ntags: old\nstatus: draft\n---\n# A\n', ['new']), '---\ntitle: A\ntags: new\nstatus: draft\n---\n# A\n')
+  // A block left with nothing in it goes.
+  assert.equal(withTags('---\ntags: [a, b]\n---\n# A\n', []), '# A\n')
+  assert.equal(withTags('# A\n', []), '# A\n')
 })

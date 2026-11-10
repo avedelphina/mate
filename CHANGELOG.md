@@ -17,6 +17,9 @@ then, minor versions may change behaviour.
   offered when you name a new draft, and the draft starts as the one you
   choose. `{{title}}` in it becomes the draft's name, and `{{date}}`
   today's date. An agent is told the folder is there.
+- *Tags…* in the bar of a document: type its tags, comma between, and they
+  are written into its front matter. A document with none gets a block at
+  the top.
 
 ## [0.24.0] - 2026-11-09
 

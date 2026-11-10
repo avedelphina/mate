@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process'
 import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { addReply, anchorComment, applySuggestion, editComment, fileLineOf, removeComment, setResolved } from '../shared/comments'
+import { withTags } from '../shared/tags'
 import { addable, AGENTS, agentEnvironment, describeAgent, discoverAgents, type AgentKind } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
 import { commitContext, historyOf, inRepository, startRepository, uncommitted, versionAt } from './git'
@@ -687,6 +688,11 @@ app.whenReady().then(() => {
 
   ipcMain.handle('comment:reply', (event, project: string, file: string, id: string, text: string, author: string) =>
     editDraft(requireContext(event), project, file, (markdown) => addReply(markdown, id, text, author))
+  )
+
+  // The tags of a document, from the bar, into its front matter. They are cleaned as tags read from a file are.
+  ipcMain.handle('draft:tags', (event, project: string, file: string, tags: unknown) =>
+    editDraft(requireContext(event), project, file, (markdown) => withTags(markdown, Array.isArray(tags) ? tags.map(String) : []))
   )
 
   // Words, removal and closing of a comment are the reader's. No agent can reach these three.
