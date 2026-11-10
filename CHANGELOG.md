@@ -5,7 +5,9 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## Unreleased
+## [0.27.0] - 2026-11-10
+
+The Agent tab is easier to read in a long session.
 
 ### Changed
 
