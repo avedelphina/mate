@@ -5,9 +5,9 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.26.0] - 2026-11-10
 
-Records: decisions, reviews and register items, such as a repository made from a security architecture template keeps.
+Records of a repository, such as a security architecture template keeps, and projects that start from a folder of templates.
 
 ### Added
 
