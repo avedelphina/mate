@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { EFFORTS } from '../../shared/effort'
 import { fileNamed } from '../../shared/named'
@@ -401,6 +401,8 @@ export function Agent(props: {
             </div>
           )
       )}
+      {/* Many files at once would fill the pane, so more than one folds up, closed. */}
+      <Fold count={session.changes.filter((change) => !change.reverted).length}>
       {session.changes.map(
         (change, index) =>
           !change.reverted && (
@@ -418,6 +420,7 @@ export function Agent(props: {
             </div>
           )
       )}
+      </Fold>
       {error && <p className="error" role="alert">{error}</p>}
 
       <div className="composer talk" onKeyDown={(event) => event.key === 'Enter' && (event.metaKey || event.ctrlKey) && send(false)}>
@@ -563,5 +566,16 @@ function Tune(props: {
         </div>
       </div>
     </>
+  )
+}
+
+/** One changed file shows as it is. More fold into a line that says how many. */
+function Fold({ count, children }: { count: number; children: ReactNode }) {
+  if (count < 2) return <>{children}</>
+  return (
+    <details className="changes">
+      <summary>{count} files changed</summary>
+      {children}
+    </details>
   )
 }

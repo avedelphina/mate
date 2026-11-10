@@ -5,6 +5,14 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## Unreleased
+
+### Changed
+
+- When an agent changes more than one file, the files fold into one line,
+  "N files changed", closed until you open it. They no longer fill the
+  Agent tab.
+
 ## [0.26.0] - 2026-11-10
 
 Records of a repository, such as a security architecture template keeps, and projects that start from a folder of templates.

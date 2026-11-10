@@ -457,6 +457,8 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 .diff .out { background: var(--warn-bg); }
 .decide .diff { margin: 8px 0 0; }
 .diff-note { margin: 0 0 10px; }
+.changes { margin-top: 8px; padding-top: 0; border-top: 0; }
+.changes > summary { cursor: pointer; font-size: 13px; }
 .margin code, .talk-page code { font: 0.92em var(--mono); overflow-wrap: anywhere; }
 .talk { position: sticky; bottom: 0; margin-top: 12px; border-radius: 16px; background: var(--card); box-shadow: var(--float), 0 28px 0 var(--rail); }
 .talk-page .talk { box-shadow: var(--float), 0 28px 0 var(--page); }
