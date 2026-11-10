@@ -118,7 +118,7 @@ export type AgentInfo = { kind: AgentKind; label: string; found: boolean; host: 
 
 /** `waiting`: sent while the agent was working, and not yet given to it. */
 /** `cut`: Mate's note that the turn before it was cut off when the app was closed. */
-export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[]; waiting?: boolean; cut?: boolean }
+export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[]; aside?: string[]; waiting?: boolean; cut?: boolean }
 
 /** One line of a comparison: kept, put in, or taken out. */
 export type DiffLine = { kind: ' ' | '+' | '-'; text: string }

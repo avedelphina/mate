@@ -18,7 +18,16 @@ import { isTrusted, privacyAllows, privacyRefusal } from './trust'
  * `waiting`: sent while the agent was working, and not yet given to it.
  * `cut`: Mate's note that the turn before it was cut off, because the app was closed. The reader can ask the agent to go on.
  */
-export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[]; waiting?: boolean; cut?: boolean }
+/** `aside`: what an agent said on the way, before a step. `text` is what it said after its last step: the answer. */
+export type Message = { role: 'you' | 'agent' | 'mate'; text: string; tools: string[]; aside?: string[]; waiting?: boolean; cut?: boolean }
+
+/** A step begins. What was said so far was said on the way, so it is put aside from the answer. */
+export function step(message: Message, what: string): void {
+  const said = message.text.trim()
+  if (said) (message.aside ??= []).push(said)
+  message.text = ''
+  message.tools.push(what)
+}
 
 /** A file the agent changed and Mate let through. `backup` names the bytes from before. Null: there was no file. */
 export type Kept = { path: string; backup: string | null; reverted: boolean }
@@ -688,7 +697,7 @@ async function begin(
       for (const event of read(line)) {
         if (event.type === 'session') session.agentSession = event.id
         if (event.type === 'text') answer.text += event.text
-        if (event.type === 'tool') answer.tools.push(`${event.name} ${event.detail}`.trim())
+        if (event.type === 'tool') step(answer, `${event.name} ${event.detail}`.trim())
         if (event.type === 'error') errors.push(event.message)
       }
       update()
@@ -703,6 +712,8 @@ async function begin(
     session.asks = []
     for (const each of answers) {
       each.text = each.text.trim()
+      // An agent that ended on a step has no answer after it: its last words on the way are the answer.
+      if (!each.text && each.aside?.length) each.text = each.aside.pop()!
       if (!each.text && each.tools.length === 0) session.messages.splice(session.messages.indexOf(each), 1)
     }
     if (failure) session.messages.push({ role: 'mate', text: failure, tools: [] })
@@ -799,8 +810,8 @@ async function begin(
             answer.text = agent.withoutEcho(answer.text + text)
             update()
           },
-          step: (step) => {
-            answer.tools.push(step)
+          step: (what) => {
+            step(answer, what)
             update()
           },
           ask: (ask) => {

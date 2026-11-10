@@ -127,7 +127,8 @@ test('in a trusted context the agent stays, asks before it acts, and can be told
     const planned = await first.finished
     assert.deepEqual(planned.asks, [])
     const said = planned.messages.at(-2)!
-    assert.deepEqual([said.text, said.tools], ['Working. The answer was no.', ['write_file: draft/document.md']])
+    assert.deepEqual([said.text, said.tools], ['The answer was no.', ['write_file: draft/document.md']])
+    assert.deepEqual(said.aside, ['Working.'])
     // The plan is not approved, so the edit was put back and waits, whatever the agent was allowed.
     assert.equal(await draft(), 'Draft text.\n')
     assert.deepEqual(planned.held.map((held) => held.path), ['projects/review/draft/document.md'])
@@ -142,7 +143,7 @@ test('in a trusted context the agent stays, asks before it acts, and can be told
     const done = await second.finished
     assert.deepEqual(
       done.messages.slice(-3).map((each) => [each.role, each.text]),
-      [['agent', 'Working. The answer was yes.'], ['you', 'Shorter.'], ['agent', 'Then: Shorter..']]
+      [['agent', 'The answer was yes.'], ['you', 'Shorter.'], ['agent', 'Then: Shorter..']]
     )
     assert.equal(done.messages.some((each) => each.waiting), false)
     assert.equal(await draft(), 'Draft text.\nAgent line.\n')
@@ -358,7 +359,7 @@ test('left to finish by itself, an agent that asks is told no, and the work is k
     await whenIdle()
     assert.equal(working(), 0)
     const done = await turn.finished
-    assert.equal(done.messages.find((each) => each.role === 'agent')!.text, 'Working. The answer was no.')
+    assert.equal(done.messages.find((each) => each.role === 'agent')!.text, 'The answer was no.')
     assert.deepEqual(done.asks, [])
     // The guard was through the folder as after any turn: the edit before the plan is put back and held.
     assert.equal(await readFile(path.join(root, 'projects/review/draft/document.md'), 'utf8'), 'Draft text.\n')

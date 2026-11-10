@@ -15,6 +15,10 @@ then, minor versions may change behaviour.
 - Each answer of an agent starts with the agent's name and a thin line above
   it, so in a long session you can see where one message ends and the next
   begins.
+- What an agent says while it works, before a step, now sits in the
+  "N steps" fold. The answer shows only what it said after its last step,
+  so the reader does not read the same thing twice. Paragraphs in an answer
+  have space between them.
 
 ## [0.26.0] - 2026-11-10
 

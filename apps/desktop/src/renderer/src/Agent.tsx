@@ -314,6 +314,8 @@ export function Agent(props: {
           {message.tools.length > 0 && (
             <details className="steps">
               <summary>{message.tools.length === 1 ? '1 step' : `${message.tools.length} steps`}</summary>
+              {/* What the agent said while it worked. The answer is below, so it is not read twice. */}
+              {message.aside?.map((said, at) => <p key={`said${at}`} className="aside">{said}</p>)}
               {message.tools.map((tool, step) => <p key={step}>{tool}</p>)}
             </details>
           )}

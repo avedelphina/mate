@@ -442,9 +442,11 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 .said .who { margin-bottom: 4px; font-weight: 600; }
 .said .prose { font: 14.5px/1.6 var(--read); }
 .said .prose h1, .said .prose h2, .said .prose h3 { font-size: 1.05em; margin-top: 1em; }
+.said .prose p { margin: 0 0 0.8em; }
 .said .prose > :last-child { margin-bottom: 0; }
 .steps { margin-bottom: 4px; color: var(--soft); font-size: 12px; }
 .steps p { margin: 2px 0 0 12px; font: 11.5px/1.5 var(--mono); overflow-wrap: anywhere; }
+.steps p.aside { margin: 6px 0 6px 12px; font: 12.5px/1.5 var(--read); color: var(--soft); }
 .working { margin: 0 0 12px; }
 .decide { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: var(--card); box-shadow: 0 0 0 1px var(--warn), var(--lift); }
 .decide p { margin: 0 0 8px; }
