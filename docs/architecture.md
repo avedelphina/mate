@@ -257,7 +257,7 @@ Done goes back to the drawn page. A new draft is started from the rail:
 a file with its title, open to be written. When the context has markdown
 files in `templates/` (`listTemplates`), the name has a menu of them under
 it, and the draft starts as the one chosen, with `{{title}}` and `{{date}}`
-filled in (`createDraft`). Only a file in that folder is taken. An agent
+filled in (`createDraft`). Only a file in that folder is taken. A folder in `templates/` (`listProjectTemplates`) is the start of a whole project: *New Project…* has a menu of them, and `createProject` copies the folder into the new project as it is (`copyTemplate`). Only markdown has `{{title}}` and `{{date}}` filled in. Hidden names and links are left out, and the two steering files are added only if the folder has none. A copy that fails is removed. An agent
 started by Mate is told the folder is there. A file can also be started in
 any other folder of the project (`createFile`): the plus on the folder,
 or *New File…* for the project itself. Not in `dropbox/`, `panes/` or

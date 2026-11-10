@@ -26,6 +26,7 @@ import {
   createContext,
   createDraft,
   listTemplates,
+  listProjectTemplates,
   createFile,
   moveEntry,
   createProject,
@@ -607,9 +608,9 @@ app.whenReady().then(() => {
     readProject(requireContext(event), project, file)
   )
 
-  ipcMain.handle('project:create', async (event, name: string) => {
+  ipcMain.handle('project:create', async (event, name: string, template = '') => {
     const contextDir = requireContext(event)
-    const made = await createProject(contextDir, String(name))
+    const made = await createProject(contextDir, String(name), String(template))
     return { made, context: await describeContext(contextDir) }
   })
 
@@ -730,6 +731,7 @@ app.whenReady().then(() => {
     writeDraft(requireContext(event), project, file, String(base), String(text))
   )
   ipcMain.handle('context:templates', (event) => listTemplates(requireContext(event)))
+  ipcMain.handle('context:projectTemplates', (event) => listProjectTemplates(requireContext(event)))
   ipcMain.handle('draft:create', (event, project: string, name: string, folder?: string, template?: string) =>
     createDraft(requireContext(event), project, String(name), typeof folder === 'string' ? folder : '', typeof template === 'string' ? template : '')
   )

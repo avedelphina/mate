@@ -30,6 +30,11 @@ Records: decisions, reviews and register items, such as a repository made from a
   in the bar of a project's document or a review, make Word files with
   `tools/build-docs.sh` and show them in Finder. Both only in a context you
   trust, like a script.
+- Project templates. A folder in `templates/` of the context is the start of
+  a whole project. When you name a new project, choose one, and the project
+  begins as a copy of that folder: its folders and files, as they are.
+  Only markdown has `{{title}}` and `{{date}}` filled in. `intents.md` and
+  `principles.md` are added only if the folder has none.
 
 ### Changed
 

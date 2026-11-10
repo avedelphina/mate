@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, truncate, writeFi
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { addComment, createContext, inCloudOnly, listTemplates, createDraft, createFile, createProject, describeContext, draftFromSource, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
+import { addComment, createContext, inCloudOnly, listProjectTemplates, listTemplates, createDraft, createFile, createProject, describeContext, draftFromSource, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
@@ -209,6 +209,38 @@ test('a draft starts as a template of the context, with its title and the date f
     // Only a file of templates/ is a template: a path out of it is refused, and no draft is made.
     await assert.rejects(createDraft(root, 'review', 'Leak', '', '../secret.md'), /not in this context/)
     assert.equal(existsSync(path.join(root, 'projects/review/draft/Leak.md')), false)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a project starts as a copy of a folder of templates/, with its markdown filled in', async () => {
+  const root = await context()
+  try {
+    assert.deepEqual(await listProjectTemplates(root), [])
+    const base = path.join(root, 'templates/architecture')
+    await mkdir(path.join(base, 'decisions'), { recursive: true })
+    await mkdir(path.join(base, '.hidden'))
+    await writeFile(path.join(base, 'README.md'), '# {{title}}\n\n{{ORG}}\n')
+    await writeFile(path.join(base, 'decisions/_template.md'), '# Decision\n')
+    await writeFile(path.join(base, 'tool.py'), 'print("{{title}}")\n')
+    await writeFile(path.join(base, '.hidden/x.md'), 'left out\n')
+    await writeFile(path.join(root, 'templates/loose.md'), 'a draft template, not a project one\n')
+    assert.deepEqual(await listProjectTemplates(root), ['architecture'])
+    const made = await createProject(root, 'SSEH', 'architecture')
+    const project = path.join(root, 'projects', made)
+    assert.equal(await readFile(path.join(project, 'README.md'), 'utf8'), '# SSEH\n\n{{ORG}}\n')
+    assert.equal(await readFile(path.join(project, 'decisions/_template.md'), 'utf8'), '# Decision\n')
+    // Only markdown is filled in. Hidden folders are left out. The steering files are still there.
+    assert.equal(await readFile(path.join(project, 'tool.py'), 'utf8'), 'print("{{title}}")\n')
+    assert.equal(existsSync(path.join(project, '.hidden')), false)
+    assert.equal(existsSync(path.join(project, 'intents.md')), true)
+    // A template with its own intents.md keeps it. A name that is not a folder of templates/ is refused, and no project is made.
+    await writeFile(path.join(base, 'intents.md'), '# Ours\n')
+    await createProject(root, 'Second', 'architecture')
+    assert.equal(await readFile(path.join(root, 'projects/Second/intents.md'), 'utf8'), '# Ours\n')
+    await assert.rejects(createProject(root, 'Third', '../projects'), /not in this context/)
+    assert.equal(existsSync(path.join(root, 'projects/Third')), false)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

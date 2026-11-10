@@ -186,13 +186,56 @@ const STARTS = [
   ['principles.md', '# Principles\n\nThe rules of engagement for this project. They are not traded away to finish faster.\n']
 ]
 
+/** The folders of `templates/`. Each is the start of a whole project: its folders and files. */
+export async function listProjectTemplates(contextDir: string): Promise<string[]> {
+  const dir = path.join(contextDir, 'templates')
+  if (!existsSync(dir)) return []
+  return (await readdir(dir, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
+    .map((entry) => entry.name)
+    .sort()
+}
+
+/** The day where the reader is, not in Greenwich. */
+const today = (): string => {
+  const now = new Date()
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10)
+}
+
+/**
+ * Copy a template folder into a new project, as it is. Only markdown gets `{{title}}` and
+ * `{{date}}` filled in. Hidden names and links are left out: a template is not a way to bring in
+ * what the reader did not see.
+ */
+async function copyTemplate(contextDir: string, from: string, to: string, title: string, within = ''): Promise<void> {
+  for (const entry of await readdir(path.join(from, within), { withFileTypes: true })) {
+    if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
+    const relative = within ? `${within}/${entry.name}` : entry.name
+    if (entry.isDirectory()) {
+      await mkdir(path.join(to, relative))
+      await copyTemplate(contextDir, from, to, title, relative)
+    } else if (entry.isFile()) {
+      let bytes = await readFile(path.join(from, relative))
+      if (relative.toLowerCase().endsWith('.md')) {
+        bytes = Buffer.from(bytes.toString('utf8').replaceAll('{{title}}', title).replaceAll('{{date}}', today()))
+      }
+      await writeFile(path.join(to, relative), bytes, { flag: 'wx' })
+      // An agent may be working in the context. These are not its files.
+      mateWrote(contextDir, `projects/${title}/${relative}`, bytes)
+    }
+  }
+}
+
 /**
  * Start a project in the context: its folder and the two files that steer it. It has no `draft/`
  * folder: every markdown file of a project is a document to review, wherever the reader puts it.
+ * With a template, the project starts as a copy of that folder of `templates/`. The two steering
+ * files are added only if the template has none.
  */
-export async function createProject(contextDir: string, name: string): Promise<string> {
+export async function createProject(contextDir: string, name: string, template = ''): Promise<string> {
   const title = String(name).trim()
   if (!NAME.test(title)) throw new Error('Name the project with letters and numbers. Spaces, dots, dashes and underscores may follow.')
+  if (template && !(await listProjectTemplates(contextDir)).includes(template)) throw new Error('That template is not in this context.')
   await mkdir(path.join(contextDir, 'projects'), { recursive: true })
   // A projects folder that is a link to somewhere else is not written into.
   const dir = path.join(await realInside(contextDir, 'projects'), title)
@@ -201,10 +244,17 @@ export async function createProject(contextDir: string, name: string): Promise<s
   } catch {
     throw new Error('A project of that name is already there.')
   }
-  for (const [file, text] of STARTS) {
-    await writeFile(path.join(dir, file), text, { flag: 'wx' })
-    // An agent may be working in the context. These are not its files.
-    mateWrote(contextDir, `projects/${title}/${file}`, Buffer.from(text))
+  try {
+    if (template) await copyTemplate(contextDir, await realInside(contextDir, 'templates', template), dir, title)
+    for (const [file, text] of STARTS) {
+      if (existsSync(path.join(dir, file))) continue
+      await writeFile(path.join(dir, file), text, { flag: 'wx' })
+      mateWrote(contextDir, `projects/${title}/${file}`, Buffer.from(text))
+    }
+  } catch (failed) {
+    // Half a project is worse than none.
+    await rm(dir, { recursive: true, force: true })
+    throw failed
   }
   return title
 }
@@ -562,10 +612,7 @@ export async function listTemplates(contextDir: string): Promise<string[]> {
 async function fromTemplate(contextDir: string, template: string, title: string): Promise<string> {
   if (!(await listTemplates(contextDir)).includes(template)) throw new Error('That template is not in this context.')
   const text = await readFile(await realInside(contextDir, 'templates', template), 'utf8')
-  // The day where the reader is, not in Greenwich.
-  const now = new Date()
-  const today = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10)
-  return text.replaceAll('{{title}}', title).replaceAll('{{date}}', today)
+  return text.replaceAll('{{title}}', title).replaceAll('{{date}}', today())
 }
 
 export async function createDraft(contextDir: string, project: string, name: string, folder = '', template = ''): Promise<DocumentView> {

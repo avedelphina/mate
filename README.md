@@ -343,7 +343,8 @@ my-context/
   shelf/                 what is true now; changed only by publishing
     .history/            what a publish replaced, by name and time
   dropbox/               intake for material not yet placed
-  templates/             optional: what a new draft can start as (*.md)
+  templates/             optional: what a new draft can start as (*.md),
+                         and what a new project can start as (a folder)
   projects/
     my-project/
       *.md               the documents being written and reviewed, anywhere in the project
@@ -360,7 +361,8 @@ project* a project. Or make the folders yourself. Nothing here is
 required beyond `projects/<name>/`, and any folder can be opened as a
 context. With markdown files in `templates/`, a new draft can start as
 one of them: `{{title}}` in it becomes the draft's name, and `{{date}}`
-today's date. Any other file in a project is material: what came in for the
+today's date. A folder in `templates/` is the same for a whole project: a
+new project can start as a copy of it. Any other file in a project is material: what came in for the
 work, or was made in it. Only `intents.md` and `principles.md` steer a
 project.
 

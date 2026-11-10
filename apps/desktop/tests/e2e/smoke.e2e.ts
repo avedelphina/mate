@@ -594,6 +594,28 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.deepEqual((await readdir(path.join(context, 'projects/Next thing'))).sort(), ['intents.md', 'principles.md'])
     assert.equal(await app.page(`!!document.querySelector('.project-new input')`), false)
 
+    // A folder in templates/ starts a whole project: its folders and files, its title filled in.
+    await mkdir(path.join(context, 'templates/kit/decisions'), { recursive: true })
+    await writeFile(path.join(context, 'templates/kit/README.md'), '# {{title}}\n')
+    await writeFile(path.join(context, 'templates/kit/decisions/_template.md'), '# Decision\n')
+    await fromPalette(app, 'New project…')
+    await app.until(`document.querySelectorAll('.project-new select option').length === 2`, 'the project templates to choose from')
+    assert.deepEqual(await app.page(names('.project-new select option')), ['Blank', 'kit'])
+    await app.page(`(() => {
+      const select = document.querySelector('.project-new select')
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'kit')
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })()`)
+    await app.page(`(() => {
+      const input = document.querySelector('.project-new input')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'From kit')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.form.requestSubmit()
+    })()`)
+    await app.until(`document.querySelector('.row.project.active')?.textContent === 'From kit'`, 'the project from the template, open')
+    assert.equal(await readFile(path.join(context, 'projects/From kit/README.md'), 'utf8'), '# From kit\n')
+    assert.equal(await readFile(path.join(context, 'projects/From kit/decisions/_template.md'), 'utf8'), '# Decision\n')
+
     // The context is a context, and it is in no repository. The reader is asked about that, and git starts one.
     assert.deepEqual(await app.page(names('.rail .ask button')), ['Start a repository'])
     await app.press('.rail .ask button', 'Start a repository')

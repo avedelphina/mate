@@ -206,6 +206,8 @@ export function App() {
   const [opening, setOpening] = useState<string | null>(null)
   // The templates of the context, read when a draft is being named, and the one chosen. None is a blank draft.
   const [templates, setTemplates] = useState<string[]>([])
+  const [projectTemplates, setProjectTemplates] = useState<string[]>([])
+  const [projectTemplate, setProjectTemplate] = useState('')
   const [template, setTemplate] = useState('')
   // The name of a project that is being started, while the reader types it.
   const [founding, setFounding] = useState<string | null>(null)
@@ -609,7 +611,7 @@ export function App() {
     event.preventDefault()
     if (!founding?.trim() || !(await leaveEditor())) return
     try {
-      const { made, context } = await window.mate.createProject(founding)
+      const { made, context } = await window.mate.createProject(founding, projectTemplate)
       setFounding(null)
       take(context)
       await openProject(made)
@@ -729,6 +731,12 @@ export function App() {
     setTemplate('')
     window.mate.listTemplates().then(setTemplates, () => setTemplates([]))
   }, [naming === null])
+
+  useEffect(() => {
+    if (founding === null) return
+    setProjectTemplate('')
+    window.mate.listProjectTemplates().then(setProjectTemplates, () => setProjectTemplates([]))
+  }, [founding === null])
 
   async function newDraft(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -1894,8 +1902,18 @@ export function App() {
                       aria-label="Name of the new project"
                       onChange={(event) => setFounding(event.target.value)}
                       onKeyDown={(event) => event.key === 'Escape' && setFounding(null)}
-                      onBlur={() => founding.trim() === '' && setFounding(null)}
+                      onBlur={(event) => founding.trim() === '' && !event.currentTarget.form?.contains(event.relatedTarget) && setFounding(null)}
                     />
+                    {projectTemplates.length > 0 && (
+                      <select aria-label="Template of the new project" title="The folders in templates/ of the context. {{title}} and {{date}} in its markdown files are filled in." value={projectTemplate} onChange={(event) => (setProjectTemplate(event.target.value), event.currentTarget.form?.querySelector('input')?.focus())}>
+                        <option value="">Blank</option>
+                        {projectTemplates.map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </form>
                 )}
               </div>

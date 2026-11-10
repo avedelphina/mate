@@ -187,7 +187,7 @@ export type MateApi = {
   /** Open one of the contexts opened last. Main opens only one that is on its list. */
   reopenContext: (dir: string) => Promise<Opened>
   /** A project in the open context: its folder, a place for drafts, its intents and its principles. */
-  createProject: (name: string) => Promise<{ made: string; context: Opened }>
+  createProject: (name: string, template?: string) => Promise<{ made: string; context: Opened }>
   /** Bring a folder in as a project: chosen and moved in dialogs of the system. Null when the reader did not. */
   importProject: () => Promise<{ made: string; context: Opened } | null>
   /** Give the open context a new name. Its folder is renamed, with all that is in it. */
@@ -240,6 +240,7 @@ export type MateApi = {
   createDraft: (project: string, name: string, folder?: string, template?: string) => Promise<DocumentView>
   /** The markdown files in the context's templates/ folder. */
   listTemplates: () => Promise<string[]>
+  listProjectTemplates: () => Promise<string[]>
   /** Start a file in any folder of a project, `folder` counted from the project folder. An existing file is never written over. */
   createFile: (project: string, name: string, folder?: string) => Promise<DocumentView>
   /** The path of the request in the other project's dropbox, or null when the reader said no. */
