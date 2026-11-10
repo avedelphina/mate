@@ -5,7 +5,9 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## Unreleased
+## [0.25.0] - 2026-11-10
+
+Nested tags with a view of their own, a button to set them, and templates for new drafts.
 
 ### Added
 
