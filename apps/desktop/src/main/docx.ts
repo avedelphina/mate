@@ -252,7 +252,8 @@ export function docxToMarkdown(file: Buffer): string {
           .map((each) => tidy(marked(pieces(each, targets)).replace(/\s*\n\s*/g, ' ')))
           .filter(Boolean)
           .join(' ')
-          .replace(/\|/g, '\\|')
+          // A backslash before a pipe would turn the escape of the pipe into an escaped backslash.
+          .replace(/\\(?=\|)|\|/g, (mark) => `\\${mark}`)
         const span = Number(val(child(child(cell, 'w:tcPr'), 'w:gridSpan')) ?? 1)
         return [words, ...Array.from({ length: Math.min(Math.max(span, 1), 50) - 1 }, () => '')]
       })

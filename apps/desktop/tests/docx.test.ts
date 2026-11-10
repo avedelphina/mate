@@ -125,6 +125,11 @@ test('a Word file becomes markdown with its headings, lists, table, bold and lin
   assert.equal(docxToMarkdown(zip({ 'word/document.xml': document, 'word/styles.xml': styles, 'word/numbering.xml': numbering, 'word/_rels/document.xml.rels': rels }, true)), expected)
 })
 
+test('a backslash before a pipe in a table cell does not undo the escape of the pipe', () => {
+  const files = { 'word/document.xml': document.replace('WinRM | HTTPS', 'a \\| b'), 'word/styles.xml': styles, 'word/numbering.xml': numbering, 'word/_rels/document.xml.rels': rels }
+  assert.match(docxToMarkdown(zip(files)), /^\| a \\\\\\\| b \| 5986 \|$/m)
+})
+
 test('a file that is not a Word file, or is damaged, or is too large, is refused and nothing in it is run', () => {
   assert.throws(() => docxToMarkdown(Buffer.from('not a zip at all, but long enough to be looked at')), /not a zip/)
   assert.throws(() => docxToMarkdown(zip({ 'word/other.xml': '<a/>' })), /no text part/)
