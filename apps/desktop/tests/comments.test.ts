@@ -56,7 +56,9 @@ test('a thread keeps its replies and what another tool stored in the marker', ()
   assert.deepEqual(parseComments(next)[0].replies, [{ text: 'Because --> it does.', author: 'ada' }])
   assert.match(next, /"timestamp":"2026-03-19T10:00:00Z"/)
   // The reply cannot close the HTML comment early.
-  assert.equal(next.match(/-->/g)?.length, 1)
+  assert.equal(next.match(/--!?>/g)?.length, 1)
+  // `--!>` ends an HTML comment too, in the parsers that follow the HTML standard.
+  assert.equal(addReply(redline, '7', 'Because --!> it does.', 'ada').match(/--!?>/g)?.length, 1)
   assert.throws(() => addReply(next, '8', 'Reply.', 'ada'), /no longer in the file/)
 })
 

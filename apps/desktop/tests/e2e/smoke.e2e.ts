@@ -5,7 +5,7 @@ import { cp, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from '
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { launch } from './drive.ts'
+import { js, launch } from './drive.ts'
 
 const names = (selector: string) =>
   `[...document.querySelectorAll(${JSON.stringify(selector)})].map((each) => each.textContent + (each.classList.contains('active') ? '*' : ''))`
@@ -171,7 +171,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
         note.dispatchEvent(new Event('input', { bubbles: true }))
       })()`)
       await app.press('.composer footer button', 'Add to the file')
-      await app.until(`[...document.querySelectorAll('.thread .note')].some((each) => each.textContent.includes(${JSON.stringify(words)}))`, 'the new thread')
+      await app.until(`[...document.querySelectorAll('.thread .note')].some((each) => each.textContent.includes(${js(words)}))`, 'the new thread')
     }
     await span('bb', 'bb')
     await note('The second bb.')

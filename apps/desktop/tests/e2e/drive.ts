@@ -4,6 +4,10 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
+/** A value as a piece of JavaScript for the page. `<` and the line separators are written out, so it cannot end a script or a line. */
+export const js = (value: unknown): string =>
+  JSON.stringify(value).replace(/[<\u2028\u2029]/g, (mark) => `\\u${mark.charCodeAt(0).toString(16).padStart(4, '0')}`)
+
 /**
  * Start the built app on a context folder and drive its window. No framework: Electron is asked
  * for a debugging port, and the page is spoken to over it with what Node has, as a browser's own
@@ -49,7 +53,8 @@ export async function launch(contextDir: string, kept: Record<string, string> = 
   const waiting = new Map<number, (reply: any) => void>() // eslint-disable-line @typescript-eslint/no-explicit-any
   socket.onmessage = (event) => {
     const reply = JSON.parse(String(event.data))
-    waiting.get(reply.id)?.(reply)
+    const done = waiting.get(reply.id)
+    if (typeof done === 'function') done(reply)
   }
 
   /** Run an expression in the page and give back its value. */
@@ -87,7 +92,7 @@ export async function launch(contextDir: string, kept: Record<string, string> = 
   /** Press the first element that matches `selector` and reads exactly `text`. */
   const press = async (selector: string, text: string): Promise<void> => {
     const pressed = await page(
-      `(() => { const found = [...document.querySelectorAll(${JSON.stringify(selector)})].find((each) => each.textContent.trim() === ${JSON.stringify(text)}); found?.click(); return !!found })()`
+      `(() => { const found = [...document.querySelectorAll(${js(selector)})].find((each) => each.textContent.trim() === ${js(text)}); found?.click(); return !!found })()`
     )
     if (!pressed) throw new Error(`Nothing to press: ${selector} "${text}"`)
   }
