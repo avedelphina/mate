@@ -61,6 +61,8 @@ import { noticeFor, seenOf, type Seen } from '../shared/notice'
 import { notify, notifying, setNotifying } from './notify'
 import { checkForUpdate, installUpdate, startUpdates, updateNow } from './update'
 import { runScript, stopAllScripts, stopScript, wordsOf } from './scripts'
+import { buildDocuments, newRecord } from './records'
+import { recordOf, refsOf, withField } from '../shared/records'
 import { approve, describe, instructionFiles, keepPinsIn, movePins, unapproved } from './pins'
 import {
   PRIVATE,
@@ -533,6 +535,16 @@ app.whenReady().then(() => {
     return Object.fromEntries(files.filter((each) => each.path.startsWith(prefix) && each.tags.length > 0).map((each) => [each.path.slice(prefix.length), each.tags]))
   })
 
+  // The records of a project (documents with an `id` in their front matter) and what each ID opens, from the index.
+  ipcMain.handle('project:records', async (event, project: string) => {
+    const prefix = `projects/${String(project)}/`
+    const files = (await refreshIndex(requireContext(event))).files
+      .filter((each) => each.path.startsWith(prefix) && each.path.toLowerCase().endsWith('.md'))
+      .map((each) => ({ path: each.path.slice(prefix.length), text: each.text }))
+    const records = files.flatMap((each) => recordOf(each.path, each.text) ?? [])
+    return { records, refs: refsOf(files, records) }
+  })
+
   // The passages closest in meaning to the question, from what has its vectors so far.
   // The host of the reader's endpoint, when it may judge passages of this context: not in a private one that
   // is not opened to it. Null otherwise.
@@ -693,6 +705,11 @@ app.whenReady().then(() => {
   // The tags of a document, from the bar, into its front matter. They are cleaned as tags read from a file are.
   ipcMain.handle('draft:tags', (event, project: string, file: string, tags: unknown) =>
     editDraft(requireContext(event), project, file, (markdown) => withTags(markdown, Array.isArray(tags) ? tags.map(String) : []))
+  )
+
+  // One field of a document's front matter, picked in the bar: a status, a decision. The reader's word, kept as written.
+  ipcMain.handle('draft:field', (event, project: string, file: string, key: string, value: string) =>
+    editDraft(requireContext(event), project, file, (markdown) => withField(markdown, String(key), String(value)))
   )
 
   // Words, removal and closing of a comment are the reader's. No agent can reach these three.
@@ -1277,6 +1294,11 @@ app.whenReady().then(() => {
   // scripts.ts checks that the reader trusts the context, and that the file is one of the project's scripts.
   ipcMain.handle('script:run', (event, project: string, line: string) => runScript(requireContext(event), project, String(line)))
   ipcMain.handle('script:stop', (event) => stopScript(requireContext(event)))
+  // The tools of a repository made from the security architecture template. scripts.ts checks the trust, as for a script.
+  ipcMain.handle('records:new', (event, project: string, kind: string, title: string, type?: string) =>
+    newRecord(requireContext(event), String(project), kind, title, type)
+  )
+  ipcMain.handle('records:build', (event, project: string, target: string) => buildDocuments(requireContext(event), String(project), target))
 
   ipcMain.handle('assist:check', () => checkAssist(assistHelper))
 

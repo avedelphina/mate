@@ -1,4 +1,5 @@
 import { createElement, Fragment, useMemo, type KeyboardEvent, type ReactNode } from 'react'
+import { refRanges, type RefRange } from '../../shared/records'
 import { Diagram } from './Diagram'
 import { renderMarkdown, type Piece } from './markdown'
 
@@ -12,13 +13,41 @@ function marked(
   to: number,
   passages: Passage[],
   active: string | null,
-  onPick?: (id: string) => void
+  onPick?: (id: string) => void,
+  refs: RefRange[] = [],
+  onRef?: (path: string) => void
 ) {
-  const inner = passages.flatMap((passage) => [passage.start, passage.end]).filter((cut) => cut > from && cut < to)
+  const named = refs.filter((ref) => ref.end > from && ref.start < to)
+  const inner = [...passages.flatMap((passage) => [passage.start, passage.end]), ...named.flatMap((ref) => [ref.start, ref.end])].filter((cut) => cut > from && cut < to)
   const cuts = [...new Set([from, ...inner, to])].sort((a, b) => a - b)
   return cuts.slice(0, -1).map((start, index) => {
     const end = cuts[index + 1]
-    const piece = text.slice(start, end)
+    const ref = named.find((each) => each.start <= start && each.end >= end)
+    // An ID that names a record is a link. The words are the same, so the page still holds the text of the file.
+    const piece = ref ? (
+      <span
+        key={`ref${start}`}
+        className="ref"
+        role="link"
+        tabIndex={0}
+        title="Open it"
+        onClick={(event) => {
+          // Selecting the words is not pressing them.
+          if (window.getSelection()?.toString()) return
+          event.stopPropagation()
+          onRef?.(ref.path)
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return
+          event.preventDefault()
+          onRef?.(ref.path)
+        }}
+      >
+        {text.slice(start, end)}
+      </span>
+    ) : (
+      text.slice(start, end)
+    )
     const over = passages.filter((passage) => passage.start <= start && passage.end >= end)
     if (over.length === 0) return piece
     const ids = over.flatMap((passage) => (passage.id === null ? [] : [passage.id]))
@@ -55,8 +84,12 @@ export function Rendered(props: {
   onName?: (words: string) => (() => void) | null
   /** A file that is not markdown: its text as it is, in one block, with the same marks. */
   plain?: boolean
+  /** With these, an ID such as `ADR-0004` in the text opens the file it names. `refs` maps each ID to a path. */
+  refs?: Record<string, string>
+  onRef?: (path: string) => void
 }) {
-  const { text, passages = [], active = null, onPick, onTick, onSay, onRun, onName, plain = false } = props
+  const { text, passages = [], active = null, onPick, onTick, onSay, onRun, onName, plain = false, refs, onRef } = props
+  const named = useMemo(() => (refs && onRef && !plain ? refRanges(text, refs) : []), [text, refs, onRef, plain])
   const pieces = useMemo(() => (plain ? [] : renderMarkdown(text)), [text, plain])
   /** The words of a piece as the reader sees them. */
   const shown = (piece: Piece): string => ('tag' in piece ? piece.children.map(shown).join('') : piece.hidden ? '' : text.slice(piece.from, piece.to))
@@ -102,7 +135,7 @@ export function Rendered(props: {
       return createElement(tag, { key: index, ...rest }, children.map(draw))
     }
     if (piece.hidden) return <span key={index} className="syntax">{text.slice(piece.from, piece.to)}</span>
-    return <Fragment key={index}>{marked(text, piece.from, piece.to, passages, active, onPick)}</Fragment>
+    return <Fragment key={index}>{marked(text, piece.from, piece.to, passages, active, onPick, named, onRef)}</Fragment>
   }
   if (plain) {
     // The line numbers are drawn by CSS from an attribute: they are beside the text, and not in it.

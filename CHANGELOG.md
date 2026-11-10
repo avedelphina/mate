@@ -5,6 +5,36 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+Records: decisions, reviews and register items, such as a repository made from a security architecture template keeps.
+
+### Added
+
+- Records. A document whose front matter says `id:` is a record. A project
+  that has some shows *Records* in the rail. The page lists what needs you
+  first, as `tools/repo.py report` of the security architecture template
+  does: items past their due or review day or coming up, items with no
+  owner, deviations with no decision, decisions still proposed. Below it,
+  every record by group, with its status, owner and day.
+- The fields of a record are a row above its page. A field whose comment
+  lists the choices (`status: open  # open | in-progress | closed`) is a
+  menu. A pick is written into the file, and the comment is kept. A day
+  that has passed is marked.
+- An ID in a document, such as `ADR-0004`, `REG-0012`, `P-03` or
+  `STD-IAM-privileged-access`, opens the file it names. The words on the
+  page do not change.
+- *New record…* on the records page makes a decision, review, register
+  item or meeting with the repository's own `tools/repo.py`, so the ID is
+  its own, then opens it. *Build all documents* on that page, and *Build…*
+  in the bar of a project's document or a review, make Word files with
+  `tools/build-docs.sh` and show them in Finder. Both only in a context you
+  trust, like a script.
+
+### Changed
+
+- A `.sh` script whose first line asks for bash is started with `bash`.
+
 ## [0.25.0] - 2026-11-10
 
 Nested tags with a view of their own, a button to set them, and templates for new drafts.

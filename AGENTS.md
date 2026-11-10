@@ -142,6 +142,9 @@ Key modules in `apps/desktop/src/main/`:
 - `pins.ts` — the instruction files the reader approved.
 - `scripts.ts` — runs a script of a project from its button, with no agent
   and no shell.
+- `records.ts` — the tools of a repository made from the security
+  architecture template (`tools/repo.py`, `tools/build-docs.sh`), run
+  on the reader's button in a trusted context, with a line made here.
 - `git.ts` — starts a repository, and commits what changed in the context;
   leaves out a project that is a repository of its own. Reads a file's
   history. Fetches and checks out a pull request.
@@ -171,7 +174,8 @@ with no context open), `menu.ts` (a menu of
 the system, for a right click or a button), `markdown.ts` (the markdown tree), `env.d.ts` (the `window.mate`
 types, shared by both sides).
 
-Shared: `comments.ts` (the marker, and `retype` for typing in a draft),
+Shared: `records.ts` (records, what needs the reader, what an ID opens),
+`comments.ts` (the marker, and `retype` for typing in a draft),
 `diff.ts`, `run.ts`, `effort.ts`, `named.ts`, `twin.ts`.
 
 Where drafts are: `draftsOf` and `draftHome` in `context.ts`. A project

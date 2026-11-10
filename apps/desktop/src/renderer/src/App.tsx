@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useRef, useState, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from 'react'
 import { Agent } from './Agent'
 import { BarButton } from './BarButton'
 import { Boundary } from './Boundary'
@@ -6,12 +6,15 @@ import { Editor } from './Editor'
 import { Palette, type Act } from './Palette'
 import { fileNamed } from '../../shared/named'
 import { reviewableMarkdown } from '../../shared/reviewable'
+import type { RecordRow } from '../../shared/records'
 import { statusOf } from '../../shared/status'
 import { tagPaths, tagsOf } from '../../shared/tags'
 import { isTwinned } from '../../shared/twin'
 import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran, Review } from './env'
 import { History } from './History'
 import { PullRequests } from './Pull'
+import { hasHeader, RecordHeader } from './RecordHeader'
+import { Records } from './Records'
 import { Question, type Judged } from './Question'
 import { Rendered, type Passage } from './Rendered'
 import { Settings, UpdateNotice } from './Settings'
@@ -236,12 +239,16 @@ export function App() {
     setInquiry(null)
     setHistoryPath(null)
     setPullsOpen(false)
+    setRecordsOpen(false)
     setSettingsOpen(true)
   }
   // The history of the open file, in the center like the settings. Its path from the context.
   const [historyPath, setHistoryPath] = useState<string | null>(null)
   // The pull requests of the open project, in the center like the history, and the one it is checked out on.
   const [pullsOpen, setPullsOpen] = useState(false)
+  // The records of the open project (documents that name an id), in the center like the pull requests, and what each ID in a text opens.
+  const [recordsOpen, setRecordsOpen] = useState(false)
+  const [recordSet, setRecordSet] = useState<{ records: RecordRow[]; refs: Record<string, string> }>({ records: [], refs: {} })
   const [review, setReview] = useState<Review | null>(null)
   // Whether the reader trusts the open context: git is asked for a file's history only there.
   const [trustedHere, setTrustedHere] = useState(false)
@@ -301,6 +308,14 @@ export function App() {
       current = false
     }
   }, [project, view?.text, reading?.text])
+  useEffect(() => {
+    if (!project) return setRecordSet({ records: [], refs: {} })
+    let current = true
+    window.mate.projectRecords(project).then((next) => current && setRecordSet(next), () => {})
+    return () => {
+      current = false
+    }
+  }, [project, view?.text, view?.files.length, reading?.text])
   const readingPath = reading?.path
   // The open file, when it is the intents or the principles of the open project: the reader can type those.
   const steering = view && readingPath ? (['intents', 'principles'] as const).find((name) => readingPath === `projects/${view.project}/${name}.md`) ?? null : null
@@ -310,6 +325,7 @@ export function App() {
   // The pull request the open project is checked out on is read from its files. The forge is not asked.
   useEffect(() => {
     setPullsOpen(false)
+    setRecordsOpen(false)
     if (!project) return setReview(null)
     let current = true
     window.mate.reviewing(project).then((next) => current && setReview(next), () => current && setReview(null))
@@ -642,6 +658,27 @@ export function App() {
 
   useEffect(() => setTagging(null), [project, file])
 
+  /** What the repository's build tool builds for the open file: the project it is in, or the review it is. Null when it builds nothing of it. */
+  const buildTarget =
+    view?.files.includes('tools/build-docs.sh') && file !== null && !reading
+      ? (/^projects\/([^/_][^/]*)\//.exec(`${view.draftsIn}${file}`)?.[0].slice(0, -1) ??
+        (/^reviews\/[^/_][^/]*\.md$/i.test(`${view.draftsIn}${file}`) ? `${view.draftsIn}${file}` : null))
+      : null
+
+  /** Build the Word file of a project or a review of a repository made from the template, and show it. */
+  async function build(target: string) {
+    if (!project) return
+    setNotice(null)
+    try {
+      const built = await window.mate.buildDocuments(project, target)
+      setNotice(built.built.length > 0 ? `Built ${built.built.join(', ')}.` : 'The tool built nothing.')
+      if (built.built[0]) void window.mate.revealFile(`projects/${project}/${built.built[0]}`).catch(() => {})
+      setError(null)
+    } catch (caught) {
+      setError(reason(caught, 'Could not build that.'))
+    }
+  }
+
   /** Write the tags typed in the bar into the front matter of the open document. */
   async function saveTags(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -792,6 +829,7 @@ export function App() {
   async function openProject(name: string, draft?: string) {
     if (!(await leaveEditor())) return
     setPullsOpen(false)
+    setRecordsOpen(false)
     setError(null)
     setNotice(null)
     setPublishing(null)
@@ -815,6 +853,7 @@ export function App() {
   async function read(path: string) {
     if (!(await leaveEditor())) return
     setPullsOpen(false)
+    setRecordsOpen(false)
     setAgentOnPage(false)
     setNotice(null)
     setPublishing(null)
@@ -842,6 +881,7 @@ export function App() {
     try {
       const next = await whileOpening(path.split('/').pop() ?? path, window.mate.openProject(project, path))
       setPullsOpen(false)
+      setRecordsOpen(false)
       setError(null)
       setNotice(null)
       setPublishing(null)
@@ -873,6 +913,7 @@ export function App() {
     setInquiry(null)
     setSettingsOpen(false)
     setPullsOpen(false)
+    setRecordsOpen(false)
     setHistoryPath(where)
   }
 
@@ -880,7 +921,16 @@ export function App() {
     setInquiry(null)
     setSettingsOpen(false)
     setHistoryPath(null)
+    setRecordsOpen(false)
     setPullsOpen(true)
+  }
+
+  function openRecords() {
+    setInquiry(null)
+    setSettingsOpen(false)
+    setHistoryPath(null)
+    setPullsOpen(false)
+    setRecordsOpen(true)
   }
 
   /** After a pull request was checked out, sent or left: the files of the project are others now. */
@@ -927,6 +977,7 @@ export function App() {
     setSettingsOpen(false)
     setHistoryPath(null)
     setPullsOpen(false)
+    setRecordsOpen(false)
     setInquiry({ question: heading, query: question, keep: source, leave, found: null })
     setJudged(null)
     window.mate.judgingHost().then(setJudgeHost, () => setJudgeHost(null))
@@ -1441,6 +1492,7 @@ export function App() {
       if (inTree && movable(inTree)) add('Move this file to…', 'Do', () => setMoving({ from: inTree, to: '' }))
       add('Rename this project…', 'Do', () => setRenaming({ what: 'project', name: view.project }))
       add(review ? `Pull request #${review.number}` : 'Pull requests', 'Show', openPulls)
+      if (recordSet.records.length > 0) add('Records', 'Show', openRecords)
       add('Add a source…', 'Do', () => void addSources())
       add('Add a link…', 'Do', () => setLinking({ link: '', busy: false }))
       add(agentOnPage ? 'Put the conversation back in the margin' : 'Open the conversation in the page', 'Do', agentOnPage ? toMargin : toPage)
@@ -1482,6 +1534,7 @@ export function App() {
           { label: 'Add a Link…', run: () => setLinking({ link: '', busy: false }) },
           null,
           { label: 'Pull Requests…', run: openPulls },
+          ...(recordSet.records.length > 0 ? [{ label: 'Records…', run: openRecords }] : []),
           { label: 'Rename Project…', run: () => setRenaming({ what: 'project', name }) },
           { label: 'Show in Finder', run: () => void window.mate.revealFile(`projects/${name}`) }
         ]
@@ -1499,6 +1552,8 @@ export function App() {
 
   // Where the page is in the tree of the open project, when it is in it at all.
   const inTree = reading ? (reading.project === project ? reading.path.split('/').slice(2).join('/') : null) : file && (outside ? file.replace(/^\//, '') : `${view?.draftsIn ?? ''}${file}`)
+  // What an ID opens, but not the document it is in: its own id in its front matter links to itself.
+  const refsHere = useMemo(() => Object.fromEntries(Object.entries(recordSet.refs).filter(([, where]) => where !== inTree)), [recordSet.refs, inTree])
 
   // With no context open, the window greets as Xcode does. Settings still open over it.
   if (!contextDir && !settingsOpen) return <Welcome error={error} onOpen={() => void openContext()} onNew={() => void newContext()} onReopen={(dir) => void reopenContext(dir)} />
@@ -1698,6 +1753,13 @@ export function App() {
                         )}
                       </div>
                     )}
+                    {view && project === name && recordSet.records.length > 0 && (
+                      <div className="tabs tree-view" role="group" aria-label="Records">
+                        <button className={recordsOpen ? 'active' : 'quiet'} aria-pressed={recordsOpen} title="The documents of this project that name an id in their front matter, and what needs you" onClick={() => (recordsOpen ? setRecordsOpen(false) : openRecords())}>
+                          Records <span className="meta">{recordSet.records.length}</span>
+                        </button>
+                      </div>
+                    )}
                     {view && project === name && Object.keys(tagged).length > 0 && (
                       <div className="tabs tree-view" role="group" aria-label="Show the files">
                         <button className={byTag ? 'quiet' : 'active'} aria-pressed={!byTag} onClick={() => setByTag(false)}>Files</button>
@@ -1890,6 +1952,19 @@ export function App() {
             onClose={() => setPullsOpen(false)}
           />
         )}
+        {recordsOpen && view && (
+          <Records
+            project={view.project}
+            records={recordSet.records}
+            canMake={trustedHere && view.files.includes('tools/repo.py')}
+            canBuild={trustedHere && view.files.includes('tools/build-docs.sh')}
+            trusted={trustedHere}
+            onOpen={(where) => (setRecordsOpen(false), openFile(where))}
+            onChanged={refreshProject}
+            onBuilt={(where) => void window.mate.revealFile(`projects/${view.project}/${where}`).catch(() => {})}
+            onClose={() => setRecordsOpen(false)}
+          />
+        )}
         {settingsOpen && (
           <Settings
             onClose={() => setSettingsOpen(false)}
@@ -1912,7 +1987,7 @@ export function App() {
             onClose={() => setInquiry(null)}
           />
         )}
-        <header className="bar" hidden={inquiry !== null || settingsOpen || historyPath !== null || pullsOpen}>
+        <header className="bar" hidden={inquiry !== null || settingsOpen || historyPath !== null || pullsOpen || recordsOpen}>
           {/* The title of the page, as a Mac app has it: the name, and under it where it is. */}
           {onPage && (
             <span className="title">
@@ -2016,6 +2091,9 @@ export function App() {
                   {file.toLowerCase().endsWith('.md') && (
                     <BarButton icon="tag" label="Tags…" title="The tags of this document, in its front matter" onClick={() => setTagging(tagsOf(view?.text ?? '').map((each) => each.tag).join(', '))} />
                   )}
+                  {trustedHere && buildTarget && (
+                    <BarButton icon="publish" label="Build…" title="A Word file of this, with the repository's tools/build-docs.sh. It goes to dist/ and is shown." onClick={() => void build(buildTarget)} />
+                  )}
                   {!outside && <BarButton icon="publish" label="Publish…" fit={statusOf(view?.text ?? '') === 'final'} title={statusOf(view?.text ?? '') === 'final' ? 'The draft is final. Make it a document of the shelf, which every project of the context reads as true.' : 'Make this draft a document of the shelf, which every project of the context reads as true.'} onClick={() => setPublishing(publishName(file))} />}
                 </>
               ) : (
@@ -2027,7 +2105,7 @@ export function App() {
             </span>
           )}
         </header>
-        <div className="scroll" hidden={inquiry !== null || settingsOpen || historyPath !== null || pullsOpen}>
+        <div className="scroll" hidden={inquiry !== null || settingsOpen || historyPath !== null || pullsOpen || recordsOpen}>
           {/* A file the reader is deciding about. It leaves by one of the exits. There is no exit where it is just remembered. */}
           {view &&
             sources.map((source) => (
@@ -2096,7 +2174,7 @@ export function App() {
             <div className="page prose">
               {reading.twin && !reading.text.trim() && <p className="meta">Mate found no text in this file. It may be locked, or hold pictures with no words in them.</p>}
               <Boundary what="This file" of={reading.text}>
-                <Rendered text={reading.text} passages={passages} />
+                <Rendered text={reading.text} passages={passages} refs={refsHere} onRef={openFile} />
               </Boundary>
             </div>
           ) : !view ? (
@@ -2130,8 +2208,20 @@ export function App() {
             />
           ) : (
             <div className="page prose" ref={page} onMouseUp={pickPassage}>
+              {/* Beside the text, not in it: the front matter stays in the page as the file has it. */}
+              {!textFile && hasHeader(view.text) && (
+                <RecordHeader
+                  text={view.text}
+                  onPick={(key, value) =>
+                    void window.mate.setField(view.project, file, key, value).then(
+                      (next) => (setView(next), setError(null)),
+                      (caught) => setError(reason(caught, 'Could not change that field.'))
+                    )
+                  }
+                />
+              )}
               <Boundary what="This draft" of={view.text}>
-                <Rendered text={view.text} passages={passages} active={active} onPick={setActive} plain={textFile} />
+                <Rendered text={view.text} passages={passages} active={active} onPick={setActive} plain={textFile} refs={refsHere} onRef={openFile} />
               </Boundary>
             </div>
           )}

@@ -1,3 +1,4 @@
+import type { RecordRow } from '../../shared/records'
 export type Reply = { text: string; author: string }
 
 export type ReviewComment = {
@@ -264,6 +265,14 @@ export type MateApi = {
   addReply: (project: string, file: string, id: string, text: string, author: string) => Promise<DocumentView>
   /** Write these tags into the front matter of a document: where its tags were, or in a block made at the top. */
   setTags: (project: string, file: string, tags: string[]) => Promise<DocumentView>
+  /** One field of the front matter, set to a word. The comment after it is kept. */
+  setField: (project: string, file: string, key: string, value: string) => Promise<DocumentView>
+  /** The records of a project, and what each ID in a text opens, by path from the project. */
+  projectRecords: (project: string) => Promise<{ records: RecordRow[]; refs: Record<string, string> }>
+  /** A record made with the repository's own tool. Where it is, from the project. Trusted contexts only. */
+  newRecord: (project: string, kind: string, title: string, type?: string) => Promise<string>
+  /** Word files built with the repository's own tool. Where they are, from the project. Trusted contexts only. */
+  buildDocuments: (project: string, target: string) => Promise<{ built: string[]; output: string }>
   applySuggestion: (project: string, file: string, id: string) => Promise<DocumentView>
   editComment: (project: string, file: string, id: string, text: string, reply?: number) => Promise<DocumentView>
   removeComment: (project: string, file: string, id: string, reply?: number) => Promise<DocumentView>

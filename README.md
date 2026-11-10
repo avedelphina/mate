@@ -189,6 +189,19 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   `work/clients` is under `work`, and `#work` finds both. The tree of a
   project switches between its files and its tags: there a file is under
   every tag it names.
+- **Records.** A document whose front matter says `id:` is a record, as
+  the decisions, reviews and register items of the security architecture
+  template are. A project that has some shows *Records* in the rail: what
+  needs you first (past a due or review day, no owner, a deviation with no
+  decision, a decision still proposed), then every record by group. The
+  fields of an open record are a row above the page, and a field that lists
+  its choices in its comment, `# open | in-progress | closed`, is a menu:
+  you pick the word, and the file gets it. An ID in the text, such as
+  `ADR-0004` or `P-03`, opens its file. In a context you trust, and when
+  the project has `tools/repo.py` and `tools/build-docs.sh` of that
+  template, *New record…* makes a record with its tool, and *Build…* makes
+  Word files. Mate reads the files and runs those two tools. It adds
+  nothing of its own to the folder.
 - **Notifications.** When Mate is behind another window, the system tells
   you that an agent has finished, has a plan to approve, is asking you
   something, or wants to change a file, and that a new version is ready.

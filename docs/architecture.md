@@ -72,6 +72,8 @@ preload as CommonJS. Leave that as it is.
 | Publishing a draft, and taking a shelf document down | `publish` and `takeDown` in `src/main/context.ts` |
 | How a file comes in, and the exits of a dropbox | `pullIn`, `noteSource`, `copySource` and `copyFolder` in `src/main/context.ts` |
 | Running a script of a project | `src/main/scripts.ts` |
+| Records: what is one, what needs the reader, what an ID opens | `src/shared/records.ts`, then `project:records` in `src/main/index.ts`, `Records.tsx`, `RecordHeader.tsx` and `Rendered.tsx` |
+| Making a record and building Word files with a repository's tools | `src/main/records.ts`, then `runScript` in `src/main/scripts.ts` |
 | Search by meaning: passages, vectors, the model | `src/main/meaning.ts` |
 | Which files have a text twin, and how it is made | `src/shared/twin.ts`, then `src/main/twins.ts`, and `--pdf` in `assist/main.swift` |
 | Starting a repository, and committing | `src/main/git.ts`, and who may in `src/main/index.ts` |
@@ -969,6 +971,68 @@ for the agent's. Not done: resolving a conversation. A comment with markers comm
 the repository lands a few lines off when it comes in, since the forge
 counts the marker lines and the page does not.
 
+## Records
+
+A record is a markdown document whose front matter says `id:`. The shape
+comes from the security architecture template (decisions `ADR-0001`,
+reviews `REV-0001`, register items `REG-0001`, each with `status`, `owner`,
+`due`, `review`). Mate does not make the shape: it reads it, and a document
+that has no `id` is no record. A file or folder that starts with `_` is a
+template, and is no record either.
+
+`shared/records.ts` is the whole of the reading, and has no I/O:
+
+- `headerOf` reads the front matter as flat `key: value` lines. A trailing
+  comment of plain lower-case words with a bar between,
+  `# open | in-progress | closed`, is the field's list of choices. A note
+  in brackets after it is left off. Free text that holds a bar, such as
+  `# audit | project | REV-…`, is not a list.
+- `attention` has the rules of `tools/repo.py report`: open register items
+  past `due` or `review` or within 30 days, accepted decisions to review,
+  reviews still a draft past `due`, register items with no owner,
+  deviations with no `decision`, decisions still `proposed`. If the tool
+  changes its rules, change them here.
+- `refsOf` and `refRanges` say what an ID in a text opens: a record's own
+  `id`, a standard or a pattern by its file name (`STD-IAM-…`), and
+  `P-NN` by its heading in a `principles.md`. Only a whole word counts:
+  `ADR-0001` is not found in `ADR-00010`.
+- `withField` sets one field, keeps its comment and the comment's column,
+  and takes only a plain word, so a pick cannot add a line.
+
+`project:records` makes the list from the index (`refreshIndex`), so no
+file is read that is not read already. That matters in a folder synced on
+demand. The window asks again when the open text or the files change.
+
+The page draws an ID as a link in `marked` in `Rendered.tsx`, by cutting
+the text where the ID starts and ends and wrapping that piece. No
+character is added or removed, so the page still holds the text of the
+file (rule 4), and a passage can still be selected and commented. Words
+that were selected are not pressed. The document's own `id` is not a link
+to itself.
+
+The row of fields above a page (`RecordHeader.tsx`) sits beside the text
+and not in it. A pick goes to `draft:field`, and `editDraft` writes it as
+a comment is written. Only the reader picks: no agent has this handler,
+and a `status` is a human decision (the template says so too).
+
+### The repository's tools
+
+*New record…* and *Build…* run `tools/repo.py` and `tools/build-docs.sh`
+of the project. They are programs of the context, so they follow the rule
+of a script (rule 7): `runScript` checks the trust, no agent is involved,
+and there is no shell. The line is made in `records.ts` from checked
+words: a kind from a list, a type from a list, a title with its quotes
+and leading dashes taken off, and a target that is `--all`, one
+`projects/KEY`, or one `reviews/NAME.md`. The window cannot send a line.
+A button of the reader's own reaches `scripts/` only: `runScript` takes
+the other folder, `tools`, from Mate's own code.
+
+After a record is made, `repo.py index` runs, so the overview tables in
+the folder READMEs list it, as the template's own instructions ask. A
+shell script that begins `#!/usr/bin/env bash` is started with `bash`:
+`build-docs.sh` uses arrays. Word files go to `dist/`, and the first one
+is shown in Finder. The template names `dist/` in its `.gitignore`.
+
 ## The files of a project
 
 The rail lists the files of the open project as a tree, under its name.
@@ -1097,7 +1161,8 @@ rights, so:
 - It runs as the line on the button says: the file, then what it is
   given. There is no shell in between, so nothing it is given is read as
   a command. A `.py`, `.sh`, `.js` or `.mjs` file is started with
-  `python3`, `sh` or `node`. Any other file must be one the system can
+  `python3`, `sh` or `node`; a `.sh` file that asks for bash on its first
+  line, with `bash`. Any other file must be one the system can
   start itself.
 - It runs in the project folder, one at a time in a context, and not
   while an agent is working there, since the guard would take what it

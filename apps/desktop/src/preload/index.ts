@@ -68,6 +68,10 @@ contextBridge.exposeInMainWorld('mate', {
   addReply: (project: string, file: string, id: string, text: string, author: string) =>
     ipcRenderer.invoke('comment:reply', project, file, id, text, author),
   setTags: (project: string, file: string, tags: string[]) => ipcRenderer.invoke('draft:tags', project, file, tags),
+  setField: (project: string, file: string, key: string, value: string) => ipcRenderer.invoke('draft:field', project, file, key, value),
+  projectRecords: (project: string) => ipcRenderer.invoke('project:records', project),
+  newRecord: (project: string, kind: string, title: string, type?: string) => ipcRenderer.invoke('records:new', project, kind, title, type),
+  buildDocuments: (project: string, target: string) => ipcRenderer.invoke('records:build', project, target),
   applySuggestion: (project: string, file: string, id: string) =>
     ipcRenderer.invoke('comment:apply', project, file, id),
   editComment: (project: string, file: string, id: string, text: string, reply?: number) =>

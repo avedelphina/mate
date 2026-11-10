@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { stat } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { agentEnvironment } from './agents'
 import { realInside, resolveInside } from './context'
@@ -39,7 +39,11 @@ export const stopScript = (contextDir: string): void => running.get(contextDir)?
 /** When the app is quit, no script is left running behind it. */
 export const stopAllScripts = (): void => running.forEach((stop) => stop())
 
-export async function runScript(contextDir: string, project: string, line: string, seconds = MAX_SECONDS): Promise<Ran> {
+/**
+ * `folder` is where the file must be: `scripts`, for a button of the reader's. Only Mate's own code
+ * passes another (`tools`, for the tools of a template repository), with a line it made itself.
+ */
+export async function runScript(contextDir: string, project: string, line: string, seconds = MAX_SECONDS, folder = 'scripts'): Promise<Ran> {
   if (!isTrusted(contextDir)) throw new Error('A script runs only in a context you trust. Trust this context in the Agent tab first.')
   if (running.has(contextDir)) throw new Error('A script is running in this context. Wait for it, or stop it.')
   // The guard would take what the script changes for the agent's, and put it back.
@@ -53,14 +57,16 @@ export async function runScript(contextDir: string, project: string, line: strin
   try {
     const [script, ...args] = wordsOf(line)
     const parts = (script ?? '').split('/')
-    if (parts[0] !== 'scripts' || parts.length < 2 || parts.some((part) => part === '' || part.startsWith('.'))) {
-      throw new Error('Only a script in the scripts folder of this project is run: scripts/NAME, then what it is given.')
+    if (parts[0] !== folder || parts.length < 2 || parts.some((part) => part === '' || part.startsWith('.'))) {
+      throw new Error(`Only a script in the ${folder} folder of this project is run: ${folder}/NAME, then what it is given.`)
     }
     const projectDir = resolveInside(contextDir, 'projects', project)
     // Where the file really is: a link in scripts/ that points out of the context is not run.
     const file = await realInside(contextDir, 'projects', project, ...parts)
     if (!(await stat(file)).isFile()) throw new Error('That is not a script.')
-    const starter = STARTERS[path.extname(file).toLowerCase()]
+    let starter = STARTERS[path.extname(file).toLowerCase()]
+    // A shell script that asks for bash may use what only bash has: arrays, [[ ]].
+    if (starter === 'sh' && /^#!.*\bbash\b/.test((await readFile(file, 'utf8')).slice(0, 120).split('\n')[0])) starter = 'bash'
 
     const began = Date.now()
     return await new Promise<Ran>((resolve) => {
