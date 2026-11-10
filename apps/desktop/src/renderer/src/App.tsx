@@ -199,6 +199,9 @@ export function App() {
   const [linking, setLinking] = useState<{ link: string; busy: boolean } | null>(null)
   // What is being opened, once it takes long enough to say so.
   const [opening, setOpening] = useState<string | null>(null)
+  // The templates of the context, read when a draft is being named, and the one chosen. None is a blank draft.
+  const [templates, setTemplates] = useState<string[]>([])
+  const [template, setTemplate] = useState('')
   // The name of a project that is being started, while the reader types it.
   const [founding, setFounding] = useState<string | null>(null)
   // The context or the open project being given a new name, while the reader types it.
@@ -667,11 +670,17 @@ export function App() {
     }
   }
 
+  useEffect(() => {
+    if (naming === null) return
+    setTemplate('')
+    window.mate.listTemplates().then(setTemplates, () => setTemplates([]))
+  }, [naming === null])
+
   async function newDraft(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!project || !naming?.trim() || !(await leaveEditor())) return
     try {
-      const made = namingIn.startsWith('/') ? await window.mate.createFile(project, naming, namingIn) : await window.mate.createDraft(project, naming, namingIn)
+      const made = namingIn.startsWith('/') ? await window.mate.createFile(project, naming, namingIn) : await window.mate.createDraft(project, naming, namingIn, template || undefined)
       setError(null)
       setNaming(null)
       setNamingIn('')
@@ -1777,8 +1786,18 @@ export function App() {
                               aria-label={namingIn.startsWith('/') ? 'Name of the new file' : 'Name of the new draft'}
                               onChange={(event) => setNaming(event.target.value)}
                               onKeyDown={(event) => event.key === 'Escape' && setNaming(null)}
-                              onBlur={() => naming.trim() === '' && setNaming(null)}
+                              onBlur={(event) => naming.trim() === '' && !event.currentTarget.form?.contains(event.relatedTarget) && setNaming(null)}
                             />
+                            {!namingIn.startsWith('/') && templates.length > 0 && (
+                              <select aria-label="Template of the new draft" title="The files in templates/ of the context. {{title}} and {{date}} in one are filled in." value={template} onChange={(event) => (setTemplate(event.target.value), event.currentTarget.form?.querySelector('input')?.focus())}>
+                                <option value="">Blank</option>
+                                {templates.map((name) => (
+                                  <option key={name} value={name}>
+                                    {name.replace(/\.md$/i, '')}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
                           </form>
                         )}
                       </div>

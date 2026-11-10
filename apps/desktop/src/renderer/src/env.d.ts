@@ -235,7 +235,10 @@ export type MateApi = {
   /** Save what the reader typed. `base` is the text they began from: it is refused when the file holds another by now. */
   writeDraft: (project: string, file: string, base: string, text: string) => Promise<DocumentView>
   /** Start a new draft in a project. An existing file is never written over. */
-  createDraft: (project: string, name: string, folder?: string) => Promise<DocumentView>
+  /** `template` is a file of the context's templates/ folder. Without it, the draft is its name as a heading. */
+  createDraft: (project: string, name: string, folder?: string, template?: string) => Promise<DocumentView>
+  /** The markdown files in the context's templates/ folder. */
+  listTemplates: () => Promise<string[]>
   /** Start a file in any folder of a project, `folder` counted from the project folder. An existing file is never written over. */
   createFile: (project: string, name: string, folder?: string) => Promise<DocumentView>
   /** The path of the request in the other project's dropbox, or null when the reader said no. */

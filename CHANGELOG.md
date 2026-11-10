@@ -13,6 +13,10 @@ then, minor versions may change behaviour.
   finds both. The tree of a project switches between its files and its
   tags, once a file of it names one. There a file is under every tag it
   names.
+- Templates. Markdown files in a `templates/` folder of the context are
+  offered when you name a new draft, and the draft starts as the one you
+  choose. `{{title}}` in it becomes the draft's name, and `{{date}}`
+  today's date. An agent is told the folder is there.
 
 ## [0.24.0] - 2026-11-09
 

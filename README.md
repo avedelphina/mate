@@ -327,6 +327,7 @@ my-context/
   shelf/                 what is true now; changed only by publishing
     .history/            what a publish replaced, by name and time
   dropbox/               intake for material not yet placed
+  templates/             optional: what a new draft can start as (*.md)
   projects/
     my-project/
       *.md               the documents being written and reviewed, anywhere in the project
@@ -341,7 +342,9 @@ my-context/
 Mate makes this shape for you: *New context…* the outer one, *+ New
 project* a project. Or make the folders yourself. Nothing here is
 required beyond `projects/<name>/`, and any folder can be opened as a
-context. Any other file in a project is material: what came in for the
+context. With markdown files in `templates/`, a new draft can start as
+one of them: `{{title}}` in it becomes the draft's name, and `{{date}}`
+today's date. Any other file in a project is material: what came in for the
 work, or was made in it. Only `intents.md` and `principles.md` steer a
 project.
 

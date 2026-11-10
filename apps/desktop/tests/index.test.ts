@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, truncate, writeFi
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { addComment, createContext, inCloudOnly, createDraft, createFile, createProject, describeContext, draftFromSource, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
+import { addComment, createContext, inCloudOnly, listTemplates, createDraft, createFile, createProject, describeContext, draftFromSource, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
@@ -190,6 +190,25 @@ test('a #tag finds the documents whose front matter names it, at the tag, and th
     assert.deepEqual(searchIndex(await refreshIndex(root), '#contract').map((hit) => hit.path).sort(), ['projects/review/draft/brief.md', 'projects/review/draft/nda.md', 'shelf/policy.md'])
     assert.deepEqual(searchIndex(await refreshIndex(root), '#contract xcontract').map((hit) => hit.path), [])
     assert.deepEqual(tagsInUse(index), [{ tag: 'Contract', count: 2 }, { tag: 'legal', count: 1 }])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a draft starts as a template of the context, with its title and the date filled in', async () => {
+  const root = await context()
+  try {
+    assert.deepEqual(await listTemplates(root), [])
+    await mkdir(path.join(root, 'templates'))
+    await writeFile(path.join(root, 'templates/meeting.md'), '# {{title}}\n\nDate: {{date}}\n\n## Decisions\n')
+    await writeFile(path.join(root, 'secret.md'), 'not a template\n')
+    assert.deepEqual(await listTemplates(root), ['meeting.md'])
+    const made = await createDraft(root, 'review', 'Kickoff', '', 'meeting.md')
+    const now = new Date()
+    assert.equal(made.text, `# Kickoff\n\nDate: ${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}\n\n## Decisions\n`)
+    // Only a file of templates/ is a template: a path out of it is refused, and no draft is made.
+    await assert.rejects(createDraft(root, 'review', 'Leak', '', '../secret.md'), /not in this context/)
+    assert.equal(existsSync(path.join(root, 'projects/review/draft/Leak.md')), false)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

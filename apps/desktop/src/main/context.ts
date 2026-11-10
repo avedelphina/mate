@@ -553,7 +553,22 @@ export async function draftFromSource(contextDir: string, project: string, name:
 }
 
 /** Start a new draft in a project: a file with its title and nothing else. An existing file is never written over. */
-export async function createDraft(contextDir: string, project: string, name: string, folder = ''): Promise<DocumentView> {
+/** The templates of a context: the markdown files in its `templates/` folder. A new draft can start as one. */
+export async function listTemplates(contextDir: string): Promise<string[]> {
+  return (await listMarkdown(path.join(contextDir, 'templates'))).filter((name) => !name.startsWith('.'))
+}
+
+/** A new draft as a template has it, with {{title}} and {{date}} filled in. Only a template the context has. */
+async function fromTemplate(contextDir: string, template: string, title: string): Promise<string> {
+  if (!(await listTemplates(contextDir)).includes(template)) throw new Error('That template is not in this context.')
+  const text = await readFile(await realInside(contextDir, 'templates', template), 'utf8')
+  // The day where the reader is, not in Greenwich.
+  const now = new Date()
+  const today = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10)
+  return text.replaceAll('{{title}}', title).replaceAll('{{date}}', today)
+}
+
+export async function createDraft(contextDir: string, project: string, name: string, folder = '', template = ''): Promise<DocumentView> {
   const title = String(name).trim().replace(/\.md$/i, '')
   if (!NAME.test(title)) throw new Error('Name the draft with letters and numbers. Spaces, dots, dashes and underscores may follow.')
   const projectDir = resolveInside(contextDir, 'projects', project)
@@ -566,7 +581,7 @@ export async function createDraft(contextDir: string, project: string, name: str
     if (!dir || !(await stat(dir)).isDirectory()) throw new Error('That folder is not in the drafts of this project.')
   }
   const file = [...inside, `${title}.md`].join('/')
-  const text = `# ${title}\n`
+  const text = template ? await fromTemplate(contextDir, template, title) : `# ${title}\n`
   await putDraft(contextDir, project, file, text, 'A draft of that name is already there.')
   return readProject(contextDir, project, file)
 }

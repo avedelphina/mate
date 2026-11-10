@@ -252,7 +252,11 @@ Edit turns the page into the text of the file, to type in. It is the
 text the page shows: the comment markers are not in it, so the reader
 cannot break one. Save, or leaving the field, writes what was typed.
 Done goes back to the drawn page. A new draft is started from the rail:
-a file with its title, open to be written. A file can also be started in
+a file with its title, open to be written. When the context has markdown
+files in `templates/` (`listTemplates`), the name has a menu of them under
+it, and the draft starts as the one chosen, with `{{title}}` and `{{date}}`
+filled in (`createDraft`). Only a file in that folder is taken. An agent
+started by Mate is told the folder is there. A file can also be started in
 any other folder of the project (`createFile`): the plus on the folder,
 or *New File…* for the project itself. Not in `dropbox/`, `panes/` or
 `scripts/`, and not as `intents.md` or `principles.md`. The name is a

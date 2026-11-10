@@ -24,6 +24,7 @@ import {
   copySource,
   createContext,
   createDraft,
+  listTemplates,
   createFile,
   moveEntry,
   createProject,
@@ -705,8 +706,9 @@ app.whenReady().then(() => {
   ipcMain.handle('draft:write', (event, project: string, file: string, base: string, text: string) =>
     writeDraft(requireContext(event), project, file, String(base), String(text))
   )
-  ipcMain.handle('draft:create', (event, project: string, name: string, folder?: string) =>
-    createDraft(requireContext(event), project, String(name), typeof folder === 'string' ? folder : '')
+  ipcMain.handle('context:templates', (event) => listTemplates(requireContext(event)))
+  ipcMain.handle('draft:create', (event, project: string, name: string, folder?: string, template?: string) =>
+    createDraft(requireContext(event), project, String(name), typeof folder === 'string' ? folder : '', typeof template === 'string' ? template : '')
   )
   ipcMain.handle('file:create', (event, project: string, name: string, folder?: string) =>
     createFile(requireContext(event), project, String(name), typeof folder === 'string' ? folder : '')

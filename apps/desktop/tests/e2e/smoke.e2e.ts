@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { cp, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -244,6 +244,26 @@ test('the window, on the example context: a comment into the file, the tree, a p
     })()`)
     await app.until(`document.querySelector('.center .bar').textContent.includes('contracts/terms.md')`, 'the new draft, in the folder')
     assert.equal(await readFile(path.join(project, 'draft/contracts/terms.md'), 'utf8'), '# terms\n')
+    await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
+    // With a template in the context, a new draft can start as it, its name filled in.
+    await mkdir(path.join(context, 'templates'))
+    await writeFile(path.join(context, 'templates/meeting.md'), '# {{title}}\n\n## Decisions\n')
+    await app.page(`[...document.querySelectorAll('.projects .tree summary')].find((each) => each.textContent === 'contracts').querySelector('.add').click()`)
+    await app.until(`document.querySelectorAll('.tree-new select option').length === 2`, 'the templates to choose from')
+    assert.deepEqual(await app.page(names('.tree-new select option')), ['Blank', 'meeting'])
+    await app.page(`(() => {
+      const select = document.querySelector('.tree-new select')
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'meeting.md')
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })()`)
+    await app.page(`(() => {
+      const field = document.querySelector('input[aria-label="Name of the new draft"]')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, 'kickoff')
+      field.dispatchEvent(new Event('input', { bubbles: true }))
+      field.form.requestSubmit()
+    })()`)
+    await app.until(`document.querySelector('.center .bar').textContent.includes('contracts/kickoff.md')`, 'the draft from the template')
+    assert.equal(await readFile(path.join(project, 'draft/contracts/kickoff.md'), 'utf8'), '# kickoff\n\n## Decisions\n')
     await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
