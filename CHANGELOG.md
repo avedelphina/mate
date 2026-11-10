@@ -5,6 +5,15 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## Unreleased
+
+### Added
+
+- Tags nest: `work/clients` is a tag under `work`, and a search for `#work`
+  finds both. The tree of a project switches between its files and its
+  tags, once a file of it names one. There a file is under every tag it
+  names.
+
 ## [0.24.0] - 2026-11-09
 
 Projects synced on demand open at once, and agents answer your comments in their threads.

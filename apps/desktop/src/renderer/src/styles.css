@@ -344,6 +344,9 @@ mark.pending, mark.found { background: var(--mark-pending); }
 .tabs button.active, .tabs button.active:hover:not(:disabled) { background: var(--card); box-shadow: var(--edge); }
 /* A pane written while the reader was in the conversation: marked, not opened. */
 .tabs button.fresh::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: var(--accent); vertical-align: middle; }
+/* In the rail, the switch between the files of a project and its tags. */
+.tabs.tree-view { display: flex; width: fit-content; margin: 4px 8px 2px; }
+.tabs.tree-view button { padding: 1px 10px; font-size: 11.5px; }
 .margin .bar > :only-child:not(.tabs) { margin: 0 auto; color: var(--soft); font-weight: 600; }
 /* A comment, as a card in the inspector. */
 .thread blockquote, .swap { padding-left: 10px; border-left: 2px solid var(--mark-active); color: var(--soft); font: italic 14px/1.5 var(--read); }

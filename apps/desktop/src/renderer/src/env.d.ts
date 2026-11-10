@@ -198,6 +198,8 @@ export type MateApi = {
   currentContext: () => Promise<Opened | null>
   searchContext: (query: string) => Promise<Hit[]>
   contextTags: () => Promise<{ tag: string; count: number }[]>
+  /** The tags each file of a project names, by its path from the project. Only files that name one. */
+  projectTags: (project: string) => Promise<Record<string, string[]>>
   readFile: (path: string) => Promise<FileView>
   /** Show a file of the context in the system's file manager. It is not opened. */
   revealFile: (path: string) => Promise<void>

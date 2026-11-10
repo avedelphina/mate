@@ -182,7 +182,10 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   lists the tags in use under *Tags*, and a click searches for the tag.
   Searching `#contract` finds the files that name it, and the comments
   that use it. A tag is letters, numbers, dashes and underscores. Words
-  with a space in them become one with dashes.
+  with a space in them become one with dashes. A slash nests a tag:
+  `work/clients` is under `work`, and `#work` finds both. The tree of a
+  project switches between its files and its tags: there a file is under
+  every tag it names.
 - **Notifications.** When Mate is behind another window, the system tells
   you that an agent has finished, has a plan to approve, is asking you
   something, or wants to change a file, and that a new version is ready.

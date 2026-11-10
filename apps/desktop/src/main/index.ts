@@ -524,6 +524,12 @@ app.whenReady().then(() => {
 
   // The tags the documents name in their front matter. Read from the index, which the files can rebuild.
   ipcMain.handle('context:tags', async (event) => tagsInUse(await refreshIndex(requireContext(event))))
+  // The tags of each file of a project, from the index: nothing is read that is not read already.
+  ipcMain.handle('project:tags', async (event, project: string) => {
+    const prefix = `projects/${String(project)}/`
+    const files = (await refreshIndex(requireContext(event))).files
+    return Object.fromEntries(files.filter((each) => each.path.startsWith(prefix) && each.tags.length > 0).map((each) => [each.path.slice(prefix.length), each.tags]))
+  })
 
   // The passages closest in meaning to the question, from what has its vectors so far.
   // The host of the reader's endpoint, when it may judge passages of this context: not in a private one that

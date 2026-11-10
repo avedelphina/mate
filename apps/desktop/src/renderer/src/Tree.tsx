@@ -32,8 +32,10 @@ export function Tree(props: {
   final?: string[]
   /** What a right click on a row offers. */
   onMenu?: (path: string, folder: boolean) => Item[]
+  /** The picture of every folder, where they are not folders on the disk: the tags. */
+  folderIcon?: IconName
 }) {
-  const { paths, folders = [], base = '', current, onOpen, onReveal, unfolded = 'draft', onMove, onNewDraft, onNewFile, draftsIn = 'draft/', final = [], onMenu } = props
+  const { paths, folders = [], base = '', current, onOpen, onReveal, unfolded = 'draft', onMove, onNewDraft, onNewFile, draftsIn = 'draft/', final = [], onMenu, folderIcon } = props
   const menu = (full: string, folder: boolean) => (onMenu ? onRightClick(() => onMenu(full, folder)) : {})
   const manager = document.documentElement.dataset.platform === 'mac' ? 'Finder' : 'the file manager'
   const isFile = (name: string) => paths.includes(base + name)
@@ -77,7 +79,7 @@ export function Tree(props: {
                 {...(onMove && !['panes', 'scripts'].includes(full.split('/')[0]) ? dropOn(full, onMove) : {})}
                 {...menu(full, true)}
               >
-                <Icon name={FOLDERS.get(full) ?? 'folder'} />
+                <Icon name={folderIcon ?? FOLDERS.get(full) ?? 'folder'} />
                 {name}
                 {onNewDraft && !['dropbox', 'panes', 'scripts'].includes(full.split('/')[0]) && (
                   <button
@@ -90,7 +92,7 @@ export function Tree(props: {
                   </button>
                 )}
               </summary>
-              <Tree paths={paths.filter((each) => each.startsWith(`${full}/`))} folders={folders.filter((each) => each.startsWith(`${full}/`))} base={`${full}/`} current={current} onOpen={onOpen} onReveal={onReveal} unfolded={unfolded} onMove={onMove} onNewDraft={onNewDraft} onNewFile={onNewFile} draftsIn={draftsIn} final={final} onMenu={onMenu} />
+              <Tree paths={paths.filter((each) => each.startsWith(`${full}/`))} folders={folders.filter((each) => each.startsWith(`${full}/`))} base={`${full}/`} current={current} onOpen={onOpen} onReveal={onReveal} unfolded={unfolded} onMove={onMove} onNewDraft={onNewDraft} onNewFile={onNewFile} draftsIn={draftsIn} final={final} onMenu={onMenu} folderIcon={folderIcon} />
             </details>
           </li>
         )

@@ -185,6 +185,10 @@ test('a #tag finds the documents whose front matter names it, at the tag, and th
     assert.equal((await readFile(path.join(root, nda.path), 'utf8')).slice(nda.start!, nda.start! + nda.length), 'Contract')
     // A word that is no tag of any document finds nothing, and the others are counted without regard to case.
     assert.deepEqual(searchIndex(index, '#secret').map((hit) => hit.path), [])
+    // A nested tag is found by the tag it is under, and a plain word is not taken for a tag.
+    await writeFile(path.join(root, 'projects/review/draft/brief.md'), '---\ntags: contract/sale\n---\n# Brief\n')
+    assert.deepEqual(searchIndex(await refreshIndex(root), '#contract').map((hit) => hit.path).sort(), ['projects/review/draft/brief.md', 'projects/review/draft/nda.md', 'shelf/policy.md'])
+    assert.deepEqual(searchIndex(await refreshIndex(root), '#contract xcontract').map((hit) => hit.path), [])
     assert.deepEqual(tagsInUse(index), [{ tag: 'Contract', count: 2 }, { tag: 'legal', count: 1 }])
   } finally {
     await rm(root, { recursive: true, force: true })

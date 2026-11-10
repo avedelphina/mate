@@ -23,6 +23,9 @@ test('the window, on the example context: a comment into the file, the tree, a p
   const context = path.join(root, 'example')
   await cp(path.resolve(import.meta.dirname, '../../../../contexts/_example'), context, { recursive: true })
   const project = path.join(context, 'projects/document-review')
+  // Tags for the tag view: one nested, and both on the same file.
+  const readme = path.join(project, 'README.md')
+  await writeFile(readme, `---\ntags: guide/start, example\n---\n${await readFile(readme, 'utf8')}`)
   const app = await launch(context)
   try {
     // The folder on the command line is the open context. No folder dialog is involved.
@@ -35,6 +38,14 @@ test('the window, on the example context: a comment into the file, the tree, a p
       (await app.page<string[]>(names('.projects .tree .row'))).sort(),
       ['README.md', 'README.md', 'count-words.py', 'document.md*', 'intents.md', 'principles.md', 'tasks.md', 'workflow.md']
     )
+    // The tree can show the files under their tags instead: a slash nests a tag, and a file is under each of its tags.
+    await app.until(`!!document.querySelector('.projects .tree-view')`, 'the switch to the tags')
+    await app.press('.projects .tree-view button', 'Tags')
+    await app.until(`document.querySelectorAll('.projects .tree .row').length === 2`, 'the tag view')
+    assert.deepEqual(await app.page(names('.projects .tree summary')), ['example', 'guide', 'start'])
+    assert.deepEqual(await app.page(names('.projects .tree .row')), ['README.md', 'README.md'])
+    await app.press('.projects .tree-view button', 'Files')
+    await app.until(`document.querySelectorAll('.projects .tree .row').length === 8`, 'the files again')
 
     // The margin does not hold the intents or the principles. The rail has a row for each, and the page has them.
     assert.equal(await app.page(`!!document.querySelector('.margin details')`), false)

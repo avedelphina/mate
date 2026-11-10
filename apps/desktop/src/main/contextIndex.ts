@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { readDocument } from '../shared/comments'
-import { tagsOf } from '../shared/tags'
+import { tagsOf, under } from '../shared/tags'
 import { isTwinned, twinOf } from '../shared/twin'
 
 /**
@@ -210,8 +210,9 @@ export function searchIndex(index: Index, query: string): Hit[] {
       const comments = entry.comments.map((comment) => fold(comment.text))
       const all = [title, text, ...comments].join('\n')
       // A #tag is also found where a document names it in its front matter.
-      const named = hashes.length > 0 ? tagsOf(entry.text).filter((each) => hashes.includes(`#${fold(each.tag)}`)) : []
-      const tagged = (word: string) => named.some((each) => `#${fold(each.tag)}` === word)
+      // A tag nested under it is found too: #work finds work/clients.
+      const named = hashes.length > 0 ? tagsOf(entry.text).filter((each) => hashes.some((hash) => under(fold(each.tag), hash.slice(1)))) : []
+      const tagged = (word: string) => word.startsWith('#') && named.some((each) => under(fold(each.tag), word.slice(1)))
       return { entry, title, text, comments, named, found: words.every((each) => all.includes(each) || tagged(each)) }
     })
     .filter((file) => file.found)

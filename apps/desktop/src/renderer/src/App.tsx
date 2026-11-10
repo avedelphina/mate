@@ -7,7 +7,7 @@ import { Palette, type Act } from './Palette'
 import { fileNamed } from '../../shared/named'
 import { reviewableMarkdown } from '../../shared/reviewable'
 import { statusOf } from '../../shared/status'
-import { tagsOf } from '../../shared/tags'
+import { tagPaths, tagsOf } from '../../shared/tags'
 import { isTwinned } from '../../shared/twin'
 import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran, Review } from './env'
 import { History } from './History'
@@ -143,6 +143,11 @@ export function App() {
   const [query, setQuery] = useState('')
   // The tags the documents of the context name, with how many name each. Read from the index.
   const [tags, setTags] = useState<{ tag: string; count: number }[]>([])
+  // The tags each file of the open project names, and whether the tree shows the files under them.
+  const [tagged, setTagged] = useState<Record<string, string[]>>({})
+  const [byTag, setByTag] = useState(false)
+  // The row of the tag view last pressed: a file is under each of its tags, and the one pressed is the one lit.
+  const [tagRow, setTagRow] = useState<string | null>(null)
   // Null while nothing is being searched for, and the rail lists the projects.
   const [hits, setHits] = useState<Hit[] | null>(null)
   // A file that is not a draft, opened from the tree or from a search. It takes the page, and cannot
@@ -283,6 +288,14 @@ export function App() {
       current = false
     }
   }, [contextDir, view?.text, reading?.text])
+  useEffect(() => {
+    if (!project) return setTagged({})
+    let current = true
+    window.mate.projectTags(project).then((next) => current && setTagged(next), () => {})
+    return () => {
+      current = false
+    }
+  }, [project, view?.text, reading?.text])
   const readingPath = reading?.path
   // The open file, when it is the intents or the principles of the open project: the reader can type those.
   const steering = view && readingPath ? (['intents', 'principles'] as const).find((name) => readingPath === `projects/${view.project}/${name}.md`) ?? null : null
@@ -1057,7 +1070,7 @@ export function App() {
    * of the project. A #tag searches the context for it, so every comment that has it is found.
    */
   const note = (words: string): ReactNode[] =>
-    words.split(/(\[\[[^\]\n]+\]\]|(?<![\p{L}\p{N}_&/:#])#[\p{L}\p{N}_-]+)/u).map((part, at) => {
+    words.split(/(\[\[[^\]\n]+\]\]|(?<![\p{L}\p{N}_&/:#])#[\p{L}\p{N}_-]+(?:\/[\p{L}\p{N}_-]+)*)/u).map((part, at) => {
       if (at % 2 === 0) return part
       if (part.startsWith('[[')) {
         const path = view ? fileNamed(part.slice(2, -2).split('|')[0], view.project, view.files) : null
@@ -1659,7 +1672,33 @@ export function App() {
                         )}
                       </div>
                     )}
-                    {view && project === name && (
+                    {view && project === name && Object.keys(tagged).length > 0 && (
+                      <div className="tabs tree-view" role="group" aria-label="Show the files">
+                        <button className={byTag ? 'quiet' : 'active'} aria-pressed={!byTag} onClick={() => setByTag(false)}>Files</button>
+                        <button className={byTag ? 'active' : 'quiet'} aria-pressed={byTag} title="The files under the tags their front matter names. A slash nests a tag: work/clients." onClick={() => setByTag(true)}>Tags</button>
+                      </div>
+                    )}
+                    {view && project === name && byTag && Object.keys(tagged).length > 0 && (() => {
+                      const shown = tagPaths(tagged)
+                      const final = view.final.map((each) => `${view.draftsIn}${each}`)
+                      return (
+                        <Tree
+                          paths={[...shown.keys()]}
+                          unfolded=""
+                          folderIcon="tag"
+                          final={[...shown].filter(([, real]) => final.includes(real)).map(([path]) => path)}
+                          current={tagRow !== null && shown.get(tagRow) === inTree ? tagRow : ([...shown].find(([, real]) => real === inTree)?.[0] ?? null)}
+                          onOpen={(path) => (setTagRow(path), openFile(shown.get(path)!))}
+                          onReveal={(path) => openOther(shown.get(path)!)}
+                          onMenu={(path, folder) =>
+                            folder
+                              ? [{ label: `Search for #${path}`, run: () => setQuery(`#${path}`) }]
+                              : [{ label: 'Open', run: () => openFile(shown.get(path)!) }, null, { label: 'Show in Finder', run: () => void window.mate.revealFile(`projects/${view.project}/${shown.get(path)}`) }]
+                          }
+                        />
+                      )
+                    })()}
+                    {view && project === name && !(byTag && Object.keys(tagged).length > 0) && (
                       <Tree
                         paths={view.files}
                         folders={view.folders}

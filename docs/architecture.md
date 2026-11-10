@@ -706,6 +706,14 @@ not in it, so the page still holds the text of the file and nothing else.
 A tag is edited by typing the front matter in the draft: there is no other
 place for it to be written.
 
+A slash nests a tag: `work/clients` is under `work`, and a search for
+`#work` finds it too (`under`). The tree of an open project can show its
+files under their tags instead of their folders, once one of its files
+names a tag. `project:tags` gives the tags of each file from the index, so
+nothing is read for it, and `tagPaths` makes `tag/nested/name.md` of each,
+a file under every tag it names. The same `Tree` draws it. A tag is
+spelled as it is first met, so `Work` and `work` are one.
+
 ## The index and the search
 
 A context has an index: `.indexes/context.json` inside the context folder.
