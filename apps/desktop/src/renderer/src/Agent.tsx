@@ -309,6 +309,8 @@ export function Agent(props: {
       )}
       {session.messages.map((message, index) => (
         <div key={index} className={`said ${message.role}${message.waiting ? ' waiting' : ''}`}>
+          {/* Who speaks, so a long session shows where one message ends and the next begins. */}
+          {message.role === 'agent' && <p className="meta who">{label(session)}</p>}
           {message.tools.length > 0 && (
             <details className="steps">
               <summary>{message.tools.length === 1 ? '1 step' : `${message.tools.length} steps`}</summary>

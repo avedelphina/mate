@@ -12,6 +12,9 @@ then, minor versions may change behaviour.
 - When an agent changes more than one file, the files fold into one line,
   "N files changed", closed until you open it. They no longer fill the
   Agent tab.
+- Each answer of an agent starts with the agent's name and a thin line above
+  it, so in a long session you can see where one message ends and the next
+  begins.
 
 ## [0.26.0] - 2026-11-10
 
