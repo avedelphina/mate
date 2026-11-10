@@ -5,7 +5,9 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## Unreleased
+## [0.27.1] - 2026-11-10
+
+Fixes for the alerts of GitHub's dependency and code scanning, and one bug in Word tables.
 
 ### Fixed
 
