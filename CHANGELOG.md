@@ -5,6 +5,20 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [0.32.0] - 2026-11-11
+
+Instruction files are approved one at a time. Their approval dialogs stay on the screen.
+
+### Changed
+
+- New and changed instruction files are approved one at a time. Cancel
+  stops the agent, and the files already approved stay approved.
+
+### Fixed
+
+- A long summary of new or changed instruction files is cut short, so the
+  Cancel and Approve buttons of its dialog stay on the screen.
+
 ## [0.31.0] - 2026-11-11
 
 A folder put into the context in Finder is read when you come back to Mate.
