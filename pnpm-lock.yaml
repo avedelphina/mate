@@ -5,7 +5,8 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  minimatch@>=7 <11.0.1: ^11.0.1
+  minimatch@9: ^11.0.1
+  minimatch@10: ^11.0.1
 
 importers:
 

@@ -9,4 +9,5 @@ allowBuilds:
 # GHSA-g3hv-75wg-m249: minimatch 7 to 10 amplifies a crafted pattern. electron-builder takes 9 and 10.
 # Build tooling only: nothing of it is in the app. The 3 and 5 lines are not in the range.
 overrides:
-  "minimatch@>=7 <11.0.1": ^11.0.1
+  "minimatch@9": ^11.0.1
+  "minimatch@10": ^11.0.1
