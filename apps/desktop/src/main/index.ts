@@ -98,6 +98,7 @@ import {
   moveSessions,
   isBusy,
   listModels,
+  listAllSessions,
   listSessions,
   ownSession,
   revertChange,
@@ -963,6 +964,7 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('session:list', (event, project: string) => listSessions(requireContext(event), project))
+  ipcMain.handle('session:listAll', (event) => listAllSessions(requireContext(event)))
 
   ipcMain.handle('session:start', (event, project: string, agent: Invited, host?: string) =>
     startSession(requireContext(event), project, agent, host ?? null)

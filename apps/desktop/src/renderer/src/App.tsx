@@ -175,6 +175,9 @@ export function App() {
   // Where the agent is drawn. Each is there only while its place is on show.
   const [pageSlot, setPageSlot] = useState<HTMLElement | null>(null)
   const [marginSlot, setMarginSlot] = useState<HTMLElement | null>(null)
+  const [listSlot, setListSlot] = useState<HTMLElement | null>(null)
+  // A session the reader picked from the list while another project was open. The agent opens it once that project is read.
+  const [wantedSession, setWantedSession] = useState<string | null>(null)
   // The script that was last run, where its button is, and what it came to. `result` is null while it runs.
   const [ran, setRan] = useState<{ at: string; line: string; result: Ran | null } | null>(null)
   // A run button whose line leaves something open, such as {file}: what the reader is giving for each name.
@@ -404,7 +407,7 @@ export function App() {
     if (news.length === 0) return
     setSaid((now) => (now && news.includes(now.pane) ? null : now))
     // Not when that would take the conversation away from the reader. Then the tab is marked instead.
-    if (tab === 'agent' && !agentOnPage) setFresh((marked) => [...new Set([...marked, ...news])])
+    if ((tab === 'agent' || tab === 'sessions') && !agentOnPage) setFresh((marked) => [...new Set([...marked, ...news])])
     else setTab(`pane:${news[news.length - 1]}`)
   }, [view])
 
@@ -1220,7 +1223,7 @@ export function App() {
   // The drawn page of what is being typed. It exists only while the reader types.
   const previewing = typing !== null && tab === 'preview'
   const typed = useDeferredValue(typing ?? '')
-  const shown = pane ? 'pane' : previewing ? 'preview' : tab === 'agent' && !agentOnPage ? 'agent' : tab === 'notes' && noteTarget ? 'notes' : 'review'
+  const shown = pane ? 'pane' : previewing ? 'preview' : tab === 'sessions' ? 'sessions' : tab === 'agent' && !agentOnPage ? 'agent' : tab === 'notes' && noteTarget ? 'notes' : 'review'
   // The tabs of the margin scroll when they do not fit. The one in use is brought into view, and a fade at the edge says there is more.
   const tabsBar = useRef<HTMLSpanElement>(null)
   useEffect(() => {
@@ -1297,7 +1300,7 @@ export function App() {
   async function tell(words: string): Promise<boolean> {
     if (!view) return false
     if (!sessionOpen) {
-      if (!agentOnPage) setTab('agent')
+      setTab('sessions')
       setError('Open a session with an agent first. Then this can be said to it.')
       return false
     }
@@ -1502,6 +1505,12 @@ export function App() {
     if (tab === 'agent') setTab(view?.panes[0] ? `pane:${view.panes[0].name}` : 'review')
   }
 
+  /** A session of another project, picked in the list: that project is opened, and the agent opens the session when it is read. */
+  async function pickSession(project: string, id: string) {
+    setWantedSession(id)
+    await openProject(project)
+  }
+
   function toMargin() {
     setAgentOnPage(false)
     setTab('agent')
@@ -1513,7 +1522,8 @@ export function App() {
     if (view) {
       for (const each of view.files) add(each, view.project, () => openFile(each))
       add('Review', 'Show', () => setTab('review'))
-      if (!agentOnPage) add('Agent', 'Show', () => setTab('agent'))
+      add('Sessions', 'Show', () => setTab('sessions'))
+      if (!agentOnPage) add('Chat', 'Show', () => setTab('agent'))
       for (const each of view.panes) add(each.name.replace(/\.md$/, ''), 'Show pane', () => setTab(`pane:${each.name}`))
       if (file !== null && typing === null && !reading) add('Edit this draft', 'Do', edit)
       if (file !== null && !reading && !outside) add('Publish this draft…', 'Do', () => setPublishing(publishName(file)))
@@ -2388,8 +2398,9 @@ export function App() {
                   {fileNote.trim() ? 'Notes •' : 'Notes'}
                 </button>
               )}
+              <button className={shown === 'sessions' ? 'quiet active' : 'quiet'} title="The conversations with agents, in every project of this context. Invite an agent from here." onClick={() => setTab('sessions')}>Sessions</button>
               {!agentOnPage && (
-                <button className={shown === 'agent' ? 'quiet active' : 'quiet'} onClick={() => setTab('agent')}>Agent</button>
+                <button className={shown === 'agent' ? 'quiet active' : 'quiet'} title="The conversation that is open in this project" onClick={() => setTab('agent')}>Chat</button>
               )}
               {/* ponytail: a pane is a tab of the margin, so it hides the review and the agent.
                   Give it a column of its own when that gets in the way. */}
@@ -2433,6 +2444,7 @@ export function App() {
           {view && shown === 'notes' && noteTarget && (
             <Notes key={`${view.project} ${noteTarget}`} project={view.project} files={view.files} target={noteTarget} text={fileNote} onSave={saveNote} onOpen={openFile} />
           )}
+          {view && shown === 'sessions' && <div ref={setListSlot} />}
           {view && shown === 'agent' && (
             <>
               <p className="meta talk-move"><button className="quiet" onClick={toPage}>Open in the page</button></p>
@@ -2563,6 +2575,13 @@ export function App() {
           project={view.project}
           onChanged={() => window.mate.openProject(view.project, view.file ?? undefined).then(setView, () => {})}
           into={onPage ? pageSlot : shown === 'agent' ? marginSlot : null}
+          page={onPage}
+          listInto={shown === 'sessions' ? listSlot : null}
+          wanted={wantedSession}
+          onWanted={() => setWantedSession(null)}
+          onPick={(project, id) => void pickSession(project, id)}
+          onChat={() => !agentOnPage && setTab('agent')}
+          onSessions={() => setTab('sessions')}
           onSession={setSessionOpen}
           files={view.files}
           onOpen={openFile}

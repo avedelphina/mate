@@ -25,7 +25,7 @@ is a state like any other, not a fault. A project brought in from
 elsewhere, such as a repository, keeps its shape and has none.
 
 **Session.** A conversation inside one project. Many sessions per project
-is normal. Sessions do not share a transcript. They share the project
+is normal. The window lists the sessions of the whole context together. Sessions do not share a transcript. They share the project
 folder and, through it, the rest of the context.
 
 ## Knowledge

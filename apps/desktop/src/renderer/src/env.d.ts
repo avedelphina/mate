@@ -137,6 +137,19 @@ export type Ask = { id: string; title: string; detail: string; choices?: { id: s
 /** What the reader let an agent do in a conversation without asking again: kinds of step, or everything. */
 export type Auto = { all: boolean; kinds: string[] }
 
+/** A conversation as the list of every conversation of the context shows it. `cloud`: the file is not here yet, so it has no title. */
+export type SessionRow = {
+  id: string
+  project: string
+  agent: AgentKind | null
+  host: string | null
+  created: string
+  running: boolean
+  planApproved: boolean
+  title: string | null
+  cloud: boolean
+}
+
 /** A conversation with one agent inside one project. See src/main/sessions.ts. */
 export type Session = {
   id: string
@@ -318,6 +331,7 @@ export type MateApi = {
   /** Point the MCP door at this session. Returns where the reader's own agent connects. */
   bindMcp: (project: string, id: string) => Promise<{ url: string; token: string }>
   listSessions: (project: string) => Promise<Session[]>
+  listAllSessions: () => Promise<SessionRow[]>
   startSession: (project: string, agent: AgentKind, host?: string) => Promise<Session>
   /** `wait`: sent while the agent works, it is to go when the turn has ended, even to an agent that would take it into the turn. */
   sendMessage: (project: string, id: string, text: string, approve: boolean, wait?: boolean) => Promise<Session>

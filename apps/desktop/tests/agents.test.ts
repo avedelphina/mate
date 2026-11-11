@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { chmod, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, symlink, truncate, writeFile } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -7,7 +7,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { AGENTS, SSH, addable, discoverAgents, sshArgs } from '../src/main/agents.ts'
 import { changesSince, fingerprints, put, takeSnapshot } from '../src/main/guard.ts'
-import { compare, judge, listSessions, loadSession, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
+import { compare, judge, listAllSessions, listSessions, loadSession, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
 import { isTrusted, keepTrustIn, setTrusted } from '../src/main/trust.ts'
 
 async function context(): Promise<string> {
@@ -93,6 +93,34 @@ test('the guard sees what changed in the folder, and can put it back', async () 
     assert.deepEqual(await changesSince(root, before), [])
     assert.equal(existsSync(path.join(root, '.git/hooks/pre-commit')), false)
     assert.equal(await readFile(path.join(root, '.git/config'), 'utf8'), '[core]\n\trepositoryformatversion = 0\n')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('the sessions of every project are listed together, and one that is only in the cloud is not fetched', async () => {
+  const root = await context()
+  try {
+    assert.deepEqual(await listAllSessions(root), [])
+    await mkdir(path.join(root, 'projects/other'), { recursive: true })
+    const first = await startSession(root, 'review', 'hermes')
+    const second = await startSession(root, 'other', 'hermes')
+    // A file that Synology has not downloaded has a size and no blocks. Reading it would wait for the download.
+    const placeholder = path.join(root, '.sessions/other/cloud-only')
+    await mkdir(placeholder, { recursive: true })
+    await writeFile(path.join(placeholder, 'session.json'), '')
+    await truncate(path.join(placeholder, 'session.json'), 4096)
+    const rows = await listAllSessions(root)
+    assert.deepEqual(
+      rows.map((row) => [row.project, row.cloud, row.agent]).sort(),
+      [['other', false, 'hermes'], ['other', true, null], ['review', false, 'hermes']]
+    )
+    assert.deepEqual(rows.find((row) => row.id === first.id)?.title, null)
+    // The reader's first words are the title.
+    const said = { ...first, messages: [{ role: 'you' as const, text: 'Review the contract', tools: [] }] }
+    await writeFile(path.join(root, '.sessions/review', first.id, 'session.json'), JSON.stringify(said))
+    assert.equal((await listAllSessions(root)).find((row) => row.id === first.id)?.title, 'Review the contract')
+    assert.ok(rows.some((row) => row.id === second.id))
   } finally {
     await rm(root, { recursive: true, force: true })
   }

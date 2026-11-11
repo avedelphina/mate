@@ -423,6 +423,8 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 .session:hover { background: var(--tint); }
 .session .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session .meta { grid-column: 2; }
+.session.active { background: var(--tint); }
+.session-project { margin: 10px 10px 2px; }
 .dot { width: 7px; height: 7px; box-sizing: border-box; border: 1.5px solid var(--soft); border-radius: 50%; }
 .dot.on { border-color: var(--accent); background: var(--accent); }
 .dot.running { border-color: var(--accent); background: var(--accent); animation: working 1.2s ease-in-out infinite; }

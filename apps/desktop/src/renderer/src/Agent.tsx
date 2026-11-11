@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { EFFORTS } from '../../shared/effort'
 import { fileNamed } from '../../shared/named'
-import type { AgentInfo, AgentKind, Compared, Models, Session } from './env'
+import type { AgentInfo, AgentKind, Compared, Models, Session, SessionRow } from './env'
 import { Boundary } from './Boundary'
 import { Rendered } from './Rendered'
 
@@ -36,6 +36,18 @@ export function Agent(props: {
   project: string
   onChanged: () => void
   into: HTMLElement | null
+  /** Whether `into` is the page. With no session open, the page offers the agents to invite, and the margin points to the list. */
+  page: boolean
+  /** Where the list of every session of the context is drawn, with the buttons to invite an agent. */
+  listInto: HTMLElement | null
+  /** A session of this project the reader picked from the list while another project was open: open it once it is read. */
+  wanted: string | null
+  onWanted: () => void
+  /** A session of another project was picked: the window opens that project. */
+  onPick: (project: string, id: string) => void
+  /** A session is open now, so the window shows the chat. And the way back to the list. */
+  onChat: () => void
+  onSessions: () => void
   /** Told which session is open, so that a pane can say something to it. */
   onSession: (id: string | null) => void
   /** The files of the project, and how one is opened: a file an agent names in its answer opens from there. */
@@ -45,10 +57,12 @@ export function Agent(props: {
   onSettings: () => void
   settingsOpen: boolean
 }) {
-  const { project, onChanged, into, onSession, files, onOpen, onSettings, settingsOpen } = props
+  const { project, onChanged, into, page, listInto, wanted, onWanted, onPick, onChat, onSessions, onSession, files, onOpen, onSettings, settingsOpen } = props
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [open, setOpen] = useState<string | null>(null)
+  // Every session of the context, for the list. Read when the list is shown.
+  const [all, setAll] = useState<SessionRow[]>([])
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
   // Where the reader's own agent connects, while a session for it is open.
@@ -70,8 +84,23 @@ export function Agent(props: {
   useEffect(() => onSession(session?.id ?? null), [session?.id])
   const label = (each: { agent: AgentKind; host: string | null }) =>
     agents.find((agent) => agent.kind === each.agent && agent.host === each.host)?.label ?? each.agent
-  const keep = (next: Session) =>
+  const rowOf = (next: Session): SessionRow => ({
+    id: next.id,
+    project: next.project,
+    agent: next.agent,
+    host: next.host,
+    created: next.created,
+    running: next.running,
+    planApproved: next.planApproved,
+    title: next.messages.find((message) => message.role === 'you')?.text ?? null,
+    cloud: false
+  })
+  const upsert = (next: Session) =>
+    setAll((rows) => (rows.some((each) => each.id === next.id) ? rows.map((each) => (each.id === next.id ? rowOf(next) : each)) : [rowOf(next), ...rows]))
+  const keep = (next: Session) => {
+    upsert(next)
     setSessions((all) => (all.some((each) => each.id === next.id) ? all.map((each) => (each.id === next.id ? next : each)) : [next, ...all]))
+  }
 
   // Read again when the settings close: the reader adds hosts there.
   useEffect(() => {
@@ -82,6 +111,28 @@ export function Agent(props: {
     setOpen(null)
     window.mate.listSessions(project).then(setSessions, () => setSessions([]))
   }, [project])
+
+  // The list is read each time it is shown: a session may have been made in another window of the project, or finished.
+  useEffect(() => {
+    if (!listInto) return
+    let current = true
+    window.mate.listAllSessions().then(
+      (rows) => current && setAll(rows),
+      () => current && setAll([])
+    )
+    return () => {
+      current = false
+    }
+  }, [listInto, project])
+
+  // A session picked in the list while another project was open: the project is open now, and its sessions are read.
+  useEffect(() => {
+    if (wanted && sessions.some((each) => each.id === wanted)) {
+      setOpen(wanted)
+      onWanted()
+      onChat()
+    }
+  }, [wanted, sessions])
 
   // What may be changed on the settings page is read again when it closes.
   useEffect(() => {
@@ -95,7 +146,7 @@ export function Agent(props: {
   useEffect(
     () =>
       window.mate.onSession((next) => {
-        if (next.project !== project) return
+        if (next.project !== project) return upsert(next)
         keep(next)
       }),
     [project]
@@ -137,6 +188,7 @@ export function Agent(props: {
     act(async () => {
       const started = await window.mate.startSession(project, agent.kind, agent.host ?? undefined)
       setOpen(started.id)
+      onChat()
       return started
     })
 
@@ -176,10 +228,9 @@ export function Agent(props: {
     })
   }
 
-  if (!into) return null
+  if (!into && !listInto) return null
 
-  if (!session) {
-    return createPortal(
+  const listView = (
       <>
         {error && <p className="error" role="alert">{error}</p>}
         <p className="meta hint">
@@ -262,24 +313,55 @@ export function Agent(props: {
             )}
           </div>
         )}
-        {sessions.length > 0 && <h3>Sessions <span className="count">{sessions.length}</span></h3>}
-        {[...sessions]
-          .sort((a, b) => b.created.localeCompare(a.created))
-          .map((each) => (
-            <button key={each.id} className="row session" onClick={() => setOpen(each.id)}>
-              {/* Working, allowed to edit, or still at its plan. */}
-              <span className={each.running ? 'dot running' : each.planApproved ? 'dot on' : 'dot'} />
-              <span className="title">{each.messages.find((message) => message.role === 'you')?.text ?? 'Nothing said yet'}</span>
-              <span className="meta">
-                {label(each)} · {new Date(each.created).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
-                {each.running ? ' · working' : each.planApproved ? '' : ' · plan not approved'}
-              </span>
-            </button>
+        {all.length > 0 && <h3>Sessions <span className="count">{all.length}</span></h3>}
+        {[...new Set([project, ...all.map((each) => each.project)])]
+          .filter((name) => all.some((each) => each.project === name))
+          .map((name) => (
+            <div key={name} className="session-group">
+              <p className="meta session-project">{name === project ? `${name} · open` : name}</p>
+              {all
+                .filter((each) => each.project === name)
+                .map((each) => (
+                  <button key={each.id} className={each.id === open && name === project ? 'row session active' : 'row session'} onClick={() => pick(each)}>
+                    {/* Working, allowed to edit, or still at its plan. */}
+                    <span className={each.running ? 'dot running' : each.planApproved ? 'dot on' : 'dot'} />
+                    <span className="title">{each.cloud ? 'Kept in the cloud, not read yet' : (each.title ?? 'Nothing said yet')}</span>
+                    <span className="meta">
+                      {each.agent ? `${label({ agent: each.agent, host: each.host })} · ` : ''}
+                      {new Date(each.created).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                      {each.running ? ' · working' : each.agent && !each.planApproved ? ' · plan not approved' : ''}
+                    </span>
+                  </button>
+                ))}
+            </div>
           ))}
-      </>,
-      into
-    )
+      </>
+  )
+
+  const chatView = !session ? (
+    page ? listView : <>
+      <p className="meta hint">No session is open in {project}. Open one from the list, or invite an agent there.</p>
+      <p><button onClick={onSessions}>Sessions</button></p>
+    </>
+  ) : (
+    chatOf(session)
+  )
+
+  return (
+    <>
+      {listInto && createPortal(listView, listInto)}
+      {into && createPortal(chatView, into)}
+    </>
+  )
+
+  /** The session of this project that was picked, or the one of another project: that project is opened first. */
+  function pick(row: SessionRow) {
+    if (row.project !== project) return onPick(row.project, row.id)
+    setOpen(row.id)
+    onChat()
   }
+
+  function chatOf(session: Session) {
 
   // The answer being written does not count: there is no plan to approve until one has been given.
   const answers = session.messages.filter((message) => message.role === 'agent').length - (session.running ? 1 : 0)
@@ -288,10 +370,10 @@ export function Agent(props: {
   // In a trusted context Hermes on this computer stays between turns, and can be told something while it works.
   const listens = trusted && session.agent === 'hermes' && !session.host
 
-  return createPortal(
+  return (
     <>
       <p className="meta talk-head">
-        <button className="quiet" onClick={() => setOpen(null)}>‹ Sessions</button>
+        <button className="quiet" onClick={() => (setOpen(null), onSessions())}>‹ Sessions</button>
         <span>
           {label(session)} · {session.planApproved ? 'may edit this project' : 'plan not approved'}
           {listens && ' · trusted'}
@@ -478,9 +560,9 @@ export function Agent(props: {
         </footer>
       </div>
       <div ref={end} />
-    </>,
-    into
+    </>
   )
+  }
 }
 
 /** The end of a model's name, for the line under the message, which has no room for all of it. */

@@ -1,13 +1,13 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import readline from 'node:readline'
 import { Acp, type Ask, type Door, type Models } from './acp'
 import { AGENTS, SSH, agentEnvironment, isHost, isModel, sshArgs, type AgentKind } from './agents'
-import { resolveInside } from './context'
+import { inCloudOnly, resolveInside } from './context'
 import { placeOf } from './contextIndex'
 import { changesSince, fingerprints, insidePath, mateWrote, put, takeSnapshot, watching, type Change, type Snapshot } from './guard'
 import { changedParts, diffLines, type DiffLine } from '../shared/diff'
@@ -330,6 +330,58 @@ export async function listSessions(contextDir: string, project: string): Promise
   const ids = await readdir(folder(contextDir, project)).catch(() => [])
   const sessions = await Promise.all(ids.map((id) => loadSession(contextDir, project, id).catch(() => null)))
   return sessions.filter((session) => session !== null).sort((a, b) => b.created.localeCompare(a.created))
+}
+
+/**
+ * One conversation as the list of every conversation of the context shows it. A session file that
+ * is only in the cloud is not fetched to fill a list: it is a row without a title until it is opened.
+ */
+export type SessionRow = {
+  id: string
+  project: string
+  agent: Invited | null
+  host: string | null
+  created: string
+  running: boolean
+  planApproved: boolean
+  /** What the reader first said, or null when nothing was, or the file is in the cloud. */
+  title: string | null
+  cloud: boolean
+}
+
+/** Every session of every project, newest first. Read side by side, and none is changed by being listed. */
+export async function listAllSessions(contextDir: string): Promise<SessionRow[]> {
+  const root = path.join(contextDir, '.sessions')
+  const rows: Promise<SessionRow | null>[] = []
+  for (const project of await readdir(root).catch(() => [])) {
+    if (project.startsWith('.')) continue
+    for (const id of await readdir(folder(contextDir, project)).catch(() => [])) {
+      rows.push(
+        (async (): Promise<SessionRow | null> => {
+          const file = path.join(folder(contextDir, project, id), 'session.json')
+          const info = await stat(file).catch(() => null)
+          if (!info) return null
+          const live = turns.get(id)?.session
+          if (!live && inCloudOnly(info)) {
+            return { id, project, agent: null, host: null, created: info.mtime.toISOString(), running: false, planApproved: false, title: null, cloud: true }
+          }
+          const session = live ?? (JSON.parse(await readFile(file, 'utf8')) as Session)
+          return {
+            id,
+            project,
+            agent: session.agent,
+            host: session.host ?? null,
+            created: session.created,
+            running: Boolean(live),
+            planApproved: session.planApproved,
+            title: session.messages.find((message) => message.role === 'you')?.text ?? null,
+            cloud: false
+          }
+        })().catch(() => null)
+      )
+    }
+  }
+  return (await Promise.all(rows)).filter((row) => row !== null).sort((a, b) => b.created.localeCompare(a.created))
 }
 
 export async function startSession(

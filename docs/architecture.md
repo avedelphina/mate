@@ -1211,7 +1211,7 @@ no Revert, as when the reader types. The guard is for agents.
 
 ## Agents
 
-An agent is invited into a project from the Agent tab of the margin. Agents on this
+An agent is invited into a project from the Sessions tab of the margin. Agents on this
 computer are found on the PATH. An agent on another machine is offered only
 once the reader has added its host in Settings: a look in the ssh config
 (`discoverAgents('ssh')`) adds nothing, and the reader picks, or types a
@@ -1243,9 +1243,21 @@ alone. `fileNamed` in `src/shared/named.ts` decides. Only a file the
 project lists is opened, so an answer cannot send the window anywhere
 else. A name written as plain words is not a link.
 
-There is one `Agent` for the open project. `App.tsx` gives it the place
-to draw into. It is the same component when it moves, so the open
-session and a message half written move with it.
+There is one `Agent` for the open project. `App.tsx` gives it two places
+to draw into: the list of sessions (`listInto`, the Sessions tab, with the
+buttons to invite an agent) and the conversation (`into`, the Chat tab, or
+the page for a project with no draft). It is the same component when it
+moves, so the open session and a message half written move with it.
+
+The list is of the whole context: `listAllSessions` in `sessions.ts`
+reads `.sessions/<project>/<id>/session.json` of every project, side by
+side, and gives a row for each: the project, the agent, the day, whether
+it works, and what the reader first said. A session file that is only in
+the cloud (`inCloudOnly`) is not read to fill a list: its row has no
+title until it is opened. A session still belongs to one project, which is
+where the agent works and writes. Picking one of another project opens
+that project (`pickSession` in `App.tsx`), and `Agent` opens the session
+when that project's sessions are read.
 
 ### A trusted context
 

@@ -105,6 +105,7 @@ contextBridge.exposeInMainWorld('mate', {
   removeAgent: (kind: string, host: string) => ipcRenderer.invoke('agents:remove', kind, host),
   bindMcp: (project: string, id: string) => ipcRenderer.invoke('mcp:bind', project, id),
   listSessions: (project: string) => ipcRenderer.invoke('session:list', project),
+  listAllSessions: () => ipcRenderer.invoke('session:listAll'),
   startSession: (project: string, agent: string, host?: string) =>
     ipcRenderer.invoke('session:start', project, agent, host),
   sendMessage: (project: string, id: string, text: string, approve: boolean, wait?: boolean) =>

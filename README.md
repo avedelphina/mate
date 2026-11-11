@@ -226,7 +226,11 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   `[scripts/NAME and what it is given](run:)` runs it. No agent is asked,
   so it works with no network and costs nothing. Only in a
   [context you trust](#a-context-you-trust).
-- **Invite an agent.** The *Agent* tab of the margin talks to:
+- **Invite an agent.** The *Sessions* tab of the margin lists every
+  conversation with an agent in the context, project by project, and is
+  where you invite one. Open a session of another project and that project
+  opens with it. The *Chat* tab is the conversation that is open. An agent
+  talks to:
   - Claude Code, Codex, or Hermes on this computer, and Kimi in a context you trust;
   - Hermes on another computer, over SSH (the folder stays on your machine);
   - an agent you run yourself, through a local MCP endpoint.
@@ -236,7 +240,7 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
 
   A conversation that is not about a draft can take the page (*Open in
   the page*). See [Agents](#agents) below.
-- **Private contexts.** *Keep this context private* in the *Agent* tab:
+- **Private contexts.** *Keep this context private* in the *Sessions* tab:
   no agent works in it, so nothing of it leaves your computer. Everything
   else still works. Letting agents in again asks in a system dialog. A
   private context can be opened to Hermes on your own inference endpoint:
@@ -417,7 +421,7 @@ thinks, under the message you write. The list is what your Hermes offers.
 ### A context you trust
 
 By default an agent gets tools for files and nothing else. *Trust this
-context…* in the Agent tab changes that for one folder. Mate asks in a
+context…* in the Sessions tab changes that for one folder. Mate asks in a
 system dialog and keeps the answer outside the folder, so nothing in a
 context can make it trusted. In a trusted context:
 
@@ -460,7 +464,7 @@ that differ. *Cancel* does not start the agent.
 
 ### Connecting your own agent
 
-Choose **Your own agent** in the Agent tab. Mate shows the address and a
+Choose **Your own agent** in the Sessions tab. Mate shows the address and a
 token. The token is kept in Mate's user data folder (on macOS,
 `~/Library/Application Support/Mate/mcp-token`) and is reused between runs.
 

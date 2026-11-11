@@ -9,6 +9,11 @@ then, minor versions may change behaviour.
 
 ### Added
 
+- Sessions and Chat. The *Agent* tab of the margin is two. *Sessions* lists
+  every conversation with an agent in the context, project by project, and
+  is where you invite one. Picking a session of another project opens that
+  project with it. *Chat* is the conversation that is open. A session file
+  kept only in the cloud is listed without being fetched.
 - The context's own intents and principles. A project that has none of
   its own, such as an imported repository, is steered by the context's,
   at its root: the rules of the client, written once. A project that has

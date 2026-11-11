@@ -32,7 +32,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.rail h2')?.textContent === 'example'`, 'the context is open')
     await app.press('.rail .row', 'document-review')
     await app.until(`document.querySelectorAll('.projects .tree .row').length > 0`, 'the project is open')
-    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review*', 'Notes', 'Agent', 'tasks', 'workflow'])
+    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review*', 'Notes', 'Sessions', 'Chat', 'tasks', 'workflow'])
     // Every file of the project is in the tree, those in folded folders too. The draft is the one on the page.
     assert.deepEqual(
       (await app.page<string[]>(names('.projects .tree .row'))).sort(),
@@ -465,7 +465,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     // Another file of the project is read on the page, and the project stays open beside it.
     await app.press('.projects .tree .row', 'intents.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('intents.md')`, 'the file on the page')
-    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review*', 'Notes', 'Agent', 'tasks', 'workflow'])
+    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review*', 'Notes', 'Sessions', 'Chat', 'tasks', 'workflow'])
 
     // A pane is a tab of the margin. One that is written while the project is open is put on show.
     await app.press('.margin .tabs button', 'tasks')
@@ -483,14 +483,14 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.margin .tabs button', 'tasks')
     await app.page(`document.querySelector('.margin .pane .say').click()`)
     await app.until(`document.querySelector('.margin .asof + .asof')?.textContent.includes('Said to the agent')`, 'the pane says what it said')
-    await app.press('.margin .tabs button', 'Agent')
+    await app.press('.margin .tabs button', 'Chat')
     await app.until(`[...document.querySelectorAll('.said.you')].some((each) => each.textContent.trim() === 'Write this pane again from the tracker')`, 'the words are in the conversation')
     await app.press('.margin .tabs button', 'tasks')
 
     await writeFile(path.join(project, 'panes/deadlines.md'), '# Deadlines\n\n- 20 October: legal\n')
     await app.page(`window.dispatchEvent(new Event('focus'))`)
     await app.until(`document.querySelector('.margin .pane h1')?.textContent.includes('Deadlines')`, 'the new pane on show')
-    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review', 'Notes', 'Agent', 'deadlines*', 'tasks', 'workflow'])
+    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review', 'Notes', 'Sessions', 'Chat', 'deadlines*', 'tasks', 'workflow'])
 
     // A file Mate cannot draw has a card with what can be done with it. Its text is taken out by Mate, or by the agent when asked.
     await writeFile(path.join(project, 'dropbox/scan.pdf'), 'not a real pdf')
@@ -504,20 +504,21 @@ test('the window, on the example context: a comment into the file, the tree, a p
       'Or ask the agent to write it',
       'Close'
     ])
-    await app.press('.margin .tabs button', 'Agent')
+    await app.press('.margin .tabs button', 'Chat')
     await app.until(`!!document.querySelector('.margin .talk')`, 'the session that is still open')
     await app.press('.source .acts button', 'Or ask the agent to write it')
     await app.until(`[...document.querySelectorAll('.said.you')].some((each) => each.textContent.includes('Extract the text of dropbox/scan.pdf into draft/scan.md.'))`, 'the request in the conversation')
     assert.equal(await app.page(`document.querySelectorAll('.source').length`), 0)
 
     // The conversation with the agent can have the page. Nothing is trusted, and no agent is started here.
-    await app.press('.margin .tabs button', 'Agent')
+    await app.press('.margin .tabs button', 'Chat')
     await app.press('.margin .talk-head button', '‹ Sessions')
-    await app.until(`!!document.querySelector('.margin .invite')`, 'the agents to invite')
+    await app.until(`!!document.querySelector('.margin .invite')`, 'the agents to invite, in the list of sessions')
     assert.match(await app.page<string>(`document.querySelector('.trust').textContent`), /This context is not trusted/)
+    await app.press('.margin .tabs button', 'Chat')
     await app.press('.talk-move button', 'Open in the page')
     await app.until(`!!document.querySelector('.center .talk-page .invite')`, 'the conversation on the page')
-    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review', 'Notes', 'deadlines*', 'tasks', 'workflow'])
+    assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review', 'Notes', 'Sessions', 'deadlines*', 'tasks', 'workflow'])
 
     // Kept private, the context lets no agent in. That asks nothing, and is kept in the app's own data, not in the folder.
     await app.press('.private button', 'Keep this context private')
@@ -630,6 +631,24 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.center .bar').textContent.includes('intents.md') && document.querySelector('.center').textContent.includes('Confidential work.')`, "the context's intents, open")
     // Nothing is made in the project by looking.
     assert.equal((await readdir(path.join(context, 'projects/From kit'))).includes('intents.md'), false)
+
+    // The Sessions tab lists the conversations of every project. One of another project opens that project, and its chat.
+    const keep = async (project: string, id: string, said: string) => {
+      await mkdir(path.join(context, '.sessions', project, id), { recursive: true })
+      await writeFile(
+        path.join(context, '.sessions', project, id, 'session.json'),
+        JSON.stringify({ id, project, agent: 'mcp', host: null, sent: {}, created: '2026-11-01T09:00:00.000Z', agentSession: null, planApproved: false, messages: [{ role: 'you', text: said, tools: [] }], queue: [], changes: [], held: [] })
+      )
+    }
+    await keep('sibling', 'other-project-session', 'Compare this with the other project')
+    await keep('From kit', 'this-project-session', 'Start from the template')
+    await app.press('.margin .tabs button', 'Sessions')
+    await app.until(`[...document.querySelectorAll('.session .title')].some((each) => each.textContent === 'Compare this with the other project')`, 'the session of the other project, in the list')
+    assert.deepEqual(await app.page(names('.session-project')), ['From kit · open', 'document-review', 'sibling'])
+    await app.page(`[...document.querySelectorAll('.session')].find((each) => each.textContent.includes('Compare this with the other project')).click()`)
+    await app.until(`document.querySelector('.row.project.active')?.textContent === 'sibling'`, 'the other project, open')
+    await app.until(`[...document.querySelectorAll('.margin .said.you')].some((each) => each.textContent.trim() === 'Compare this with the other project')`, 'its session, open in the chat')
+    assert.equal(await app.page(`document.querySelector('.margin .tabs button.active')?.textContent`), 'Chat')
 
     // The context is a context, and it is in no repository. The reader is asked about that, and git starts one.
     assert.deepEqual(await app.page(names('.rail .ask button')), ['Start a repository'])
