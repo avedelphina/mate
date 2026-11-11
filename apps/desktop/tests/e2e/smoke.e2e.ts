@@ -539,6 +539,8 @@ test('the window, on the example context: a comment into the file, the tree, a p
       set(0, 'https://llm.example.org/v1')
       set(1, 'Qwen/Qwen3.6-35B-A3B-FP8')
     })()`)
+    // The window has taken the typed text before Save is pressed. On a slow machine it may not have, and Save would do nothing.
+    await app.until(`document.querySelectorAll('.settings .endpoint input')[1]?.value === 'Qwen/Qwen3.6-35B-A3B-FP8' && !document.querySelector('.settings .endpoint button[type="submit"]').disabled`, 'the form to hold the endpoint')
     await app.press('.settings .endpoint button', 'Save')
     await app.until(`document.querySelector('.settings .endpoint')?.textContent.includes('Saved: llm.example.org.')`, 'the endpoint, saved')
     assert.equal(await app.page(`[...document.querySelectorAll('.settings li .dir')].some((each) => each.textContent.endsWith('/example'))`), true)
