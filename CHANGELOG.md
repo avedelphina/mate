@@ -5,6 +5,14 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Changed
+
+- A folder you put into the context in Finder is read when you come back
+  to Mate: its PDF, Word and other files get their text twins without a
+  search or a reopen. At most once every 30 seconds.
+
 ## [0.30.0] - 2026-11-11
 
 The settings have the whole window, in four tabs.

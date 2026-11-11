@@ -180,6 +180,12 @@ function createWindow(from?: BrowserWindow | null, open?: string): void {
   window.webContents.on('will-navigate', (event, url) => {
     if (url !== window.webContents.getURL()) event.preventDefault()
   })
+  // A folder put into the context in Finder is seen by nothing else while Mate is open, so when the window
+  // comes back to the front the files are looked at again, and a new PDF or Word file is read.
+  window.on('focus', () => {
+    const dir = contexts.get(window.webContents.id)
+    if (dir) readTwinsOnFocus(dir)
+  })
   // A right click in a field, or on chosen words, gives what a Mac gives there. A row or a button with a
   // menu of its own asks for it with `menu:show`, and the page then keeps this one from showing.
   window.webContents.on('context-menu', (_event, params) => {
@@ -263,21 +269,31 @@ function learnMeaning(contextDir: string): void {
   minding.set(contextDir, run)
 }
 
+/** When the window last came to the front for a context, so that switching between apps does not walk the folder each time. */
+const looked = new Map<string, number>()
+// ponytail: a walk of the folder at most every 30 seconds. A folder with many thousands of files may want a longer gap, or a watcher.
+function readTwinsOnFocus(contextDir: string): void {
+  if (Date.now() - (looked.get(contextDir) ?? 0) < 30_000) return
+  looked.set(contextDir, Date.now())
+  readTwins(contextDir, true)
+}
+
 /**
  * Bring the text twins of a context up to date, in the background: nothing waits for it. Its
  * windows hear how many files are left to read, and the index takes in what was read.
  */
-function readTwins(contextDir: string): void {
+function readTwins(contextDir: string, onlyIfChanged = false): void {
   if (reading.has(contextDir)) return
   const say = (left: number) => toContext(contextDir, 'context:reading', left)
+  let changed = 0
   const run = refreshTwins(contextDir, assistHelper, say)
-    .then((changed) => (changed > 0 ? refreshIndex(contextDir).then(() => undefined) : undefined))
+    .then((count) => ((changed = count), count > 0 ? refreshIndex(contextDir).then(() => undefined) : undefined))
     .catch(() => {})
     .finally(() => {
       reading.delete(contextDir)
       say(0)
-      // What was read is given its meaning next.
-      learnMeaning(contextDir)
+      // What was read is given its meaning next. Coming back to the window with nothing new asks nothing of Ollama.
+      if (!onlyIfChanged || changed > 0) learnMeaning(contextDir)
     })
   reading.set(contextDir, run)
 }

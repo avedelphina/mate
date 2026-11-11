@@ -489,8 +489,12 @@ out once and keeps it: the *twin* of `shelf/policy.pdf` is
   These Linux tools are external dependencies, not bundled. A missing one
   leaves its files untwinned until it is installed. Mate starts no program
   or macro contained in a file.
-- **When.** In the background, when a context is opened and at every
-  search. Nothing waits for it. The rail says how many files are still to
+- **When.** In the background, when a context is opened, at every
+  search, and when the window comes back to the front (`readTwinsOnFocus`
+  in `index.ts`), so that a folder put into the context in Finder is read
+  with no other step. That walk is at most once every 30 seconds for a
+  context, and asks nothing of Ollama unless a twin was made. Nothing
+  waits for it. The rail says how many files are still to
   be read, and the search runs again when they are. A twin is made again
   when its file is newer, and taken away when its file is gone.
 - **What it is.** A helper, like the index: plain text, in a folder that
