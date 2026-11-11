@@ -5,7 +5,9 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.31.0] - 2026-11-11
+
+A folder put into the context in Finder is read when you come back to Mate.
 
 ### Changed
 
