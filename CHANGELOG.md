@@ -5,6 +5,14 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## Unreleased
+
+### Changed
+
+- In the rail, what Mate keeps in a project (`draft`, `panes`, `dropbox`,
+  `scripts`, the intents and the principles) stands first, and a thin rule
+  parts it from the project's own folders and files.
+
 ## [0.27.1] - 2026-11-10
 
 Fixes for the alerts of GitHub's dependency and code scanning, and one bug in Word tables.

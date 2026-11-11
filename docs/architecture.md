@@ -1087,6 +1087,10 @@ could run it.
 A project with no draft opens too. Its page is empty, and its other
 files are in the tree.
 
+At the root of the project, what Mate keeps for itself stands first, in a
+fixed order, and a thin rule parts it from the folders and files the
+reader brought. Below the root the order is as it was: folders, then files.
+
 The tree changes no file. It is a way to reach them.
 
 Above the projects, the rail lists the rest of the context the same way:
