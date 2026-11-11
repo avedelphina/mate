@@ -490,8 +490,9 @@ out once and keeps it: the *twin* of `shelf/policy.pdf` is
   leaves its files untwinned until it is installed. Mate starts no program
   or macro contained in a file.
 - **When.** In the background, when a context is opened, at every
-  search, and when the window comes back to the front (`readTwinsOnFocus`
-  in `index.ts`), so that a folder put into the context in Finder is read
+  search, and when the window comes back to the front after it was away
+  (`readTwinsOnFocus` in `index.ts`; the first focus of a window is its
+  start, which reads the files already), so that a folder put into the context in Finder is read
   with no other step. That walk is at most once every 30 seconds for a
   context, and asks nothing of Ollama unless a twin was made. Nothing
   waits for it. The rail says how many files are still to

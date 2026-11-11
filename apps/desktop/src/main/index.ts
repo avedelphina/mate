@@ -181,8 +181,15 @@ function createWindow(from?: BrowserWindow | null, open?: string): void {
     if (url !== window.webContents.getURL()) event.preventDefault()
   })
   // A folder put into the context in Finder is seen by nothing else while Mate is open, so when the window
-  // comes back to the front the files are looked at again, and a new PDF or Word file is read.
+  // comes back to the front the files are looked at again, and a new PDF or Word file is read. Only a return:
+  // the first focus of a window is its start, which reads the files already.
+  let away = false
+  window.on('blur', () => {
+    away = true
+  })
   window.on('focus', () => {
+    if (!away) return
+    away = false
     const dir = contexts.get(window.webContents.id)
     if (dir) readTwinsOnFocus(dir)
   })
