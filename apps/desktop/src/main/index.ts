@@ -429,25 +429,29 @@ app.whenReady().then(() => {
   keepPinsIn(path.join(app.getPath('userData'), 'pins.json'))
 
   // Before an agent starts: has what the context tells it changed since the reader last saw it?
-  // The reader answers in a dialog of the system, which the page cannot press.
+  // The reader answers for each file in a dialog of the system, which the page cannot press.
   gate.before = async (contextDir) => {
     const now = await instructionFiles(contextDir)
     const changes = unapproved(contextDir, now)
-    if (changes.length === 0) return
     const window = BrowserWindow.getAllWindows().find((each) => contexts.get(each.webContents.id) === contextDir)
-    const options = {
-      type: 'warning' as const,
-      buttons: ['Cancel', 'Approve'],
-      defaultId: 0,
-      cancelId: 0,
-      message: 'This context tells the agent what to do',
-      detail:
-        'An agent reads these files as its instructions. They are new or have changed since you last approved them.\n\n' +
-        `${describe(changes)}\n\nApprove them only if you know what they say.`
+    for (const [at, change] of changes.entries()) {
+      const options = {
+        type: 'warning' as const,
+        buttons: ['Cancel', 'Approve'],
+        defaultId: 0,
+        cancelId: 0,
+        message: 'This file changes what the agent is told to do',
+        detail:
+          `Instruction file ${at + 1} of ${changes.length}. ` +
+          (change.is === null
+            ? 'An agent read this file as its instructions. It was removed since you last approved it.'
+            : 'An agent reads this file as its instructions. It is new or has changed since you last approved it.') +
+          `\n\n${describe([change])}\n\nApprove this change only if you know what it means for the agent.`
+      }
+      const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+      if (response !== 1) throw new Error('The instruction files of this context are not approved. The agent was not started.')
+      approve(contextDir, change)
     }
-    const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
-    if (response !== 1) throw new Error('The instruction files of this context are not approved. The agent was not started.')
-    approve(contextDir, now)
   }
 
   ipcMain.handle('context:open', async (event) => {

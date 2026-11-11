@@ -91,14 +91,18 @@ export function movePins(was: string, now: string): void {
   if (file) writeFileSync(file, JSON.stringify(pinned), { mode: 0o600 })
 }
 
-export function approve(contextDir: string, now: Record<string, string>): void {
-  pinned[real(contextDir)] = now
+export function approve(contextDir: string, change: Changed): void {
+  const where = real(contextDir)
+  const approved = { ...pinned[where] }
+  if (change.is === null) delete approved[change.path]
+  else approved[change.path] = change.is
+  pinned[where] = approved
   if (file) writeFileSync(file, JSON.stringify(pinned), { mode: 0o600 })
 }
 
 /** The changes, as the reader is shown them before an agent starts. Long files are cut short. */
 export function describe(changes: Changed[], most = 14): string {
-  return changes
+  const text = changes
     .map((change) => {
       if (change.is === null) return `${change.path}: removed`
       const lines = changedParts(diffLines(change.was ?? '', change.is), 1).map((line) => `${line.kind} ${line.text}`.trimEnd())
@@ -107,4 +111,9 @@ export function describe(changes: Changed[], most = 14): string {
       return `${change.path}: ${change.was === null ? 'new' : 'changed'}\n${shown.join('\n')}`
     })
     .join('\n\n')
+  // A system alert does not scroll: past this size its buttons can fall below the screen.
+  const max = 1200
+  if (text.length <= max) return text
+  const end = text.lastIndexOf('\n', max)
+  return `${text.slice(0, end > 0 ? end : max).trimEnd()}\n… Further changes are not shown.`
 }

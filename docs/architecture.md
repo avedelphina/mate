@@ -1385,11 +1385,13 @@ a note for its next turn.
 
 Before every turn of an agent on this computer, Mate looks for these
 files in the whole context and compares them with what the reader last
-approved. If one is new, changed, or gone, the reader is shown which, and
-the lines that differ, in a dialog of the system. Approve keeps what the
-files say now. Cancel does not start the agent. What was approved is kept
-in the app's own data folder, in `pins.json`, by the real path of the
-context. `pins.ts` is the whole of it.
+approved. Each one that is new, changed, or gone gets its own dialog of
+the system, with the lines that differ. A long summary is cut short so the
+dialog's buttons stay on the screen. Approve keeps that file as it is now,
+or acknowledges its removal. Cancel does not start the agent; files already
+approved stay approved. What was approved is kept in the app's own data
+folder, in `pins.json`, by the real path of the context. `pins.ts` is the
+whole of it.
 
 Limits. The check is before a turn, not during it. Other files can carry
 instructions too: an agent may do what a README says. An approval makes
