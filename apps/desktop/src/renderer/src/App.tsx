@@ -1605,7 +1605,7 @@ export function App() {
 
   return (
     <div
-      className="app"
+      className={settingsOpen ? 'app full' : 'app'}
       style={{ '--rail-w': `${rail}px`, '--margin-w': `${margin}px` } as CSSProperties}
       onDragOver={(event) => event.dataTransfer.types.includes('Files') && event.preventDefault()}
       onDrop={dropped}

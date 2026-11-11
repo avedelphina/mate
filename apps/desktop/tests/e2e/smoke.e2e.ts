@@ -530,6 +530,11 @@ test('the window, on the example context: a comment into the file, the tree, a p
     // the context asks the system. The page lists this context as private, and the Agent tab knows the endpoint after.
     await app.press('.endpoint button', 'Set your endpoint…')
     await app.until(`document.querySelector('.center .settings h1')?.textContent === 'Settings'`, 'the settings page')
+    // The settings have the whole window: no rail and no margin beside them.
+    assert.deepEqual(await app.page(`[document.querySelector('.rail'), document.querySelector('.margin')].map((each) => getComputedStyle(each).display)`), ['none', 'none'])
+    assert.equal(await app.page(`Math.round(document.querySelector('.center').getBoundingClientRect().width) === window.innerWidth`), true)
+    // On a Mac the title does not sit under the window buttons.
+    if (mac) assert.equal(await app.page(`parseFloat(getComputedStyle(document.querySelector('.center > .bar:not([hidden])')).paddingLeft) >= 88`), true)
     await app.page(`(() => {
       const set = (at, text) => {
         const input = document.querySelectorAll('.settings .endpoint input')[at]
@@ -560,7 +565,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.settings .agents .remote li')?.textContent.startsWith('Hermes on agent-host.example')`, 'the agent, added')
     assert.deepEqual(JSON.parse(await readFile(path.join(app.userData, 'agents.json'), 'utf8')), [{ kind: 'hermes', host: 'agent-host.example' }])
     await app.page(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
-    await app.until(`!document.querySelector('.center .settings') && document.querySelector('.endpoint')?.textContent.includes('Your endpoint is llm.example.org')`, 'the Agent tab, with the endpoint')
+    await app.until(`!document.querySelector('.center .settings') && getComputedStyle(document.querySelector('.rail')).display !== 'none' && document.querySelector('.endpoint')?.textContent.includes('Your endpoint is llm.example.org')`, 'the Agent tab, with the endpoint')
     assert.deepEqual(await app.page(`[...document.querySelectorAll('.endpoint button')].map((each) => each.textContent)`), ['Allow your endpoint here…', 'Change the endpoint…'])
     assert.equal(JSON.parse(await readFile(path.join(app.userData, 'endpoint.json'), 'utf8')).url, 'https://llm.example.org/v1')
 

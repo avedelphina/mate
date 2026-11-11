@@ -67,6 +67,11 @@ body { font: 13px/1.5 var(--ui); color: var(--ink); background: var(--page); -we
 /* Three columns, each with a bar the window can be dragged by and a part that scrolls.
    The reader sets the width of the outer two. In a narrow window they give way before the page does. */
 .app { display: grid; grid-template-columns: minmax(180px, var(--rail-w, 240px)) minmax(320px, 1fr) minmax(280px, var(--margin-w, 360px)); height: 100%; }
+/* The settings are about the app, not the context: they have the whole window, with no rail and no margin beside them. */
+.app.full { grid-template-columns: minmax(0, 1fr); }
+.app.full > .rail, .app.full > .margin { display: none; }
+/* On a Mac the window buttons are where the rail was. Its bar made room for them, so this one does. */
+[data-platform='mac'] .app.full .center > .bar { padding-left: 88px; }
 .rail, .center, .margin { position: relative; display: flex; flex-direction: column; min-height: 0; }
 .rail { background: var(--rail); }
 [data-platform='mac'] .rail { background: color-mix(in srgb, var(--rail) 78%, transparent); }

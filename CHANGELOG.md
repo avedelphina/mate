@@ -5,6 +5,13 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Changed
+
+- The settings page has the whole window. The rail and the margin, which
+  were empty beside it, are hidden until it is closed.
+
 ## [0.29.0] - 2026-11-11
 
 The Agent tab is split into Sessions, for the whole context, and Chat. The context's own intents and principles steer a project that has none.
