@@ -557,11 +557,17 @@ each: `trusted.json`, `private.json`, `opened.json`, `endpoint.json`
 start to the next; the installed Mate and Mate Dev keep separate
 folders. A context is known in these by its real path.
 
-*Settings…* in the app menu (Command/Ctrl+,), or in the palette, puts them
-on one page in the center, like a question: the endpoint, with its form;
-the contexts trusted; the private contexts, and which are open to the
-endpoint; whether search by meaning and the comment box's helper can be
-had on this computer; and the folder, to show in the file manager. From
+*Settings…* in the app menu (Command/Ctrl+,), or in the palette, opens them
+on a page that has the whole window, with no rail and no margin beside it
+(`.app.full`). A row of tabs in its bar, as a Mac app has, parts them, with
+what is used most first: *General* (notifications, the editor, updates,
+and whether search by meaning and the comment box's helper can be had on
+this computer, with the folder to show in the file manager), *Agents* (the
+agents on this computer and on other machines, and the endpoint with its
+form), *Connections* (Gitea and GitHub, and Firecrawl) and *Privacy* (the
+contexts trusted, and the private ones, with which are open to the
+endpoint). The tab that was open last is kept in the window's storage.
+From
 the page a setting can only be taken away: *Stop trusting*, *Close it to
 your endpoint*. Trusting a context, or letting an agent or the endpoint
 into a private one, is done in that context, behind a dialog of the

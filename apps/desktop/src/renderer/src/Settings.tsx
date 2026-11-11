@@ -47,8 +47,35 @@ export function UpdateNotice() {
  * or letting an agent or the endpoint into a private one, is done in that context, behind a dialog of
  * the system.
  */
+/** The tabs of the settings, with the things used most first. */
+const PANES = [
+  { id: 'general', label: 'General' },
+  { id: 'agents', label: 'Agents' },
+  { id: 'connections', label: 'Connections' },
+  { id: 'privacy', label: 'Privacy' }
+] as const
+type Pane = (typeof PANES)[number]['id']
+const REMEMBERED = 'mate.settings.tab'
+
 export function Settings(props: { onClose: () => void }) {
   const { onClose } = props
+  // The tab that was open last time. Storage may be refused, and then it is General.
+  const [pane, setPane] = useState<Pane>(() => {
+    try {
+      const kept = window.localStorage.getItem(REMEMBERED)
+      return PANES.find((each) => each.id === kept)?.id ?? 'general'
+    } catch {
+      return 'general'
+    }
+  })
+  const choose = (next: Pane) => {
+    setPane(next)
+    try {
+      window.localStorage.setItem(REMEMBERED, next)
+    } catch {
+      // Not kept. The tab still changes.
+    }
+  }
   const [held, setHeld] = useState<Held | null>(null)
   const [error, setError] = useState<string | null>(null)
   // The endpoint form: address, model, and a key that is never shown back. Null until it is changed.
@@ -95,6 +122,14 @@ export function Settings(props: { onClose: () => void }) {
     <>
       <header className="bar">
         <span className="title"><strong>Settings</strong></span>
+        {/* Like the settings of a Mac app: a row of tabs, and the one that was open last time. */}
+        <span className="tabs" role="tablist" aria-label="Settings">
+          {PANES.map(({ id, label }) => (
+            <button key={id} role="tab" aria-selected={pane === id} className={pane === id ? 'quiet active' : 'quiet'} onClick={() => choose(id)}>
+              {label}
+            </button>
+          ))}
+        </span>
         <span className="acts">
           <button className="quiet" title="Esc" onClick={onClose}>
             Close
@@ -103,333 +138,353 @@ export function Settings(props: { onClose: () => void }) {
       </header>
       <div className="scroll">
         <div className="page settings">
-          <h1>Settings</h1>
+          <h1>{PANES.find((each) => each.id === pane)?.label}</h1>
           {error && (
             <p className="error" role="alert">
               {error}
             </p>
           )}
 
-          <section className="endpoint">
-            <h2>Your endpoint</h2>
-            <p className="meta">
-              An inference server you control, with an OpenAI-compatible address. It can judge which passages answer a question in any context, and
-              Hermes can work on it in a private context you open to it. The key is kept sealed by the keychain of this computer, and never shown again.
-            </p>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault()
-                act(async () => {
-                  await window.mate.setEndpoint(form.url, form.model, form.key || undefined)
-                  setEditing(null)
-                  setSaved(true)
-                })
-              }}
-            >
-              <label>
-                Address <input value={form.url} placeholder="https://your-server/v1" onChange={(event) => (setSaved(false), setEditing({ ...form, url: event.target.value }))} />
-              </label>
-              <label>
-                Model <input value={form.model} placeholder="Qwen/Qwen3.6-35B-A3B-FP8" onChange={(event) => (setSaved(false), setEditing({ ...form, model: event.target.value }))} />
-              </label>
-              <label>
-                Key{' '}
-                <input
-                  type="password"
-                  value={form.key}
-                  placeholder={held?.endpoint?.hasKey ? 'Saved. Leave empty to keep it.' : 'If the server asks for one'}
-                  onChange={(event) => (setSaved(false), setEditing({ ...form, key: event.target.value }))}
-                />
-              </label>
-              <p>
-                <button type="submit" disabled={!editing}>
-                  Save
-                </button>
-                {saved && host && <span className="meta"> Saved: {host}.</span>}
-              </p>
-              <p className="meta">A new host closes every private context that was open to the old one.</p>
-            </form>
-          </section>
+          {pane === 'general' && (
+            <>
+              <section className="notifications">
+                <h2>Notifications</h2>
+                <p className="meta">
+                  When Mate is not what you are looking at, the system tells you that an agent has finished, has a plan to approve, is asking you something,
+                  or wants to change a file, and that a new version is ready. It names the agent and the project and nothing from a document.
+                </p>
+                <label>
+                  <input type="checkbox" checked={held?.notifications ?? true} onChange={(event) => act(() => window.mate.setNotifications(event.target.checked))} /> Tell me
+                </label>
+              </section>
 
-          <section className="endpoint">
-            <h2>Your Firecrawl</h2>
-            <p className="meta">
-              Turns a web page into a draft when you press Add a link. Only the address of the page goes to Firecrawl, never your files, and not from a private context.
-              Leave the address empty for Firecrawl&apos;s cloud, or give one you run. The key is kept sealed by the keychain of this computer, and never shown again.
-            </p>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault()
-                setCrawlSaid(null)
-                setCrawling(true)
-                act(async () => {
-                  try {
-                    setCrawlSaid((await window.mate.setFirecrawl(crawl?.key || undefined, crawl?.base ?? '')).checked)
-                    setCrawl(null)
-                  } finally {
-                    setCrawling(false)
-                  }
-                })
-              }}
-            >
-              <label>
-                Address{' '}
-                <input
-                  value={crawl?.base ?? (held?.firecrawl.base === 'https://api.firecrawl.dev' ? '' : (held?.firecrawl.base ?? ''))}
-                  placeholder="https://api.firecrawl.dev"
-                  onChange={(event) => setCrawl({ key: crawl?.key ?? '', base: event.target.value })}
-                />
-              </label>
-              <label>
-                Key{' '}
-                <input
-                  type="password"
-                  value={crawl?.key ?? ''}
-                  placeholder={held?.firecrawl.hasKey ? 'Saved. Leave empty to keep it.' : 'fc-…'}
-                  onChange={(event) => setCrawl({ key: event.target.value, base: crawl?.base ?? (held?.firecrawl.base === 'https://api.firecrawl.dev' ? '' : (held?.firecrawl.base ?? '')) })}
-                />
-              </label>
-              <p>
-                <button type="submit" disabled={!crawl || crawling}>
-                  {crawling ? 'Trying the key…' : 'Save'}
-                </button>
-                {crawlSaid && !crawl && <span className="meta" role="status"> {crawlSaid}</span>}
-              </p>
-            </form>
-          </section>
+              <section className="endpoint">
+                <h2>Your editor</h2>
+                <p className="meta">
+                  Open in editor opens a file there, at the line of the comment or the selection. Give the command and what it takes before the file, such
+                  as <code>code -g</code> for VS Code, Cursor or Zed: the file goes last, as <code>FILE:LINE</code>. Left empty, the system's own app for the
+                  file opens it, at its top.
+                </p>
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    if (editor !== null) act(() => window.mate.setEditor(editor).then(() => setEditor(null)))
+                  }}
+                >
+                  <label>
+                    Command <input value={editor ?? held?.editor ?? ''} placeholder="code -g" onChange={(event) => setEditor(event.target.value)} />
+                  </label>
+                  <p>
+                    <button type="submit" disabled={editor === null}>
+                      Save
+                    </button>
+                  </p>
+                </form>
+              </section>
 
-          <section className="agents">
-            <h2>Agents</h2>
-            <p className="meta">
-              Agents on this computer are found on their own. An agent on another machine is sent the text of your files, so Mate adds none:
-              look in your ssh config and add the ones you want, or type a host.
-            </p>
-            <ul>
-              {added.filter((each) => each.host === null).map((each) => (
-                <li key={each.label}>
-                  {each.label} <span className="meta">{each.found ? 'found' : 'not found'}</span>
-                </li>
-              ))}
-            </ul>
-            <h3>On other machines</h3>
-            <ul className="remote">
-              {added.filter((each) => each.host !== null).map((each) => (
-                <li key={each.label}>
-                  {each.label}
-                  <button className="quiet" onClick={() => act(() => window.mate.removeAgent(each.kind, each.host!).then(keepAgents))}>
-                    Remove
-                  </button>
-                </li>
-              ))}
-              {!added.some((each) => each.host !== null) && <li className="meta">None yet.</li>}
-            </ul>
-            <p>
-              <button onClick={() => act(() => window.mate.discoverAgents().then(setLooked))}>Look in your ssh config</button>
-            </p>
-            {looked && (
-              <ul>
-                {looked.map((each) => (
-                  <li key={each.label}>
-                    {each.label}
-                    <button
-                      className="quiet"
-                      disabled={isAdded(each)}
-                      onClick={() => act(() => window.mate.addAgent(each.kind, each.host!).then(keepAgents))}
-                    >
-                      {isAdded(each) ? 'Added' : 'Add'}
+              <section className="updates">
+                <h2>Updates</h2>
+                <p className="meta">
+                  This is Mate {held?.version}. The installed app asks GitHub for a newer version when it starts and every six hours. It sends nothing of
+                  your contexts.{' '}
+                  {mac ? 'A new version is downloaded, and put in when Mate quits.' : 'When there is one, it says so, and opens the page to download it from.'}
+                </p>
+                <p>
+                  <button disabled={update.state === 'checking' || update.state === 'downloading'} onClick={() => act(() => window.mate.checkForUpdate())}>
+                    Check now
+                  </button>{' '}
+                  {(update.state === 'ready' || update.state === 'out') && (
+                    <button onClick={() => act(() => window.mate.installUpdate())}>{update.state === 'ready' ? 'Restart to update' : 'Download'}</button>
+                  )}{' '}
+                  <span className="meta" role="status">
+                    {updateSaid(update)}
+                  </span>
+                </p>
+              </section>
+
+              <section>
+                <h2>On this computer</h2>
+                <ul>
+                  <li>
+                    Search by meaning: <span className="meta">{held ? (held.meaning ?? 'ready, with bge-m3 in Ollama on this computer.') : '…'}</span>
+                  </li>
+                  <li>
+                    Drafting in the comment box:{' '}
+                    <span className="meta">
+                      {!held
+                        ? '…'
+                        : held.assist.available
+                          ? `ready, with ${document.documentElement.dataset.platform === 'mac' ? "Apple's model" : 'Ollama'} on this computer.`
+                          : held.assist.present
+                            ? held.assist.reason || 'not available.'
+                            : 'the helper is not built.'}
+                    </span>
+                  </li>
+                  <li>
+                    Settings are kept in <span className="dir">{held?.folder}</span>
+                    <button className="quiet" onClick={() => act(() => window.mate.revealSettings())}>
+                      {document.documentElement.dataset.platform === 'mac' ? 'Show in Finder' : 'Show the folder'}
                     </button>
                   </li>
-                ))}
-                {looked.length === 0 && <li className="meta">No hosts in your ssh config.</li>}
-              </ul>
-            )}
-            <form
-              onSubmit={(event) => {
-                event.preventDefault()
-                act(() => window.mate.addAgent('hermes', hostName.trim()).then((all) => (keepAgents(all), setHostName(''))))
-              }}
-            >
-              <label>
-                Hermes on another machine <input value={hostName} placeholder="host name, as ssh takes it" onChange={(event) => setHostName(event.target.value)} />
-              </label>{' '}
-              <button type="submit" disabled={!hostName.trim()}>
-                Add
-              </button>
-            </form>
-          </section>
+                </ul>
+              </section>
 
-          <section className="endpoint forges">
-            <h2>Gitea and GitHub</h2>
-            <p className="meta">
-              A project that is a clone of a repository on your Gitea, GitHub or GitHub Enterprise has its pull requests in its menu. You check one
-              out, comment on it as on any draft, and send your review, approve and merge from Mate. The forge shows them as yours. Mate asks only a
-              forge you add here, and only when you press. The token is tried when you add it, then kept sealed by the keychain of this computer and
-              never shown again. On Gitea it needs the scope write:repository. On GitHub, a fine-grained token needs Pull requests and Contents, read
-              and write; a classic one, repo.
-            </p>
-            <ul>
-              {held?.forges.map((each) => (
-                <li key={each.url}>
-                  <span className="dir">{each.url}</span>
-                  <span className="meta">
-                    {' '}
-                    · {each.kind === 'github' ? 'GitHub' : 'Gitea'}
-                    {each.user && `, as ${each.user}`}
-                  </span>
-                  <button className="quiet" onClick={() => act(() => window.mate.removeForge(each.url))}>
-                    Remove
-                  </button>
-                </li>
-              ))}
-              {held && held.forges.length === 0 && <li className="meta">None yet.</li>}
-            </ul>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault()
-                // Said here, under the form: the forge can take a while, and a refusal at the top of the page is out of sight.
-                setForgeSaid({ failed: false, text: 'Trying the token…' })
-                window.mate.addForge(forge.url, forge.token).then(
-                  () => (setForge({ url: '', token: '' }), setForgeSaid(null), void load()),
-                  (caught) => setForgeSaid({ failed: true, text: unwrapped(caught) })
-                )
-              }}
-            >
-              <label>
-                Address <input value={forge.url} placeholder="https://git.example.org, or https://github.com" onChange={(event) => setForge({ ...forge, url: event.target.value })} />
-              </label>
-              <label>
-                Token <input type="password" value={forge.token} placeholder="Made in the forge's settings, for you" onChange={(event) => setForge({ ...forge, token: event.target.value })} />
-              </label>
-              <p>
-                <button type="submit" disabled={!forge.url.trim() || !forge.token.trim() || forgeSaid?.failed === false}>
-                  Add
-                </button>
-              </p>
-              {forgeSaid && (
-                <p className={forgeSaid.failed ? 'error' : 'meta'} role={forgeSaid.failed ? 'alert' : 'status'}>
-                  {forgeSaid.text}
+            </>
+          )}
+
+          {pane === 'agents' && (
+            <>
+              <section className="agents">
+                <h2>Agents</h2>
+                <p className="meta">
+                  Agents on this computer are found on their own. An agent on another machine is sent the text of your files, so Mate adds none:
+                  look in your ssh config and add the ones you want, or type a host.
                 </p>
-              )}
-              <p className="meta">A forge added again with a new token keeps only the new one.</p>
-            </form>
-          </section>
-
-          <section className="endpoint">
-            <h2>Your editor</h2>
-            <p className="meta">
-              Open in editor opens a file there, at the line of the comment or the selection. Give the command and what it takes before the file, such
-              as <code>code -g</code> for VS Code, Cursor or Zed: the file goes last, as <code>FILE:LINE</code>. Left empty, the system's own app for the
-              file opens it, at its top.
-            </p>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault()
-                if (editor !== null) act(() => window.mate.setEditor(editor).then(() => setEditor(null)))
-              }}
-            >
-              <label>
-                Command <input value={editor ?? held?.editor ?? ''} placeholder="code -g" onChange={(event) => setEditor(event.target.value)} />
-              </label>
-              <p>
-                <button type="submit" disabled={editor === null}>
-                  Save
-                </button>
-              </p>
-            </form>
-          </section>
-
-          <section className="notifications">
-            <h2>Notifications</h2>
-            <p className="meta">
-              When Mate is not what you are looking at, the system tells you that an agent has finished, has a plan to approve, is asking you something,
-              or wants to change a file, and that a new version is ready. It names the agent and the project and nothing from a document.
-            </p>
-            <label>
-              <input type="checkbox" checked={held?.notifications ?? true} onChange={(event) => act(() => window.mate.setNotifications(event.target.checked))} /> Tell me
-            </label>
-          </section>
-
-          <section className="updates">
-            <h2>Updates</h2>
-            <p className="meta">
-              This is Mate {held?.version}. The installed app asks GitHub for a newer version when it starts and every six hours. It sends nothing of
-              your contexts.{' '}
-              {mac ? 'A new version is downloaded, and put in when Mate quits.' : 'When there is one, it says so, and opens the page to download it from.'}
-            </p>
-            <p>
-              <button disabled={update.state === 'checking' || update.state === 'downloading'} onClick={() => act(() => window.mate.checkForUpdate())}>
-                Check now
-              </button>{' '}
-              {(update.state === 'ready' || update.state === 'out') && (
-                <button onClick={() => act(() => window.mate.installUpdate())}>{update.state === 'ready' ? 'Restart to update' : 'Download'}</button>
-              )}{' '}
-              <span className="meta" role="status">
-                {updateSaid(update)}
-              </span>
-            </p>
-          </section>
-
-          <section>
-            <h2>Contexts you trust</h2>
-            <p className="meta">In these, Hermes runs as it does in your terminal, and scripts and commits run. You trust a context in its Agent tab.</p>
-            {held && held.trusted.length === 0 && <p className="meta">None.</p>}
-            <ul>
-              {held?.trusted.map((dir) => (
-                <li key={dir}>
-                  <span className="dir">{dir}</span>
-                  <button className="quiet" onClick={() => act(() => window.mate.untrust(dir))}>
-                    Stop trusting
+                <ul>
+                  {added.filter((each) => each.host === null).map((each) => (
+                    <li key={each.label}>
+                      {each.label} <span className="meta">{each.found ? 'found' : 'not found'}</span>
+                    </li>
+                  ))}
+                </ul>
+                <h3>On other machines</h3>
+                <ul className="remote">
+                  {added.filter((each) => each.host !== null).map((each) => (
+                    <li key={each.label}>
+                      {each.label}
+                      <button className="quiet" onClick={() => act(() => window.mate.removeAgent(each.kind, each.host!).then(keepAgents))}>
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                  {!added.some((each) => each.host !== null) && <li className="meta">None yet.</li>}
+                </ul>
+                <p>
+                  <button onClick={() => act(() => window.mate.discoverAgents().then(setLooked))}>Look in your ssh config</button>
+                </p>
+                {looked && (
+                  <ul>
+                    {looked.map((each) => (
+                      <li key={each.label}>
+                        {each.label}
+                        <button
+                          className="quiet"
+                          disabled={isAdded(each)}
+                          onClick={() => act(() => window.mate.addAgent(each.kind, each.host!).then(keepAgents))}
+                        >
+                          {isAdded(each) ? 'Added' : 'Add'}
+                        </button>
+                      </li>
+                    ))}
+                    {looked.length === 0 && <li className="meta">No hosts in your ssh config.</li>}
+                  </ul>
+                )}
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    act(() => window.mate.addAgent('hermes', hostName.trim()).then((all) => (keepAgents(all), setHostName(''))))
+                  }}
+                >
+                  <label>
+                    Hermes on another machine <input value={hostName} placeholder="host name, as ssh takes it" onChange={(event) => setHostName(event.target.value)} />
+                  </label>{' '}
+                  <button type="submit" disabled={!hostName.trim()}>
+                    Add
                   </button>
-                </li>
-              ))}
-            </ul>
-          </section>
+                </form>
+              </section>
 
-          <section>
-            <h2>Private contexts</h2>
-            <p className="meta">No agent works in these, so nothing of them leaves this computer, unless one is open to your endpoint. You make a context private, or let agents in again, in its Agent tab.</p>
-            {held && held.private.length === 0 && <p className="meta">None.</p>}
-            <ul>
-              {held?.private.map(({ dir, opened }) => (
-                <li key={dir}>
-                  <span className="dir">{dir}</span>
-                  {opened && <span className="meta"> · open to {host ?? 'your endpoint'}</span>}
-                  {opened && (
-                    <button className="quiet" onClick={() => act(() => window.mate.closeToEndpoint(dir))}>
-                      Close it to your endpoint
+              <section className="endpoint">
+                <h2>Your endpoint</h2>
+                <p className="meta">
+                  An inference server you control, with an OpenAI-compatible address. It can judge which passages answer a question in any context, and
+                  Hermes can work on it in a private context you open to it. The key is kept sealed by the keychain of this computer, and never shown again.
+                </p>
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    act(async () => {
+                      await window.mate.setEndpoint(form.url, form.model, form.key || undefined)
+                      setEditing(null)
+                      setSaved(true)
+                    })
+                  }}
+                >
+                  <label>
+                    Address <input value={form.url} placeholder="https://your-server/v1" onChange={(event) => (setSaved(false), setEditing({ ...form, url: event.target.value }))} />
+                  </label>
+                  <label>
+                    Model <input value={form.model} placeholder="Qwen/Qwen3.6-35B-A3B-FP8" onChange={(event) => (setSaved(false), setEditing({ ...form, model: event.target.value }))} />
+                  </label>
+                  <label>
+                    Key{' '}
+                    <input
+                      type="password"
+                      value={form.key}
+                      placeholder={held?.endpoint?.hasKey ? 'Saved. Leave empty to keep it.' : 'If the server asks for one'}
+                      onChange={(event) => (setSaved(false), setEditing({ ...form, key: event.target.value }))}
+                    />
+                  </label>
+                  <p>
+                    <button type="submit" disabled={!editing}>
+                      Save
                     </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </section>
+                    {saved && host && <span className="meta"> Saved: {host}.</span>}
+                  </p>
+                  <p className="meta">A new host closes every private context that was open to the old one.</p>
+                </form>
+              </section>
 
-          <section>
-            <h2>On this computer</h2>
-            <ul>
-              <li>
-                Search by meaning: <span className="meta">{held ? (held.meaning ?? 'ready, with bge-m3 in Ollama on this computer.') : '…'}</span>
-              </li>
-              <li>
-                Drafting in the comment box:{' '}
-                <span className="meta">
-                  {!held
-                    ? '…'
-                    : held.assist.available
-                      ? `ready, with ${document.documentElement.dataset.platform === 'mac' ? "Apple's model" : 'Ollama'} on this computer.`
-                      : held.assist.present
-                        ? held.assist.reason || 'not available.'
-                        : 'the helper is not built.'}
-                </span>
-              </li>
-              <li>
-                Settings are kept in <span className="dir">{held?.folder}</span>
-                <button className="quiet" onClick={() => act(() => window.mate.revealSettings())}>
-                  {document.documentElement.dataset.platform === 'mac' ? 'Show in Finder' : 'Show the folder'}
-                </button>
-              </li>
-            </ul>
-          </section>
+            </>
+          )}
+
+          {pane === 'connections' && (
+            <>
+              <section className="endpoint forges">
+                <h2>Gitea and GitHub</h2>
+                <p className="meta">
+                  A project that is a clone of a repository on your Gitea, GitHub or GitHub Enterprise has its pull requests in its menu. You check one
+                  out, comment on it as on any draft, and send your review, approve and merge from Mate. The forge shows them as yours. Mate asks only a
+                  forge you add here, and only when you press. The token is tried when you add it, then kept sealed by the keychain of this computer and
+                  never shown again. On Gitea it needs the scope write:repository. On GitHub, a fine-grained token needs Pull requests and Contents, read
+                  and write; a classic one, repo.
+                </p>
+                <ul>
+                  {held?.forges.map((each) => (
+                    <li key={each.url}>
+                      <span className="dir">{each.url}</span>
+                      <span className="meta">
+                        {' '}
+                        · {each.kind === 'github' ? 'GitHub' : 'Gitea'}
+                        {each.user && `, as ${each.user}`}
+                      </span>
+                      <button className="quiet" onClick={() => act(() => window.mate.removeForge(each.url))}>
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                  {held && held.forges.length === 0 && <li className="meta">None yet.</li>}
+                </ul>
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    // Said here, under the form: the forge can take a while, and a refusal at the top of the page is out of sight.
+                    setForgeSaid({ failed: false, text: 'Trying the token…' })
+                    window.mate.addForge(forge.url, forge.token).then(
+                      () => (setForge({ url: '', token: '' }), setForgeSaid(null), void load()),
+                      (caught) => setForgeSaid({ failed: true, text: unwrapped(caught) })
+                    )
+                  }}
+                >
+                  <label>
+                    Address <input value={forge.url} placeholder="https://git.example.org, or https://github.com" onChange={(event) => setForge({ ...forge, url: event.target.value })} />
+                  </label>
+                  <label>
+                    Token <input type="password" value={forge.token} placeholder="Made in the forge's settings, for you" onChange={(event) => setForge({ ...forge, token: event.target.value })} />
+                  </label>
+                  <p>
+                    <button type="submit" disabled={!forge.url.trim() || !forge.token.trim() || forgeSaid?.failed === false}>
+                      Add
+                    </button>
+                  </p>
+                  {forgeSaid && (
+                    <p className={forgeSaid.failed ? 'error' : 'meta'} role={forgeSaid.failed ? 'alert' : 'status'}>
+                      {forgeSaid.text}
+                    </p>
+                  )}
+                  <p className="meta">A forge added again with a new token keeps only the new one.</p>
+                </form>
+              </section>
+
+              <section className="endpoint">
+                <h2>Your Firecrawl</h2>
+                <p className="meta">
+                  Turns a web page into a draft when you press Add a link. Only the address of the page goes to Firecrawl, never your files, and not from a private context.
+                  Leave the address empty for Firecrawl&apos;s cloud, or give one you run. The key is kept sealed by the keychain of this computer, and never shown again.
+                </p>
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    setCrawlSaid(null)
+                    setCrawling(true)
+                    act(async () => {
+                      try {
+                        setCrawlSaid((await window.mate.setFirecrawl(crawl?.key || undefined, crawl?.base ?? '')).checked)
+                        setCrawl(null)
+                      } finally {
+                        setCrawling(false)
+                      }
+                    })
+                  }}
+                >
+                  <label>
+                    Address{' '}
+                    <input
+                      value={crawl?.base ?? (held?.firecrawl.base === 'https://api.firecrawl.dev' ? '' : (held?.firecrawl.base ?? ''))}
+                      placeholder="https://api.firecrawl.dev"
+                      onChange={(event) => setCrawl({ key: crawl?.key ?? '', base: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Key{' '}
+                    <input
+                      type="password"
+                      value={crawl?.key ?? ''}
+                      placeholder={held?.firecrawl.hasKey ? 'Saved. Leave empty to keep it.' : 'fc-…'}
+                      onChange={(event) => setCrawl({ key: event.target.value, base: crawl?.base ?? (held?.firecrawl.base === 'https://api.firecrawl.dev' ? '' : (held?.firecrawl.base ?? '')) })}
+                    />
+                  </label>
+                  <p>
+                    <button type="submit" disabled={!crawl || crawling}>
+                      {crawling ? 'Trying the key…' : 'Save'}
+                    </button>
+                    {crawlSaid && !crawl && <span className="meta" role="status"> {crawlSaid}</span>}
+                  </p>
+                </form>
+              </section>
+
+            </>
+          )}
+
+          {pane === 'privacy' && (
+            <>
+              <section>
+                <h2>Contexts you trust</h2>
+                <p className="meta">In these, Hermes runs as it does in your terminal, and scripts and commits run. You trust a context in its Sessions tab.</p>
+                {held && held.trusted.length === 0 && <p className="meta">None.</p>}
+                <ul>
+                  {held?.trusted.map((dir) => (
+                    <li key={dir}>
+                      <span className="dir">{dir}</span>
+                      <button className="quiet" onClick={() => act(() => window.mate.untrust(dir))}>
+                        Stop trusting
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <section>
+                <h2>Private contexts</h2>
+                <p className="meta">No agent works in these, so nothing of them leaves this computer, unless one is open to your endpoint. You make a context private, or let agents in again, in its Sessions tab.</p>
+                {held && held.private.length === 0 && <p className="meta">None.</p>}
+                <ul>
+                  {held?.private.map(({ dir, opened }) => (
+                    <li key={dir}>
+                      <span className="dir">{dir}</span>
+                      {opened && <span className="meta"> · open to {host ?? 'your endpoint'}</span>}
+                      {opened && (
+                        <button className="quiet" onClick={() => act(() => window.mate.closeToEndpoint(dir))}>
+                          Close it to your endpoint
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+            </>
+          )}
         </div>
       </div>
     </>

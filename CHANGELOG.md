@@ -11,6 +11,11 @@ then, minor versions may change behaviour.
 
 - The settings page has the whole window. The rail and the margin, which
   were empty beside it, are hidden until it is closed.
+- The settings are in four tabs, as a Mac app has them, with what is used
+  most first: General (notifications, the editor, updates), Agents (agents
+  and your endpoint), Connections (Gitea and GitHub, Firecrawl) and Privacy
+  (the contexts you trust, and the private ones). The tab you had open is
+  the one that opens next time.
 
 ## [0.29.0] - 2026-11-11
 

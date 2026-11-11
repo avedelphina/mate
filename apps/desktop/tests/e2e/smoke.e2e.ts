@@ -529,7 +529,11 @@ test('the window, on the example context: a comment into the file, the tree, a p
     // The reader's endpoint is set on the settings page, opened from here. Saving it asks nothing; letting it read
     // the context asks the system. The page lists this context as private, and the Agent tab knows the endpoint after.
     await app.press('.endpoint button', 'Set your endpoint…')
-    await app.until(`document.querySelector('.center .settings h1')?.textContent === 'Settings'`, 'the settings page')
+    await app.until(`document.querySelector('.center .settings h1')?.textContent === 'General'`, 'the settings page, at General')
+    assert.deepEqual(await app.page(names('[role=tablist] button')), ['General*', 'Agents', 'Connections', 'Privacy'])
+    // What is used most is first: nothing is asked for here, and each tab has only what its name says.
+    assert.deepEqual(await app.page(names('.settings section h2')), ['Notifications', 'Your editor', 'Updates', 'On this computer'])
+    await app.press('[role=tablist] button', 'Agents')
     // The settings have the whole window: no rail and no margin beside them.
     assert.deepEqual(await app.page(`[document.querySelector('.rail'), document.querySelector('.margin')].map((each) => getComputedStyle(each).display)`), ['none', 'none'])
     assert.equal(await app.page(`Math.round(document.querySelector('.center').getBoundingClientRect().width) === window.innerWidth`), true)
@@ -548,13 +552,17 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelectorAll('.settings .endpoint input')[1]?.value === 'Qwen/Qwen3.6-35B-A3B-FP8' && !document.querySelector('.settings .endpoint button[type="submit"]').disabled`, 'the form to hold the endpoint')
     await app.press('.settings .endpoint button', 'Save')
     await app.until(`document.querySelector('.settings .endpoint')?.textContent.includes('Saved: llm.example.org.')`, 'the endpoint, saved')
+    await app.press('[role=tablist] button', 'Privacy')
     assert.equal(await app.page(`[...document.querySelectorAll('.settings li .dir')].some((each) => each.textContent.endsWith('/example'))`), true)
     // No forge is added yet, so no project has pull requests to review.
+    await app.press('[role=tablist] button', 'Connections')
     assert.equal(await app.page(`document.querySelector('.settings .forges li').textContent`), 'None yet.')
     // A checkout never updates itself, and says so when asked.
+    await app.press('[role=tablist] button', 'General')
     await app.press('.settings .updates button', 'Check now')
     await app.until(`document.querySelector('.settings .updates [role=status]')?.textContent === 'Run from a checkout, Mate does not update itself.'`, 'the update check, refused in a checkout')
     // An agent on another machine is not found on its own: the reader adds one, here by a host typed in, and it is kept in the app's own data.
+    await app.press('[role=tablist] button', 'Agents')
     assert.equal(await app.page(`document.querySelector('.settings .agents .remote li').textContent`), 'None yet.')
     await app.page(`(() => {
       const input = document.querySelector('.settings .agents form input')
