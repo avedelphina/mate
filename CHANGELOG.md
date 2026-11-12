@@ -5,10 +5,11 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.33.0] - 2026-11-12
 
-Your comments stay in the context. A repository you work in holds nothing
-of them unless you share them.
+Mate keeps its own files in the context, not in your projects. Your
+comments, the panes and the notes stay out of a repository unless you share
+a comment.
 
 ### Changed
 
