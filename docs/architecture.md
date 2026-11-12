@@ -224,13 +224,17 @@ file]]` opens it when it names one file of the project (`fileNamed`, as
 in an agent's answer), and a `#tag` searches the context for it. A
 search hit in a side file opens the file it comments on, at its thread.
 
-## A note beside a file
+## A note about a file
 
-Any file of a project can have a note: `NAME.notes.md` in the same folder.
-The comments of a file are Mate's format, and a note is free words, so
-they are two files. `readNote` and `writeNote` in `context.ts` are the one
+Any file of a project can have a note: `NAME.notes.md`, kept in the
+context under the file's path in the project, `.mate/projects/P/…`, and
+not beside the file. It is *named* as a file of the project, as a pane is
+(`keptDisk`). One an older version left beside the file is read until the
+clean-up moves it, and one in the context wins. A move of the file takes
+its note. The comments of a file are Mate's format, and a note is free
+words, so they are two files. `readNote` and `writeNote` in `context.ts` are the one
 path. They take a path from the project folder, refuse a hidden file and a
-file that is a comment file or a note, and write beside the file by a
+file that is a comment file or a note, and write the note by a
 temporary file and a rename. Like a draft, a note is written only from the
 text the reader began from, and a first note must not be empty. The window
 asks by `note:read` and `note:write`.
@@ -273,7 +277,7 @@ It holds front matter (`from`, `sent`), the reader's note and the passage
 as a quote, and nothing else in the other project changes. The other
 project deals with it by the exits of a dropbox. Only the passage goes: a
 request is something to read, and a whole draft is a source to bring in.
-The sender gets a line in the note beside the file the passage is in, which
+The sender gets a line in the note about the file the passage is in, which
 is left unsaid if that file can have no note. No agent can send one.
 
 ## The text and the anchor
@@ -1196,7 +1200,7 @@ A pane is not in the project: a repository must hold nothing of Mate's.
 It lies in `.mate/projects/NAME/panes/` and is *named* as if it were in
 the project, `projects/NAME/panes/FILE.md`, which is what the window, the
 search, `mate_read` and `mate_write` and an agent on another machine all
-say. `paneDisk` turns that name into the place, and `diskParts` picks the
+say. `keptDisk` turns that name into the place, and `diskParts` picks the
 place on disk for a read. A pane an older version left in the project's
 own `panes/` folder is shown until the clean-up moves it, and one of the
 same name in the context wins. An agent that writes files itself is told

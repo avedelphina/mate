@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import http from 'node:http'
 import path from 'node:path'
 import { addReply, readDocument } from '../shared/comments'
-import { addComment, diskParts, editDraft, paneDisk, readCommented, readContextFile, realInside } from './context'
+import { addComment, diskParts, editDraft, keptDisk, readCommented, readContextFile, realInside } from './context'
 import { placeOf, refreshIndex, searchIndex, type Kind } from './contextIndex'
 import { meaningRuns, searchMeaning } from './meaning'
 import { judge, loadSession, saveSession, type Session } from './sessions'
@@ -227,7 +227,7 @@ async function run(binding: Binding, session: Session, name: string, input: Json
     }
     case 'mate_write': {
       // A pane is named as a file of the project and kept in the context.
-      const relative = paneDisk(partsOf(input.path).join('/'))
+      const relative = keptDisk(partsOf(input.path).join('/'))
       const before = await readFile(path.join(contextDir, relative)).catch(() => null)
       const after = Buffer.from(String(input.text ?? ''))
       if (before?.equals(after)) return 'The file already has that text.'

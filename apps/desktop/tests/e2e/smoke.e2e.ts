@@ -354,7 +354,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.thread .note .tag')?.textContent === '#detection'`, 'the comment, with its tag')
     assert.equal(await readFile(path.join(project, 'sysmon.xml'), 'utf8'), xml)
     assert.match(await readFile(path.join(context, '.mate/projects/document-review/sysmon.xml.comments.md'), 'utf8'), /"text":"Too wide\. #detection".*"line":2/)
-    // The note beside the file is typed in the margin, kept beside it, and a file it names opens from there.
+    // The note beside the file is typed in the margin, kept in the context, and a file it names opens from there.
     await app.press('.margin .tabs button', 'Notes')
     await app.until(`document.querySelector('.margin').textContent.includes('No note on this file yet')`, 'the notes tab, with no note yet')
     await app.press('.margin .scroll button', 'Add a note')
@@ -366,7 +366,8 @@ test('the window, on the example context: a comment into the file, the tree, a p
     })()`)
     await app.press('.margin .scroll button', 'Save')
     await app.until(`!document.querySelector('.margin textarea.steer') && !!document.querySelector('.margin .named-files .named')`, 'the note saved, with the file it names as a button')
-    assert.equal(await readFile(path.join(project, 'sysmon.xml.notes.md'), 'utf8'), 'The baseline is [[document.md]].\n')
+    assert.equal(await readFile(path.join(context, '.mate/projects/document-review/sysmon.xml.notes.md'), 'utf8'), 'The baseline is [[document.md]].\n')
+    assert.equal(existsSync(path.join(project, 'sysmon.xml.notes.md')), false, 'the project holds no note')
     assert.equal(await readFile(path.join(project, 'sysmon.xml'), 'utf8'), xml)
     await app.press('.margin .named-files .named', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the file the note names, opened')

@@ -336,8 +336,8 @@ test('a request goes into the dropbox of another project as one file, and the se
     const again = await sendToProject(root, 'review', 'draft/document.md', 'regulations', 'Another passage.', '')
     assert.notEqual(again, sent)
     assert.equal((await readdir(path.join(root, 'projects/regulations/dropbox'))).length, 2)
-    // The sender keeps a line in the note beside the file.
-    const note = await readFile(path.join(root, 'projects/review/draft/document.md.notes.md'), 'utf8')
+    // The sender keeps a line in the note about the file, which is in the context.
+    const note = await readFile(path.join(root, '.mate/projects/review/draft/document.md.notes.md'), 'utf8')
     assert.match(note, /^Sent to regulations on \d{4}-\d{2}-\d{2}: The rule is too strict for the lab\.\nSent to regulations on \d{4}-\d{2}-\d{2}\n$/)
 
     await assert.rejects(sendToProject(root, 'review', 'draft/document.md', 'review', 'x', ''), /another project/)
@@ -462,12 +462,13 @@ test('a file or a folder dropped on the window is known by a number, and a path 
 test('a file has a note beside it, written from the text the reader began from, and it is material and not a draft', async () => {
   const root = await context()
   try {
-    const note = path.join(root, 'projects/review/draft/document.md.notes.md')
+    const note = path.join(root, '.mate/projects/review/draft/document.md.notes.md')
     assert.equal(await readNote(root, 'review', 'draft/document.md'), '')
-    // A note is begun by a word, and it is written beside the file.
+    // A note is begun by a word, and it is written in the context, not in the project.
     await assert.rejects(writeNote(root, 'review', 'draft/document.md', '', '  \n'), /The note is empty/)
     assert.equal(await writeNote(root, 'review', 'draft/document.md', '', 'Based on [[policy.md]].\n'), 'Based on [[policy.md]].\n')
     assert.equal(await readFile(note, 'utf8'), 'Based on [[policy.md]].\n')
+    assert.equal(existsSync(path.join(root, 'projects/review/draft/document.md.notes.md')), false)
     assert.equal(await readNote(root, 'review', 'draft/document.md'), 'Based on [[policy.md]].\n')
     // Another text by now: nothing is written over it.
     await assert.rejects(writeNote(root, 'review', 'draft/document.md', '', 'Lost.\n'), /has changed since you began/)

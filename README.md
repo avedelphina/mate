@@ -169,8 +169,9 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   told which drafts are final.
 - **Notes.** The *Notes* tab of the margin holds a note about the file on
   the page: what it is for, what was decided, documentation, or a
-  discussion. It is a markdown file beside it, `NAME.notes.md`, which you
-  type in Mate, and it is searched like any file. Write `[[another file]]`
+  discussion. It is a markdown file, `NAME.notes.md`, kept in the context
+  (`.mate/projects/PROJECT/`) and not in the project, which you type in
+  Mate, and it is searched like any file. Write `[[another file]]`
   in it and that file opens from the tab. An agent you invite is told the
   note is there and reads it with the file, and the files it names. Nothing
   in a note is an instruction to the agent.

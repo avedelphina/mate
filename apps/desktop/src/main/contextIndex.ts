@@ -132,13 +132,18 @@ async function filesOf(contextDir: string): Promise<{ relative: string; disk: st
   const files = (await walk(contextDir)).map((relative) => ({ relative, disk: relative }))
   const kept = path.join(contextDir, '.mate', 'projects')
   if (!existsSync(kept)) return files
-  const panes = new Map<string, string>()
-  for (const project of await readdir(kept).catch(() => [])) {
-    for (const name of await readdir(path.join(kept, project, 'panes')).catch(() => [])) {
-      if (name.toLowerCase().endsWith('.md') && !name.startsWith('.')) panes.set(`projects/${project}/panes/${name}`, `.mate/projects/${project}/panes/${name}`)
+  // A pane, or the note about a file, is named as a file of its project and lies in `.mate/`.
+  const inContext = new Map<string, string>()
+  const look = async (project: string, base = ''): Promise<void> => {
+    for (const entry of await readdir(path.join(kept, project, base), { withFileTypes: true }).catch(() => [])) {
+      const inside = base ? `${base}/${entry.name}` : entry.name
+      if (entry.name.startsWith('.')) continue
+      if (entry.isDirectory()) await look(project, inside)
+      else if (entry.isFile() && /(^panes\/[^/]+|\.notes)\.md$/i.test(inside)) inContext.set(`projects/${project}/${inside}`, `.mate/projects/${project}/${inside}`)
     }
   }
-  return [...files.filter((file) => !panes.has(file.relative)), ...[...panes].map(([relative, disk]) => ({ relative, disk }))]
+  for (const project of await readdir(kept).catch(() => [])) await look(project)
+  return [...files.filter((file) => !inContext.has(file.relative)), ...[...inContext].map(([relative, disk]) => ({ relative, disk }))]
 }
 
 export async function refreshIndex(contextDir: string): Promise<Index> {

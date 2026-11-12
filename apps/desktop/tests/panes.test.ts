@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { paneDisk, placeOnDisk, readContextFile, readProject, tickPane } from '../src/main/context.ts'
+import { keptDisk, moveEntry, placeOnDisk, readContextFile, readNote, readProject, tickPane, writeNote } from '../src/main/context.ts'
 import { refreshIndex, searchIndex } from '../src/main/contextIndex.ts'
 
 test('a pane is kept in the context, named as a file of its project, and the project holds none', async () => {
@@ -12,9 +12,10 @@ test('a pane is kept in the context, named as a file of its project, and the pro
   try {
     await mkdir(path.join(root, 'projects/review/draft'), { recursive: true })
     await writeFile(path.join(root, 'projects/review/draft/a.md'), '# A\n')
-    assert.equal(paneDisk('projects/review/panes/tasks.md'), '.mate/projects/review/panes/tasks.md')
-    assert.equal(paneDisk('projects/review/draft/a.md'), 'projects/review/draft/a.md', 'only a pane moves')
-    assert.equal(paneDisk('projects/review/panes/x/y.md'), '.mate/projects/review/panes/x/y.md')
+    assert.equal(keptDisk('projects/review/panes/tasks.md'), '.mate/projects/review/panes/tasks.md')
+    assert.equal(keptDisk('projects/review/draft/a.md'), 'projects/review/draft/a.md', 'only a pane or a note moves')
+    assert.equal(keptDisk('projects/review/draft/a.md.notes.md'), '.mate/projects/review/draft/a.md.notes.md')
+    assert.equal(keptDisk('projects/review/panes/x/y.md'), '.mate/projects/review/panes/x/y.md')
 
     // A pane an agent wrote into the context is shown, found by search, read by its name in the project, and ticked.
     const pane = path.join(root, '.mate/projects/review/panes/tasks.md')
@@ -42,3 +43,26 @@ test('a pane is kept in the context, named as a file of its project, and the pro
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('the note about a file is kept in the context, found by search under the file, and goes with the file', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-'))
+  try {
+    await mkdir(path.join(root, 'projects/review/draft'), { recursive: true })
+    await mkdir(path.join(root, 'projects/review/other'))
+    await writeFile(path.join(root, 'projects/review/draft/a.md'), '# A\n')
+    await writeFile(path.join(root, 'projects/review/data.csv'), 'a,b\n')
+    await writeNote(root, 'review', 'data.csv', '', 'Exported from the tracker, see [[a.md]].\n')
+    assert.equal(await readFile(path.join(root, '.mate/projects/review/data.csv.notes.md'), 'utf8'), 'Exported from the tracker, see [[a.md]].\n')
+    assert.equal(existsSync(path.join(root, 'projects/review/data.csv.notes.md')), false, 'the project holds no note')
+    // Search finds it as the file's note, named as a file of the project, and an agent reads it by that name.
+    const hits = searchIndex(await refreshIndex(root), 'tracker')
+    assert.deepEqual([...new Set(hits.map((hit) => `${hit.kind} ${hit.path}`))], ['material projects/review/data.csv.notes.md'])
+    assert.match((await readContextFile(root, 'projects/review/data.csv.notes.md')).text, /Exported from the tracker/)
+    // It goes with the file.
+    await moveEntry(root, 'review', 'data.csv', 'other')
+    assert.equal(await readNote(root, 'review', 'other/data.csv'), 'Exported from the tracker, see [[a.md]].\n')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+

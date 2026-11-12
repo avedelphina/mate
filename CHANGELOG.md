@@ -45,9 +45,11 @@ of them unless you share them.
   version left in `panes/` is still shown, and *Clean up projects…* moves
   it.
 
-### Not yet
-
-- Notes (`NAME.notes.md`) are still files of the project. They move next.
+- The note about a file (`NAME.notes.md`) is kept in the context too, in
+  `.mate/projects/PROJECT/`, and not beside the file. It goes with the file
+  when you move it, and an agent on another machine is sent it. One an
+  older version left beside a file is still read, and *Clean up
+  projects…* moves it. After that a project holds only what you brought.
 
 ## [0.32.0] - 2026-11-11
 

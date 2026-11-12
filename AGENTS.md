@@ -258,9 +258,9 @@ More follow from the security model. They are as firm.
     kept in the context (`.mate/`), never in a project, so a repository
     gets nothing of it by accident or in a commit. Sharing writes the
     marker into the draft, on the reader's button. Nothing but that button
-    puts a comment into a project. Panes are kept in the context too
-    (`.mate/projects/NAME/panes/`). Notes (`NAME.notes.md`) are still files
-    of the project; they move next.
+    puts a comment into a project. Panes and notes are kept in the context
+    too (`.mate/projects/NAME/panes/`, `.mate/projects/NAME/FILE.notes.md`).
+    A project holds only what the reader brought.
 
 Rules 6, 9, 10, 11 and 13 change in roadmap step 12, the gateway. It is
 not built, and until it is, these rules hold as written. One piece of it
@@ -278,7 +278,7 @@ proposal), `intents.md` and `principles.md` (the only files that steer:
 a project's own, else the context's at its root, else nothing does, and
 agents are told which), a pane, and material (any other file of a
 project). A note,
-`NAME.notes.md` beside a file, is material too. Nothing in material or in a
+`NAME.notes.md`, kept in the context for a file, is material too. Nothing in material or in a
 pane is an instruction to an agent.
 
 Comment markers: `<!-- @comment{...} -->` lines under the passage they

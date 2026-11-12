@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { cleanUp, leftovers, markDone, offered } from '../src/main/cleanup.ts'
-import { readProject } from '../src/main/context.ts'
+import { readNote, readProject } from '../src/main/context.ts'
 import { insertComment, separate, setCommentPrivate } from '../src/shared/comments.ts'
 
 test('older comment files leave the projects, and comments written into a repository leave its files', async () => {
@@ -25,6 +25,8 @@ test('older comment files leave the projects, and comments written into a reposi
       await writeFile(path.join(root, 'projects', name, 'guide.md'), shared)
     }
     await mkdir(path.join(root, 'projects', 'repo', '.git'))
+    // A note an older version kept beside a file.
+    await writeFile(path.join(root, 'projects', 'plain', 'guide.md.notes.md'), 'About the guide.\n')
     // A pane an older version left in the project.
     await mkdir(path.join(root, 'projects', 'plain', 'panes'))
     await writeFile(path.join(root, 'projects', 'plain', 'panes', 'tasks.md'), '- [ ] one\n')
@@ -36,9 +38,12 @@ test('older comment files leave the projects, and comments written into a reposi
     assert.deepEqual(found.written, [{ project: 'repo', file: 'guide.md', comments: 1 }])
 
     assert.deepEqual(found.panes, [{ project: 'plain', name: 'tasks.md' }])
-    assert.deepEqual(await cleanUp(root, found), { moved: 1, panes: 1, taken: 1, left: 0 })
+    assert.deepEqual(found.notes, [{ project: 'plain', file: 'guide.md.notes.md' }])
+    assert.deepEqual(await cleanUp(root, found), { moved: 1, notes: 1, panes: 1, taken: 1, left: 0 })
     assert.equal(existsSync(path.join(root, 'projects', 'plain', 'panes')), false)
     assert.equal((await readProject(root, 'plain')).panes[0].text, '- [ ] one\n')
+    assert.equal(existsSync(path.join(root, 'projects', 'plain', 'guide.md.notes.md')), false)
+    assert.equal(await readNote(root, 'plain', 'guide.md'), 'About the guide.\n')
     assert.equal(await readFile(path.join(root, '.mate/projects/plain/panes/tasks.md'), 'utf8'), '- [ ] one\n')
     assert.equal(existsSync(path.join(config, 'x.xml.comments.md')), false)
     assert.equal((await readProject(root, 'review', 'config/x.xml')).comments[0].text, 'Why?')
@@ -47,7 +52,7 @@ test('older comment files leave the projects, and comments written into a reposi
     assert.equal((await readProject(root, 'repo', 'guide.md')).comments[0].text, 'Is it?')
     // A project that is no repository keeps what it has.
     assert.equal(await readFile(path.join(root, 'projects', 'plain', 'guide.md'), 'utf8'), shared)
-    assert.deepEqual(await leftovers(root, true), { sidecars: [], panes: [], written: [] })
+    assert.deepEqual(await leftovers(root, true), { sidecars: [], notes: [], panes: [], written: [] })
     // It is a one-off: once done, the context is not asked again, and a context with nothing to do is not asked at all.
     assert.equal(await offered(root), true, 'a repository is still offered until the reader has said yes once')
     await markDone(root)

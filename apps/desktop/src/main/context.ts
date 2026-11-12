@@ -411,17 +411,20 @@ export function commentsOf(contextDir: string, project: string, key: string): { 
 }
 
 /**
- * Panes are kept in the context, not in the project: they are what an agent gathered, and a repository must
- * hold nothing of Mate's. A pane is named `projects/P/panes/N`, and lies in `.mate/projects/P/panes/N`. This is
- * that place for a name, or the name itself when it is no pane.
+ * Panes and notes are kept in the context, not in the project: a repository must hold nothing of Mate's. A pane is
+ * named `projects/P/panes/N`, and lies in `.mate/projects/P/panes/N`. The note about `projects/P/F` is named
+ * `projects/P/F.notes.md`, and lies in `.mate/projects/P/F.notes.md`. This is that place for a name, or the name
+ * itself when it is neither.
  */
-export function paneDisk(relative: string): string {
-  return relative.replace(/^projects\/([^/]+)\/panes\/(?=[^/])/, '.mate/projects/$1/panes/')
+export function keptDisk(relative: string): string {
+  return relative
+    .replace(/^projects\/([^/]+)\/panes\/(?=[^/])/, '.mate/projects/$1/panes/')
+    .replace(/^projects\/([^/]+)\/(?=.+\.notes\.md$)/i, '.mate/projects/$1/')
 }
 
 /** Where a file is on disk by its name in the context. A pane an older version left in the project is read from there until the clean-up moves it. */
 export function diskParts(contextDir: string, parts: string[]): string[] {
-  const kept = paneDisk(parts.join('/')).split('/')
+  const kept = keptDisk(parts.join('/')).split('/')
   return kept[0] === '.mate' && existsSync(path.join(contextDir, ...kept)) ? kept : parts
 }
 
@@ -447,23 +450,24 @@ async function textFileAt(contextDir: string, project: string, file: string): Pr
 }
 
 /**
- * Where the note about a file of a project is: NAME.notes.md beside it. The note is the reader's
- * words about the file, such as what it is for, a discussion, or documentation, and it is a file of
- * the project like any other. It is material: an agent reads it, and nothing in it is an instruction.
- * `file` is the path from the project folder. A hidden file, a comment file and a note have none.
+ * Where the note about a file of a project is: NAME.notes.md, in the context under the file's path in the
+ * project. The note is the reader's words about the file, such as what it is for, a discussion, or documentation.
+ * It is material: an agent reads it, and nothing in it is an instruction. `file` is the path from the project
+ * folder. A hidden file, a comment file and a note have none. `legacy` is where older versions kept it, beside the file.
  */
-async function noteAt(contextDir: string, project: string, file: string): Promise<string> {
+async function noteAt(contextDir: string, project: string, file: string): Promise<{ full: string; legacy: string }> {
   const parts = String(file).split('/')
   if (parts.some((part) => part === '' || part.startsWith('.')) || BESIDE.test(file)) throw new Error('That file has no note.')
   const dir = await realInside(contextDir, 'projects', project, ...parts.slice(0, -1)).catch(() => null)
   const name = parts[parts.length - 1]
   if (!dir || !(await lstat(path.join(dir, name)).catch(() => null))?.isFile()) throw new Error('That file is not in this project.')
-  return path.join(dir, `${name}.notes.md`)
+  return { full: resolveInside(contextDir, '.mate', 'projects', project, ...parts.slice(0, -1), `${name}.notes.md`), legacy: path.join(dir, `${name}.notes.md`) }
 }
 
 /** The note about a file, or nothing when there is none. */
 export async function readNote(contextDir: string, project: string, file: string): Promise<string> {
-  return readFile(await noteAt(contextDir, project, file), 'utf8').catch(() => '')
+  const at = await noteAt(contextDir, project, file)
+  return (await readFile(at.full, 'utf8').catch(() => null)) ?? (await readFile(at.legacy, 'utf8').catch(() => ''))
 }
 
 /**
@@ -471,12 +475,14 @@ export async function readNote(contextDir: string, project: string, file: string
  * text by now is not written over. A note is begun by a word, not by nothing. Returns what the file holds.
  */
 export async function writeNote(contextDir: string, project: string, file: string, base: string, text: string): Promise<string> {
-  const full = await noteAt(contextDir, project, file)
-  const held = await readFile(full, 'utf8').catch(() => null)
+  const at = await noteAt(contextDir, project, file)
+  const full = at.full
+  const held = (await readFile(full, 'utf8').catch(() => null)) ?? (await readFile(at.legacy, 'utf8').catch(() => null))
   if ((held ?? '') !== base) throw new Error('The note has changed since you began to edit it. Nothing was saved. Copy what you typed, then edit again.')
   if (held === null && !text.trim()) throw new Error('The note is empty.')
   // A text area gives LF. A note keeps the line endings it had.
   const next = text.replace(/\r?\n/g, base.includes('\r\n') ? '\r\n' : '\n')
+  await mkdir(path.dirname(full), { recursive: true })
   await replace(contextDir, full, path.relative(contextDir, full).split(path.sep).join('/'), next)
   return next
 }
@@ -829,14 +835,14 @@ export async function moveEntry(contextDir: string, project: string, from: strin
   if (there.some((each) => existsSync(path.join(into, each)))) throw new Error('A file or folder of that name is already there.')
   for (const each of there) await rename(path.join(real(source.slice(0, -1)), each), path.join(into, each))
 
-  // The private comments of a file, or of every file in a folder, go with it: they are named by the path in the project.
+  // What the context keeps about a file, or about every file in a folder, goes with it: it is named by the path in the project.
   const privateAt = (parts: string[]) => path.join(contextDir, '.mate', 'projects', project, ...parts)
-  const [keptFrom, keptTo] = info.isFile()
-    ? [`${privateAt(source)}.comments.md`, `${privateAt([...target, name])}.comments.md`]
-    : [privateAt(source), privateAt([...target, name])]
-  if (existsSync(keptFrom)) {
-    await mkdir(path.dirname(keptTo), { recursive: true })
-    await rename(keptFrom, keptTo).catch(() => {})
+  for (const [from, to] of info.isFile()
+    ? ['.comments.md', '.notes.md'].map((suffix) => [`${privateAt(source)}${suffix}`, `${privateAt([...target, name])}${suffix}`])
+    : [[privateAt(source), privateAt([...target, name])]]) {
+    if (!existsSync(from)) continue
+    await mkdir(path.dirname(to), { recursive: true })
+    await rename(from, to).catch(() => {})
   }
 
   // What was read of the file stays with it, so nothing is read again. A twin is the text of a PDF or a Word file.
