@@ -156,6 +156,61 @@ export async function renameProject(contextDir: string, from: string, name: stri
   return title
 }
 
+/** Every `.git` folder in a project, at any depth. A repository inside a repository is not descended into. */
+async function gitFoldersIn(dir: string, base = ''): Promise<string[]> {
+  const found: string[] = []
+  for (const entry of await readdir(path.join(dir, base), { withFileTypes: true }).catch(() => [])) {
+    if (!entry.isDirectory()) continue
+    const relative = base ? `${base}/${entry.name}` : entry.name
+    if (entry.name === '.git') found.push(relative)
+    else found.push(...(await gitFoldersIn(dir, relative)))
+  }
+  return found
+}
+
+/**
+ * What moving a project would take out with it: its remote, read and not asked, and how many repositories sit
+ * in it. Nothing is run and nothing connects.
+ */
+export async function repositoriesOf(contextDir: string, project: string): Promise<{ remote: string | null; inside: number }> {
+  const dir = resolveInside(contextDir, 'projects', project)
+  const config = await readFile(path.join(dir, '.git', 'config'), 'utf8').catch(() => null)
+  const remote = config === null ? null : (/\[remote "origin"\][^[]*?url\s*=\s*(\S+)/.exec(config)?.[1] ?? '(no origin)')
+  return { remote, inside: (await gitFoldersIn(dir)).length }
+}
+
+/**
+ * Move a project into another project of the context, as a folder of it: it stops being a project. Its files,
+ * its private comments, notes, panes and lock move with it, and so does its text twin, so each file keeps its
+ * path from the project folder and the private layer still finds it. Every `.git` in it is removed, so no
+ * repository is nested in a project. Their history goes with them. Nothing is pushed or deleted on a remote.
+ * The caller asks the reader first.
+ */
+export async function moveProject(contextDir: string, project: string, into: string): Promise<{ made: string; removed: number }> {
+  const names = await listProjects(contextDir)
+  if (!names.includes(project)) throw new Error('That project is not in this context.')
+  if (!names.includes(into)) throw new Error('The project to move into is not in this context.')
+  if (project === into) throw new Error('A project cannot be moved into itself.')
+  const from = resolveInside(contextDir, 'projects', project)
+  const parent = await realInside(contextDir, 'projects', into)
+  const dest = path.join(parent, project)
+  if (existsSync(dest)) throw new Error(`${into} already has a folder called ${project}.`)
+  await rename(from, dest)
+  const removed = await gitFoldersIn(dest)
+  for (const repo of removed) await rm(path.join(dest, repo), { recursive: true, force: true })
+  const kept = path.join(contextDir, '.mate', 'projects')
+  if (existsSync(path.join(kept, project))) {
+    await mkdir(path.join(kept, into), { recursive: true })
+    await rename(path.join(kept, project), path.join(kept, into, project)).catch(() => {})
+  }
+  const twins = path.join(contextDir, '.indexes', 'text', 'projects')
+  if (existsSync(path.join(twins, project))) {
+    await mkdir(path.join(twins, into), { recursive: true })
+    await rename(path.join(twins, project), path.join(twins, into, project)).catch(() => {})
+  }
+  return { made: `${into}/${project}`, removed: removed.length }
+}
+
 /** Whether `inner` is `outer` or lies in it. Both are real paths. */
 const within = (outer: string, inner: string): boolean => {
   const relative = path.relative(outer, inner)

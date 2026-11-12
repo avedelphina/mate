@@ -993,6 +993,22 @@ export async function moveSessions(contextDir: string, from: string, to: string)
   }
 }
 
+/**
+ * The conversations of a project moved into another: each keeps its id and is listed with the project it is now in.
+ */
+export async function moveConversations(contextDir: string, from: string, into: string): Promise<void> {
+  if (from === into || !existsSync(folder(contextDir, from))) return
+  await mkdir(folder(contextDir, into), { recursive: true })
+  for (const id of await readdir(folder(contextDir, from))) {
+    const file = path.join(folder(contextDir, from, id), 'session.json')
+    const session = JSON.parse(await readFile(file, 'utf8').catch(() => 'null')) as Session | null
+    if (!session) continue
+    await rename(folder(contextDir, from, id), folder(contextDir, into, id))
+    await saveSession(contextDir, { ...session, project: into })
+  }
+  if ((await readdir(folder(contextDir, from)).catch(() => ['x'])).length === 0) await rm(folder(contextDir, from), { recursive: true, force: true })
+}
+
 /** How many agents are working. */
 export const working = (): number => turns.size
 

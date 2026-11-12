@@ -217,6 +217,8 @@ export function App() {
   const [founding, setFounding] = useState<string | null>(null)
   // The context or the open project being given a new name, while the reader types it.
   const [renaming, setRenaming] = useState<{ what: 'context' | 'project'; name: string } | null>(null)
+  // The project the open one is to be moved into, while the reader chooses. Null when they are not moving it.
+  const [moveProjectInto, setMoveProjectInto] = useState<{ into: string } | null>(null)
   // A context renamed in another window is followed here.
   useEffect(() => window.mate.onMoved((opened) => take(opened)), [])
   // The files of the context outside the shelf and the projects: its dropbox, and whatever else is in it.
@@ -636,6 +638,41 @@ export function App() {
       setError(reason(caught, 'Could not rename it.'))
     }
   }
+
+  /** Move the open project into another one of the context. The system asks before anything moves. */
+  async function moveProjectNow() {
+    if (!view || !moveProjectInto?.into || !(await leaveEditor())) return
+    const from = view.project
+    try {
+      const done = await window.mate.moveProject(from, moveProjectInto.into)
+      setMoveProjectInto(null)
+      if (done === null) return
+      take(done.context)
+      await openProject(done.into)
+      setError(null)
+      setCommitted(`Moved ${from} into ${done.into}.${done.removed > 0 ? ` ${done.removed} ${done.removed === 1 ? 'repository was' : 'repositories were'} removed.` : ''}`)
+    } catch (caught) {
+      setError(reason(caught, 'Could not move the project.'))
+    }
+  }
+
+  const moveIntoForm = () => (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        void moveProjectNow()
+      }}
+    >
+      <select aria-label="Project to move into" value={moveProjectInto?.into ?? ''} onChange={(event) => setMoveProjectInto({ into: event.target.value })}>
+        <option value="">Move into…</option>
+        {projects.filter((each) => each !== view?.project).map((each) => (
+          <option key={each} value={each}>{each}</option>
+        ))}
+      </select>
+      <button className="primary" disabled={!moveProjectInto?.into}>Move</button>
+      <button type="button" className="quiet" onClick={() => setMoveProjectInto(null)}>Cancel</button>
+    </form>
+  )
 
   const renameField = (label: string) =>
     renaming && (
@@ -1589,6 +1626,7 @@ export function App() {
       add('New folder…', 'Do', () => setMaking(''))
       if (inTree && movable(inTree)) add('Move this file to…', 'Do', () => setMoving({ from: inTree, to: '' }))
       add('Rename this project…', 'Do', () => setRenaming({ what: 'project', name: view.project }))
+      add('Move this project into…', 'Do', () => setMoveProjectInto({ into: '' }))
       add(review ? `Pull request #${review.number}` : 'Pull requests', 'Show', openPulls)
       if (recordSet.records.length > 0) add('Records', 'Show', openRecords)
       add("Write this project's own intents…", 'Do', () => void giveSteering('project', 'intents.md'))
@@ -1919,6 +1957,8 @@ export function App() {
                       <div className="tree-new">
                         {renaming?.what === 'project' ? (
                           renameField('New name of the project')
+                        ) : moveProjectInto !== null ? (
+                          moveIntoForm()
                         ) : moving !== null ? (
                           <form
                             onSubmit={(event) => {

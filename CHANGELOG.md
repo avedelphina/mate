@@ -5,6 +5,17 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- *Move this project into…* (⌘K) makes the open project a folder of another
+  project in the context. Its files, private comments, notes, panes and lock
+  move with it, and so do its conversations. A dialog of the system names
+  what goes: if the project is a repository, its history is removed, and
+  its remote is not touched. Every repository inside it is removed too, so
+  no repository is nested in a project.
+
 ## [0.34.0] - 2026-11-12
 
 A pane can be edited and locked against agents, and the Hub has a new shape

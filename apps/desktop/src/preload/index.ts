@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('mate', {
   renameContext: (name: string) => ipcRenderer.invoke('context:rename', name),
   importProject: () => ipcRenderer.invoke('project:import'),
   renameProject: (from: string, name: string) => ipcRenderer.invoke('project:rename', from, name),
+  moveProject: (from: string, into: string) => ipcRenderer.invoke('project:move', from, into),
   /** The open context was renamed, from this window or another. Returns the function that stops listening. */
   onMoved: (listener: (opened: unknown) => void) => {
     const heard = (_event: unknown, opened: unknown) => listener(opened)

@@ -39,6 +39,8 @@ import {
   realInside,
   renameContext,
   renameProject,
+  moveProject,
+  repositoriesOf,
   sendToProject,
   describeContext,
   draftFromSource,
@@ -90,32 +92,7 @@ import {
   setPrivate,
   setTrusted
 } from './trust'
-import {
-  allowNoMore,
-  answerAsk,
-  attend,
-  compare,
-  gate,
-  closeAgentsIn,
-  doors,
-  moveSessions,
-  isBusy,
-  listModels,
-  listAllSessions,
-  listSessions,
-  ownSession,
-  revertChange,
-  sendMessage,
-  settleHeld,
-  startSession,
-  stopAllTurns,
-  stopTurn,
-  tuneSession,
-  whenIdle,
-  working,
-  type Invited,
-  type Session
-} from './sessions'
+import { allowNoMore, answerAsk, attend, closeAgentsIn, compare, doors, gate, isBusy, listAllSessions, listModels, listSessions, moveConversations, moveSessions, ownSession, revertChange, sendMessage, settleHeld, startSession, stopAllTurns, stopTurn, tuneSession, type Invited, type Session, whenIdle, working } from './sessions'
 
 // The name in the menu bar, and of the folder the app keeps its own data in. Run from a checkout it
 // has a name of its own: a checkout can be driven from outside, so it does not share the trusted
@@ -773,6 +750,37 @@ app.whenReady().then(() => {
     await moveMeaning(contextDir, `projects/${from}/`, `projects/${made}/`)
     if (bound?.contextDir === contextDir && bound.project === from) bound = { ...bound, project: made }
     return { made, context: await describeContext(contextDir) }
+  })
+
+  // A project moved into another one of the context. Its repositories are removed with it, and the reader is asked first.
+  ipcMain.handle('project:move', async (event, from: string, into: string) => {
+    const contextDir = requireContext(event)
+    still(contextDir)
+    const { remote, inside } = await repositoriesOf(contextDir, String(from))
+    const repositories = remote !== null || inside > 0
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      type: 'question' as const,
+      buttons: ['Cancel', repositories ? 'Remove Repository and Move' : 'Move'],
+      defaultId: 0,
+      cancelId: 0,
+      message: `Move ${from} into ${into}?`,
+      detail: [
+        `${from} stops being a project and becomes a folder of ${into}. Its files, its private comments, notes, panes and lock move with it. Its conversations move to ${into}.`,
+        remote !== null && `Its repository is removed, with its history. Its remote (${remote}) is not touched: nothing is pushed, and nothing is deleted there.`,
+        inside > 0 && `${inside} ${inside === 1 ? 'repository' : 'repositories'} inside it ${inside === 1 ? 'is' : 'are'} removed too.`
+      ]
+        .filter(Boolean)
+        .join('\n\n')
+    }
+    const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+    if (response !== 1) return null
+    await closeAgentsIn(contextDir)
+    const moved = await moveProject(contextDir, String(from), String(into))
+    await moveConversations(contextDir, String(from), String(into))
+    await moveMeaning(contextDir, `projects/${from}/`, `projects/${moved.made}/`)
+    if (bound?.contextDir === contextDir && bound.project === from) bound = null
+    return { made: moved.made, into: String(into), removed: moved.removed, context: await describeContext(contextDir) }
   })
 
   ipcMain.handle(

@@ -1189,6 +1189,17 @@ project, such as the context's own dropbox. A markdown file there opens
 to be read, a PDF or a Word file as its text, and anything else is shown
 in the file manager.
 
+## Moving a project
+
+`moveProject` in `context.ts` makes a project a folder of another project.
+It moves the folder, its `.mate/projects/NAME/` and its text twin, so each
+file keeps its path from the project folder and the private layer still
+finds it. It then removes every `.git` inside it: a repository is never
+nested in a project. The window asks first, in a dialog of the system that
+says what is removed and that the remote is not touched. The moved project's
+conversations go to the project it is now in (`moveConversations`). After
+the move it is no longer a project, so nothing else refers to it.
+
 ## Panes
 
 A project can show more than its draft. A markdown file in the project's
