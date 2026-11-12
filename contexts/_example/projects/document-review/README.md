@@ -17,10 +17,11 @@ unfinished.
   in the workflow pane runs one, written as
   `[scripts/NAME and what it is given](run:)`. No agent is asked. It runs
   only in a context you trust.
-- `panes/` — what an agent gathered to show you beside the draft: tasks,
-  deadlines, mail. One file is one pane. A pane is not a source. You can
-  tick a task in it, and press a line written as `[words](say:)` to say
-  those words to the agent.
+- Panes — what an agent gathered to show you beside the draft: tasks,
+  deadlines, mail. One file is one pane, kept in the context, in
+  `.mate/projects/document-review/panes/`, and not in the project. A pane
+  is not a source. You can tick a task in it, and press a line written as
+  `[words](say:)` to say those words to the agent.
 
 Comments are written into the markdown file with the same marker
 [md-redline](https://github.com/dejuknow/md-redline) uses, so the comment

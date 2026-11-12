@@ -1188,9 +1188,20 @@ in the file manager.
 ## Panes
 
 A project can show more than its draft. A markdown file in the project's
-`panes/` folder is a pane. The margin has one tab for each pane, named
-after the file, and draws the file as markdown. `readProject` reads the
-panes together with the draft, so they have no handler of their own.
+panes is a pane. The margin has one tab for each pane, named after the
+file, and draws the file as markdown. `readProject` reads the panes
+together with the draft, so they have no handler of their own.
+
+A pane is not in the project: a repository must hold nothing of Mate's.
+It lies in `.mate/projects/NAME/panes/` and is *named* as if it were in
+the project, `projects/NAME/panes/FILE.md`, which is what the window, the
+search, `mate_read` and `mate_write` and an agent on another machine all
+say. `paneDisk` turns that name into the place, and `diskParts` picks the
+place on disk for a read. A pane an older version left in the project's
+own `panes/` folder is shown until the clean-up moves it, and one of the
+same name in the context wins. An agent that writes files itself is told
+the real place, `../../.mate/projects/NAME/panes/`. `judge` treats
+`.mate/projects/NAME/` as part of that project.
 
 A pane is how an agent shows the reader something Mate has no feature
 for: tasks from a tracker, deadlines, mail. The agent reaches the source

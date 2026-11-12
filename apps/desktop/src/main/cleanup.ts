@@ -11,6 +11,8 @@ import { commentsOf, draftHome, draftsOf, editDraft, listProjects, resolveInside
 export type Leftovers = {
   /** A file of comments beside the file they belong to: the project's path to the file. */
   sidecars: { project: string; file: string }[]
+  /** A pane an older version left in the project's `panes/` folder. */
+  panes: { project: string; name: string }[]
   /** In a project that is a repository of its own: the drafts that hold comments written into the file, named as the project lists them. */
   written: { project: string; file: string; comments: number }[]
 }
@@ -39,7 +41,7 @@ export async function offered(contextDir: string): Promise<boolean> {
   if (existsSync(path.join(contextDir, ...DONE))) return false
   const projects = await listProjects(contextDir)
   // The cheap look first: walking every folder of a project is slow where the files are kept in the cloud.
-  if (projects.some((project) => existsSync(path.join(contextDir, 'projects', project, '.git')))) return true
+  if (projects.some((project) => ['.git', 'panes'].some((name) => existsSync(path.join(contextDir, 'projects', project, name))))) return true
   return (await leftovers(contextDir, false)).sidecars.length > 0
 }
 
@@ -53,13 +55,16 @@ export async function markDone(contextDir: string): Promise<void> {
  * in the cloud. With it, the drafts of a repository are read to count the comments written in them.
  */
 export async function leftovers(contextDir: string, deep: boolean): Promise<Leftovers> {
-  const found: Leftovers = { sidecars: [], written: [] }
+  const found: Leftovers = { sidecars: [], panes: [], written: [] }
   for (const project of await listProjects(contextDir)) {
     const projectDir = resolveInside(contextDir, 'projects', project)
     const names = await walk(projectDir)
     const has = new Set(names)
     for (const file of names) {
       if (file.endsWith(SIDE) && has.has(file.slice(0, -SIDE.length))) found.sidecars.push({ project, file: file.slice(0, -SIDE.length) })
+    }
+    for (const name of await readdir(path.join(projectDir, 'panes')).catch(() => [])) {
+      if (name.toLowerCase().endsWith('.md') && !name.startsWith('.')) found.panes.push({ project, name })
     }
     if (!deep || !existsSync(path.join(projectDir, '.git'))) continue
     const home = draftHome(projectDir)
@@ -78,8 +83,8 @@ export async function leftovers(contextDir: string, deep: boolean): Promise<Left
  * every comment is in the context afterwards. Returns what was done, and what was left because the
  * context already holds comments for that file.
  */
-export async function cleanUp(contextDir: string, found: Leftovers): Promise<{ moved: number; taken: number; left: number }> {
-  let [moved, taken, left] = [0, 0, 0]
+export async function cleanUp(contextDir: string, found: Leftovers): Promise<{ moved: number; panes: number; taken: number; left: number }> {
+  let [moved, panes, taken, left] = [0, 0, 0, 0]
   for (const { project, file } of found.sidecars) {
     const from = path.join(resolveInside(contextDir, 'projects', project), `${file}${SIDE}`)
     const { side } = commentsOf(contextDir, project, file)
@@ -95,11 +100,30 @@ export async function cleanUp(contextDir: string, found: Leftovers): Promise<{ m
     })
     moved += 1
   }
+  for (const { project, name } of found.panes) {
+    const from = path.join(resolveInside(contextDir, 'projects', project), 'panes', name)
+    const to = path.join(contextDir, '.mate', 'projects', project, 'panes', name)
+    if (existsSync(to)) {
+      left += 1
+      continue
+    }
+    await mkdir(path.dirname(to), { recursive: true })
+    await rename(from, to).catch(async () => {
+      await copyFile(from, to)
+      await rm(from)
+    })
+    panes += 1
+  }
+  // The folder goes when it is empty. A file Mate does not know stays, and so does its folder.
+  for (const project of new Set(found.panes.map((each) => each.project))) {
+    const dir = path.join(resolveInside(contextDir, 'projects', project), 'panes')
+    if ((await readdir(dir).catch(() => ['.'])).length === 0) await rm(dir, { recursive: true })
+  }
   for (const { project, file, comments } of found.written) {
     await editDraft(contextDir, project, file, (markdown) =>
       parseComments(markdown).reduce((text, comment) => (comment.private ? text : setCommentPrivate(text, comment.id, true)), markdown)
     )
     taken += comments
   }
-  return { moved, taken, left }
+  return { moved, panes, taken, left }
 }

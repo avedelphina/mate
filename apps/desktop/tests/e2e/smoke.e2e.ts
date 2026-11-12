@@ -33,10 +33,10 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.rail .row', 'document-review')
     await app.until(`document.querySelectorAll('.projects .tree .row').length > 0`, 'the project is open')
     assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review*', 'Notes', 'Sessions', 'Chat', 'tasks', 'workflow'])
-    // Every file of the project is in the tree, those in folded folders too. The draft is the one on the page.
+    // Every file of the project is in the tree, those in folded folders too. The draft is the one on the page. The panes are in the margin, and in the context, not in the project.
     assert.deepEqual(
       (await app.page<string[]>(names('.projects .tree .row'))).sort(),
-      ['README.md', 'README.md', 'count-words.py', 'document.md*', 'intents.md', 'principles.md', 'tasks.md', 'workflow.md']
+      ['README.md', 'README.md', 'count-words.py', 'document.md*', 'intents.md', 'principles.md']
     )
     // The tree can show the files under their tags instead: a slash nests a tag, and a file is under each of its tags.
     await app.until(`!!document.querySelector('.projects .tree-view')`, 'the switch to the tags')
@@ -45,7 +45,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.deepEqual(await app.page(names('.projects .tree summary')), ['example', 'guide', 'start'])
     assert.deepEqual(await app.page(names('.projects .tree .row')), ['README.md', 'README.md'])
     await app.press('.projects .tree-view button', 'Files')
-    await app.until(`document.querySelectorAll('.projects .tree .row').length === 8`, 'the files again')
+    await app.until(`document.querySelectorAll('.projects .tree .row').length === 6`, 'the files again')
 
     // The margin does not hold the intents or the principles. The rail has a row for each, and the page has them.
     assert.equal(await app.page(`!!document.querySelector('.margin details')`), false)
@@ -486,7 +486,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     // The reader ticks a task in the pane, and the file has it ticked.
     await app.page(`[...document.querySelectorAll('.margin .pane li')].find((each) => each.textContent.includes('Mark what is unclear')).querySelector('.box').click()`)
     await app.until(`[...document.querySelectorAll('.margin .pane li')].find((each) => each.textContent.includes('Mark what is unclear')).querySelector('.box.checked') !== null`, 'the task is ticked')
-    assert.match(await readFile(path.join(project, 'panes/tasks.md'), 'utf8'), /^- \[x\] Mark what is unclear$/m)
+    assert.match(await readFile(path.join(context, '.mate/projects/document-review/panes/tasks.md'), 'utf8'), /^- \[x\] Mark what is unclear$/m)
     // A line written to be said is a button, and it reads its own words. With no session open, there is nobody to say it to.
     assert.equal(await app.page(`document.querySelector('.margin .pane .say').innerText`), 'Write this pane again from the tracker')
     await app.page(`document.querySelector('.margin .pane .say').click()`)
@@ -500,7 +500,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`[...document.querySelectorAll('.said.you')].some((each) => each.textContent.trim() === 'Write this pane again from the tracker')`, 'the words are in the conversation')
     await app.press('.margin .tabs button', 'tasks')
 
-    await writeFile(path.join(project, 'panes/deadlines.md'), '# Deadlines\n\n- 20 October: legal\n')
+    await writeFile(path.join(context, '.mate/projects/document-review/panes/deadlines.md'), '# Deadlines\n\n- 20 October: legal\n')
     await app.page(`window.dispatchEvent(new Event('focus'))`)
     await app.until(`document.querySelector('.margin .pane h1')?.textContent.includes('Deadlines')`, 'the new pane on show')
     assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review', 'Notes', 'Sessions', 'Chat', 'deadlines*', 'tasks', 'workflow'])

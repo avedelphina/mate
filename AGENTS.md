@@ -258,8 +258,9 @@ More follow from the security model. They are as firm.
     kept in the context (`.mate/`), never in a project, so a repository
     gets nothing of it by accident or in a commit. Sharing writes the
     marker into the draft, on the reader's button. Nothing but that button
-    puts a comment into a project. (Panes and notes are still files of the
-    project; they move to the context next.)
+    puts a comment into a project. Panes are kept in the context too
+    (`.mate/projects/NAME/panes/`). Notes (`NAME.notes.md`) are still files
+    of the project; they move next.
 
 Rules 6, 9, 10, 11 and 13 change in roadmap step 12, the gateway. It is
 not built, and until it is, these rules hold as written. One piece of it

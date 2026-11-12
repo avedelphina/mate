@@ -39,9 +39,15 @@ of them unless you share them.
 - An agent on another machine is sent a draft's private comments as a file
   of their own, and can answer in it.
 
+- Panes are kept in the context, in `.mate/projects/PROJECT/panes/`, and no
+  longer in the project. They look the same in the window and in search.
+  An agent that writes files itself is told the new place. A pane an older
+  version left in `panes/` is still shown, and *Clean up projects…* moves
+  it.
+
 ### Not yet
 
-- Panes and notes are still files of the project. They move next.
+- Notes (`NAME.notes.md`) are still files of the project. They move next.
 
 ## [0.32.0] - 2026-11-11
 

@@ -25,6 +25,9 @@ test('older comment files leave the projects, and comments written into a reposi
       await writeFile(path.join(root, 'projects', name, 'guide.md'), shared)
     }
     await mkdir(path.join(root, 'projects', 'repo', '.git'))
+    // A pane an older version left in the project.
+    await mkdir(path.join(root, 'projects', 'plain', 'panes'))
+    await writeFile(path.join(root, 'projects', 'plain', 'panes', 'tasks.md'), '- [ ] one\n')
 
     assert.equal(await offered(root), true)
     // Names alone find the comment file. Reading the drafts finds only the repository's.
@@ -32,7 +35,11 @@ test('older comment files leave the projects, and comments written into a reposi
     const found = await leftovers(root, true)
     assert.deepEqual(found.written, [{ project: 'repo', file: 'guide.md', comments: 1 }])
 
-    assert.deepEqual(await cleanUp(root, found), { moved: 1, taken: 1, left: 0 })
+    assert.deepEqual(found.panes, [{ project: 'plain', name: 'tasks.md' }])
+    assert.deepEqual(await cleanUp(root, found), { moved: 1, panes: 1, taken: 1, left: 0 })
+    assert.equal(existsSync(path.join(root, 'projects', 'plain', 'panes')), false)
+    assert.equal((await readProject(root, 'plain')).panes[0].text, '- [ ] one\n')
+    assert.equal(await readFile(path.join(root, '.mate/projects/plain/panes/tasks.md'), 'utf8'), '- [ ] one\n')
     assert.equal(existsSync(path.join(config, 'x.xml.comments.md')), false)
     assert.equal((await readProject(root, 'review', 'config/x.xml')).comments[0].text, 'Why?')
     // The repository's file is its own again, and the comment is kept in the context.
@@ -40,7 +47,7 @@ test('older comment files leave the projects, and comments written into a reposi
     assert.equal((await readProject(root, 'repo', 'guide.md')).comments[0].text, 'Is it?')
     // A project that is no repository keeps what it has.
     assert.equal(await readFile(path.join(root, 'projects', 'plain', 'guide.md'), 'utf8'), shared)
-    assert.deepEqual(await leftovers(root, true), { sidecars: [], written: [] })
+    assert.deepEqual(await leftovers(root, true), { sidecars: [], panes: [], written: [] })
     // It is a one-off: once done, the context is not asked again, and a context with nothing to do is not asked at all.
     assert.equal(await offered(root), true, 'a repository is still offered until the reader has said yes once')
     await markDone(root)

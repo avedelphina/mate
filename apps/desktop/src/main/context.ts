@@ -60,7 +60,7 @@ export async function readContextFile(contextDir: string, relative: string): Pro
     return { path: relative, ...placeOf(relative), text, twin: true }
   }
   if (!relative.toLowerCase().endsWith('.md')) throw new Error('That is not a document of this context.')
-  const raw = await readFile(await realInside(contextDir, ...parts), 'utf8')
+  const raw = await readFile(await realInside(contextDir, ...diskParts(contextDir, parts)), 'utf8')
   return { path: relative, ...placeOf(relative), text: readDocument(raw).text }
 }
 
@@ -362,7 +362,7 @@ export async function realInside(contextDir: string, ...parts: string[]): Promis
 export async function placeOnDisk(contextDir: string, relative: string): Promise<string> {
   const parts = String(relative).split('/')
   if (parts.some((part) => part === '' || part.startsWith('.'))) throw new Error('That is not a file of this context.')
-  return realInside(contextDir, ...parts)
+  return realInside(contextDir, ...diskParts(contextDir, parts))
 }
 
 /**
@@ -408,6 +408,21 @@ export function commentsOf(contextDir: string, project: string, key: string): { 
   const parts = key.split('/')
   parts[parts.length - 1] += '.comments.md'
   return { side: resolveInside(contextDir, '.mate', 'projects', project, ...parts), sideRelative: ['.mate', 'projects', project, ...parts].join('/') }
+}
+
+/**
+ * Panes are kept in the context, not in the project: they are what an agent gathered, and a repository must
+ * hold nothing of Mate's. A pane is named `projects/P/panes/N`, and lies in `.mate/projects/P/panes/N`. This is
+ * that place for a name, or the name itself when it is no pane.
+ */
+export function paneDisk(relative: string): string {
+  return relative.replace(/^projects\/([^/]+)\/panes\/(?=[^/])/, '.mate/projects/$1/panes/')
+}
+
+/** Where a file is on disk by its name in the context. A pane an older version left in the project is read from there until the clean-up moves it. */
+export function diskParts(contextDir: string, parts: string[]): string[] {
+  const kept = paneDisk(parts.join('/')).split('/')
+  return kept[0] === '.mate' && existsSync(path.join(contextDir, ...kept)) ? kept : parts
 }
 
 /**
@@ -494,7 +509,7 @@ export async function readCommented(contextDir: string, relative: string): Promi
       : await textFileAt(contextDir, project, `/${rest}`)
     if (target) return readWithComments(target)
   }
-  return readFile(await realInside(contextDir, ...relative.split('/')), 'utf8')
+  return readFile(await realInside(contextDir, ...diskParts(contextDir, relative.split('/'))), 'utf8')
 }
 
 /** The place of a draft, checked: it must be one the project has. */
@@ -567,6 +582,20 @@ export async function writeSteeringFile(contextDir: string, scope: 'project' | '
   mateWrote(contextDir, parts.join('/'), Buffer.from(text))
 }
 
+/**
+ * The panes of a project, each with where it lies. They are in the context; one an older version made is in the
+ * project until the clean-up moves it, and one of the same name in the context wins.
+ */
+async function panesOf(contextDir: string, project: string): Promise<{ name: string; parts: string[] }[]> {
+  const found = new Map<string, string[]>()
+  for (const base of [['projects', project, 'panes'], ['.mate', 'projects', project, 'panes']]) {
+    for (const name of await listMarkdown(path.join(contextDir, ...base))) {
+      if (!name.startsWith('.')) found.set(name, [...base, name])
+    }
+  }
+  return [...found].map(([name, parts]) => ({ name, parts })).sort((a, b) => a.name.localeCompare(b.name))
+}
+
 export async function readProject(contextDir: string, project: string, file?: string): Promise<DocumentView> {
   const projectDir = resolveInside(contextDir, 'projects', project)
   // A project with no draft still opens: its other files are there to be read.
@@ -578,7 +607,7 @@ export async function readProject(contextDir: string, project: string, file?: st
   // With several drafts the reader picks. Opening the first sorted name would be a guess.
   const chosen = file ?? (drafts.length === 1 ? drafts[0] : null)
   // A pane is read like any file that is not reviewed, so it passes the same path check.
-  const names = (await listMarkdown(path.join(projectDir, 'panes'))).filter((name) => !name.startsWith('.'))
+  const kept = await panesOf(contextDir, project)
   // Read side by side: a file still in the cloud is fetched first, and fetches wait less together.
   const [document, steered, panes, files, folders, final] = await Promise.all([
     chosen === null
@@ -586,10 +615,10 @@ export async function readProject(contextDir: string, project: string, file?: st
       : (text ? readWithComments(text) : draftTarget(contextDir, project, chosen).then(readWithComments)).then(readDocument),
     steeringOf(contextDir, project),
     Promise.all(
-      names.map(async (name) => ({
+      kept.map(async ({ name, parts }) => ({
         name,
-        text: (await readContextFile(contextDir, `projects/${project}/panes/${name}`)).text,
-        written: (await stat(path.join(projectDir, 'panes', name))).mtimeMs
+        text: readDocument(await readFile(await realInside(contextDir, ...parts), 'utf8')).text,
+        written: (await stat(path.join(contextDir, ...parts))).mtimeMs
       }))
     ),
     listFiles(projectDir),
@@ -899,9 +928,10 @@ export async function sendToProject(
  * character is all that changes in the file.
  */
 export async function tickPane(contextDir: string, project: string, name: string, base: string, at: number, draft?: string): Promise<DocumentView> {
-  const dir = path.join(resolveInside(contextDir, 'projects', project), 'panes')
-  if (name.startsWith('.') || !(await listMarkdown(dir)).includes(name)) throw new Error('That pane is not in this project.')
-  const raw = await readFile(path.join(dir, name), 'utf8')
+  const here = name.startsWith('.') ? undefined : (await panesOf(contextDir, project)).find((each) => each.name === name)
+  if (!here) throw new Error('That pane is not in this project.')
+  const dir = path.dirname(path.join(contextDir, ...here.parts))
+  const raw = await readFile(await realInside(contextDir, ...here.parts), 'utf8')
   const text = readDocument(raw).text
   if (text !== base) throw new Error('The pane has changed since it was shown. Nothing was ticked.')
   // A box is `[ ]` or `[x]` at the start of a list item, and nothing else is.
@@ -912,7 +942,7 @@ export async function tickPane(contextDir: string, project: string, name: string
   const temporary = path.join(dir, `.${name}.${randomUUID()}.tmp`)
   await writeFile(temporary, next)
   await rename(temporary, path.join(dir, name))
-  mateWrote(contextDir, `projects/${project}/panes/${name}`, next)
+  mateWrote(contextDir, here.parts.join('/'), next)
   return readProject(contextDir, project, draft)
 }
 

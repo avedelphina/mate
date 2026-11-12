@@ -215,7 +215,8 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   intents and the principles of a project have a row each at the top of
   the project in the rail. A click opens the file on the page, and *Edit*
   in the bar lets you type it.
-- **Panes.** A markdown file in a project's `panes/` folder is a tab of
+- **Panes.** A markdown file in a project's panes, kept in the context
+  (`.mate/projects/NAME/panes/`) and not in the project, is a tab of
   the margin. An agent writes it, to show you tasks, deadlines or mail it
   reached through its own connections. You can tick a task in it, and a
   line written as `[words](say:)` is a button that says those words to
@@ -360,7 +361,6 @@ my-context/
       intents.md         which way to lean; never "done"
       principles.md      rules of engagement; not traded away
       dropbox/           intake for this project
-      panes/             what an agent gathered to show you (*.md)
       scripts/           what is done the same way each time
 ```
 

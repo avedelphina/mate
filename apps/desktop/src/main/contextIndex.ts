@@ -124,6 +124,23 @@ const loaded = new Map<string, Index>()
  * The index of one context, brought up to date with its files. Only a file that changed is read again.
  * It is kept in `.indexes/` inside the context and never holds anything from another context.
  */
+/**
+ * The files to index, each by its name in the context and where it lies. A pane is named as a file of its project
+ * and lies in `.mate/`. One an older version left in the project is skipped while the context holds one of that name.
+ */
+async function filesOf(contextDir: string): Promise<{ relative: string; disk: string }[]> {
+  const files = (await walk(contextDir)).map((relative) => ({ relative, disk: relative }))
+  const kept = path.join(contextDir, '.mate', 'projects')
+  if (!existsSync(kept)) return files
+  const panes = new Map<string, string>()
+  for (const project of await readdir(kept).catch(() => [])) {
+    for (const name of await readdir(path.join(kept, project, 'panes')).catch(() => [])) {
+      if (name.toLowerCase().endsWith('.md') && !name.startsWith('.')) panes.set(`projects/${project}/panes/${name}`, `.mate/projects/${project}/panes/${name}`)
+    }
+  }
+  return [...files.filter((file) => !panes.has(file.relative)), ...[...panes].map(([relative, disk]) => ({ relative, disk }))]
+}
+
 export async function refreshIndex(contextDir: string): Promise<Index> {
   const file = path.join(contextDir, '.indexes', 'context.json')
   const previous = loaded.get(contextDir) ?? (await readIndex(file))
@@ -132,10 +149,10 @@ export async function refreshIndex(contextDir: string): Promise<Index> {
   let changed = false
   const privateComments = existsSync(path.join(contextDir, '.mate', 'projects'))
 
-  for (const relative of await walk(contextDir)) {
+  for (const { relative, disk } of await filesOf(contextDir)) {
     // A PDF or a Word file is found by its text twin, once there is one. What is read is the twin.
     const twin = isTwinned(relative)
-    const read = path.join(contextDir, twin ? twinOf(relative) : relative)
+    const read = path.join(contextDir, twin ? twinOf(relative) : disk)
     const info = await stat(read).catch(() => null)
     if (!info || info.size > MAX_BYTES) continue
     // The comments the reader keeps private are in the context, beside nothing. They are searched with their file,

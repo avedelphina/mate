@@ -505,7 +505,7 @@ app.whenReady().then(() => {
     if (isBusy(contextDir)) throw new Error('An agent is working in this context. Clean up when it has finished.')
     const found = await leftovers(contextDir, true)
     const written = found.written.reduce((count, each) => count + each.comments, 0)
-    if (found.sidecars.length === 0 && written === 0) {
+    if (found.sidecars.length === 0 && found.panes.length === 0 && written === 0) {
       await markDone(contextDir)
       return 'The projects hold nothing of Mate’s.'
     }
@@ -519,6 +519,7 @@ app.whenReady().then(() => {
       message: 'Take Mate’s files out of the projects?',
       detail: [
         found.sidecars.length > 0 && `${plural(found.sidecars.length, 'file of comments', 'files of comments')} beside the files they belong to move into the context.`,
+        found.panes.length > 0 && `${plural(found.panes.length, 'pane', 'panes')} in the projects' panes/ folders move into the context.`,
         written > 0 &&
           `${plural(written, 'comment', 'comments')} written into ${plural(found.written.length, 'file', 'files')} of projects that are repositories are taken out of the files and kept in the context:\n${found.written.map((each) => `${each.project}/${each.file}`).join('\n')}`,
         'No comment is lost. In a repository, git then shows those files as changed or removed. Nothing is committed.'
@@ -530,6 +531,7 @@ app.whenReady().then(() => {
     await markDone(contextDir)
     const said = [
       done.moved > 0 && plural(done.moved, 'file of comments moved', 'files of comments moved'),
+      done.panes > 0 && plural(done.panes, 'pane moved', 'panes moved'),
       done.taken > 0 && `${plural(done.taken, 'comment', 'comments')} taken out of the files`,
       done.left > 0 && `${plural(done.left, 'file', 'files')} left, the context holding comments for ${done.left === 1 ? 'it' : 'them'} already`
     ].filter(Boolean)

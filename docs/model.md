@@ -63,9 +63,10 @@ keeps its own, and stays what is true.
   something is just remembered. A folder from outside has one exit of
   its own: it is copied into the project whole, with its folders, as
   material.
-- `panes/` holds what an agent gathered to show beside the draft: tasks,
+- Panes hold what an agent gathered to show beside the draft: tasks,
   deadlines, mail. A pane is shown. It is not cited, and it is not a
-  source.
+  source. A pane is not a file of the project. It is kept in the context,
+  in `.mate/projects/NAME/panes/`, so a repository holds nothing of it.
 - `scripts/` holds what is done the same way each time. A script is
   written once, and then runs with no agent.
 - Any other file is material: what came in for the work, or was made in

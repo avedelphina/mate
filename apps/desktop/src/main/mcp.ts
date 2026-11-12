@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import http from 'node:http'
 import path from 'node:path'
 import { addReply, readDocument } from '../shared/comments'
-import { addComment, editDraft, readCommented, readContextFile, realInside } from './context'
+import { addComment, diskParts, editDraft, paneDisk, readCommented, readContextFile, realInside } from './context'
 import { placeOf, refreshIndex, searchIndex, type Kind } from './contextIndex'
 import { meaningRuns, searchMeaning } from './meaning'
 import { judge, loadSession, saveSession, type Session } from './sessions'
@@ -159,7 +159,7 @@ async function run(binding: Binding, session: Session, name: string, input: Json
       // The same rule as readContextFile: a document of the context is markdown.
       if (!parts.at(-1)!.toLowerCase().endsWith('.md')) throw new Error('That is not a document of this context.')
       const place = placeOf(parts.join('/'))
-      const raw = await readFile(await realInside(contextDir, ...parts), 'utf8')
+      const raw = await readFile(await realInside(contextDir, ...diskParts(contextDir, parts)), 'utf8')
       return `[${labelOf(place.kind, place.project)}] ${parts.join('/')}\n\n${raw}`
     }
     case 'mate_search': {
@@ -226,7 +226,8 @@ async function run(binding: Binding, session: Session, name: string, input: Json
       ].join('\n\n')
     }
     case 'mate_write': {
-      const relative = partsOf(input.path).join('/')
+      // A pane is named as a file of the project and kept in the context.
+      const relative = paneDisk(partsOf(input.path).join('/'))
       const before = await readFile(path.join(contextDir, relative)).catch(() => null)
       const after = Buffer.from(String(input.text ?? ''))
       if (before?.equals(after)) return 'The file already has that text.'
