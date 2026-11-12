@@ -939,9 +939,9 @@ context. The one fetch is a pull request's, and the one push is the
 reader's commit to that pull request's branch.
 
 This is a choice about scope, not a security rule, and the roadmap changes
-it in step 12 (the gateway, not built yet). Then Mate adds a remote only
-when the reader enters the gateway, and pushes or pulls only when the
-reader presses the button for it. On the desktop that stays in a trusted
+it in step 11 (the Hub, [hub.md](hub.md), not built yet). Then Mate adds
+the Hub as a repository's remote only when the reader puts that project on
+the Hub, and pushes or pulls only on the reader's *Send* and *Fetch*. On the desktop that stays in a trusted
 context, because a push or a pull runs the repository's hooks. No agent
 has a tool for either.
 
@@ -1699,5 +1699,5 @@ endpoint. So the two share none of these. See
 No mail and no issues of Mate's own: an agent shows them in a pane, and
 Mate connects to neither. Of git, only a repository started and a commit
 made, when the reader says so: no remote, no push, no pull (until the
-gateway of roadmap step 12), and no commit made on its own. No program from a context
+Hub of roadmap step 11), and no commit made on its own. No program from a context
 that runs in the window: a pane is markdown, and Mate draws its buttons.

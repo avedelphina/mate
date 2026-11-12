@@ -17,8 +17,11 @@ features are later steps in the roadmap or are out of scope on purpose:
 If you want to add something that is not on the roadmap, open an issue
 first and describe the problem. A change that adds a database, a server,
 accounts, or a second copy of a document will not be merged. This is about
-Mate's own: one that holds state. A git remote the reader runs is not that
-(roadmap step 12, the gateway, not built yet).
+Mate's own: one that holds state. A git remote the reader runs is not that.
+The one exception is the Hub of roadmap step 11
+([docs/hub.md](docs/hub.md), not built yet): the reader runs it on their own
+machine, it holds their contexts, it has no accounts, and nothing of Mate's
+reaches it from the public internet.
 
 ## Setting up
 
@@ -101,7 +104,8 @@ These are not style preferences. Breaking one will get a change sent back.
    it. The one exception: the installed app asks GitHub for a newer version
    of itself, and sends nothing of a context. A Gitea or GitHub the reader added is a
    host they entered, which counts as started by them, and it is asked only
-   when they press for it. So will the gateway of roadmap step 12 be.
+   when they press for it. So will the Hub of roadmap step 11 be, once the
+reader has paired it.
 
 Three more follow from the security model. They are in
 [SECURITY.md](SECURITY.md) and [docs/architecture.md](docs/architecture.md):

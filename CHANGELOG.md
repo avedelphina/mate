@@ -22,6 +22,12 @@ then, minor versions may change behaviour.
   (`draft/`, `dropbox/`, `scripts/`, the intents and principles) at the
   top. Panes, notes and comments left the project, so there is little to
   set apart. Folders come first, then files, each by name.
+- The roadmap's Hub (step 11) has a new shape, in `docs/hub.md`: it holds
+  your contexts and keeps every device in step, with work offline on each;
+  git still syncs a repository. It runs on a Mac, or in Docker for less,
+  and is reached over your tailnet or your own proxy, never the public
+  internet. Step 12 keeps how an agent proposes and how anyone reviews.
+  Nothing of it is built.
 
 ## [0.33.0] - 2026-11-12
 

@@ -1,8 +1,8 @@
 # Roadmap
 
 The order Mate grows in. Each step is usable on its own, and none of them
-changes the rules in [model.md](model.md), except step 12, which says
-which rules it changes and why. [mvp.md](mvp.md) is step 1.
+changes the rules in [model.md](model.md), except step 11, the Hub, which
+says which rules it changes and why ([hub.md](hub.md)). [mvp.md](mvp.md) is step 1.
 
 Do not start a later step because it looks small. The window has to be
 worth opening before it grows a second pane.
@@ -252,9 +252,10 @@ native one. On iOS a web app gets no background push unless it is installed
 to the Home Screen, so that install is part of this step, not an optional
 polish.
 
-A gateway in front of the laptop, so the phone works from plain cellular
-without the tailnet, is a later part (step 12). The direct connection
-comes first.
+The Hub (step 11) takes the laptop's place later, over the same network.
+Mate is reached over the reader's tailnet, another overlay, or their own
+proxy, and never from the public internet. The direct connection comes
+first.
 
 ## 9. The same project on your other computers
 
@@ -267,12 +268,11 @@ nothing else has a copy. This needs no Hub and no sync.
 as in step 10. The iPad has its own clone, commits, and pushes. Git is the
 sync. Mate does not write another one.
 
-What the app is not worth building for is the case in the middle: the same
-project open on the MacBook and the iPad at the same time, kept in step by
-something Mate invented. That sync does not exist yet, and until it does
-the iPad app would be one more editor for a local folder. There are already
-plenty of those. The iPad you have covers that case today as a second
-display for the Mac.
+The case in the middle is the same work open on the MacBook and the iPad,
+offline on either. That is the Hub's (step 11): each device keeps its own
+copy of the context, and the Hub keeps the copies in step. Until the Hub,
+the iPad app would be one more editor for a local folder, and there are
+plenty of those.
 
 The MacBook, the Linux workstation, the Windows test box, the iPad, and the
 iPhone all open the same project. Whichever one is open invites the agent
@@ -285,12 +285,11 @@ an afterthought. Neither is the phone PWA with a wider window, and neither
 is a thinner desk with its own subset of the project. The PWA remains the
 way to steer a session while you are away from the desk.
 
-There is one place the work happens at a time. Two devices that both edit
-and sync afterwards disagree. Git is the sync that already exists, for the
-documents. Private comments are in the context, not in the project, so
-they travel with the context: a service that syncs the folder carries them
-today, and the Hub will.
-Anything Mate builds on top of it has to be better than committing.
+Git stays the sync of a repository. The rest of a context, its private
+comments, panes and notes among it, travels with the context: a service
+that syncs the folder carries it today, and the Hub will. Two devices that
+changed the same file are merged by lines where they can be, and both
+versions are kept where they cannot. Mate never hides one.
 
 ## 10. A project other people can work in
 
@@ -306,67 +305,56 @@ see it.
 
 ## 11. The Hub
 
-The Hub is a Mate you run on a machine that stays on. A project runs in one
-of two places, and you pick which when you open it.
+The whole proposal, with the reasons, is in [hub.md](hub.md). In short:
 
-**Local.** The folder is on the computer in front of you. The session runs
-there. The phone connects to that computer and steers it. Closing the
-laptop pauses the work.
+**The Hub holds the reader's contexts and keeps every device in step with
+them.** It is a Mate with no window, on a machine that stays on: on a Mac,
+for everything, or in Docker, for all but the text of PDF and Word files.
 
-**Hub.** The folder is on the Hub. The session runs there and keeps running
-after you close the laptop. The MacBook, the Linux workstation, the Windows
-box, the iPad, and the iPhone all open that same project. So does the PWA.
+- **Every device keeps its own copy** of the contexts it holds, and works
+  offline: a laptop, a tablet, a phone. When the Hub can be reached again,
+  the two exchange what changed, a file at a time.
+- **Git syncs what git owns, and the Hub syncs the rest.** A repository goes
+  between the reader's machines through git, on the reader's *Send* and
+  *Fetch*. The private layer, the shelf, the dropbox, the steering files and
+  the projects that are plain folders go through the Hub.
+- **A file both sides changed** is merged by lines, or comment by comment
+  for a file of comments. What cannot be merged is kept twice, and the
+  reader picks.
+- **What needs a machine that stays on runs there**: an agent that goes on
+  when the laptop closes, the index, the vectors, a notice to a device.
+- **It is reached over the reader's tailnet, another overlay, or their own
+  proxy.** Never from the public internet: Mate offers no relay and no
+  address of its own.
+- **A device is paired once.** The first one scans a QR that holds the
+  Hub's key, and every later one is approved from a device already paired,
+  in a dialog of the system. Identities are keys, as in Syncthing, with no
+  account and no password.
+- **The Hub is never required.** A context that is on no Hub is a folder on
+  one computer, as today.
 
-A project that is open nowhere has no Hub. The Hub is never required, and a
-local project does not gain a second copy by being reachable from the phone.
+This step changes rules 6, 9, 10, 11 and 13, and makes the Hub the one
+exception to "no server of Mate's own" in `CONTRIBUTING.md`. The list is in
+[hub.md](hub.md), under *Rules this changes*.
 
-What the Hub holds is the folder and the session. The agent doing the work
-can still be the one on the Hub or one on another machine, over SSH, as in
-step 5.
+## 12. A proposal is a branch, and anyone can review it
 
-Moving a project between local and the Hub goes through git. Push first,
-because the Hub clones the remote rather than the uncommitted work on your
-desk. The two checkouts diverge the moment you edit either one. There is
-one place the work happens, not a live sync between the Hub and the laptop.
+This step was the gateway: a git remote for every device, one repository
+for each context. The Hub (step 11) does most of that now. A device syncs
+with the Hub, and a project that is a repository meets the reader's other
+machines on the Hub's clone. What stays here is how an agent outside Mate
+proposes, and how anyone reviews.
 
-## 12. The gateway
-
-The gateway is one address that the iPad, the iPhone, the Hub, and the
-desktop all use to share a project. It is a git remote that the reader
-runs. Mate keeps no server of its own that holds a document, and it has
-no accounts. Git is still the sync.
-
-Step 9 says git is the sync. Step 11 says a project moves through git.
-Both need a place to push to. Without one, each device has its own setup,
-and the native app has nothing to join.
-
-**The first version is a bare git repository** on a machine that stays on,
-reached over SSH on the tailnet the reader already runs. One repository for
-each context. Nothing is installed but git. The credentials are the
-reader's own: an SSH key, or a token kept in the Keychain.
-
-**A thin service comes later,** and only for what git cannot do: a push
-notice when a proposal arrives (step 8), steering a session from the PWA,
-and reaching the gateway from plain cellular. The service holds no
-document and can be deleted. The repositories are the same without it.
-
-**The native app.** It clones the project, and the reader reviews in
-place. *Send* commits and pushes. *Fetch* pulls. Both are buttons. Nothing
-runs in the background. The commit subject may be worded by Mate ("Review
-comments on notes.md"), because the reader pressed Send and a message for
-each comment would make review slow. Git on the device is a library, so
-no hook or filter of the project runs there.
-
-**An agent works on its own branch, and can be anywhere.** The gateway
-is where an agent meets the project, so the agent can run on any machine
-in the reader's network that has git and a key for the gateway: the Hub, a
-workstation, a box with a GPU, a host with a specialised agent. It clones
+**An agent works on its own branch, and can be anywhere.** The Hub's clone
+of a repository is where an agent meets the project, so the agent can run
+on any machine in the reader's network that has git and a key for it:
+the Hub, a workstation, a box with a GPU, a host with a specialised agent. It clones
 the project, never writes to the branch the reader works on, and pushes
 `mate/<session>`. The device fetches it, shows the change as lines, and
 the reader merges it or drops it. The merge is the approval. Rule 5 stays
 whole: the branch is the hold.
 
-The gateway can enforce the hold. An agent's key may push `mate/*` and
+The Hub can enforce the hold. An agent's key may push `mate/*` and
 nothing else, so main is out of its reach even if the agent is wrong or
 hostile. Gitea and gitolite have this as branch rules. The hold then does
 not depend on the agent behaving.
@@ -380,31 +368,31 @@ the agent keeps no copy.
 agent pushes is already a proposal. Asking for an opinion on it is a
 review request, as on any forge. The reviewer can be another agent, such
 as a specialised one for a contract, a table, or a language, or a person
-on the Hub. The reviewer reads the branch and answers with comments in the
-file, as a commit on that branch. A comment is the marker from step 1,
-with replies and a status, so the reader sees the opinion in the margin
-where the text is, with Mate or without it.
+on the Hub. The reviewer reads the branch and answers in the margin, through
+the Hub's MCP endpoint. Its comments are private, kept in the context, as
+every new comment is (rule 14). The reader shares one into the file only
+when they choose to.
 
 A review is advice. The reader still merges, so rule 10 holds. A forge may
 be set to ask for a review before a merge, and that is the reader's
 setting on the forge, not a rule of Mate.
 
 The same mechanism covers a real pull request from people. A project that
-other people work in (step 10) is reviewed on the branch they push, with
-the comments in the file.
+other people work in (step 10) is reviewed on the branch they push, and
+the reader's review goes to the forge as theirs.
 
 The reader keeps a list of the reviewers in the network, as an ssh config
 lists hosts. A request goes only to a listed one. Each request is noted
 in the session, as each MCP call is: who was asked, and what they got.
-A reviewer has no more rights than the agent it reviews: it comments on
-its branch and cannot write to main. A private context asks nobody,
+A reviewer has no more rights than the agent it reviews: it comments
+through the Hub and cannot write to main. A private context asks nobody,
 unless the reader opened it to that reviewer.
 
-How a request reaches a reviewer depends on what the gateway is. With
-plain git there is no notice, so the request is a branch and a line in
-the session, and the thin service sends the notice. With a forge such as
-Gitea, the request is its pull request, and Mate reads its state. The
-reader chooses the level. The first version needs only the branch.
+How a request reaches a reviewer depends on where the branch is. On the
+Hub's clone, the request is a branch and a line in the session, and the
+Hub sends the notice. On a forge such as Gitea, the request is its pull
+request, and Mate reads its state. The reader chooses the level. The first
+version needs only the branch.
 
 Built ahead of this step, on the reader's word: the review of a pull
 request on their own Gitea, GitHub or GitHub Enterprise. Mate checks out
@@ -415,49 +403,7 @@ review stays on the forge, not in a commit on the branch, so the forge
 shows it as the reader's. See *A pull request on Gitea or GitHub* in
 [architecture.md](architecture.md).
 
-**Two devices.** A comment is a line, so two devices that change the same
-passage give a git conflict, and Mate does not invent a merge (step 10).
-Agent proposals do not collide with the reader, because they are on their
-own branch. A lease that says which device is editing is added only if
-conflicts hurt in use. Until then there is none.
-
-**What the device does not have.** No script and no agent on the device.
-Search by words works. Search by meaning needs Ollama, which is not on the
-device, so it uses the Hub's, as the reader's own endpoint, or is absent.
-The assist uses Apple's on-device model where there is one, and the review
-works the same where there is not.
-
-**A private context** goes through the gateway as any other. The text goes
-to the reader's own machine and nowhere else. The Hub starts no agent in
-it, unless the reader opened it to that agent as today.
-
-### Rules this step changes
-
-The rules are checked against this step one by one. These change, and the
-rest hold as they are.
-
-- **Rule 10.** "Only the reader publishes, and only the reader commits"
-  holds, and no agent has a tool for either. "Mate adds no remote and
-  never pushes or pulls" becomes: Mate adds a remote only when the reader
-  enters the gateway, and pushes or pulls only when the reader presses the
-  button for it. On the desktop this stays in a trusted context, because
-  git runs the repository's hooks (rule 7).
-- **Rule 6.** The host the reader entered as the gateway counts as
-  something the reader started. Nothing else connects.
-- **Rule 11.** An agent does not outlive the Mate that started it. On the
-  Hub, that Mate stays on, and the agent stays with it.
-- **Rule 13.** "Nowhere but this computer" becomes: this computer, the
-  reader's own gateway, or an agent the reader listed in their network.
-  An agent may not pass text on to one that is not listed.
-- **Rule 9.** In a native app, a confirmation inside the app is enough,
-  because no content of a project can press it. A PWA has no dialog of the
-  system, so it steers a session and approves a plan. It does not publish
-  and does not trust a context.
-- **CONTRIBUTING.** "A change that adds a server, accounts, or a second
-  copy of a document will not be merged" gets: Mate's own, holding state.
-  A git remote the reader runs is not that.
-- **Git, in architecture.md.** The sentence that gives push and pull to
-  "a terminal, or an agent in a trusted context" gets the button.
+The rules this changes are those of the Hub, in step 11.
 
 ## 13. Two tiers, and a request to another project
 

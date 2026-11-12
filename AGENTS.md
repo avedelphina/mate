@@ -35,7 +35,8 @@ apps/desktop/          the Electron app (the only application)
   tests/               node:test unit tests
   tests/e2e/           the built app, driven through its window
 contexts/_example/     a sample context, safe to open and edit
-docs/                  model.md (the rules), architecture.md, roadmap.md
+docs/                  model.md (the rules), architecture.md, roadmap.md,
+                       hub.md (the Hub, step 11)
 ```
 
 ## Technology stack
@@ -262,16 +263,20 @@ More follow from the security model. They are as firm.
     too (`.mate/projects/NAME/panes/`, `.mate/projects/NAME/FILE.notes.md`).
     A project holds only what the reader brought.
 
-Rules 6, 9, 10, 11 and 13 change in roadmap step 12, the gateway. It is
-not built, and until it is, these rules hold as written. One piece of it
-is built ahead: the review of a pull request on the reader's Gitea or
-GitHub, and the rules above say what it may do. Then: a gateway
-host the reader entered counts as started by them (6); a native app may
-confirm inside itself, a PWA cannot publish or trust (9); Mate pushes and
-pulls on the reader's button, and no agent has a tool for either (10); an
-agent on the Hub lives with the Hub's Mate (11); text may go to the
-reader's gateway and to reviewers they listed (13). Read step 12 before
-you build toward any of this.
+Rules 6, 9, 10, 11 and 13 change in roadmap step 11, the Hub
+([docs/hub.md](docs/hub.md)). It is not built, and until it is, these rules
+hold as written. One piece of step 12 is built ahead: the review of a pull
+request on the reader's Gitea or GitHub, and the rules above say what it
+may do. Then: the Hub the reader paired counts as started by them, and is
+reached only over their overlay network or their own proxy, never from the
+public internet (6); a native app may confirm inside itself, and a PWA
+cannot publish, trust, or pair a device (9); Mate pushes to and pulls from
+the Hub on the reader's *Send* and *Fetch*, nothing is committed on its
+own, and no agent has a tool for either (10); an agent on the Hub lives
+with the Hub's Mate (11); text may go to the reader's own Hub and devices,
+and to reviewers they listed (13). The Hub is a server that holds a second
+copy of the reader's documents, the one exception `CONTRIBUTING.md` names.
+Read `docs/hub.md` before you build toward any of this.
 
 Kinds of files, from `placeOf`: the shelf (what is true now), a draft (a
 proposal), `intents.md` and `principles.md` (the only files that steer:
@@ -363,6 +368,8 @@ marker without it is shared. See *Private comments* in
   the guard, the installed app.
 - `docs/roadmap.md` — the order Mate grows in; do not start a later step
   because it looks small.
+- `docs/hub.md` — the Hub (roadmap step 11): sync, pairing, and the rules
+  it changes.
 - `docs/mvp.md` — the first slice, kept as history, and the setup repairs.
 - `docs/review-2026-10-12.md` — a review of 0.3.0 with its status at 0.11.0; open findings are listed there.
 - `apps/desktop/README.md` — the desktop app's layout, env vars, packaging.
