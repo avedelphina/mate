@@ -17,9 +17,12 @@ as commands.
 
 The review is the point of the app, and it stands on its own. Open a
 markdown file that is already in a git repository, select a passage, and
-leave a comment in the margin. The comment is stored in the file as the
-marker from step 1, so it commits, pushes, and pulls with everything else.
-Someone who does not run Mate reads it as plain text.
+leave a comment in the margin. The comment is private
+when it is written, and kept in the context. The reader can share it, and
+then it is stored in the file as the marker from step 1, so it commits,
+pushes, and pulls with everything else, and someone who does not run Mate
+reads it as plain text. A repository is not filled with a reader's
+comments unasked.
 
 The shape of the comment is [md-redline](https://github.com/dejuknow/md-redline).
 The comment lives in the file as an invisible marker, the file stays the
@@ -283,8 +286,10 @@ is a thinner desk with its own subset of the project. The PWA remains the
 way to steer a session while you are away from the desk.
 
 There is one place the work happens at a time. Two devices that both edit
-and sync afterwards disagree, and a comment is a line in the file, so the
-disagreement is the work itself. Git is the sync that already exists.
+and sync afterwards disagree. Git is the sync that already exists, for the
+documents. Private comments are in the context, not in the project, so
+they travel with the context: a service that syncs the folder carries them
+today, and the Hub will.
 Anything Mate builds on top of it has to be better than committing.
 
 ## 10. A project other people can work in
@@ -295,7 +300,9 @@ back as files.
 
 Mate keeps no lock and no account for them. Two people editing the same
 draft produce a git conflict, and Mate does not invent a smarter merge.
-The comment marker is plain text, so their editor leaves it alone.
+A comment the reader shared is a plain marker, so their editor leaves it
+alone. One the reader kept private is not in the project, and they do not
+see it.
 
 ## 11. The Hub
 

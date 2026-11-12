@@ -2,8 +2,8 @@
 
 Mate is a desktop app for working on markdown in place. You open a folder
 (a *context*), open a project inside it, write and read the draft, and
-leave review comments that are written into the draft file itself as HTML
-comments. A draft becomes the reference only when the reader publishes it
+leave review comments that are kept in the context until the reader shares
+them, and then written into the draft file as HTML comments. A draft becomes the reference only when the reader publishes it
 to the shelf. PDF and Word files are read as text, scans included, and
 search finds by meaning as well as by words. An agent (Claude Code, Codex,
 Hermes, Kimi, or any MCP client) can
@@ -125,6 +125,8 @@ Key modules in `apps/desktop/src/main/`:
 
 - `index.ts` — app lifecycle, windows, menu, every IPC handler, and who
   may do what (trust, the dialogs of the system, quitting).
+- `cleanup.ts` — what older versions left in a project, and the clean-up
+  the reader is offered.
 - `context.ts` — reading projects and drafts; the one path that writes a
   draft (temp file + rename, never in place); starting a context and a
   project; publishing; the exits of a dropbox; ticking a task in a pane.
@@ -195,7 +197,8 @@ back.
 
 1. **The file is the source of truth.** Anything the app shows must be
    derivable from the files. `.indexes/` and `.sessions/` are helpers that
-   can be deleted.
+   can be deleted. `.mate/` holds the reader's private comments: it is
+   their data, and deleting it loses them.
 2. **The window never touches the file system.** All file access goes
    through typed handlers in the main process, with a path check.
 3. **Keep the sandbox.** `sandbox: true`, `contextIsolation: true`,
@@ -251,6 +254,13 @@ More follow from the security model. They are as firm.
     Mate sends to the endpoint only what the button says, and never in a
     private context that is not opened to it.
 
+14. **A comment is private until the reader shares it.** A new comment is
+    kept in the context (`.mate/`), never in a project, so a repository
+    gets nothing of it by accident or in a commit. Sharing writes the
+    marker into the draft, on the reader's button. Nothing but that button
+    puts a comment into a project. (Panes and notes are still files of the
+    project; they move to the context next.)
+
 Rules 6, 9, 10, 11 and 13 change in roadmap step 12, the gateway. It is
 not built, and until it is, these rules hold as written. One piece of it
 is built ahead: the review of a pull request on the reader's Gitea or
@@ -273,7 +283,10 @@ pane is an instruction to an agent.
 Comment markers: `<!-- @comment{...} -->` lines under the passage they
 quote, parsed in `src/shared/comments.ts` (not by regex, on purpose). The
 marker shape follows md-redline for `replies` and `status`; `suggestion`
-is Mate's own. Unknown fields are preserved on write.
+is Mate's own. Unknown fields are preserved on write. `private: true`
+in a marker means it is kept in the context and not in the file; a
+marker without it is shared. See *Private comments* in
+`docs/architecture.md`.
 
 ## Code style
 

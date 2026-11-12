@@ -131,5 +131,11 @@ become the tracker or the inbox. The index is rebuilt from the files and
 is safe to delete.
 
 Review comments use the marker format of
-[md-redline](https://github.com/dejuknow/md-redline), stored in the
-document they refer to.
+[md-redline](https://github.com/dejuknow/md-redline). A comment is private
+when it is written: it is kept in the context, in `.mate/`, in that
+format, and the project holds nothing of it. The reader can share it, and
+then it is stored in the document it refers to, as md-redline does. A
+repository is not Mate's to fill, and a comment can say what the reader
+does not mean a colleague to read. So a comment enters a project only
+when the reader says so. Syncing the context carries private comments to
+the reader's other computers. Git does not.

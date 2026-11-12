@@ -5,6 +5,42 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+Your comments stay in the context. A repository you work in holds nothing
+of them unless you share them.
+
+### Changed
+
+- A new comment is private. It is kept in the context, in
+  `.mate/projects/PROJECT/…`, and not in the project. A draft, and a
+  repository above all, is left as it was. Syncing the context (Synology,
+  iCloud, Syncthing) carries your comments to your other computers.
+- *Share* writes a comment into the draft under its passage, as before,
+  where it goes wherever the file goes, into a commit too. *Make private*
+  takes it out again and gives the file back to the byte. A comment that
+  is in a file already stays there, shared.
+- The comments of a text file (an XML config, a CSV, a log) and of a
+  markdown file outside `draft/` are kept in the context too, not beside
+  the file. They go with the file when you move it, and with the project
+  when you rename it.
+- Search finds private comments with their file. An agent reads them with
+  `mate_comments`, or in `.mate/projects/PROJECT/` from its folder, and
+  answers there. It does not see them in the text `mate_read` gives.
+- *Clean up projects…* is a one-off, offered once for a context older
+  versions made: a button in the rail (and in ⌘K) while there are files
+  of comments beside files, or a project that is a repository. It moves
+  those files into the context. In a repository it also takes every
+  comment written into its files out of them. A dialog of the system
+  counts what it will change. Nothing is committed, and no comment is
+  lost. When it has run, the context is marked (`.mate/cleaned`) and
+  never asked again, on any computer you sync it to.
+
+### Not yet
+
+- An agent on another machine is not sent private comments.
+- Panes and notes are still files of the project. They move next.
+
 ## [0.32.0] - 2026-11-11
 
 Instruction files are approved one at a time. Their approval dialogs stay on the screen.

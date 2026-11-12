@@ -61,7 +61,8 @@ preload as CommonJS. Leave that as it is.
 | Change | File |
 |---|---|
 | Comment marker format | `apps/desktop/src/shared/comments.ts` |
-| Comments on a file that is not markdown, kept beside it | `combine` and `separate` in `src/shared/comments.ts`, then `textFileAt` and `editDraft` in `src/main/context.ts` |
+| Where a comment is kept (private in the context, shared in the file) | `combine` and `separate` in `src/shared/comments.ts`, then `commentsOf`, `textFileAt`, `draftTarget` and `editDraft` in `src/main/context.ts` |
+| What older versions left in a project | `src/main/cleanup.ts` |
 | Reading a project, writing the draft, path check | `apps/desktop/src/main/context.ts` |
 | Typing in a draft without losing a comment | `retype` in `src/shared/comments.ts`, then `writeDraft` in `src/main/context.ts` |
 | A new capability the window can call | `src/main/index.ts`, then `src/preload/index.ts`, then `src/renderer/src/env.d.ts` |
@@ -98,6 +99,48 @@ preload as CommonJS. Leave that as it is.
 
 Add the preload and the type in `env.d.ts` in the same change as the
 handler. A handler the renderer cannot name does not exist.
+
+## Private comments
+
+A repository holds nothing of Mate's unless the reader shares it. So a
+new comment has `"private":true` in its marker, and `editDraft` keeps it
+out of the file: `separate(…, true)` takes every private marker out and
+leaves the rest, the shared ones, where they are. What it takes out is
+written to `.mate/projects/PROJECT/PATH.comments.md`, where PATH is the
+file's path from the project folder. `.mate/` is the reader's own data:
+unlike `.indexes/` and `.sessions/` it is not a helper, and deleting it
+loses comments. It mirrors the project, so a move or a rename carries the
+comments (`moveEntry`, `renameProject`). One file for each document, so a
+service that syncs the context rarely has two computers write one file.
+
+Reading is the other way: `combine` puts the side file's markers back
+between the lines, each marked private, and everything that works on
+markers works on the whole. A marker with no `private` field was written
+by another tool or an older Mate, and is in the file: shared.
+`setCommentPrivate` is the whole of *Share* and *Make private*. The side
+file is written, and the document too if its shared markers changed, in
+`editDraft`, by a temporary file and a rename as before. `readCommented`
+gives a file with all its comments to an agent.
+
+A draft outside a repository is no different. The rule has no exception for
+a folder with no git, because a git repository can be made there later,
+and a comment once committed is in the history.
+
+The comments an older version kept beside a text file are read while the
+context has none for it, and left where they are. A side file in the
+context, even an empty one, then wins over them, so a deleted comment is
+not read again. `cleanUp` in `cleanup.ts` moves them, on the reader's
+button and after a dialog of the system. In a project that is a
+repository of its own it also makes every comment written in its drafts
+private. It reads those drafts only then: a context kept in the cloud is
+never read to look for them.
+
+The clean-up is a one-off. `offered` looks at names only: a comment file
+beside a file, or a project with a `.git`. When it has run, or found
+nothing, `markDone` writes `.mate/cleaned`, which syncs with the context,
+so no computer asks again. A cancelled dialog leaves the offer standing.
+Remove the module and the offer once no context is left from before this
+change.
 
 ## Comment markers
 
@@ -153,9 +196,9 @@ block, with the comments' marks (`plain` in `Rendered.tsx`). It is not
 published.
 
 A marker in the file itself would break a CSV or a JSON file and show in
-every other tool, so the comments are kept beside it, in
-`NAME.comments.md`: the markers alone, each with a `line` field naming
-the line of the file it sits under. `combine` in `comments.ts` puts them
+every other tool, so the comments are kept apart from it, in the context
+(see *Private comments* below): the markers alone, each with a `line`
+field naming the line of the file it sits under. `combine` in `comments.ts` puts them
 back between the file's lines, and every function of the markers works
 on the two together as on a draft; `separate` takes them out again and
 gives the file back to the byte. In `editDraft`, a comment, a reply or a
@@ -164,9 +207,10 @@ what it says changed: a suggestion applied, or the reader typing in it.
 A marker whose line is gone is put after the last line, and its comment
 is found by its quote, as in a draft.
 
-The side file is a markdown file of the project: agents are told what it
-is and read it with the file, and the search finds it, so a comment's
-`#tag` finds every comment that has it. It is not a draft of its own.
+The side file is a markdown file of the context: agents are told what it
+is and read it with the file, and the search finds its comments with their
+file, so a comment's `#tag` finds every comment that has it. It is not a
+draft of its own.
 
 In the margin, the words of a comment or a reply name things: `[[a
 file]]` opens it when it names one file of the project (`fileNamed`, as

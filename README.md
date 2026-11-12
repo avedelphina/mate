@@ -4,7 +4,7 @@ A desk for a body of work. The files are the application.
 
 Mate is a desktop window onto a folder of markdown. You open a *context*,
 open a *project* inside it, write and read the *draft*, and leave review
-comments that are written into the draft file itself. An agent can be
+comments that stay in the context until you share them. An agent can be
 invited into a project to read the context, propose a plan, make changes
 that you approve, and show you what it gathered in a pane beside the
 draft. Nothing is copied into a database, and nothing needs a server.
@@ -17,8 +17,8 @@ draft. Nothing is copied into a database, and nothing needs a server.
 ## Why it is built this way
 
 - **The folder is the product.** Documents are plain markdown in folders.
-  Deleting Mate loses no work. Anyone who does not run Mate can read the
-  comments, because they are HTML comments in the text.
+  Deleting Mate loses no work. A comment you share is an HTML comment in
+  the text, which anyone can read. One you keep is a file in the context.
 - **Git is the sync.** Mate keeps no second copy of a document and has no
   accounts. Mate starts the repository if you ask and commits when you
   say so. Push and pull as you already do.
@@ -41,9 +41,8 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   with an **Apply** button. Threads sit in the margin with replies. A
   comment whose passage has changed is kept and shown as unanchored.
   Any text file of a project, such as an XML config, a CSV or a log, is
-  reviewed the same way; its comments are kept beside it in
-  `NAME.comments.md`, and the file changes only when you apply a
-  suggestion. In a comment, `[[a file]]` opens that file and a `#tag`
+  reviewed the same way; its comments are kept in the context, and the
+  file changes only when you apply a suggestion. In a comment, `[[a file]]` opens that file and a `#tag`
   finds every comment that has it.
 - **Code.** A text file shows its line numbers, and the search, by words
   and by meaning, reads code and any other text file. *Open in editor*
@@ -112,8 +111,8 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   own dropbox.
 - **The files of a project.** The rail shows them as a tree. A draft
   opens for review. So does any other markdown file of the project, such
-  as material that came in: its comments are kept beside it, in
-  `NAME.md.comments.md`, and the file itself is left as it was. Only a
+  as material that came in: its comments are kept in the context, and the
+  file itself is left as it was. Only a
   draft can be published. The dropbox, the panes, the scripts and the
   intents and principles open to be read, and a file Mate cannot draw is
   shown in the file manager. *New Folder…* in the project's menu makes a
@@ -382,7 +381,10 @@ ignores its contents:
 - `.sessions/`: agent conversations, the copies kept for *Revert*, and
   changes held for your approval. Deleting it forgets those sessions.
 
-Comments are stored as HTML comments under the passage they discuss:
+A comment is private when you write it: it is kept in the context, in
+`.mate/`, and your project holds nothing of it. *Share* writes it into the
+file as an HTML comment under the passage it discusses, where it goes
+wherever the file goes:
 
 ```markdown
 The sentence being discussed.
