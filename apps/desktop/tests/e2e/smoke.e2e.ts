@@ -107,8 +107,9 @@ test('the window, on the example context: a comment into the file, the tree, a p
     })()`)
     await app.press('.composer footer button', 'Add to the file')
     await app.until(`document.querySelectorAll('.thread').length === 2`, 'the new thread in the margin')
-    const draft = (await readFile(path.join(project, 'draft/document.md'), 'utf8')).split('\n')
-    assert.match(draft[draft.indexOf(passage) + 1], /^<!-- @comment\{.*"text":"Said by the test\.".*\} -->$/)
+    // A new comment is the reader's own: it is in the context, and the draft is as it was.
+    assert.doesNotMatch(await readFile(path.join(project, 'draft/document.md'), 'utf8'), /Said by the test/)
+    assert.match(await readFile(path.join(context, '.mate/projects/document-review/draft/document.md.comments.md'), 'utf8'), /"text":"Said by the test\."/)
 
     // The comment can be changed and closed from the margin. It ends as it began, so the steps below find it so.
     const inThread = (words: string, label: string) =>
@@ -116,6 +117,16 @@ test('the window, on the example context: a comment into the file, the tree, a p
         const thread = [...document.querySelectorAll('.thread')].find((each) => each.textContent.includes(${JSON.stringify(words)}))
         ;[...thread.querySelectorAll('button')].find((each) => each.textContent === ${JSON.stringify(label)}).click()
       })()`)
+    // Shared, it is written into the file under its passage. Made private, it leaves again. It ends shared, as the steps below expect.
+    await inThread('Said by the test.', 'Share')
+    await app.until(`[...document.querySelectorAll('.thread')].some((each) => each.textContent.includes('Said by the test.') && each.textContent.includes('Make private'))`, 'the comment, shared')
+    const draft = (await readFile(path.join(project, 'draft/document.md'), 'utf8')).split('\n')
+    assert.match(draft[draft.indexOf(passage) + 1], /^<!-- @comment\{.*"text":"Said by the test\.".*\} -->$/)
+    await inThread('Said by the test.', 'Make private')
+    await app.until(`[...document.querySelectorAll('.thread')].some((each) => each.textContent.includes('Said by the test.') && each.textContent.includes('Share'))`, 'the comment, private again')
+    assert.doesNotMatch(await readFile(path.join(project, 'draft/document.md'), 'utf8'), /Said by the test/)
+    await inThread('Said by the test.', 'Share')
+    await app.until(`[...document.querySelectorAll('.thread')].some((each) => each.textContent.includes('Said by the test.') && each.textContent.includes('Make private'))`, 'the comment, shared again')
     await inThread('Said by the test.', 'Edit')
     await app.until(`!!document.querySelector('.thread textarea[aria-label="Comment"]')`, 'the comment, open for change')
     await app.page(`(() => {
@@ -177,10 +188,11 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await note('The second bb.')
     await span('A ', ' word')
     await note('Over markup.')
-    const inline = (await readFile(path.join(project, 'draft/inline.md'), 'utf8')).split('\n')
-    assert.equal(inline[1], '', 'the first line has no comment under it')
-    assert.match(inline[inline.indexOf('bb') + 1], /"text":"The second bb\."/)
-    assert.match(inline[inline.indexOf('A **big** word here.') + 1], /"anchor":"A \*\*big\*\* word".*"text":"Over markup\."/)
+    // Both comments are private: the draft has no marker, and the context holds them with the line each sits under.
+    assert.doesNotMatch(await readFile(path.join(project, 'draft/inline.md'), 'utf8'), /@comment/)
+    const kept = await readFile(path.join(context, '.mate/projects/document-review/draft/inline.md.comments.md'), 'utf8')
+    assert.match(kept, /"text":"The second bb\."/)
+    assert.match(kept, /"anchor":"A \*\*big\*\* word".*"text":"Over markup\."/)
 
     // A folder is made from the rail, shows while it is empty, and a draft in it is a draft.
     await fromPalette(app, 'New folder…')
@@ -232,8 +244,9 @@ test('the window, on the example context: a comment into the file, the tree, a p
       await new Promise((resolve) => setTimeout(resolve, 50))
     }
     assert.equal(existsSync(path.join(project, 'draft/inline.md')), false)
-    // It came with its comments, which are in the file.
-    assert.match(await readFile(path.join(project, 'draft/contracts/inline.md'), 'utf8'), /A \*\*big\*\* word here\.\n<!-- @comment\{.*"text":"Over markup\."/)
+    // It came with its comments, which are in the context under the file's new place.
+    assert.doesNotMatch(await readFile(path.join(project, 'draft/contracts/inline.md'), 'utf8'), /@comment/)
+    assert.match(await readFile(path.join(context, '.mate/projects/document-review/draft/contracts/inline.md.comments.md'), 'utf8'), /"text":"Over markup\."/)
     await app.page(`[...document.querySelectorAll('.projects .tree summary')].find((each) => each.textContent === 'contracts').querySelector('.add').click()`)
     await app.until(`document.querySelector('input[aria-label="Name of the new draft"]')?.placeholder === 'Name of the draft in contracts'`, 'the name of a draft in the folder')
     await app.page(`(() => {
@@ -268,7 +281,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 
-    // A markdown file that is not a draft is reviewed too. Its comment is kept beside it, and it cannot be published.
+    // A markdown file that is not a draft is reviewed too. Its comment is kept in the context, and it cannot be published.
     const material = '# Material\n\nThe collector listens here.\n'
     await writeFile(path.join(project, 'material.md'), material)
     await app.page(`window.dispatchEvent(new Event('focus'))`)
@@ -279,7 +292,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await span('collector', 'collector')
     await note('Which port?')
     assert.equal(await readFile(path.join(project, 'material.md'), 'utf8'), material, 'the file is as it was')
-    assert.match(await readFile(path.join(project, 'material.md.comments.md'), 'utf8'), /Which port\?/)
+    assert.match(await readFile(path.join(context, '.mate/projects/document-review/material.md.comments.md'), 'utf8'), /Which port\?/)
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 
@@ -340,7 +353,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.composer footer button', 'Add to the file')
     await app.until(`document.querySelector('.thread .note .tag')?.textContent === '#detection'`, 'the comment, with its tag')
     assert.equal(await readFile(path.join(project, 'sysmon.xml'), 'utf8'), xml)
-    assert.match(await readFile(path.join(project, 'sysmon.xml.comments.md'), 'utf8'), /"text":"Too wide\. #detection".*"line":2/)
+    assert.match(await readFile(path.join(context, '.mate/projects/document-review/sysmon.xml.comments.md'), 'utf8'), /"text":"Too wide\. #detection".*"line":2/)
     // The note beside the file is typed in the margin, kept beside it, and a file it names opens from there.
     await app.press('.margin .tabs button', 'Notes')
     await app.until(`document.querySelector('.margin').textContent.includes('No note on this file yet')`, 'the notes tab, with no note yet')

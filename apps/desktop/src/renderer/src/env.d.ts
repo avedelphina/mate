@@ -9,6 +9,8 @@ export type ReviewComment = {
   suggestion?: string
   replies: Reply[]
   resolved: boolean
+  /** Kept in the context. A comment that is not is written in the file. */
+  private: boolean
 }
 
 /** `start` is where the quote sits in the document text. Null when the quote is no longer there. */
@@ -193,6 +195,10 @@ export type MateApi = {
   trackContext: () => Promise<Opened>
   /** How many files of the context differ from the last commit. Only in a context the reader trusts. */
   countChanges: () => Promise<number>
+  /** Whether to offer the one-off clean-up of the projects: older versions left files in them, or one is a repository. */
+  cleanupHint: () => Promise<boolean>
+  /** Asks, in a dialog of the system, then takes Mate's files out of the projects. Null when the reader said no. */
+  cleanUp: () => Promise<string | null>
   /** Put what has changed in the context into one commit. Gives the number of files. Only in a trusted context. */
   commit: (message: string) => Promise<number>
   /** A context in a folder that is not there yet. The reader names it and says where, in a dialog of the system. */
@@ -297,6 +303,8 @@ export type MateApi = {
   editComment: (project: string, file: string, id: string, text: string, reply?: number) => Promise<DocumentView>
   removeComment: (project: string, file: string, id: string, reply?: number) => Promise<DocumentView>
   resolveComment: (project: string, file: string, id: string, resolved: boolean) => Promise<DocumentView>
+  /** Keep a comment in the context (private), or write it into the file (shared). A draft only. */
+  setCommentPrivate: (project: string, file: string, id: string, isPrivate: boolean) => Promise<DocumentView>
   anchorComment: (project: string, file: string, id: string, anchor: string, from?: number) => Promise<DocumentView>
   /** The Gitea and GitHub hosts the reader added, to review pull requests on. A token is sealed by the keychain and never shown again. */
   listForges: () => Promise<Forge[]>

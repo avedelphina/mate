@@ -3,8 +3,9 @@ import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { addComment, createDraft, placeOnDisk, readProject, resolveInside, writeDraft } from '../src/main/context.ts'
-import { addReply, anchorComment, applySuggestion, combine, editComment, removeComment, setResolved, fileLineOf, insertComment, parseComments, readDocument, retype, separate } from '../src/shared/comments.ts'
+import { existsSync } from 'node:fs'
+import { addComment, createDraft, editDraft, moveEntry, placeOnDisk, readCommented, readProject, renameProject, resolveInside, writeDraft } from '../src/main/context.ts'
+import { addReply, anchorComment, applySuggestion, combine, editComment, removeComment, setCommentPrivate, setResolved, fileLineOf, insertComment, parseComments, readDocument, retype, separate } from '../src/shared/comments.ts'
 
 test('a comment is written on the line after the sentence it quotes', () => {
   const next = insertComment('Alpha stays.\nBeta changes.\n', 'Beta changes.', 'Say why.', 'ada')
@@ -115,8 +116,9 @@ test('a project draft round-trips through the folder and cannot climb out', asyn
     assert.equal(opened.intents, 'Stay honest.\n')
     const saved = await addComment(root, 'review', 'document.md', 'The current sentence.', 'Needs a source.', 'ada')
     assert.equal(saved.comments[0].text, 'Needs a source.')
-    const onDisk = await readFile(path.join(draft, 'document.md'), 'utf8')
-    assert.match(onDisk, /Needs a source/)
+    // A new comment is private: the draft is as it was, and the comment is in the context.
+    assert.equal(await readFile(path.join(draft, 'document.md'), 'utf8'), 'The current sentence.\n')
+    assert.match(await readFile(path.join(root, '.mate/projects/review/draft/document.md.comments.md'), 'utf8'), /Needs a source/)
     assert.throws(() => resolveInside(root, '..', 'outside.md'), /leaves the context/)
 
     // A second draft: the project lists both and opens neither until one is named.
@@ -282,4 +284,81 @@ test('a comment that is anchored can be moved to another passage', () => {
   assert.equal(moved, 'One.\nTwo.\n' + moved.split('\n')[2] + '\n')
   assert.equal(parseComments(moved)[0].anchor, 'Two.')
   assert.equal(parseComments(moved)[0].text, 'first')
+})
+
+test('a shared comment stays in the file, a private one leaves it, and the file keeps nothing else', () => {
+  const body = '# T\n\nOne sentence here.\n\nAnother one here.\n'
+  let doc = insertComment(body, 'One sentence here.', 'Why?', 'you')
+  doc = insertComment(doc, 'Another one here.', 'Source?', 'you')
+  assert.deepEqual(parseComments(doc).map((each) => each.private), [true, true], 'a new comment is private')
+  doc = setCommentPrivate(doc, '2', false)
+  const { body: kept, side, count } = separate(doc, 'a.md', true)
+  assert.equal(count, 1)
+  assert.match(kept, /Source\?/)
+  assert.doesNotMatch(kept, /Why\?/)
+  assert.doesNotMatch(kept, /"private"/, 'a shared marker is as md-redline reads it')
+  assert.doesNotMatch(side, /"private"/)
+  // Put together again, nothing is lost, and each comment is where it was kept.
+  assert.deepEqual(parseComments(combine(kept, side)).map((each) => [each.id, each.private]).sort(), [['1', true], ['2', false]])
+  assert.equal(readDocument(combine(kept, side)).text, body)
+  // Sharing the other one writes it into the file as well. Taking it out again gives the file back to the byte.
+  const both = separate(setCommentPrivate(combine(kept, side), '1', false), 'a.md', true)
+  assert.equal(both.count, 0)
+  assert.equal(separate(setCommentPrivate(setCommentPrivate(both.body, '1', true), '2', true), 'a.md', true).body, body)
+})
+
+test('a private comment lives in the context, goes with its file when it moves, and a shared one is in the file', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-'))
+  try {
+    const project = path.join(root, 'projects', 'repo')
+    const body = '# Guide\n\nRun it on port 8080.\n'
+    await mkdir(path.join(project, 'docs'), { recursive: true })
+    await writeFile(path.join(project, 'docs', 'guide.md'), body)
+    const side = path.join(root, '.mate/projects/repo/docs/guide.md.comments.md')
+
+    await addComment(root, 'repo', 'docs/guide.md', 'port 8080', 'Is it?', 'you')
+    assert.equal(await readFile(path.join(project, 'docs', 'guide.md'), 'utf8'), body)
+    assert.match(await readFile(side, 'utf8'), /Is it\?/)
+    // The agent's read and the window's read see it.
+    assert.match(await readCommented(root, 'projects/repo/docs/guide.md'), /Is it\?/)
+    assert.equal((await readProject(root, 'repo', 'docs/guide.md')).comments[0].private, true)
+
+    // Shared, it is in the file and no longer in the context.
+    await editDraft(root, 'repo', 'docs/guide.md', (text) => setCommentPrivate(text, '1', false))
+    assert.match(await readFile(path.join(project, 'docs', 'guide.md'), 'utf8'), /@comment/)
+    assert.equal(existsSync(side), false)
+    // Private again: the file is as it was, to the byte.
+    await editDraft(root, 'repo', 'docs/guide.md', (text) => setCommentPrivate(text, '1', true))
+    assert.equal(await readFile(path.join(project, 'docs', 'guide.md'), 'utf8'), body)
+
+    // The comment goes with its file when the file moves, and with the project when it is renamed.
+    await mkdir(path.join(project, 'notes'))
+    await moveEntry(root, 'repo', 'docs/guide.md', 'notes')
+    assert.equal((await readProject(root, 'repo', 'notes/guide.md')).comments.length, 1)
+    assert.equal(existsSync(path.join(root, '.mate/projects/repo/notes/guide.md.comments.md')), true)
+    await renameProject(root, 'repo', 'manual')
+    assert.equal((await readProject(root, 'manual', 'notes/guide.md')).comments[0].text, 'Is it?')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('comments an older version kept beside a text file are read, and shadowed once the context holds them', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-'))
+  try {
+    const config = path.join(root, 'projects', 'review', 'config')
+    await mkdir(config, { recursive: true })
+    const xml = '<a>\n  <b/>\n</a>\n'
+    await writeFile(path.join(config, 'x.xml'), xml)
+    const old = separate(insertComment(xml, '<b/>', 'Why?', 'ada'), 'x.xml').side
+    await writeFile(path.join(config, 'x.xml.comments.md'), old)
+    assert.equal((await readProject(root, 'review', 'config/x.xml')).comments[0].text, 'Why?')
+    // Deleting the comment must not bring it back from the old file.
+    await editDraft(root, 'review', 'config/x.xml', (text) => removeComment(text, '1'))
+    assert.equal((await readProject(root, 'review', 'config/x.xml')).comments.length, 0)
+    // The old file is left for the cleanup the reader is offered.
+    assert.equal(existsSync(path.join(config, 'x.xml.comments.md')), true)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })

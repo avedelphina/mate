@@ -125,9 +125,11 @@ Rules:
    file and why. Mate puts back any edit made outside this project until the reviewer approves that one file.
 3. Propose a plan first, then stop. Edit files only after the reviewer has approved the plan.
 4. A line of the form <!-- @comment{...} --> in a draft is a review comment. Leave such lines exactly as
-   they are, but for one thing: you may answer a comment. A file that is not markdown, such as a CSV or
-   an XML config, keeps its comments beside it, in NAME.comments.md: each quotes a passage of NAME
-   ("anchor") and names the line it sits under. Read it with the file.
+   they are, but for one thing: you may answer a comment. The comments the reviewer keeps private are not in
+   the draft. They are in ../../.mate/projects/NAME/FILE.comments.md, where NAME is the name of this project's
+   folder and FILE is the path of the file in it. Each is a marker like the others, quotes a passage of FILE
+   ("anchor") and names the line it sits under. A file that is not markdown, such as a CSV or an XML config,
+   has all its comments there. Read that file with FILE, and answer in it the same way.
 ${ANSWER}
 5. To show the reviewer something that is not the draft, such as tasks or deadlines, write it as markdown
    to panes/SHORT-NAME.md. Say in it where each thing comes from. Write the file again to bring it up to date.
@@ -174,9 +176,8 @@ Rules:
    </mate-file>
    Mate writes it if the rules allow it, and holds it for the reviewer if they do not.
 5. A line of the form <!-- @comment{...} --> in a draft is a review comment. Keep such lines exactly as
-   they are, but for one thing: you may answer a comment. A file that is not markdown, such as a CSV or
-   an XML config, keeps its comments beside it, in NAME.comments.md: each quotes a passage of NAME
-   ("anchor") and names the line it sits under. Read it with the file.
+   they are, but for one thing: you may answer a comment. A comment the reviewer keeps private is not in the
+   draft, and Mate does not send it to you.
 ${ANSWER}
 6. To show the reviewer something that is not the draft, such as tasks or deadlines, give it as a file
    at projects/NAME/panes/SHORT-NAME.md. Say in it where each thing comes from.
@@ -459,7 +460,9 @@ export async function judge(contextDir: string, session: Session, change: Change
   const dir = folder(contextDir, session.project, session.id)
   // What git runs is never the agent's to change, in the project or out of it: a hook, a config.
   const git = change.path.split('/').includes('.git')
-  if (session.planApproved && !git && change.path.startsWith(`projects/${session.project}/`)) {
+  // The comments the reader keeps private for this project are kept in the context, and are the project's own.
+  const own = change.path.startsWith(`projects/${session.project}/`) || change.path.startsWith(`.mate/projects/${session.project}/`)
+  if (session.planApproved && !git && own) {
     const backup = change.before ? `${session.changes.length}` : null
     if (change.before) {
       await mkdir(path.join(dir, 'backups'), { recursive: true })

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import http from 'node:http'
 import path from 'node:path'
 import { addReply, readDocument } from '../shared/comments'
-import { addComment, editDraft, readContextFile, realInside } from './context'
+import { addComment, editDraft, readCommented, readContextFile, realInside } from './context'
 import { placeOf, refreshIndex, searchIndex, type Kind } from './contextIndex'
 import { meaningRuns, searchMeaning } from './meaning'
 import { judge, loadSession, saveSession, type Session } from './sessions'
@@ -67,8 +67,8 @@ Rules:
    To answer one, use mate_reply with its id: mate_comments gives them. When you are asked to review a draft,
    first answer each open comment of the reviewer in its thread. Use mate_comment only about a passage no
    comment is about.
-   A file that is not markdown, such as a CSV or an XML config, keeps its comments beside it, in
-   NAME.comments.md: each quotes a passage of NAME ("anchor") and names the line it sits under.
+   mate_comments gives every comment on a file, the ones the reviewer keeps private too: those are not in the
+   text mate_read gives. A comment you add with mate_comment is private until the reviewer shares it.
 6. To show the reviewer something that is not the draft, such as tasks, deadlines, or mail you can reach,
    write it as markdown with mate_write to projects/NAME/panes/SHORT-NAME.md. Say in it where each thing
    comes from and when you fetched it. Write the file again to bring it up to date.
@@ -184,7 +184,7 @@ async function run(binding: Binding, session: Session, name: string, input: Json
         .join('\n\n')
     }
     case 'mate_comments': {
-      const raw = await readFile(await realInside(contextDir, ...partsOf(input.path)), 'utf8')
+      const raw = await readCommented(contextDir, partsOf(input.path).join('/'))
       const comments = readDocument(raw).comments.map((comment) => ({
         id: comment.id,
         passage: comment.anchor,

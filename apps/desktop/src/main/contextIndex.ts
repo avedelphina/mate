@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { readDocument } from '../shared/comments'
+import { parseComments, readDocument } from '../shared/comments'
 import { tagsOf, under } from '../shared/tags'
 import { isTwinned, twinOf } from '../shared/twin'
 
@@ -130,6 +130,7 @@ export async function refreshIndex(contextDir: string): Promise<Index> {
   const known = new Map(previous.files.map((entry) => [entry.path, entry]))
   const files: Entry[] = []
   let changed = false
+  const privateComments = existsSync(path.join(contextDir, '.mate', 'projects'))
 
   for (const relative of await walk(contextDir)) {
     // A PDF or a Word file is found by its text twin, once there is one. What is read is the twin.
@@ -137,8 +138,13 @@ export async function refreshIndex(contextDir: string): Promise<Index> {
     const read = path.join(contextDir, twin ? twinOf(relative) : relative)
     const info = await stat(read).catch(() => null)
     if (!info || info.size > MAX_BYTES) continue
+    // The comments the reader keeps private are in the context, beside nothing. They are searched with their file,
+    // so the file and its comments are one entry, and it is read again when either changes.
+    const side = privateComments ? await stat(path.join(contextDir, '.mate', `${relative}.comments.md`)).catch(() => null) : null
+    const mtime = Math.max(info.mtimeMs, side?.mtimeMs ?? 0)
+    const size = info.size + (side?.size ?? 0)
     const old = known.get(relative)
-    if (old && old.mtime === info.mtimeMs && old.size === info.size) {
+    if (old && old.mtime === mtime && old.size === size) {
       files.push(old)
       continue
     }
@@ -149,12 +155,13 @@ export async function refreshIndex(contextDir: string): Promise<Index> {
       : markdown
         ? readDocument(await readFile(read, 'utf8'))
         : { text: asText(await readFile(read)) ?? '', comments: [] }
+    if (side) comments.push(...parseComments(await readFile(path.join(contextDir, '.mate', `${relative}.comments.md`), 'utf8').catch(() => '')).map((comment) => ({ ...comment, start: null })))
     files.push({
       path: relative,
       ...placeOf(relative),
       title: (markdown && /^#{1,6}[ \t]+(.+?)[ \t#]*$/m.exec(text)?.[1]) || path.basename(relative),
-      mtime: info.mtimeMs,
-      size: info.size,
+      mtime,
+      size,
       text,
       tags: markdown ? tagsOf(text).map((each) => each.tag) : [],
       comments: comments.map((comment) => ({

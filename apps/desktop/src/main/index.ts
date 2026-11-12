@@ -6,10 +6,11 @@ import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 
 import { spawn } from 'node:child_process'
 import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
-import { addReply, anchorComment, applySuggestion, editComment, fileLineOf, removeComment, setResolved } from '../shared/comments'
+import { addReply, anchorComment, applySuggestion, editComment, fileLineOf, removeComment, setCommentPrivate, setResolved } from '../shared/comments'
 import { withTags } from '../shared/tags'
 import { addable, AGENTS, agentEnvironment, describeAgent, discoverAgents, type AgentKind } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
+import { cleanUp, leftovers, markDone, offered } from './cleanup'
 import { commitContext, historyOf, inRepository, startRepository, uncommitted, versionAt } from './git'
 import { addForge, changeToCommit, commitToPull, commitToSend, forgesView, keepForgesIn, leavePull, listPulls, mergePull, mergeStyle, pullChanges, removeForge, reviewing, reviewToSend, sendReview, takePull, type Verdict } from './forge'
 import { diffLines } from '../shared/diff'
@@ -494,6 +495,47 @@ app.whenReady().then(() => {
     }
   }
 
+  // The clean-up is a one-off for a context older versions made. Whether to offer it looks at names only.
+  ipcMain.handle('cleanup:hint', (event) => offered(requireContext(event)))
+
+  // Taking Mate's files out of the projects changes files of the reader's, in a repository too, so the reader says yes in a
+  // dialog of the system that counts them. Every comment stays in the context. Nothing is committed.
+  ipcMain.handle('cleanup:run', async (event) => {
+    const contextDir = requireContext(event)
+    if (isBusy(contextDir)) throw new Error('An agent is working in this context. Clean up when it has finished.')
+    const found = await leftovers(contextDir, true)
+    const written = found.written.reduce((count, each) => count + each.comments, 0)
+    if (found.sidecars.length === 0 && written === 0) {
+      await markDone(contextDir)
+      return 'The projects hold nothing of Mate’s.'
+    }
+    const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      type: 'question' as const,
+      buttons: ['Cancel', 'Clean Up'],
+      defaultId: 0,
+      cancelId: 0,
+      message: 'Take Mate’s files out of the projects?',
+      detail: [
+        found.sidecars.length > 0 && `${plural(found.sidecars.length, 'file of comments', 'files of comments')} beside the files they belong to move into the context.`,
+        written > 0 &&
+          `${plural(written, 'comment', 'comments')} written into ${plural(found.written.length, 'file', 'files')} of projects that are repositories are taken out of the files and kept in the context:\n${found.written.map((each) => `${each.project}/${each.file}`).join('\n')}`,
+        'No comment is lost. In a repository, git then shows those files as changed or removed. Nothing is committed.'
+      ].filter(Boolean).join('\n\n')
+    }
+    const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+    if (response !== 1) return null
+    const done = await cleanUp(contextDir, found)
+    await markDone(contextDir)
+    const said = [
+      done.moved > 0 && plural(done.moved, 'file of comments moved', 'files of comments moved'),
+      done.taken > 0 && `${plural(done.taken, 'comment', 'comments')} taken out of the files`,
+      done.left > 0 && `${plural(done.left, 'file', 'files')} left, the context holding comments for ${done.left === 1 ? 'it' : 'them'} already`
+    ].filter(Boolean)
+    return `${said.join(', ')}.`
+  })
+
   // How much there is to commit. Asked when the reader goes to commit, not kept.
   ipcMain.handle('context:changes', (event) => {
     const contextDir = requireContext(event)
@@ -766,6 +808,11 @@ app.whenReady().then(() => {
 
   ipcMain.handle('comment:resolve', (event, project: string, file: string, id: string, resolved: boolean) =>
     editDraft(requireContext(event), project, file, (markdown) => setResolved(markdown, id, resolved))
+  )
+
+  // Where a comment is kept is the reader's to say: in the context, or written into the file for whoever has it. No agent can reach this.
+  ipcMain.handle('comment:private', (event, project: string, file: string, id: string, isPrivate: boolean) =>
+    editDraft(requireContext(event), project, file, (markdown) => setCommentPrivate(markdown, id, Boolean(isPrivate)))
   )
 
   // The reader types in the open draft, or starts a new one. No agent can reach these two.

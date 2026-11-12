@@ -382,9 +382,8 @@ async function putBack(contextDir: string, project: string, kept: Kept, env: Nod
     const head = await versionAt(full, env, kept.head)
     if (head === null) continue
     const page = pageOf(view, where)
+    // The review's comments are in the context. Writing the branch's text over the page takes them with it.
     await editDraft(contextDir, project, page, () => head).catch(() => {})
-    // The comments on a file that is not a draft were kept beside it. That file is the review's, not the branch's.
-    if (page.startsWith('/') && (await versionAt(`${full}.comments.md`, env, kept.head)) === null) await rm(`${full}.comments.md`, { force: true })
   }
 }
 

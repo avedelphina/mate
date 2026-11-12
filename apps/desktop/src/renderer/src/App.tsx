@@ -235,6 +235,11 @@ export function App() {
     found: { missing: string | null; hits: Hit[] } | null
   } | null>(null)
   useEffect(() => setInquiry(null), [contextDir])
+  useEffect(() => {
+    setTidied(null)
+    if (!contextDir) return setTidy(false)
+    window.mate.cleanupHint().then(setTidy, () => setTidy(false))
+  }, [contextDir])
   // What the reader's endpoint picked of the passages, for the question on the page, and whether it may be asked here.
   const [judged, setJudged] = useState<(Judged & { for: string }) | null>(null)
   const [judgeHost, setJudgeHost] = useState<string | null>(null)
@@ -284,6 +289,9 @@ export function App() {
   const [palette, setPalette] = useState<Act[] | null>(null)
   // A commit the reader is putting into words: how many files it would take, and the words so far.
   const [committing, setCommitting] = useState<{ files: number; words: string } | null>(null)
+  // Files of comments older versions left beside files in the projects, and what came of the last clean-up.
+  const [tidy, setTidy] = useState(false)
+  const [tidied, setTidied] = useState<string | null>(null)
   // What came of the last commit, or why there was none.
   const [committed, setCommitted] = useState<string | null>(null)
   // The panes of the open project as last seen, to notice one that has just been written.
@@ -504,6 +512,21 @@ export function App() {
   }
 
   const files = (count: number) => (count === 1 ? '1 file' : `${count} files`)
+
+  /** The reader asks to take Mate's files out of the projects. The system asks them to be sure. */
+  async function cleanUpProjects() {
+    setError(null)
+    if (!(await leaveEditor())) return
+    try {
+      const said = await window.mate.cleanUp()
+      if (said === null) return
+      setTidied(said)
+      setTidy(false)
+      if (view) await window.mate.openProject(view.project, view.file ?? undefined).then(setView, () => {})
+    } catch (caught) {
+      setError(reason(caught, 'Could not clean up the projects.'))
+    }
+  }
 
   /** The reader goes to commit. How much there is to commit is asked now, so it is never an old number. */
   async function startCommit() {
@@ -1139,6 +1162,11 @@ export function App() {
     await change(() => window.mate.removeComment(project, file, id, reply), 'Could not delete the comment.')
   }
 
+  async function shareComment(id: string, isPrivate: boolean) {
+    if (!project || !file) return
+    await change(() => window.mate.setCommentPrivate(project, file, id, isPrivate), 'Could not change the comment.')
+  }
+
   async function resolveComment(id: string, resolved: boolean) {
     if (!project || !file) return
     await change(() => window.mate.resolveComment(project, file, id, resolved), 'Could not change the comment.')
@@ -1546,6 +1574,7 @@ export function App() {
       add('New project…', 'Do', () => setFounding(''))
       add('Bring in a project…', 'Do', () => void importProject())
       add('Rename this context…', 'Do', () => setRenaming({ what: 'context', name: contextName ?? '' }))
+      if (tidy) add('Clean up projects…', 'Do', () => void cleanUpProjects())
       add('Settings…', 'Show', openSettings)
       add("Write the context's intents…", 'Do', () => void giveSteering('context', 'intents.md'))
       add("Write the context's principles…", 'Do', () => void giveSteering('context', 'principles.md'))
@@ -1975,6 +2004,17 @@ export function App() {
           )}
         </div>
         <UpdateNotice />
+        {/* Older versions left files of comments in the projects. The reader is offered to take them out; nothing is moved unasked. */}
+        {contextDir && (tidy || tidied) && (
+          <footer className="rail-foot">
+            {tidy && (
+              <button className="quiet" title="Mate now keeps comments in the context, not in your projects. This takes out what older versions left. It is asked once." onClick={() => void cleanUpProjects()}>
+                Clean up projects…
+              </button>
+            )}
+            {tidied && <span className="meta" role="status">{tidied}</span>}
+          </footer>
+        )}
         {/* Git is the history of a context. A commit is the reader's act, like publishing: nothing is committed for them. */}
         {contextDir && !lacks.git && (
           <footer className="rail-foot">
@@ -2508,6 +2548,7 @@ export function App() {
                     <p className="meta">
                       {thread.author}
                       {unanchored && <span className="pill warn">Unanchored</span>}
+                      {view.drafts.includes(file) && !thread.private && <span className="pill" title="This comment is written in the file, and goes wherever the file goes.">In the file</span>}
                       {thread.resolved && (
                         <span className="pill">{thread.suggestion === undefined ? 'Resolved' : 'Applied'}</span>
                       )}
@@ -2521,6 +2562,15 @@ export function App() {
                     <p className="actions">
                       {thread.author === 'you' && (
                         <button className="quiet" onClick={() => setEditing({ id: thread.id })}>Edit</button>
+                      )}
+                      {view.drafts.includes(file) && (
+                        <button
+                          className="quiet"
+                          title={thread.private ? 'Write this comment into the file. It then goes wherever the file goes, into a commit too.' : 'Take this comment out of the file and keep it in the context.'}
+                          onClick={() => shareComment(thread.id, !thread.private)}
+                        >
+                          {thread.private ? 'Share' : 'Make private'}
+                        </button>
                       )}
                       {thread.suggestion === undefined && (
                         <button className="quiet" onClick={() => resolveComment(thread.id, !thread.resolved)}>

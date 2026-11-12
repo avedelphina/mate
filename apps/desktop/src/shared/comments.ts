@@ -12,6 +12,11 @@ export type ReviewComment = {
   replies: Reply[]
   /** md-redline's `status`. Mate sets it when a suggestion is applied. */
   resolved: boolean
+  /**
+   * Kept in the context, not in the file. A comment with no such field was written by someone else's tool
+   * or an older Mate, and it is in the file: shared.
+   */
+  private: boolean
 }
 
 /** A comment and where its quote sits in the visible text. Null when the quote is no longer there. */
@@ -65,7 +70,8 @@ function toComment(value: Stored): ReviewComment {
     replies: replies
       .filter((reply): reply is { text: string; author?: unknown } => typeof (reply as Reply | null)?.text === 'string')
       .map((reply) => ({ text: reply.text, author: String(reply.author ?? '') })),
-    resolved: value.status === 'resolved' || value.resolved === true
+    resolved: value.status === 'resolved' || value.resolved === true,
+    private: value.private === true
   }
 }
 
@@ -223,7 +229,8 @@ export function insertComment(
     .map((comment) => Number(comment.id))
     .filter((id) => Number.isInteger(id))
   const id = String((used.length > 0 ? Math.max(...used) : 0) + 1)
-  const value: Stored = { id, anchor: trimmedAnchor, text: trimmedText, author: trimmedAuthor }
+  // A new comment is the reader's own until they share it: a repository must not get it by accident.
+  const value: Stored = { id, anchor: trimmedAnchor, text: trimmedText, author: trimmedAuthor, private: true }
   if (replacement !== undefined) value.suggestion = replacement
   return place(markdown, value, from)
 }
@@ -279,6 +286,14 @@ export function removeComment(markdown: string, id: string, reply?: number): str
   const { markers, spans } = strip(markdown)
   const span = spans[indexOfComment(markers, id)]
   return markdown.slice(0, span.start) + markdown.slice(span.end)
+}
+
+/** Keep a comment in the context (private), or put it in the file (shared). Where it is stored changes when the file is written. */
+export function setCommentPrivate(markdown: string, id: string, isPrivate: boolean): string {
+  return rewrite(markdown, id, (value) => {
+    const { private: _old, ...rest } = value
+    return isPrivate ? { ...rest, private: true } : rest
+  })
 }
 
 /** Close a comment, or open it again. A suggestion is closed by applying it, or taken out by deleting it. */
@@ -415,22 +430,28 @@ export function combine(body: string, side: string): string {
     if (i > 0) out += lines[i - 1]
     for (const value of under.get(i) ?? []) {
       if (out && !out.endsWith('\n')) out += eol
-      out += write(value) + eol
+      out += write({ ...value, private: true }) + eol
     }
   }
   return out
 }
 
-/** The file and its side file again, from the two together. Each marker notes the line it sits under. */
-export function separate(combined: string, name: string): { body: string; side: string } {
+/**
+ * The file and its side file again, from the two together. Each marker notes the line it sits under.
+ * With `privateOnly`, a marker not marked private stays in the file: a draft keeps the comments the reader shared.
+ */
+export function separate(combined: string, name: string, privateOnly = false): { body: string; side: string; count: number } {
   const { markers, spans } = strip(combined)
   let body = ''
   let from = 0
   const kept: Stored[] = []
   markers.forEach((marker, k) => {
+    if (privateOnly && marker.value.private !== true) return
     body += combined.slice(from, spans[k].start)
     from = spans[k].end
-    kept.push({ ...marker.value, line: (body.match(/\n/g) ?? []).length + (body && !body.endsWith('\n') ? 1 : 0) })
+    // The side file is the mark: the field would only say it twice.
+    const { private: _private, ...rest } = marker.value
+    kept.push({ ...rest, line: (body.match(/\n/g) ?? []).length + (body && !body.endsWith('\n') ? 1 : 0) })
   })
   body += combined.slice(from)
   const side = [
@@ -441,7 +462,7 @@ export function separate(combined: string, name: string): { body: string; side: 
     ...kept.map(write),
     ''
   ].join('\n')
-  return { body, side }
+  return { body, side, count: kept.length }
 }
 
 /** The line of the file, from 1, where a place in the text the reader sees sits: the marker lines above it count. */

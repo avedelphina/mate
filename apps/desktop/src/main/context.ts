@@ -151,6 +151,8 @@ export async function renameProject(contextDir: string, from: string, name: stri
   await rename(path.join(projects, from), path.join(projects, title))
   const twins = path.join(contextDir, '.indexes', 'text', 'projects')
   if (existsSync(path.join(twins, from))) await rename(path.join(twins, from), path.join(twins, title)).catch(() => {})
+  const kept = path.join(contextDir, '.mate', 'projects')
+  if (existsSync(path.join(kept, from))) await rename(path.join(kept, from), path.join(kept, title)).catch(() => {})
   return title
 }
 
@@ -395,12 +397,26 @@ export async function draftsOf(projectDir: string): Promise<string[]> {
 const MAX_TEXT_FILE = 2 * 1024 * 1024
 
 /**
+ * A file that has comments, and where they are kept. `side` is in the context, never in the project:
+ * a repository must hold nothing of Mate's unless the reader shares it. `legacy` is where older versions
+ * kept the comments of a text file, beside it. `draft` says the file is a draft: its shared comments stay in it.
+ */
+type Commented = { full: string; side: string; sideRelative: string; legacy?: string; relative: string; draft: boolean }
+
+/** Where the private comments of a file are. `key` is the path of the file from the project folder. */
+export function commentsOf(contextDir: string, project: string, key: string): { side: string; sideRelative: string } {
+  const parts = key.split('/')
+  parts[parts.length - 1] += '.comments.md'
+  return { side: resolveInside(contextDir, '.mate', 'projects', project, ...parts), sideRelative: ['.mate', 'projects', project, ...parts].join('/') }
+}
+
+/**
  * A file of the project that is text and not a draft, such as a CSV, an XML config, a log, or a markdown
  * file outside `draft/`. It is reviewed like a draft, named by its path in the project, and its comments are kept beside it in
  * NAME.comments.md, so the file itself changes only when the reader applies a suggestion or types
  * in it. Text is told by its bytes, not its name: UTF-8, and no zero byte.
  */
-async function textFileAt(contextDir: string, project: string, file: string): Promise<{ full: string; side: string; relative: string } | null> {
+async function textFileAt(contextDir: string, project: string, file: string): Promise<Commented | null> {
   // A leading slash says "from the project folder": a markdown file there can have the name of a draft.
   // ponytail: a markdown file that already holds comment markers has them moved into its side file when it is written.
   const name = String(file).replace(/^\//, '')
@@ -412,7 +428,7 @@ async function textFileAt(contextDir: string, project: string, file: string): Pr
   const info = full ? await stat(full).catch(() => null) : null
   if (!full || !info?.isFile() || info.size > MAX_TEXT_FILE) return null
   if (asText(await readFile(full)) === null) return null
-  return { full, side: `${full}.comments.md`, relative: `projects/${project}/${name}` }
+  return { ...commentsOf(contextDir, project, name), full, legacy: `${full}.comments.md`, relative: `projects/${project}/${name}`, draft: false }
 }
 
 /**
@@ -451,8 +467,34 @@ export async function writeNote(contextDir: string, project: string, file: strin
 }
 
 /** A text file and the comments beside it, put together as a draft reads. */
-async function readWithComments(text: { full: string; side: string }): Promise<string> {
-  return combine(await readFile(text.full, 'utf8'), await readFile(text.side, 'utf8').catch(() => ''))
+async function readWithComments(text: Commented): Promise<string> {
+  const side = (await readFile(text.side, 'utf8').catch(() => null)) ?? (text.legacy ? await readFile(text.legacy, 'utf8').catch(() => '') : '')
+  return combine(await readFile(text.full, 'utf8'), side)
+}
+
+/** A draft of the project, with where its private comments are. */
+async function draftTarget(contextDir: string, project: string, file: string): Promise<Commented> {
+  const { full, relative } = await draftAt(contextDir, project, file)
+  const key = path.relative(resolveInside(contextDir, 'projects', project), full).split(path.sep).join('/')
+  return { ...commentsOf(contextDir, project, key), full, relative, draft: true }
+}
+
+/**
+ * A file of the context with its comments in it, the private ones too, as the window and an agent read it.
+ * A path that is no reviewed file of a project is read as it is.
+ */
+export async function readCommented(contextDir: string, relative: string): Promise<string> {
+  const found = /^projects\/([^/]+)\/(.+)$/.exec(relative)
+  if (found) {
+    const [, project, rest] = found
+    const projectDir = resolveInside(contextDir, 'projects', project)
+    const inDrafts = path.relative(draftHome(projectDir), path.join(projectDir, rest)).split(path.sep).join('/')
+    const target = (await draftsOf(projectDir)).includes(inDrafts)
+      ? await draftTarget(contextDir, project, inDrafts)
+      : await textFileAt(contextDir, project, `/${rest}`)
+    if (target) return readWithComments(target)
+  }
+  return readFile(await realInside(contextDir, ...relative.split('/')), 'utf8')
 }
 
 /** The place of a draft, checked: it must be one the project has. */
@@ -541,7 +583,7 @@ export async function readProject(contextDir: string, project: string, file?: st
   const [document, steered, panes, files, folders, final] = await Promise.all([
     chosen === null
       ? { text: '', comments: [] }
-      : (text ? readWithComments(text) : readFile(path.join(draftDir, chosen), 'utf8')).then(readDocument),
+      : (text ? readWithComments(text) : draftTarget(contextDir, project, chosen).then(readWithComments)).then(readDocument),
     steeringOf(contextDir, project),
     Promise.all(
       names.map(async (name) => ({
@@ -575,22 +617,27 @@ export async function editDraft(
   change: (markdown: string) => string
 ): Promise<DocumentView> {
   const projectDir = resolveInside(contextDir, 'projects', project)
-  const text = (await draftsOf(projectDir)).includes(file) ? null : await textFileAt(contextDir, project, file)
-  if (text) {
-    const combined = await readWithComments(text)
-    const next = change(combined)
-    const { body, side } = separate(next, path.basename(text.full))
-    // A comment changes only the file beside it. The file is written when what it says changed.
-    if (readDocument(next).text !== readDocument(combined).text) await replace(contextDir, text.full, `${text.relative}`, body)
-    if (parseComments(next).length > 0 || existsSync(text.side)) await replace(contextDir, text.side, `${text.relative}.comments.md`, side)
-    return readProject(contextDir, project, file)
+  const text = (await draftsOf(projectDir)).includes(file) ? await draftTarget(contextDir, project, file) : await textFileAt(contextDir, project, file)
+  if (!text) throw new Error('That draft is not in this project.')
+  const combined = await readWithComments(text)
+  const next = change(combined)
+  const name = path.basename(text.full)
+  // A draft keeps the comments the reader shared and sends the rest to the context. A text file keeps none.
+  const before = separate(combined, name, text.draft)
+  const after = separate(next, name, text.draft)
+  // A comment changes only the file beside it. A text file is written when what it says changed.
+  const changed = text.draft ? after.body !== before.body : readDocument(next).text !== readDocument(combined).text
+  if (changed) await replace(contextDir, text.full, text.relative, after.body)
+  // An older version's file beside a text file is left for the cleanup the reader is offered. While it is there,
+  // a side file in the context, even an empty one, says the comments are read from there.
+  const shadows = text.legacy !== undefined && existsSync(text.legacy)
+  if (after.count > 0 || shadows) {
+    await mkdir(path.dirname(text.side), { recursive: true })
+    await replace(contextDir, text.side, text.sideRelative, after.side)
+  } else if (existsSync(text.side)) {
+    await rm(text.side)
+    mateWrote(contextDir, text.sideRelative, null)
   }
-  const { full: documentPath, relative } = await draftAt(contextDir, project, file)
-  const next = change(await readFile(documentPath, 'utf8'))
-  const temporary = path.join(path.dirname(documentPath), `.${path.basename(documentPath)}.${randomUUID()}.tmp`)
-  await writeFile(temporary, next)
-  await rename(temporary, documentPath)
-  mateWrote(contextDir, relative, Buffer.from(next))
   return readProject(contextDir, project, file)
 }
 
@@ -752,6 +799,16 @@ export async function moveEntry(contextDir: string, project: string, from: strin
   const there = names.filter((each) => existsSync(path.join(real(source.slice(0, -1)), each)))
   if (there.some((each) => existsSync(path.join(into, each)))) throw new Error('A file or folder of that name is already there.')
   for (const each of there) await rename(path.join(real(source.slice(0, -1)), each), path.join(into, each))
+
+  // The private comments of a file, or of every file in a folder, go with it: they are named by the path in the project.
+  const privateAt = (parts: string[]) => path.join(contextDir, '.mate', 'projects', project, ...parts)
+  const [keptFrom, keptTo] = info.isFile()
+    ? [`${privateAt(source)}.comments.md`, `${privateAt([...target, name])}.comments.md`]
+    : [privateAt(source), privateAt([...target, name])]
+  if (existsSync(keptFrom)) {
+    await mkdir(path.dirname(keptTo), { recursive: true })
+    await rename(keptFrom, keptTo).catch(() => {})
+  }
 
   // What was read of the file stays with it, so nothing is read again. A twin is the text of a PDF or a Word file.
   const old = `projects/${project}/${source.join('/')}`

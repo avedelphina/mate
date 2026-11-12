@@ -406,7 +406,9 @@ test('a markdown file that is not a draft is reviewed too, with its comments bes
     const commented = await addComment(root, 'review', '/WEF/design.md', 'listens on 5986', 'Which port is that for?', 'you', 0)
     assert.equal(commented.comments.length, 1)
     assert.equal(await readFile(path.join(project, 'WEF/design.md'), 'utf8'), body, 'the file itself is as it was')
-    assert.match(await readFile(path.join(project, 'WEF/design.md.comments.md'), 'utf8'), /Which port is that for\?/)
+    // The comment is the reader's own: it is in the context, and the project holds nothing of it.
+    assert.match(await readFile(path.join(root, '.mate/projects/review/WEF/design.md.comments.md'), 'utf8'), /Which port is that for\?/)
+    assert.equal(existsSync(path.join(project, 'WEF/design.md.comments.md')), false)
     assert.equal((await readProject(root, 'review')).drafts.some((name) => name.includes('.comments.')), false)
     // It can be typed in, and the comment stays with its passage.
     const typed = await writeDraft(root, 'review', '/WEF/design.md', body, body.replace('5986', '5985'))
@@ -505,7 +507,8 @@ test('a folder is made in a project, and drafts lie in folders of draft/ as they
     assert.equal(placeOf('projects/review/notes/a.md').kind, 'material')
     // A comment goes into the draft in the folder, and nowhere else.
     await addComment(root, 'review', 'contracts/nda.md', 'keep it secret', 'Which law?', 'you', 0)
-    assert.match(await readFile(path.join(root, 'projects/review/draft/contracts/nda.md'), 'utf8'), /@comment/)
+    assert.equal(await readFile(path.join(root, 'projects/review/draft/contracts/nda.md'), 'utf8'), '# NDA\n\nBoth sides keep it secret.\n')
+    assert.match(await readFile(path.join(root, '.mate/projects/review/draft/contracts/nda.md.comments.md'), 'utf8'), /Which law\?/)
 
     // The folders a project keeps for itself are not made, a name is a name and not a path out, and nothing is made over.
     await assert.rejects(makeFolder(root, 'review', 'draft'), /keeps draft\/ for itself/)
@@ -734,10 +737,13 @@ test('a folder brought in as a project is moved as it is, and its markdown files
     assert.deepEqual([view.drafts, view.draftsIn], [['README.md', 'docs/access.md'], ''])
     const opened = await readProject(context, 'policy-repo', 'docs/access.md')
     assert.equal(opened.text, '# Access\n\nAdmins use two factors.\n')
-    // A comment goes into the file where it lies, and search calls it a proposal.
+    // A comment is kept in the context, and search calls the file a proposal.
     const commented = await addComment(context, 'policy-repo', 'docs/access.md', 'Admins use two factors.', 'Which two?', 'you')
     assert.equal(commented.comments.length, 1)
-    assert.match(await readFile(path.join(moved, 'docs/access.md'), 'utf8'), /@comment/)
+    // The repository is left as it was: no marker in its file, and no file of Mate's beside it.
+    assert.equal(await readFile(path.join(moved, 'docs/access.md'), 'utf8'), '# Access\n\nAdmins use two factors.\n')
+    assert.deepEqual((await readdir(path.join(moved, 'docs'))).sort(), ['access.md'])
+    assert.match(await readFile(path.join(context, '.mate/projects/policy-repo/docs/access.md.comments.md'), 'utf8'), /Which two\?/)
     const hits = searchIndex(await refreshIndex(context), 'two factors')
     assert.deepEqual([...new Set(hits.map((hit) => `${hit.kind} ${hit.path}`))], ['draft projects/policy-repo/docs/access.md'])
     // A new draft goes where the others are, and does not make a draft folder.

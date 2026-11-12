@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -216,7 +217,8 @@ test('a text file of a project is reviewed like a draft, and a comment changes o
     const commented = await addComment(root, 'review', 'config/sysmon.xml', '<ProcessCreate onmatch="exclude"/>', 'Why exclude everything? #detection', 'you')
     assert.equal(commented.comments[0].text, 'Why exclude everything? #detection')
     assert.equal(await readFile(file, 'utf8'), xml)
-    assert.match(await readFile(`${file}.comments.md`, 'utf8'), /^# Comments on sysmon\.xml\n/)
+    assert.match(await readFile(path.join(root, '.mate/projects/review/config/sysmon.xml.comments.md'), 'utf8'), /^# Comments on sysmon\.xml\n/)
+    assert.equal(existsSync(`${file}.comments.md`), false, 'nothing of Mate is left beside the file')
     // The file beside it is not a draft of its own, and a reply goes there too.
     assert.deepEqual(commented.drafts, ['policy.md'])
     await editDraft(root, 'review', 'config/sysmon.xml', (text) => addReply(text, '1', 'It logs nothing.', 'ada'))
@@ -228,9 +230,9 @@ test('a text file of a project is reviewed like a draft, and a comment changes o
     await editDraft(root, 'review', 'config/sysmon.xml', (text) => applySuggestion(text, '2'))
     assert.equal(await readFile(file, 'utf8'), xml.replace('exclude', 'include'))
     assert.equal((await readProject(root, 'review', 'config/sysmon.xml')).comments.length, 2)
-    // A search finds the comment, and its tag, in the file beside it, and the words of the file itself. Not those of a picture.
+    // A search finds the comment, and its tag, with its file, and the words of the file itself. Not those of a picture.
     const index = await refreshIndex(root)
-    assert.ok(searchIndex(index, 'detection').some((hit) => hit.path === 'projects/review/config/sysmon.xml.comments.md'))
+    assert.ok(searchIndex(index, 'detection').some((hit) => hit.path === 'projects/review/config/sysmon.xml'))
     assert.deepEqual([...new Set(searchIndex(index, 'EventFiltering').map((hit) => `${hit.kind} ${hit.path}`))], ['material projects/review/config/sysmon.xml'])
     assert.equal(index.files.find((file) => file.path === 'projects/review/config/picture.bin')?.text, '')
   } finally {

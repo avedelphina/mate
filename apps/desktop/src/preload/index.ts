@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld('mate', {
   shapeContext: () => ipcRenderer.invoke('context:shape'),
   trackContext: () => ipcRenderer.invoke('context:track'),
   countChanges: (): Promise<number> => ipcRenderer.invoke('context:changes'),
+  cleanupHint: (): Promise<boolean> => ipcRenderer.invoke('cleanup:hint'),
+  cleanUp: (): Promise<string | null> => ipcRenderer.invoke('cleanup:run'),
   commit: (message: string): Promise<number> => ipcRenderer.invoke('context:commit', message),
   newContext: () => ipcRenderer.invoke('context:create'),
   recentContexts: () => ipcRenderer.invoke('context:recent'),
@@ -85,6 +87,8 @@ contextBridge.exposeInMainWorld('mate', {
     ipcRenderer.invoke('comment:remove', project, file, id, reply),
   resolveComment: (project: string, file: string, id: string, resolved: boolean) =>
     ipcRenderer.invoke('comment:resolve', project, file, id, resolved),
+  setCommentPrivate: (project: string, file: string, id: string, isPrivate: boolean) =>
+    ipcRenderer.invoke('comment:private', project, file, id, isPrivate),
   anchorComment: (project: string, file: string, id: string, anchor: string, from?: number) =>
     ipcRenderer.invoke('comment:anchor', project, file, id, anchor, from),
   listForges: () => ipcRenderer.invoke('forge:list'),

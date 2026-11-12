@@ -81,7 +81,9 @@ test("an agent the reader runs comes in over MCP, and keeps the same rules", asy
     assert.match((await call('mate_write', { path: 'projects/review/draft/document.md', text: 'Rewritten.\n' })).text, /Not written/)
     assert.equal(await draft(), '# Working copy\n\nPublic data may leave after review.\n')
     await call('mate_comment', { path: 'projects/review/draft/document.md', passage: 'after review', note: 'The shelf does not say this.', replacement: 'at once' })
-    const [comment] = parseComments(await draft())
+    // The agent's comment is the reader's to see, and it is not in the draft: a draft is shared, a comment is not yet.
+    assert.equal(await draft(), '# Working copy\n\nPublic data may leave after review.\n')
+    const [comment] = parseComments(await readFile(path.join(root, '.mate/projects/review/draft/document.md.comments.md'), 'utf8'))
     assert.deepEqual([comment.author, comment.suggestion], ['tester', 'at once'])
     assert.match((await call('mate_comments', { path: 'projects/review/draft/document.md' })).text, /"replacement": "at once"/)
     assert.equal((await call('mate_comment', { path: 'shelf/classification.md', passage: 'Public', note: 'No.' })).failed, true)

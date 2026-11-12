@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { addReply, readDocument } from '../src/shared/comments.ts'
-import { addComment, editDraft } from '../src/main/context.ts'
+import { addComment, editDraft, readProject } from '../src/main/context.ts'
 import { whereIs } from '../src/main/git.ts'
 import { addForge, changeToCommit, commitToPull, forgesView, keepForgesIn, leavePull, listPulls, mergePull, mergeStyle, pullChanges, remoteOf, reviewToSend, sendReview, takePull } from '../src/main/forge.ts'
 
@@ -123,7 +123,9 @@ test('a pull request on Gitea is checked out, reviewed in the margin, sent as on
     assert.deepEqual(review.files, ['guide.md'])
     assert.equal(await whereIs(project, env), head)
     const guide = path.join(project, 'guide.md')
-    const taken = readDocument(await readFile(guide, 'utf8'))
+    // Bob's question is the reader's to keep: it is in the context, and the repository's file has no marker.
+    assert.equal(await readFile(guide, 'utf8'), '# Guide\n\nInstall the service.\n\nRun it with the default port, 8080.\n\nCheck the health page.\n')
+    const taken = await readProject(context, 'docs', 'guide.md')
     assert.equal(taken.text, '# Guide\n\nInstall the service.\n\nRun it with the default port, 8080.\n\nCheck the health page.\n')
     assert.deepEqual(taken.comments.map((each) => [each.anchor, each.text, each.author]), [['Run it with the default port, 8080.', 'Is 8080 right?', 'bob']])
     await assert.rejects(takePull(context, 'docs', 1, env), /on pull request #1/)
@@ -208,7 +210,9 @@ test('on GitHub Enterprise a reply joins its conversation, and a comment off the
     const review = await takePull(context, 'docs', 1, env)
     assert.equal(review.base, at.base)
     const guide = path.join(at.project, 'guide.md')
-    const taken = readDocument(await readFile(guide, 'utf8'))
+    // Bob's question is the reader's to keep: it is in the context, and the repository's file has no marker.
+    assert.equal(await readFile(guide, 'utf8'), '# Guide\n\nInstall the service.\n\nRun it with the default port, 8080.\n\nCheck the health page.\n')
+    const taken = await readProject(context, 'docs', 'guide.md')
     // A comment on the old side of the diff stays on GitHub.
     assert.deepEqual(taken.comments.map((each) => each.text), ['Is 8080 right?'])
 
