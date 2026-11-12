@@ -12,6 +12,10 @@ of them unless you share them.
 
 ### Changed
 
+- *Open Another Context…* in the context menu goes back to the window that
+  lists the contexts opened last, as at the start, instead of to the file
+  picker. *Open context…* is still there, one button away. ⌘K has *Switch
+  context…* for the same.
 - A new comment is private. It is kept in the context, in
   `.mate/projects/PROJECT/…`, and not in the project. A draft, and a
   repository above all, is left as it was. Syncing the context (Synology,

@@ -559,6 +559,20 @@ export function App() {
     enter(await window.mate.openContext())
   }
 
+  /** Back to the window that lists the contexts opened last, with the file picker one button away. The one just left is the first of them. */
+  async function chooseContext() {
+    setError(null)
+    if (!(await leaveEditor())) return
+    setContextDir(null)
+    setProjects([])
+    setView(null)
+    setReading(null)
+    setQuery('')
+    setFounding(null)
+    setCommitting(null)
+    setCommitted(null)
+  }
+
   async function reopenContext(dir: string) {
     setError(null)
     try {
@@ -1581,6 +1595,7 @@ export function App() {
       if (!lacks.git) add('Commit…', 'Do', () => void startCommit())
       add('Search this context', 'Do', () => document.querySelector<HTMLInputElement>('.rail .search')?.focus())
     }
+    if (contextDir) add('Switch context…', 'Do', () => void chooseContext())
     add('Open context…', 'Do', () => void openContext())
     add('New context…', 'Do', () => void newContext())
     return all
@@ -1616,7 +1631,7 @@ export function App() {
   const contextMenu = (): Item[] => [
     { label: 'Rename Context…', run: () => setRenaming({ what: 'context', name: contextName ?? '' }) },
     null,
-    { label: 'Open Another Context…', run: () => void openContext() },
+    { label: 'Open Another Context…', run: () => void chooseContext() },
     { label: 'New Context…', run: () => void newContext() }
   ]
   const projectsMenu = (): Item[] => [

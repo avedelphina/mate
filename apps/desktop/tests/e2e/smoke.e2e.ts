@@ -710,6 +710,11 @@ test('with no context open, the window offers the contexts opened last, and open
     assert.match(await app.page<string>(`document.querySelector('.welcome .meta').textContent`), /^Version \d+\.\d+\.\d+/)
     await app.press('.welcome .recent strong', 'example')
     await app.until(`document.querySelector('.rail h2')?.textContent === 'example'`, 'the context is open')
+    // Switching goes back to that window, not to the file picker, and the context just left is in its list.
+    await fromPalette(app, 'Switch context…')
+    await app.until(`document.querySelectorAll('.welcome .recent .row').length === 1 && !document.querySelector('.rail')`, 'the window of the contexts opened last')
+    await app.press('.welcome .recent strong', 'example')
+    await app.until(`document.querySelector('.rail h2')?.textContent === 'example'`, 'the context is open again')
   } finally {
     await app.close()
     await rm(root, { recursive: true, force: true })
