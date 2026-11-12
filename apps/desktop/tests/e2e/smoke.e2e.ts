@@ -488,6 +488,25 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.page(`[...document.querySelectorAll('.margin .pane li')].find((each) => each.textContent.includes('Mark what is unclear')).querySelector('.box').click()`)
     await app.until(`[...document.querySelectorAll('.margin .pane li')].find((each) => each.textContent.includes('Mark what is unclear')).querySelector('.box.checked') !== null`, 'the task is ticked')
     assert.match(await readFile(path.join(context, '.mate/projects/document-review/panes/tasks.md'), 'utf8'), /^- \[x\] Mark what is unclear$/m)
+    // The reader can lock a pane against agents, type in it, and the project holds none of it.
+    const lock = path.join(context, '.mate/projects/document-review/panes/.locked')
+    await app.page(`document.querySelector('.margin input[type=checkbox]').click()`)
+    for (let waited = 0; !existsSync(lock); waited += 50) {
+      if (waited > 5000) throw new Error('The pane was not locked.')
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.equal(await readFile(lock, 'utf8'), 'tasks.md\n')
+    await app.press('.margin .actions button', 'Edit')
+    await app.until(`!!document.querySelector('.margin textarea[aria-label="The pane tasks.md"]')`, 'the pane, open for typing')
+    await app.page(`(() => {
+      const box = document.querySelector('.margin textarea[aria-label="The pane tasks.md"]')
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(box, box.value + '\\n- [ ] Typed by the test\\n')
+      box.dispatchEvent(new Event('input', { bubbles: true }))
+    })()`)
+    await app.press('.margin button', 'Save')
+    await app.until(`[...document.querySelectorAll('.margin .pane li')].some((each) => each.textContent.includes('Typed by the test'))`, 'the typed task on the pane')
+    assert.match(await readFile(path.join(context, '.mate/projects/document-review/panes/tasks.md'), 'utf8'), /Typed by the test/)
+    assert.equal(existsSync(path.join(project, 'panes')), false, 'the project holds no pane')
     // A line written to be said is a button, and it reads its own words. With no session open, there is nobody to say it to.
     assert.equal(await app.page(`document.querySelector('.margin .pane .say').innerText`), 'Write this pane again from the tracker')
     await app.page(`document.querySelector('.margin .pane .say').click()`)
@@ -496,7 +515,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`!!document.querySelector('.margin .talk')`, 'a session is open')
     await app.press('.margin .tabs button', 'tasks')
     await app.page(`document.querySelector('.margin .pane .say').click()`)
-    await app.until(`document.querySelector('.margin .asof + .asof')?.textContent.includes('Said to the agent')`, 'the pane says what it said')
+    await app.until(`document.querySelector('.margin .asof ~ .asof')?.textContent.includes('Said to the agent')`, 'the pane says what it said')
     await app.press('.margin .tabs button', 'Chat')
     await app.until(`[...document.querySelectorAll('.said.you')].some((each) => each.textContent.trim() === 'Write this pane again from the tracker')`, 'the words are in the conversation')
     await app.press('.margin .tabs button', 'tasks')

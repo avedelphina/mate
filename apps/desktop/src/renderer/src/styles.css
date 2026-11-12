@@ -173,7 +173,6 @@ button.tool { display: inline-flex; align-items: center; justify-content: center
 .rail li > .tree, .rail .section > .tree { margin: 0 0 2px; }
 .projects > li > .tree, .steering { padding-left: 14px; }
 .tree details { margin: 0; padding: 0; border: 0; }
-.tree > li.part { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--tint); }
 .row { display: flex; align-items: center; gap: 7px; width: 100%; box-sizing: border-box; padding: 6px 10px; border: 0; border-radius: 7px; background: none; box-shadow: none; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row:hover:not(:disabled) { background: var(--tint); }
 .row.active { background: var(--chosen); font-weight: 600; }

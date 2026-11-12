@@ -219,7 +219,9 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
 - **Panes.** A markdown file in a project's panes, kept in the context
   (`.mate/projects/NAME/panes/`) and not in the project, is a tab of
   the margin. An agent writes it, to show you tasks, deadlines or mail it
-  reached through its own connections. You can tick a task in it, and a
+  reached through its own connections. You can edit it, show its file in
+  the file manager, and tick *Agents may not change this pane*: an agent's
+  write to it then waits for your approval. You can tick a task in it, and a
   line written as `[words](say:)` is a button that says those words to
   the agent.
 - **Scripts.** What is done the same way each time is a file in the

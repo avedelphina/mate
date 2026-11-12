@@ -15,7 +15,7 @@ import { isTwinned, twinOf } from '../shared/twin'
  * the draft: tasks, deadlines, mail. `written` is when the file last changed, so the reader can
  * tell how old it is.
  */
-export type Pane = { name: string; text: string; written: number }
+export type Pane = { name: string; text: string; written: number; locked: boolean }
 
 /** The two files that steer. A project's own are in its folder, the context's at its root. */
 export const STEERING = ['intents.md', 'principles.md'] as const
@@ -602,6 +602,57 @@ async function panesOf(contextDir: string, project: string): Promise<{ name: str
   return [...found].map(([name, parts]) => ({ name, parts })).sort((a, b) => a.name.localeCompare(b.name))
 }
 
+const lockFile = (contextDir: string, project: string) => resolveInside(contextDir, '.mate', 'projects', project, 'panes', '.locked')
+
+/**
+ * The panes the reader keeps to themselves: an agent's write to one is held for them. One name a line, in the
+ * context beside the panes, so a lock goes where the panes go and no file of a project says it.
+ */
+async function lockedPanes(contextDir: string, project: string): Promise<Set<string>> {
+  const text = await readFile(lockFile(contextDir, project), 'utf8').catch(() => '')
+  return new Set(text.split('\n').map((line) => line.trim()).filter(Boolean))
+}
+
+/**
+ * Whether a change an agent made to this path must wait for the reader: the path is a pane the reader locked, in the
+ * context or in the project where an older version left it, or it is the list of locks itself.
+ */
+export async function paneIsLocked(contextDir: string, project: string, relative: string): Promise<boolean> {
+  const found = /^(?:\.mate\/)?projects\/([^/]+)\/panes\/([^/]+)$/.exec(relative)
+  if (!found || found[1] !== project) return false
+  return found[2] === '.locked' || (await lockedPanes(contextDir, project)).has(found[2])
+}
+
+/** Lock a pane against agents, or let them write it again. Only the reader's window asks for this. */
+export async function lockPane(contextDir: string, project: string, name: string, locked: boolean, draft?: string): Promise<DocumentView> {
+  if (!(await panesOf(contextDir, project)).some((each) => each.name === name)) throw new Error('That pane is not in this project.')
+  const now = await lockedPanes(contextDir, project)
+  if (locked) now.add(name)
+  else now.delete(name)
+  const file = lockFile(contextDir, project)
+  if (now.size === 0) await rm(file, { force: true })
+  else {
+    await mkdir(path.dirname(file), { recursive: true })
+    await writeFile(file, `${[...now].sort().join('\n')}\n`)
+  }
+  return readProject(contextDir, project, draft)
+}
+
+/**
+ * Give a pane the text the reader typed. `base` is the text the reader began from: a pane an agent has written since
+ * is not written over. The pane stays where it lies.
+ */
+export async function writePane(contextDir: string, project: string, name: string, base: string, text: string, draft?: string): Promise<DocumentView> {
+  const here = name.startsWith('.') ? undefined : (await panesOf(contextDir, project)).find((each) => each.name === name)
+  if (!here) throw new Error('That pane is not in this project.')
+  const raw = await readFile(await realInside(contextDir, ...here.parts), 'utf8')
+  if (readDocument(raw).text !== base) throw new Error('The pane has changed since you began to edit it. Nothing was saved. Copy what you typed, then edit again.')
+  if (!text.trim()) throw new Error('The pane is empty.')
+  const next = Buffer.from(retype(raw, text.replace(/\r?\n/g, raw.includes('\r\n') ? '\r\n' : '\n')))
+  await replace(contextDir, path.join(contextDir, ...here.parts), here.parts.join('/'), next.toString())
+  return readProject(contextDir, project, draft)
+}
+
 export async function readProject(contextDir: string, project: string, file?: string): Promise<DocumentView> {
   const projectDir = resolveInside(contextDir, 'projects', project)
   // A project with no draft still opens: its other files are there to be read.
@@ -614,6 +665,7 @@ export async function readProject(contextDir: string, project: string, file?: st
   const chosen = file ?? (drafts.length === 1 ? drafts[0] : null)
   // A pane is read like any file that is not reviewed, so it passes the same path check.
   const kept = await panesOf(contextDir, project)
+  const locked = await lockedPanes(contextDir, project)
   // Read side by side: a file still in the cloud is fetched first, and fetches wait less together.
   const [document, steered, panes, files, folders, final] = await Promise.all([
     chosen === null
@@ -624,7 +676,8 @@ export async function readProject(contextDir: string, project: string, file?: st
       kept.map(async ({ name, parts }) => ({
         name,
         text: readDocument(await readFile(await realInside(contextDir, ...parts), 'utf8')).text,
-        written: (await stat(path.join(contextDir, ...parts))).mtimeMs
+        written: (await stat(path.join(contextDir, ...parts))).mtimeMs,
+        locked: locked.has(name)
       }))
     ),
     listFiles(projectDir),

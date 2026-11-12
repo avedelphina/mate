@@ -47,19 +47,16 @@ export function Tree(props: {
     onMove && !kept(full) ? { draggable: true, onDragStart: (event: DragEvent) => (event.dataTransfer.setData(MOVE, full), (event.dataTransfer.effectAllowed = 'move')) } : {}
   // Where the project keeps its drafts, a new file is a draft. Elsewhere it is a file of the project.
   const drafts = (full: string) => draftsIn === '' || full === draftsIn.slice(0, -1) || full.startsWith(draftsIn)
-  // At the root of a project, what Mate keeps stands first, in a fixed order, and a rule parts it from the reader's own folders.
-  const system = base === '' && onMove ? SYSTEM.filter((each) => here.includes(each)) : []
-  here.sort((a, b) => Number(isFile(a)) - Number(isFile(b)) || a.localeCompare(b))
-  const ordered = [...system, ...here.filter((each) => !system.includes(each))]
+  // Folders first, then files, each by name. What Mate keeps is not set apart: a project holds little of it now.
+  const ordered = here.sort((a, b) => Number(isFile(a)) - Number(isFile(b)) || a.localeCompare(b))
   return (
     <ul className="tree">
-      {ordered.map((name, at) => {
+      {ordered.map((name) => {
         const full = base + name
-        const part = system.length > 0 && at === system.length
         if (isFile(name)) {
           const markdown = name.toLowerCase().endsWith('.md')
           return (
-            <li key={name} className={part ? 'part' : undefined}>
+            <li key={name}>
               <button
                 {...drag(full)}
                 {...menu(full, false)}
@@ -74,7 +71,7 @@ export function Tree(props: {
           )
         }
         return (
-          <li key={name} className={part ? 'part' : undefined}>
+          <li key={name}>
             {/* The draft is what the project is for, so its folder starts unfolded. The reader folds the rest. */}
             {/* Unfolded too when the file on the page is in it, so the reader sees where it is. */}
             <details open={full === unfolded || (current?.startsWith(`${full}/`) ?? false)}>
@@ -104,9 +101,6 @@ export function Tree(props: {
     </ul>
   )
 }
-
-/** What a project keeps for itself, in the order the rail shows it. */
-const SYSTEM = ['draft', 'panes', 'dropbox', 'scripts', 'intents.md', 'principles.md']
 
 /** The folders a project keeps for itself have pictures of their own. */
 const FOLDERS = new Map<string, IconName>([['dropbox', 'dropbox'], ['panes', 'pane'], ['scripts', 'script']])

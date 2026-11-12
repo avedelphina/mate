@@ -1207,6 +1207,15 @@ same name in the context wins. An agent that writes files itself is told
 the real place, `../../.mate/projects/NAME/panes/`. `judge` treats
 `.mate/projects/NAME/` as part of that project.
 
+The reader can type in a pane (*Edit* on its tab, `writePane`, from the
+text they began from, as a note is), show its file in the file manager, and
+lock it. A locked pane is listed by name in `.mate/projects/NAME/panes/.locked`,
+one name a line, in the context and not in a file of the project. `judge`
+holds an agent's write to a locked pane, in the context or where an older
+version left it, and to the list itself: the write waits for the reader,
+as one outside the project does. The reader's own typing and ticking are
+not held. Tasks ticked in a locked pane still change the file.
+
 A pane is how an agent shows the reader something Mate has no feature
 for: tasks from a tracker, deadlines, mail. The agent reaches the source
 through its own connections and writes what it found into the file. That

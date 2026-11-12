@@ -55,6 +55,8 @@ import {
   shelfPath,
   takeDown,
   tickPane,
+  lockPane,
+  writePane,
   writeDraft,
   writeNote,
   writeSteering
@@ -980,6 +982,14 @@ app.whenReady().then(() => {
   // The reader ticks a task in a pane. One character of the pane's file changes, and no other file can.
   ipcMain.handle('pane:tick', (event, project: string, name: string, base: string, at: number, draft?: string) =>
     tickPane(requireContext(event), project, String(name), String(base), Number(at), draft)
+  )
+
+  // The reader types in a pane, or keeps agents from writing it. No agent can reach these two.
+  ipcMain.handle('pane:write', (event, project: string, name: string, base: string, text: string, draft?: string) =>
+    writePane(requireContext(event), project, String(name), String(base), String(text), draft)
+  )
+  ipcMain.handle('pane:lock', (event, project: string, name: string, locked: boolean, draft?: string) =>
+    lockPane(requireContext(event), project, String(name), Boolean(locked), draft)
   )
 
   ipcMain.handle('folder:make', (event, project: string, where: string) => makeFolder(requireContext(event), project, String(where)))

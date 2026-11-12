@@ -17,7 +17,7 @@ export type ReviewComment = {
 export type Thread = ReviewComment & { start: number | null }
 
 /** A file in a project's `panes/` folder, written by an agent to be shown beside the draft. `written` is when. */
-export type Pane = { name: string; text: string; written: number }
+export type Pane = { name: string; text: string; written: number; locked: boolean }
 
 export type DocumentView = {
   project: string
@@ -236,6 +236,10 @@ export type MateApi = {
   readNote: (project: string, file: string) => Promise<string>
   writeNote: (project: string, file: string, base: string, text: string) => Promise<string>
   makeFolder: (project: string, where: string) => Promise<DocumentView>
+  /** Type in a pane. `base` is the text the reader began from. */
+  writePane: (project: string, name: string, base: string, text: string, draft?: string) => Promise<DocumentView>
+  /** Keep agents from writing a pane (their write is held for the reader), or let them write it again. */
+  lockPane: (project: string, name: string, locked: boolean, draft?: string) => Promise<DocumentView>
   tickPane: (project: string, name: string, base: string, at: number, draft?: string) => Promise<DocumentView>
   writeSteering: (project: string, name: string, base: string, text: string, draft?: string) => Promise<DocumentView>
   /** The documents of the shelf, by their path from the shelf folder. */

@@ -7,7 +7,7 @@ import path from 'node:path'
 import readline from 'node:readline'
 import { Acp, type Ask, type Door, type Models } from './acp'
 import { AGENTS, SSH, agentEnvironment, isHost, isModel, sshArgs, type AgentKind } from './agents'
-import { inCloudOnly, keptDisk, resolveInside } from './context'
+import { inCloudOnly, keptDisk, paneIsLocked, resolveInside } from './context'
 import { placeOf } from './contextIndex'
 import { changesSince, fingerprints, insidePath, mateWrote, put, takeSnapshot, watching, type Change, type Snapshot } from './guard'
 import { changedParts, diffLines, type DiffLine } from '../shared/diff'
@@ -476,7 +476,8 @@ export async function judge(contextDir: string, session: Session, change: Change
   const git = change.path.split('/').includes('.git')
   // The comments the reader keeps private for this project are kept in the context, and are the project's own.
   const own = change.path.startsWith(`projects/${session.project}/`) || change.path.startsWith(`.mate/projects/${session.project}/`)
-  if (session.planApproved && !git && own) {
+  // A pane the reader locked is theirs: the agent's write waits for them, as one outside the project does.
+  if (session.planApproved && !git && own && !(await paneIsLocked(contextDir, session.project, change.path))) {
     const backup = change.before ? `${session.changes.length}` : null
     if (change.before) {
       await mkdir(path.join(dir, 'backups'), { recursive: true })

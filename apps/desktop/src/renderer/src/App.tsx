@@ -22,6 +22,7 @@ import { Notes } from './Notes'
 import { useTyping } from './Steering'
 import { dropOn, fileIcon, Tree } from './Tree'
 import { Icon } from './Icon'
+import { PaneBar } from './PaneBar'
 import { Welcome } from './Welcome'
 import { dropMenu, onRightClick, type Item } from './menu'
 import { asked, filled } from '../../shared/run'
@@ -1300,6 +1301,20 @@ export function App() {
   }
   const onPage = agentOnPage && view !== null
 
+  async function savePane(base: string, text: string) {
+    if (!project || !pane) return
+    try {
+      setView(await window.mate.writePane(project, pane.name, base, text, file ?? undefined))
+    } catch (caught) {
+      throw new Error(reason(caught, 'Could not save the pane.'))
+    }
+  }
+
+  async function lockPane(name: string, locked: boolean) {
+    if (!project) return
+    await change(() => window.mate.lockPane(project, name, locked, file ?? undefined), 'Could not change the pane.')
+  }
+
   /** Tick a task in a pane, or clear it. The file changes, so the agent finds it ticked when it next reads. */
   function tick(name: string, base: string, at: number) {
     if (!view) return
@@ -2508,24 +2523,27 @@ export function App() {
           )}
           {pane && (
             <>
-              <p className="meta asof">
-                panes/{pane.name}, written{' '}
-                {new Date(pane.written).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}. It does
-                not update itself. Ask the agent to write it again.
-              </p>
-              {said?.pane === pane.name && <p className="meta asof">Said to the agent: “{said.words}”</p>}
-              {/* The reader can act on a pane in two ways, and Mate draws both: tick a task, press a line that says its own words. */}
-              <div className="prose pane">
-                <Boundary what="This pane" of={pane.text}>
-                  <Rendered
-                    text={pane.text}
-                    onTick={(at) => tick(pane.name, pane.text, at)}
-                    onSay={(words) => say(pane.name, words)}
-                    onRun={(line) => run(`pane:${pane.name}`, line)}
-                  />
-                </Boundary>
-              </div>
-              {outcome(`pane:${pane.name}`)}
+              <PaneBar
+                key={`${view?.project} ${pane.name}`}
+                pane={pane}
+                onSave={savePane}
+                onLock={(locked) => void lockPane(pane.name, locked)}
+                onReveal={() => void window.mate.revealFile(`projects/${view?.project}/panes/${pane.name}`)}
+              >
+                {said?.pane === pane.name && <p className="meta asof">Said to the agent: “{said.words}”</p>}
+                {/* The reader can act on a pane in two ways, and Mate draws both: tick a task, press a line that says its own words. */}
+                <div className="prose pane">
+                  <Boundary what="This pane" of={pane.text}>
+                    <Rendered
+                      text={pane.text}
+                      onTick={(at) => tick(pane.name, pane.text, at)}
+                      onSay={(words) => say(pane.name, words)}
+                      onRun={(line) => run(`pane:${pane.name}`, line)}
+                    />
+                  </Boundary>
+                </div>
+                {outcome(`pane:${pane.name}`)}
+              </PaneBar>
             </>
           )}
           {view && shown === 'review' && file !== null && !reading && (

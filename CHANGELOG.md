@@ -5,6 +5,24 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- A pane can be edited: *Edit* on its tab, and *Show in Finder*. The text
+  is saved only if the pane is as you began, so a pane an agent wrote in
+  the meantime is not written over.
+- *Agents may not change this pane* on a pane's tab. An agent's write to a
+  locked pane waits for your approval, as a change outside the project
+  does. You can still type in it and tick its tasks.
+
+### Changed
+
+- The project's tree no longer sets apart the folders and files Mate keeps
+  (`draft/`, `dropbox/`, `scripts/`, the intents and principles) at the
+  top. Panes, notes and comments left the project, so there is little to
+  set apart. Folders come first, then files, each by name.
+
 ## [0.33.0] - 2026-11-12
 
 Mate keeps its own files in the context, not in your projects. Your
