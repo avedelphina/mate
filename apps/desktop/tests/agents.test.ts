@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { AGENTS, SSH, addable, discoverAgents, sshArgs } from '../src/main/agents.ts'
+import { addComment } from '../src/main/context.ts'
 import { changesSince, fingerprints, put, takeSnapshot } from '../src/main/guard.ts'
 import { compare, judge, listAllSessions, listSessions, loadSession, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
 import { isTrusted, keepTrustIn, setTrusted } from '../src/main/trust.ts'
@@ -285,6 +286,9 @@ console.log('<mate-file path="shelf/classification.md">\\nShelf, rewritten.\\n</
     const draft = () => readFile(path.join(root, 'projects/review/draft/document.md'), 'utf8')
     const shelf = () => readFile(path.join(root, 'shelf/classification.md'), 'utf8')
 
+    // A comment the reader keeps private is in the context, not in the draft. The agent on the other machine is sent it too.
+    await addComment(root, 'review', 'document.md', 'Draft text.', 'Why this?', 'you')
+
     const session = await startSession(root, 'review', 'hermes', 'agent-host.example')
     const planned = await (await sendMessage(root, 'review', session.id, 'Tighten the draft.', false, () => {})).finished
     // Not approved: nothing is written. Both changes wait, and the one outside the context is refused.
@@ -298,6 +302,8 @@ console.log('<mate-file path="shelf/classification.md">\\nShelf, rewritten.\\n</
     assert.deepEqual(first.args.slice(4, 6), ['agent-host.example', '--'])
     assert.ok(first.args.includes("'todo'") && first.args.includes("'-Q'"))
     assert.match(first.prompt, /You cannot open files[\s\S]*kind="proposal of project review">\nDraft text\.\n<\/file>[\s\S]*<file path="shelf\/classification\.md" kind="shelf">\nShelf text\.\n<\/file>/)
+
+    assert.match(first.prompt, /<file path="\.mate\/projects\/review\/draft\/document\.md\.comments\.md" kind="private comments of the reviewer on projects\/review\/draft\/document\.md">\n[\s\S]*Why this\?/)
 
     // Approved: the project file is written here, with a copy for Revert. The shelf still waits.
     const approved = await (await sendMessage(root, 'review', session.id, '', true, () => {})).finished

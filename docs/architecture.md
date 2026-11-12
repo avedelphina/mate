@@ -122,6 +122,13 @@ file is written, and the document too if its shared markers changed, in
 `editDraft`, by a temporary file and a rename as before. `readCommented`
 gives a file with all its comments to an agent.
 
+The context's own git repository, if it has one, commits `.mate/` with
+everything else: private comments get a history and a backup there. That
+is deliberate. A context is the reader's own and is not shared through
+git (see the Hub in the roadmap). Nothing in Mate adds a remote to it. A
+reader who pushes a context to a remote others can read pushes their
+private comments with it.
+
 A draft outside a repository is no different. The rule has no exception for
 a folder with no git, because a git repository can be made there later,
 and a comment once committed is in the history.

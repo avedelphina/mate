@@ -138,4 +138,6 @@ then it is stored in the document it refers to, as md-redline does. A
 repository is not Mate's to fill, and a comment can say what the reader
 does not mean a colleague to read. So a comment enters a project only
 when the reader says so. Syncing the context carries private comments to
-the reader's other computers. Git does not.
+the reader's other computers. The git of a project does not. The git of
+the context itself does: a context is the reader's own and is not shared
+through git, so its history may hold them.

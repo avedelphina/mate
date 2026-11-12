@@ -177,7 +177,8 @@ Rules:
    Mate writes it if the rules allow it, and holds it for the reviewer if they do not.
 5. A line of the form <!-- @comment{...} --> in a draft is a review comment. Keep such lines exactly as
    they are, but for one thing: you may answer a comment. A comment the reviewer keeps private is not in the
-   draft, and Mate does not send it to you.
+   draft. Mate sends it to you as a file of its own, .mate/projects/NAME/FILE.comments.md, a marker like the
+   others for each comment. Answer in that file the same way, giving its whole new text.
 ${ANSWER}
 6. To show the reviewer something that is not the draft, such as tasks or deadlines, give it as a file
    at projects/NAME/panes/SHORT-NAME.md. Say in it where each thing comes from.
@@ -201,7 +202,9 @@ function pack(snapshot: Snapshot, sent: Record<string, string>): string {
   const parts: string[] = []
   let size = 0
   for (const [relative, bytes] of snapshot) {
-    if (!relative.toLowerCase().endsWith('.md') || relative.startsWith('.') || sent[relative] === hash(bytes)) continue
+    // The reader's private comments are in `.mate/`. An agent invited into the project is sent them with the draft they are about.
+    const comments = relative.startsWith('.mate/projects/') && relative.endsWith('.comments.md')
+    if (!relative.toLowerCase().endsWith('.md') || (relative.startsWith('.') && !comments) || sent[relative] === hash(bytes)) continue
     if (size + bytes.length > MAX_SENT) {
       parts.push(`<file path="${relative}" not-sent="too much to send at once" />`)
       continue
@@ -209,7 +212,9 @@ function pack(snapshot: Snapshot, sent: Record<string, string>): string {
     size += bytes.length
     sent[relative] = hash(bytes)
     const place = placeOf(relative)
-    const kind = KINDS[place.kind] + (place.project ? ` of project ${place.project}` : '')
+    const kind = comments
+      ? `private comments of the reviewer on projects/${relative.slice('.mate/projects/'.length, -'.comments.md'.length)}`
+      : KINDS[place.kind] + (place.project ? ` of project ${place.project}` : '')
     parts.push(`<file path="${relative}" kind="${kind}">\n${bytes.toString('utf8').replace(/\r?\n$/, '')}\n</file>`)
   }
   return parts.join('\n\n')
@@ -222,7 +227,9 @@ async function proposed(contextDir: string, text: string): Promise<{ changes: Ch
   for (const [, named, body] of text.matchAll(FILE)) {
     const relative = named.trim().replace(/^\.\//, '')
     const parts = relative.split('/')
-    if (path.isAbsolute(relative) || parts.some((part) => part === '' || part.startsWith('.'))) {
+    // `.mate/projects/` holds the reader's private comments. It is the one hidden place an agent may name; `judge` says whether it may write there.
+    const nameable = parts[0] === '.mate' && parts[1] === 'projects' ? parts.slice(1) : parts
+    if (path.isAbsolute(relative) || nameable.some((part) => part === '' || part.startsWith('.'))) {
       refused.push(named)
       continue
     }

@@ -36,9 +36,11 @@ of them unless you share them.
   lost. When it has run, the context is marked (`.mate/cleaned`) and
   never asked again, on any computer you sync it to.
 
+- An agent on another machine is sent a draft's private comments as a file
+  of their own, and can answer in it.
+
 ### Not yet
 
-- An agent on another machine is not sent private comments.
 - Panes and notes are still files of the project. They move next.
 
 ## [0.32.0] - 2026-11-11
