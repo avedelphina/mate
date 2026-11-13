@@ -315,6 +315,7 @@ mark.pending, mark.found { background: var(--mark-pending); }
 .composer { box-sizing: border-box; padding: 10px 12px 8px; }
 .composer:focus-within { box-shadow: var(--float), 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
 .composer textarea { display: block; width: 100%; box-sizing: border-box; min-height: 1.5em; max-height: 14em; padding: 4px 0; border: 0; outline: 0; background: none; resize: none; field-sizing: content; }
+.composer .picture { margin: 0 0 6px; }
 .composer .replacement { margin-bottom: 6px; padding-bottom: 8px; border-bottom: 0.5px solid var(--line); font: 15px/1.5 var(--read); }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .chips button { padding: 1px 9px; color: var(--soft); font-size: 12px; }

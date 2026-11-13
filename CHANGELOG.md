@@ -5,6 +5,15 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- A picture can be added to the message to an agent: *Add a picture* in the
+  agent's box. It is copied into the project's dropbox. Hermes is given the
+  picture; the other agents read its path. One picture at a time, and not to
+  another machine.
+
 ## [0.34.0] - 2026-11-12
 
 A pane can be edited and locked against agents, and the Hub has a new shape

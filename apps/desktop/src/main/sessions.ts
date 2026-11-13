@@ -7,7 +7,7 @@ import path from 'node:path'
 import readline from 'node:readline'
 import { Acp, type Ask, type Door, type Models } from './acp'
 import { AGENTS, SSH, agentEnvironment, isHost, isModel, sshArgs, type AgentKind } from './agents'
-import { inCloudOnly, keptDisk, paneIsLocked, resolveInside } from './context'
+import { PICTURE_TYPES, inCloudOnly, keptDisk, paneIsLocked, realInside, resolveInside } from './context'
 import { placeOf } from './contextIndex'
 import { changesSince, fingerprints, insidePath, mateWrote, put, takeSnapshot, watching, type Change, type Snapshot } from './guard'
 import { changedParts, diffLines, type DiffLine } from '../shared/diff'
@@ -592,7 +592,8 @@ export async function sendMessage(
   text: string,
   approve: boolean,
   emit: (session: Session) => void,
-  wait = false
+  wait = false,
+  pictures: string[] = []
 ): Promise<{ started: Session; finished: Promise<Session> }> {
   // Two messages sent at the same moment are taken in one after the other, so the second finds the first one's turn.
   const before = entering.get(id) ?? Promise.resolve()
@@ -603,7 +604,12 @@ export async function sendMessage(
     const session = await loadSession(contextDir, project, id)
     // A session from before the context was made private stays in the list, and says nothing more to its agent.
     if (!privacyAllows(contextDir, session.agent, session.host)) throw new Error(privacyRefusal(contextDir))
-    const said = text.trim()
+    // One picture at a time, and only between turns: a picture that waits in the queue would lose its way to the agent.
+    if (pictures.length > 1) throw new Error('One picture at a time.')
+    const picture = pictures[0] ? await pictureOn(contextDir, project, pictures[0]) : null
+    if (picture && session.host) throw new Error('A picture is not sent to another machine yet.')
+    if (picture && (turns.has(id) || busy.has(contextDir))) throw new Error('Wait for this turn to end before you add a picture.')
+    const said = [text.trim(), picture && `Picture: ${picture.relative}`].filter(Boolean).join('\n\n')
     if (!said && !approve) throw new Error('The message is empty.')
     const message = approve ? ['The plan is approved. Go ahead.', said].filter(Boolean).join('\n\n') : said
 
@@ -643,10 +649,24 @@ export async function sendMessage(
     for (const each of session.messages) delete each.waiting
     if (approve || left.some((each) => each.approve)) session.planApproved = true
     session.messages.push({ role: 'you', text: message, tools: [] })
-    return await begin(contextDir, session, [...left.map((each) => each.text), message].join('\n\n'), soFar, emit)
+    return await begin(contextDir, session, [...left.map((each) => each.text), message].join('\n\n'), soFar, emit, picture)
   } finally {
     taken()
   }
+}
+
+/** A picture in the project's dropbox, read for the agent. Only a file of that dropbox, and not a link out of it. */
+type Picture = { path: string; relative: string; mimeType: string; data: string }
+
+async function pictureOn(contextDir: string, project: string, relative: string): Promise<Picture> {
+  const prefix = `projects/${project}/dropbox/`
+  const file = relative.startsWith(prefix) ? relative.slice(prefix.length) : ''
+  const mimeType = PICTURE_TYPES[path.extname(file).toLowerCase()]
+  if (!file || file.includes('/') || !mimeType) throw new Error("A picture is a file of this project's dropbox.")
+  const full = await realInside(contextDir, ...relative.split('/'))
+  const bytes = await readFile(full)
+  if (bytes.length > 10 * 1024 * 1024) throw new Error('That picture is larger than 10 MB.')
+  return { path: full, relative, mimeType, data: bytes.toString('base64') }
 }
 
 /** One turn of the agent. The reader's message is already in the session. */
@@ -655,7 +675,8 @@ async function begin(
   session: Session,
   message: string,
   soFar: string,
-  emit: (session: Session) => void
+  emit: (session: Session) => void,
+  picture: Picture | null = null
 ): Promise<{ started: Session; finished: Promise<Session> }> {
   const { id, project } = session
   let settle!: (session: Session) => void
@@ -686,6 +707,7 @@ async function begin(
   const acp = !session.host && isTrusted(contextDir) ? adapter.acp : undefined
   try {
     if (adapter.trustedOnly && !acp) throw new Error(`${adapter.label} works only in a context you trust.`)
+    // Hermes takes a picture by its own image input, on the command line or by ACP. Other agents read the path in the message.
     // An agent on this computer reads the instruction files of the folder itself. The reader sees them first.
     if (!session.host) await gate.before(contextDir)
     const state = mayWrite
@@ -729,7 +751,7 @@ async function begin(
       // The context is trusted no more, or never was: an agent that stayed is sent away.
       live.get(id)?.close()
       live.delete(id)
-      const turn = { cwd: projectDir, contextDir, resume: session.agentSession, mayWrite, model: session.model, effort: session.effort }
+      const turn = { cwd: projectDir, contextDir, resume: session.agentSession, mayWrite, model: session.model, effort: session.effort, picture: picture?.path }
       child = session.host
         ? spawn(SSH.command, sshArgs(session.host, adapter.command, adapter.remoteArgs!(session.agentSession)), {
             env: agentEnvironment()
@@ -773,7 +795,8 @@ async function begin(
       const named = /^session_id:\s*(\S+)/m.exec(chunk.toString())
       if (named) session.agentSession = named[1]
     })
-    const read = (session.host && adapter.remoteRead) || adapter.read
+    // A turn in quiet text (a remote machine, or a picture) is read as text.
+    const read = ((session.host || picture) && adapter.remoteRead) || adapter.read
     readline.createInterface({ input: child.stdout! }).on('line', (line) => {
       for (const event of read(line)) {
         if (event.type === 'session') session.agentSession = event.id
@@ -921,7 +944,7 @@ async function begin(
             session.asks = (session.asks ?? []).filter((each) => each.id !== askId)
             update()
           }
-        })
+        }, picture && session.agent === 'hermes' ? [{ data: picture.data, mimeType: picture.mimeType }] : [])
       )
       .then(
         () => void end(),
