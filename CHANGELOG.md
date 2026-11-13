@@ -5,7 +5,10 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.35.0] - 2026-11-13
+
+A project can be moved into another project, a picture can go to an agent,
+and the agent's chat is easier to follow.
 
 ### Added
 
