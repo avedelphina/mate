@@ -5,7 +5,10 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.37.0] - 2026-11-13
+
+A picture can be pasted into a message, and a Markdown, text, CSV or PDF file can be
+added to one. The agent reads a file where it was copied, in the project's dropbox.
 
 ### Added
 
