@@ -5,7 +5,16 @@ type SyntaxNode = ReturnType<typeof parser.parse>['topNode']
 
 /** A stretch of the text. Hidden when it is markup the reader should not see, such as `**`. */
 export type Leaf = { from: number; to: number; hidden: boolean }
-export type Element = { tag: string; className?: string; title?: string; start?: number; diagram?: [from: number, to: number]; children: Piece[] }
+export type Element = {
+  tag: string
+  className?: string
+  title?: string
+  src?: string
+  alt?: string
+  start?: number
+  diagram?: [from: number, to: number]
+  children: Piece[]
+}
 export type Piece = Leaf | Element
 
 const markdown = parser.configure(GFM)
@@ -78,6 +87,7 @@ export function renderMarkdown(text: string): Piece[] {
 
   const leaf = (from: number, to: number, hidden = false): Leaf => ({ from: base + from, to: base + to, hidden })
   const filled = (pieces: Piece[]) => pieces.filter((piece) => 'tag' in piece || piece.to > piece.from)
+  const hiddenPiece = (piece: Piece): Piece => ('tag' in piece ? { ...piece, children: piece.children.map(hiddenPiece) } : { ...piece, hidden: true })
 
   /** The node's children, and the text between them. */
   function inside(node: SyntaxNode, from = node.from, to = node.to): Piece[] {
@@ -133,8 +143,18 @@ export function renderMarkdown(text: string): Piece[] {
     // Document, Task, Entity and whatever the parser adds later: no element of their own.
     if (!tag) return inside(node)
     const element: Element = { tag: tag[0], className: tag[1], children: inside(node) }
+    if (name === 'Image') {
+      const closing = node.getChildren('LinkMark')[1]
+      const address = node.getChild('URL')
+      if (closing) {
+        const contents = inside(node, from, closing.from).map(hiddenPiece)
+        element.children = [...contents, leaf(closing.from, to, true)]
+      }
+      if (address) element.src = source.slice(address.from, address.to)
+      if (closing) element.alt = source.slice(from + 2, closing.from)
+    }
     if (name === 'OrderedList') element.start = Number.parseInt(source.slice(from, to), 10) || 1
-    if (name === 'Link' || name === 'Image') {
+    if (name === 'Link') {
       // After the closing bracket comes the address, a title, a label. All of it is markup, spaces too.
       const closing = node.getChildren('LinkMark')[1]
       if (closing) element.children = [...inside(node, from, closing.from), leaf(closing.from, to, true)]

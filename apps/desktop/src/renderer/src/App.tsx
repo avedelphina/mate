@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from 'react'
 import { Agent } from './Agent'
 import { BarButton } from './BarButton'
 import { Boundary } from './Boundary'
@@ -115,6 +115,29 @@ function Divider(props: { which: keyof typeof COLUMNS; width: number; set: (widt
       }}
     />
   )
+}
+
+function imagePath(documentPath: string, source: string): string | null {
+  if (!source || source.startsWith('/') || /^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(source)) return null
+  const encoded = source.split(/[?#]/, 1)[0]
+  let clean: string
+  try {
+    clean = decodeURIComponent(encoded)
+  } catch {
+    return null
+  }
+  if (!clean || clean.includes('\\') || clean.includes('\0')) return null
+  const base = documentPath.split('/').slice(0, -1)
+  for (const part of clean.split('/')) {
+    if (!part || part === '.') continue
+    if (part === '..') {
+      if (base.length === 0) return null
+      base.pop()
+    } else {
+      base.push(part)
+    }
+  }
+  return base.join('/')
 }
 
 export function App() {
@@ -306,6 +329,18 @@ export function App() {
 
   const project = view?.project
   const file = view?.file ?? null
+  const imageDocumentPath = reading
+    ? reading.path
+    : file && project
+      ? `projects/${project}/${view?.draftsIn ?? ''}${file}`
+      : null
+  const loadImage = useCallback(
+    (source: string) => {
+      const resolved = imageDocumentPath === null ? null : imagePath(imageDocumentPath, source)
+      return resolved === null ? Promise.reject(new Error('That image path is not local to this document.')) : window.mate.readPicture(resolved)
+    },
+    [imageDocumentPath]
+  )
   // The tags of the document on the page are in its front matter, so they are the file's, and not kept anywhere else.
   const shownTags = !contextDir ? '' : reading ? (reading.path.toLowerCase().endsWith('.md') ? reading.text : '') : file !== null && file.toLowerCase().endsWith('.md') ? (view?.text ?? '') : ''
   useEffect(() => {
@@ -2351,7 +2386,7 @@ export function App() {
             <div className="page prose">
               {reading.twin && !reading.text.trim() && <p className="meta">Mate found no text in this file. It may be locked, or hold pictures with no words in them.</p>}
               <Boundary what="This file" of={reading.text}>
-                <Rendered text={reading.text} passages={passages} refs={refsHere} onRef={openFile} />
+                <Rendered text={reading.text} passages={passages} refs={refsHere} onRef={openFile} image={loadImage} />
               </Boundary>
             </div>
           ) : !view ? (
@@ -2398,7 +2433,7 @@ export function App() {
                 />
               )}
               <Boundary what="This draft" of={view.text}>
-                <Rendered text={view.text} passages={passages} active={active} onPick={setActive} plain={textFile} refs={refsHere} onRef={openFile} />
+                <Rendered text={view.text} passages={passages} active={active} onPick={setActive} plain={textFile} refs={refsHere} onRef={openFile} image={loadImage} />
               </Boundary>
             </div>
           )}
@@ -2554,7 +2589,7 @@ export function App() {
           {view && shown === 'preview' && (
             <div className="prose pane preview">
               <Boundary what="This preview" of={typed}>
-                <Rendered text={typed} />
+                <Rendered text={typed} image={loadImage} />
               </Boundary>
             </div>
           )}

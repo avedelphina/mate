@@ -271,6 +271,10 @@ button.tool { display: inline-flex; align-items: center; justify-content: center
 .rule { margin: 1.8em 0; border-top: 1px solid var(--line); }
 .link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .image::before { content: 'image: '; color: var(--soft); }
+.image-rendered { display: block; margin: 0 0 1em; }
+.markdown-image { display: block; max-width: 100%; height: auto; }
+.image-preview { display: block; min-height: 48px; margin: 0 0 1em; border: 1px solid var(--line); background: var(--hover); }
+.image-preview[data-state='error']::after { content: 'Image could not be loaded'; display: block; padding: 12px; color: var(--soft); font: 13px/1.4 var(--ui); }
 .break { white-space: pre; }
 .table { display: table; border-collapse: collapse; font: 0.85em/1.5 var(--ui); }
 .tr { display: table-row; }

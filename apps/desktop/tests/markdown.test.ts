@@ -72,6 +72,18 @@ test('markup is hidden and the words are not', () => {
   assert.deepEqual(tags(renderMarkdown(text)), ['h1', 'p', 'strong', 'span'])
 })
 
+test('an image keeps its source and alt text while its markdown syntax stays hidden', () => {
+  const text = '![A screenshot](media/screenshot.png)\n'
+  const elements = (pieces: Piece[]): Extract<Piece, { tag: string }>[] =>
+    pieces.flatMap((piece) => ('tag' in piece ? [piece, ...elements(piece.children)] : []))
+  const image = elements(renderMarkdown(text)).find((piece) => piece.className === 'image')
+  if (!image) throw new Error('The image element is missing.')
+  assert.equal(image.src, 'media/screenshot.png')
+  assert.equal(image.alt, 'A screenshot')
+  assert.equal(leaves(image.children).every((leaf) => leaf.hidden), true)
+  assert.equal(leaves(renderMarkdown(text)).map((leaf) => text.slice(leaf.from, leaf.to)).join(''), text)
+})
+
 test('front matter and a fenced block are shown as written, without their fences', () => {
   const pieces = renderMarkdown(draft)
   assert.deepEqual(pieces[0], { tag: 'pre', className: 'meta', children: [{ from: 0, to: 23, hidden: false }] })

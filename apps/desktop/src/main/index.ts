@@ -56,6 +56,7 @@ import {
   publish,
   pullIn,
   readContextFile,
+  readPicture,
   readProject,
   shapeContext,
   shelfPath,
@@ -640,6 +641,9 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('file:read', (event, relative: string) => readContextFile(requireContext(event), relative))
+
+  // A markdown image is read by main, so the window never gets filesystem access. The path guard and size/type limits apply here.
+  ipcMain.handle('picture:read', (event, relative: string) => readPicture(requireContext(event), String(relative)))
 
   // A file Mate cannot draw is shown where it lies, for the reader to open with what they have.
   // It is shown, never opened: opening a file from a context could run it.

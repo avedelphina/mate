@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
+import { Buffer } from 'node:buffer'
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { AGENTS } from '../src/main/agents.ts'
-import { copyFile, copyPicture, intoDropbox } from '../src/main/context.ts'
+import { copyFile, copyPicture, intoDropbox, readPicture } from '../src/main/context.ts'
 import { attachmentsOn } from '../src/main/sessions.ts'
 
 async function context(): Promise<{ root: string; source: string }> {
@@ -31,6 +32,21 @@ test('only a picture is copied in; a file of another kind is refused', async () 
   await writeFile(text, 'not a picture')
   await assert.rejects(copyPicture(root, 'demo', text), /PNG, JPEG, GIF or WebP/)
   await assert.rejects(copyPicture(root, 'demo', 'cat.png'), /PNG, JPEG, GIF or WebP/)
+})
+
+test('a markdown picture is read only from inside the context and only in supported formats', async () => {
+  const { root } = await context()
+  const picture = path.join(root, 'projects', 'demo', 'image.png')
+  await writeFile(picture, Buffer.from([1, 2, 3]))
+  assert.deepEqual(await readPicture(root, 'projects/demo/image.png'), { mimeType: 'image/png', data: Buffer.from([1, 2, 3]).toString('base64') })
+  await assert.rejects(readPicture(root, '../outside.png'), /not a picture/)
+  await assert.rejects(readPicture(root, 'projects/demo/../image.png'), /not a picture/)
+  const notes = path.join(root, 'projects', 'demo', 'notes.txt')
+  await writeFile(notes, 'not an image')
+  await assert.rejects(readPicture(root, 'projects/demo/notes.txt'), /PNG, JPEG, GIF or WebP/)
+  const large = path.join(root, 'projects', 'demo', 'large.png')
+  await writeFile(large, Buffer.alloc(10 * 1024 * 1024 + 1))
+  await assert.rejects(readPicture(root, 'projects/demo/large.png'), /larger than 10 MB/)
 })
 
 test('Hermes is given the picture on its command line, and only when there is one', () => {

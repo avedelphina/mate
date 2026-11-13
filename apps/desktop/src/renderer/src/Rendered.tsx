@@ -1,4 +1,4 @@
-import { createElement, Fragment, useMemo, type KeyboardEvent, type ReactNode } from 'react'
+import { createElement, Fragment, useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { refRanges, type RefRange } from '../../shared/records'
 import { Diagram } from './Diagram'
 import { renderMarkdown, type Piece } from './markdown'
@@ -65,6 +65,33 @@ function marked(
   })
 }
 
+function LocalImage(props: {
+  path: string
+  alt: string
+  load: (path: string) => Promise<{ mimeType: string; data: string }>
+}) {
+  const { path, alt, load } = props
+  const [source, setSource] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let current = true
+    setSource(null)
+    setFailed(false)
+    load(path)
+      .then((picture) => {
+        if (current) setSource(`data:${picture.mimeType};base64,${picture.data}`)
+      })
+      .catch(() => current && setFailed(true))
+    return () => {
+      current = false
+    }
+  }, [load, path])
+
+  if (!source) return <span className="image-preview" data-state={failed ? 'error' : 'loading'} role="img" aria-label={alt || 'Image'} />
+  return <img className="markdown-image" src={source} alt={alt} />
+}
+
 /**
  * Markdown, drawn. Its markup is hidden and still in the page, so the text of the page is the
  * text of the file, character for character. pickPassage depends on that.
@@ -87,8 +114,10 @@ export function Rendered(props: {
   /** With these, an ID such as `ADR-0004` in the text opens the file it names. `refs` maps each ID to a path. */
   refs?: Record<string, string>
   onRef?: (path: string) => void
+  /** A local image path, resolved by main and returned as bytes. */
+  image?: (path: string) => Promise<{ mimeType: string; data: string }>
 }) {
-  const { text, passages = [], active = null, onPick, onTick, onSay, onRun, onName, plain = false, refs, onRef } = props
+  const { text, passages = [], active = null, onPick, onTick, onSay, onRun, onName, plain = false, refs, onRef, image } = props
   const named = useMemo(() => (refs && onRef && !plain ? refRanges(text, refs) : []), [text, refs, onRef, plain])
   const pieces = useMemo(() => (plain ? [] : renderMarkdown(text)), [text, plain])
   /** The words of a piece as the reader sees them. */
@@ -105,7 +134,15 @@ export function Rendered(props: {
   })
   const draw = (piece: Piece, index: number): ReactNode => {
     if ('tag' in piece) {
-      const { tag, children, diagram, ...rest } = piece
+      const { tag, children, diagram, src, alt, ...rest } = piece
+      if (src && image) {
+        return (
+          <span key={index} className="image-rendered">
+            <LocalImage path={src} alt={alt ?? ''} load={image} />
+            {children.map(draw)}
+          </span>
+        )
+      }
       if (diagram) {
         return (
           <Fragment key={index}>
