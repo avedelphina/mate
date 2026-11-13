@@ -42,7 +42,26 @@ test('an agent moves and deletes files of its own project, with their comments, 
     await assert.rejects(run('mate_move', { from: 'projects/review/draft/b.md', to: 'projects/sibling/draft/b.md' }), /only files of your project/)
     await assert.rejects(run('mate_delete', { path: 'projects/sibling/draft/c.md' }), /only files of your project/)
     await assert.rejects(run('mate_delete', { path: 'projects/review/intents.md' }), /steer the project/)
-    await assert.rejects(run('mate_move', { from: 'projects/review/draft/b.md', to: 'projects/review/draft/archive/a.md' }), /A file is there already/)
+    await assert.rejects(run('mate_move', { from: 'projects/review/draft/b.md', to: 'projects/review/draft/archive/a.md' }), /is there already/)
+
+    // A folder moves with every file under it, and each file keeps its comment and note.
+    await mkdir(path.join(draft, 'batch/deep'), { recursive: true })
+    await writeFile(path.join(draft, 'batch/one.md'), '# One\n')
+    await writeFile(path.join(draft, 'batch/deep/two.md'), '# Two\n\nTwo words.\n')
+    await addComment(root, 'review', 'draft/batch/deep/two.md', 'Two words.', 'Which?', 'you')
+    await assert.rejects(run('mate_move', { from: 'projects/review/draft/batch', to: 'projects/review/draft/batch/inside' }), /into itself/)
+    assert.match(await run('mate_move', { from: 'projects/review/draft/batch', to: 'projects/review/draft/filed' }), /^Moved .* \(2 files\)/)
+    assert.equal(existsSync(path.join(draft, 'batch')), false, 'the folder left behind is removed')
+    assert.equal(await readFile(path.join(draft, 'filed/deep/two.md'), 'utf8'), '# Two\n\nTwo words.\n')
+    assert.match(await readFile(path.join(root, '.mate/projects/review/draft/filed/deep/two.md.comments.md'), 'utf8'), /Which\?/)
+    assert.equal(existsSync(path.join(root, '.mate/projects/review/draft/batch')), false)
+
+    // A folder is deleted with its files, and the files are kept for a revert.
+    assert.match(await run('mate_delete', { path: 'projects/review/draft/filed' }), /^Deleted .* \(2 files\)/)
+    assert.equal(existsSync(path.join(draft, 'filed')), false)
+    assert.equal(existsSync(path.join(root, '.mate/projects/review/draft/filed')), false)
+    const after = await loadSession(root, 'review', session.id)
+    assert.ok(after.changes.some((change) => change.path === 'projects/review/draft/filed/one.md'))
 
     // Delete, and the reader reverts it.
     assert.match(await run('mate_delete', { path: 'projects/review/draft/b.md' }), /^Deleted/)

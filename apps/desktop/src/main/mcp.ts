@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
+import { lstat, readFile, readdir, rmdir } from 'node:fs/promises'
 import http from 'node:http'
 import path from 'node:path'
 import { addReply, readDocument } from '../shared/comments'
@@ -250,44 +250,109 @@ async function run(binding: Binding, session: Session, name: string, input: Json
       if (from === to) throw new Error('The file is at that place already.')
       inOwnProject(session, from)
       inOwnProject(session, to)
+      if (to.startsWith(`${from}/`)) throw new Error('A folder cannot be moved into itself.')
       if (!session.planApproved) throw new Error('Not moved. The plan is not approved yet.')
-      const bytes = await readFile(path.join(contextDir, keptDisk(from))).catch(() => null)
-      if (bytes === null) throw new Error('There is no file at that place.')
-      if (existsSync(path.join(contextDir, keptDisk(to)))) throw new Error('A file is there already. Nothing was moved.')
-      // The file, then its comments and its note, go to the new place first. The old place is cleared after.
-      const restFrom = from.split('/').slice(2).join('/')
-      const restTo = to.split('/').slice(2).join('/')
-      const writes: Change[] = [{ path: keptDisk(to), before: null, after: bytes }]
-      const clears: Change[] = [{ path: keptDisk(from), before: bytes, after: null }]
-      for (const suffix of ['.comments.md', '.notes.md']) {
-        const side = `.mate/projects/${session.project}/${restFrom}${suffix}`
-        const sideBytes = await readFile(path.join(contextDir, side)).catch(() => null)
-        if (sideBytes === null) continue
-        const target = `.mate/projects/${session.project}/${restTo}${suffix}`
-        if (existsSync(path.join(contextDir, target))) throw new Error('A comment or note is there already. Nothing was moved.')
-        writes.push({ path: target, before: null, after: sideBytes })
-        clears.push({ path: side, before: sideBytes, after: null })
-      }
+      if (existsSync(path.join(contextDir, ...to.split('/')))) throw new Error('A file or folder is there already. Nothing was moved.')
+      const files = await filesOf(contextDir, from)
+      const { writes, clears } = await changesFor(contextDir, session, from, to, files)
       for (const change of [...writes, ...clears]) await judge(contextDir, session, change, false)
-      return `Moved ${from} to ${to}. The reviewer can revert it.`
+      await pruneEmpty(path.join(contextDir, ...from.split('/')))
+      await pruneEmpty(path.join(contextDir, '.mate', 'projects', session.project, ...from.split('/').slice(2)))
+      const count = files.length > 1 ? ` (${files.length} files)` : ''
+      return `Moved ${from} to ${to}${count}. The reviewer can revert it, file by file.`
     }
     case 'mate_delete': {
       const relative = partsOf(input.path).join('/')
       inOwnProject(session, relative)
-      const before = await readFile(path.join(contextDir, keptDisk(relative))).catch(() => null)
-      if (before === null) throw new Error('There is no file at that place.')
-      await judge(contextDir, session, { path: keptDisk(relative), before, after: null }, false)
-      const rest = relative.split('/').slice(2).join('/')
-      for (const suffix of ['.comments.md', '.notes.md']) {
-        const side = `.mate/projects/${session.project}/${rest}${suffix}`
-        const sideBytes = await readFile(path.join(contextDir, side)).catch(() => null)
-        if (sideBytes !== null) await judge(contextDir, session, { path: side, before: sideBytes, after: null }, false)
-      }
-      return `Deleted ${relative}. The reviewer can revert it.`
+      const files = await filesOf(contextDir, relative)
+      const { clears } = await changesFor(contextDir, session, relative, null, files)
+      for (const change of clears) await judge(contextDir, session, change, false)
+      await pruneEmpty(path.join(contextDir, ...relative.split('/')))
+      await pruneEmpty(path.join(contextDir, '.mate', 'projects', session.project, ...relative.split('/').slice(2)))
+      const count = files.length > 1 ? ` (${files.length} files)` : ''
+      return `Deleted ${relative}${count}. The reviewer can revert it, file by file.`
     }
     default:
       throw new Error(`There is no tool called ${name}.`)
   }
+}
+
+/** The files under a folder of the project, as paths from it. Hidden files are not moved. */
+async function walk(dir: string, base = ''): Promise<string[]> {
+  const found: string[] = []
+  for (const entry of await readdir(path.join(dir, base), { withFileTypes: true }).catch(() => [])) {
+    if (entry.name.startsWith('.')) continue
+    const relative = base ? `${base}/${entry.name}` : entry.name
+    if (entry.isDirectory()) found.push(...(await walk(dir, relative)))
+    else if (entry.isFile()) found.push(relative)
+  }
+  return found
+}
+
+/**
+ * The files a move or a delete takes: a file is itself (named ''), a folder is every file under it. The panes are
+ * kept in the context, so a folder of them is not moved here.
+ */
+async function filesOf(contextDir: string, from: string): Promise<string[]> {
+  if (from.split('/')[2] === 'panes') throw new Error('The panes are shown, not moved: move one pane at a time, or leave them.')
+  const full = path.join(contextDir, ...from.split('/'))
+  const info = await lstat(full).catch(() => null)
+  if (!info) throw new Error('There is no file or folder at that place.')
+  if (info.isFile()) return ['']
+  if (!info.isDirectory()) throw new Error('That is neither a file nor a folder.')
+  return walk(full)
+}
+
+/**
+ * The changes that take files from one place to another, or away: the bytes at the new place and the same bytes gone
+ * from the old, with the comments and note of each file. `to` is null for a delete. `from` and `to` are paths in the
+ * context, starting with projects/P/. Each change goes through `judge` in its turn.
+ */
+async function changesFor(
+  contextDir: string,
+  session: Session,
+  from: string,
+  to: string | null,
+  files: string[]
+): Promise<{ writes: Change[]; clears: Change[] }> {
+  const writes: Change[] = []
+  const clears: Change[] = []
+  for (const rel of files) {
+    const src = rel ? `${from}/${rel}` : from
+    const dst = to === null ? null : rel ? `${to}/${rel}` : to
+    const bytes = await readFile(path.join(contextDir, keptDisk(src))).catch(() => null)
+    if (bytes === null) throw new Error(`Nothing was moved: ${src} could not be read.`)
+    if (dst !== null) {
+      if (existsSync(path.join(contextDir, keptDisk(dst)))) throw new Error(`${dst} is there already. Nothing was moved.`)
+      writes.push({ path: keptDisk(dst), before: null, after: bytes })
+    }
+    clears.push({ path: keptDisk(src), before: bytes, after: null })
+    // The comments and the note of the file go with it.
+    const restSrc = src.split('/').slice(2).join('/')
+    const restDst = dst === null ? '' : dst.split('/').slice(2).join('/')
+    for (const suffix of ['.comments.md', '.notes.md']) {
+      const side = `.mate/projects/${session.project}/${restSrc}${suffix}`
+      const sideBytes = await readFile(path.join(contextDir, side)).catch(() => null)
+      if (sideBytes === null) continue
+      if (dst !== null) {
+        const target = `.mate/projects/${session.project}/${restDst}${suffix}`
+        if (existsSync(path.join(contextDir, target))) throw new Error(`${target} is there already. Nothing was moved.`)
+        writes.push({ path: target, before: null, after: sideBytes })
+      }
+      clears.push({ path: side, before: sideBytes, after: null })
+    }
+  }
+  return { writes, clears }
+}
+
+/** Remove the folders left empty under `dir`, and `dir` itself when it is empty. Nothing else is removed. */
+async function pruneEmpty(dir: string): Promise<void> {
+  const info = await lstat(dir).catch(() => null)
+  if (!info?.isDirectory()) return
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) await pruneEmpty(path.join(dir, entry.name))
+  }
+  if ((await readdir(dir)).length === 0) await rmdir(dir).catch(() => {})
 }
 
 /** A file of the session's own project, and not one of the two files that steer it. */

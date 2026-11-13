@@ -1196,7 +1196,9 @@ project, and only after the plan is approved. Each is a change to `judge`,
 as a write is: the bytes at the new place and the old place go through it, so
 a change inside the project is kept with a copy for Revert, and nothing outside
 the project is written. A move takes the file's private comments and note with
-it (`.mate/projects/P/…`). An agent on another machine, which writes files
+it (`.mate/projects/P/…`). A folder moves every file under it, and the
+folders left empty are removed; the reader reverts it file by file. Hidden
+files and the panes are not moved. An agent on another machine, which writes files
 through `<mate-file>`, cannot yet move or delete.
 
 ## The dropbox of a project

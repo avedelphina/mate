@@ -9,8 +9,8 @@ then, minor versions may change behaviour.
 
 ### Added
 
-- An agent can move and delete a file of its own project, with its comments
-  and its note. It needs the plan approved, and the reviewer can revert it,
+- An agent can move and delete a file or a folder of its own project, with the
+  comments and notes of each file. It needs the plan approved, and the reviewer can revert it,
   as with a write. A file in another project, and the steering files, are
   refused; the reader moves those in Mate.
 - Every new project has a dropbox, the place to put uploads for an agent to
