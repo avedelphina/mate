@@ -1058,25 +1058,30 @@ export const PICTURE_TYPES: Record<string, string> = {
   '.webp': 'image/webp'
 }
 
+/** Text and PDF files the reader may add to a project. Only these are copied in by the file dialog. */
+export const FILE_TYPES: Record<string, string> = {
+  '.md': 'text/markdown',
+  '.markdown': 'text/markdown',
+  '.txt': 'text/plain',
+  '.csv': 'text/csv',
+  '.pdf': 'application/pdf'
+}
+const PICTURE_LIMIT = 10 * 1024 * 1024
+const FILE_LIMIT = 20 * 1024 * 1024
+
 /**
- * A picture the reader chose in the dialog is copied into the project's dropbox, so an agent can look at it
- * from inside the context. The original stays where it lies. A picture is never written over.
+ * Writes bytes into a project's dropbox under a plain name, so an agent can read them from inside the context.
+ * A file of that name is never written over: a number is added. Returns the file's place in the context.
  */
-export async function copyPicture(contextDir: string, project: string, source: string): Promise<string> {
-  const name = path.basename(String(source)).replace(/^\.+/, '')
-  const type = PICTURE_TYPES[path.extname(name).toLowerCase()]
-  if (!path.isAbsolute(String(source)) || !type) throw new Error('Mate shows an agent a PNG, JPEG, GIF or WebP picture.')
-  const info = await stat(source).catch(() => null)
-  if (!info?.isFile()) throw new Error('That is not a file on this computer.')
-  if (info.size > 10 * 1024 * 1024) throw new Error('That picture is larger than 10 MB. Make it smaller first.')
+export async function intoDropbox(contextDir: string, project: string, name: string, body: Buffer): Promise<string> {
   const projectDir = resolveInside(contextDir, 'projects', project)
   if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
   await mkdir(path.join(projectDir, 'dropbox'), { recursive: true })
   const into = await realInside(contextDir, 'projects', project, 'dropbox')
-  const body = await readFile(source)
   const stem = path.basename(name, path.extname(name))
+  const ext = path.extname(name)
   for (let tries = 0; ; tries += 1) {
-    const file = `${stem}${tries ? `-${tries + 1}` : ''}${path.extname(name)}`
+    const file = `${stem}${tries ? `-${tries + 1}` : ''}${ext}`
     const relative = `projects/${project}/dropbox/${file}`
     try {
       await writeFile(path.join(into, file), body, { flag: 'wx' })
@@ -1086,6 +1091,31 @@ export async function copyPicture(contextDir: string, project: string, source: s
       if ((failed as NodeJS.ErrnoException).code !== 'EEXIST' || tries > 20) throw failed
     }
   }
+}
+
+/** A file the reader chose in the dialog: its plain name, and its bytes, when it is one of `types` and not too large. */
+async function fromDisk(source: string, types: Record<string, string>, limit: number, refuse: string): Promise<{ name: string; body: Buffer }> {
+  const name = path.basename(String(source)).replace(/^\.+/, '')
+  if (!path.isAbsolute(String(source)) || !types[path.extname(name).toLowerCase()]) throw new Error(refuse)
+  const info = await stat(source).catch(() => null)
+  if (!info?.isFile()) throw new Error('That is not a file on this computer.')
+  if (info.size > limit) throw new Error(`That file is larger than ${limit / 1024 / 1024} MB.`)
+  return { name, body: await readFile(source) }
+}
+
+/**
+ * A picture the reader chose in the dialog is copied into the project's dropbox, so an agent can look at it
+ * from inside the context. The original stays where it lies.
+ */
+export async function copyPicture(contextDir: string, project: string, source: string): Promise<string> {
+  const { name, body } = await fromDisk(source, PICTURE_TYPES, PICTURE_LIMIT, 'Mate shows an agent a PNG, JPEG, GIF or WebP picture.')
+  return intoDropbox(contextDir, project, name, body)
+}
+
+/** A text or PDF file the reader chose in the dialog, copied into the project's dropbox. The original stays where it lies. */
+export async function copyFile(contextDir: string, project: string, source: string): Promise<string> {
+  const { name, body } = await fromDisk(source, FILE_TYPES, FILE_LIMIT, 'Mate adds a Markdown, text, CSV or PDF file.')
+  return intoDropbox(contextDir, project, name, body)
 }
 
 /**
