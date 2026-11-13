@@ -5,6 +5,18 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [0.37.1] - 2026-11-13
+
+A local picture in a Markdown draft is now drawn in the window, not left as a
+broken link.
+
+### Fixed
+
+- A picture in a Markdown draft that is in the context is drawn. It must be a
+  PNG, JPEG, GIF or WebP of at most 10 MB, and the path must stay inside the
+  context. Other images are still not loaded, and a picture that cannot be
+  drawn shows a placeholder.
+
 ## [0.37.0] - 2026-11-13
 
 A picture can be pasted into a message, and a Markdown, text, CSV or PDF file can be
