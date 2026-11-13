@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import http from 'node:http'
 import path from 'node:path'
@@ -7,6 +8,7 @@ import { addComment, diskParts, editDraft, keptDisk, readCommented, readContextF
 import { placeOf, refreshIndex, searchIndex, type Kind } from './contextIndex'
 import { meaningRuns, searchMeaning } from './meaning'
 import { judge, loadSession, saveSession, type Session } from './sessions'
+import type { Change } from './guard'
 import { isTwinned } from '../shared/twin'
 import { PRIVATE, isPrivate } from './trust'
 
@@ -62,7 +64,8 @@ Rules:
 2. Propose a plan first, with mate_plan, and wait. mate_status says whether it is approved.
 3. The usual way to change a draft is mate_comment with a replacement. The reviewer applies it with one click.
 4. mate_write replaces a whole file. It is written only inside your project, and only after the plan is
-   approved. Anything else is held for the reviewer.
+   approved. Anything else is held for the reviewer. mate_move and mate_delete work the same way for a file
+   of your project; a file of another project is the reviewer's to move.
 5. A line of the form <!-- @comment{...} --> in a draft is a review comment. Keep such lines exactly as they are.
    To answer one, use mate_reply with its id: mate_comments gives them. When you are asked to review a draft,
    first answer each open comment of the reviewer in its thread. Use mate_comment only about a passage no
@@ -115,7 +118,12 @@ export const TOOLS = [
   tool('mate_write', 'Replace the whole text of a file. Held for the reviewer unless it is in your project and the plan is approved.', {
     path: text,
     text
-  })
+  }),
+  tool('mate_move', 'Move a file of your project to another place in your project, with its comments and its note. Needs the plan approved. The reviewer can revert it.', {
+    from: text,
+    to: text
+  }),
+  tool('mate_delete', 'Delete a file of your project, with its comments and its note. Needs the plan approved. The reviewer can revert it.', { path: text })
 ]
 
 /** The tools of a door that only reads. */
@@ -236,8 +244,60 @@ async function run(binding: Binding, session: Session, name: string, input: Json
         ? 'Written. The reviewer can revert it.'
         : 'Not written. It is held for the reviewer, who must approve this file.'
     }
+    case 'mate_move': {
+      const from = partsOf(input.from).join('/')
+      const to = partsOf(input.to).join('/')
+      if (from === to) throw new Error('The file is at that place already.')
+      inOwnProject(session, from)
+      inOwnProject(session, to)
+      if (!session.planApproved) throw new Error('Not moved. The plan is not approved yet.')
+      const bytes = await readFile(path.join(contextDir, keptDisk(from))).catch(() => null)
+      if (bytes === null) throw new Error('There is no file at that place.')
+      if (existsSync(path.join(contextDir, keptDisk(to)))) throw new Error('A file is there already. Nothing was moved.')
+      // The file, then its comments and its note, go to the new place first. The old place is cleared after.
+      const restFrom = from.split('/').slice(2).join('/')
+      const restTo = to.split('/').slice(2).join('/')
+      const writes: Change[] = [{ path: keptDisk(to), before: null, after: bytes }]
+      const clears: Change[] = [{ path: keptDisk(from), before: bytes, after: null }]
+      for (const suffix of ['.comments.md', '.notes.md']) {
+        const side = `.mate/projects/${session.project}/${restFrom}${suffix}`
+        const sideBytes = await readFile(path.join(contextDir, side)).catch(() => null)
+        if (sideBytes === null) continue
+        const target = `.mate/projects/${session.project}/${restTo}${suffix}`
+        if (existsSync(path.join(contextDir, target))) throw new Error('A comment or note is there already. Nothing was moved.')
+        writes.push({ path: target, before: null, after: sideBytes })
+        clears.push({ path: side, before: sideBytes, after: null })
+      }
+      for (const change of [...writes, ...clears]) await judge(contextDir, session, change, false)
+      return `Moved ${from} to ${to}. The reviewer can revert it.`
+    }
+    case 'mate_delete': {
+      const relative = partsOf(input.path).join('/')
+      inOwnProject(session, relative)
+      const before = await readFile(path.join(contextDir, keptDisk(relative))).catch(() => null)
+      if (before === null) throw new Error('There is no file at that place.')
+      await judge(contextDir, session, { path: keptDisk(relative), before, after: null }, false)
+      const rest = relative.split('/').slice(2).join('/')
+      for (const suffix of ['.comments.md', '.notes.md']) {
+        const side = `.mate/projects/${session.project}/${rest}${suffix}`
+        const sideBytes = await readFile(path.join(contextDir, side)).catch(() => null)
+        if (sideBytes !== null) await judge(contextDir, session, { path: side, before: sideBytes, after: null }, false)
+      }
+      return `Deleted ${relative}. The reviewer can revert it.`
+    }
     default:
       throw new Error(`There is no tool called ${name}.`)
+  }
+}
+
+/** A file of the session's own project, and not one of the two files that steer it. */
+function inOwnProject(session: Session, relative: string): void {
+  const parts = relative.split('/')
+  if (parts.length < 3 || parts[0] !== 'projects' || parts[1] !== session.project) {
+    throw new Error(`You may change only files of your project: projects/${session.project}/...`)
+  }
+  if (parts.length === 3 && (parts[2] === 'intents.md' || parts[2] === 'principles.md')) {
+    throw new Error('intents.md and principles.md steer the project. Only the reviewer changes them.')
   }
 }
 

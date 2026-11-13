@@ -9,6 +9,10 @@ then, minor versions may change behaviour.
 
 ### Added
 
+- An agent can move and delete a file of its own project, with its comments
+  and its note. It needs the plan approved, and the reviewer can revert it,
+  as with a write. A file in another project, and the steering files, are
+  refused; the reader moves those in Mate.
 - Every new project has a dropbox, the place to put uploads for an agent to
   file. A project made before has none until you choose *Add a dropbox to this
   project* in ⌘K, which adds only that folder.

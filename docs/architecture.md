@@ -1189,6 +1189,16 @@ project, such as the context's own dropbox. A markdown file there opens
 to be read, a PDF or a Word file as its text, and anything else is shown
 in the file manager.
 
+## Moving and deleting by an agent
+
+`mate_move` and `mate_delete` in `mcp.ts` change a file of the session's own
+project, and only after the plan is approved. Each is a change to `judge`,
+as a write is: the bytes at the new place and the old place go through it, so
+a change inside the project is kept with a copy for Revert, and nothing outside
+the project is written. A move takes the file's private comments and note with
+it (`.mate/projects/P/…`). An agent on another machine, which writes files
+through `<mate-file>`, cannot yet move or delete.
+
 ## The dropbox of a project
 
 `createProject` makes `dropbox/` with every new project, and `addDropbox`
