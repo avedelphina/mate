@@ -20,6 +20,12 @@ then, minor versions may change behaviour.
   picture; the other agents read its path. One picture at a time, and not to
   another machine.
 
+### Changed
+
+- The agent's chat is easier to follow. Your messages sit in cards, each
+  agent answer starts with its name, the steps of a turn fold into one grey
+  line, and the box to type in floats at the foot.
+
 ## [0.34.0] - 2026-11-12
 
 A pane can be edited and locked against agents, and the Hub has a new shape
