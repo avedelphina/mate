@@ -981,6 +981,45 @@ export async function sendToProject(
   }
 }
 
+/** The picture types an agent is shown. Anything else is not sent to one. */
+export const PICTURE_TYPES: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp'
+}
+
+/**
+ * A picture the reader chose in the dialog is copied into the project's dropbox, so an agent can look at it
+ * from inside the context. The original stays where it lies. A picture is never written over.
+ */
+export async function copyPicture(contextDir: string, project: string, source: string): Promise<string> {
+  const name = path.basename(String(source)).replace(/^\.+/, '')
+  const type = PICTURE_TYPES[path.extname(name).toLowerCase()]
+  if (!path.isAbsolute(String(source)) || !type) throw new Error('Mate shows an agent a PNG, JPEG, GIF or WebP picture.')
+  const info = await stat(source).catch(() => null)
+  if (!info?.isFile()) throw new Error('That is not a file on this computer.')
+  if (info.size > 10 * 1024 * 1024) throw new Error('That picture is larger than 10 MB. Make it smaller first.')
+  const projectDir = resolveInside(contextDir, 'projects', project)
+  if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
+  await mkdir(path.join(projectDir, 'dropbox'), { recursive: true })
+  const into = await realInside(contextDir, 'projects', project, 'dropbox')
+  const body = await readFile(source)
+  const stem = path.basename(name, path.extname(name))
+  for (let tries = 0; ; tries += 1) {
+    const file = `${stem}${tries ? `-${tries + 1}` : ''}${path.extname(name)}`
+    const relative = `projects/${project}/dropbox/${file}`
+    try {
+      await writeFile(path.join(into, file), body, { flag: 'wx' })
+      mateWrote(contextDir, relative, body)
+      return relative
+    } catch (failed) {
+      if ((failed as NodeJS.ErrnoException).code !== 'EEXIST' || tries > 20) throw failed
+    }
+  }
+}
+
 /**
  * Tick a task box in a pane, or clear it. `at` is where the box is in the text the reader was
  * shown, and `base` is that text: a pane an agent has written since is not changed. The one

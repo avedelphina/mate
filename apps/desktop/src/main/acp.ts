@@ -82,6 +82,7 @@ export class Acp {
   readonly child: ChildProcess
   /** Whether the agent is told its model by `session/set_config_option` (Kimi) and not `session/set_model` (Hermes). */
   private configured = false
+  private takesPictures = false
   private next = 0
   private readonly waiting = new Map<number, { resolve: (result: Json) => void; reject: (error: Error) => void }>()
   private readonly asks = new Map<string, { request: number | string; options: Option[] }>()
@@ -128,11 +129,12 @@ export class Acp {
   }
 
   private async open(cwd: string, door: Door | null): Promise<void> {
-    await this.request('initialize', {
+    const init = await this.request('initialize', {
       protocolVersion: 1,
       clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
       clientInfo: { name: 'mate', version: '0' }
     })
+    this.takesPictures = (init as { agentCapabilities?: { promptCapabilities?: { image?: boolean } } }).agentCapabilities?.promptCapabilities?.image === true
     // ponytail: always a new conversation. `session/load` brings one back, but on Hermes 0.21.5 a
     // loaded session cannot reach a custom provider (401). Load it when that works.
     const mcpServers = door ? [{ type: 'http', name: 'mate', url: door.url, headers: [{ name: 'Authorization', value: `Bearer ${door.token}` }] }] : []
@@ -223,11 +225,16 @@ export class Acp {
     this.effort = value
   }
 
-  /** One turn. It ends when the agent stops. What is still asked then is over. */
-  async turn(text: string, hooks: Hooks): Promise<void> {
+  /**
+   * One turn. It ends when the agent stops. What is still asked then is over. A picture goes as an image
+   * block, only to an agent that said in its initialize reply that it takes images.
+   */
+  async turn(text: string, hooks: Hooks, pictures: { data: string; mimeType: string }[] = []): Promise<void> {
+    if (pictures.length && !this.takesPictures) throw new Error('This agent does not take pictures.')
     this.hooks = hooks
+    const prompt = [{ type: 'text', text }, ...pictures.map((each) => ({ type: 'image', data: each.data, mimeType: each.mimeType }))]
     try {
-      await this.request('session/prompt', { sessionId: this.sessionId, prompt: [{ type: 'text', text }] })
+      await this.request('session/prompt', { sessionId: this.sessionId, prompt })
     } finally {
       for (const id of [...this.asks.keys()]) this.answer(id, false)
       this.hooks = null
