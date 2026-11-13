@@ -7,6 +7,11 @@ then, minor versions may change behaviour.
 
 ## [Unreleased]
 
+### Fixed
+
+- A scanned PDF read while its helper was slow is read again on the next
+  refresh, instead of staying empty until the file changes.
+
 ### Added
 
 - An agent can move and delete a file or a folder of its own project, with the
