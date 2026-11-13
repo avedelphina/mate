@@ -1058,6 +1058,21 @@ export const PICTURE_TYPES: Record<string, string> = {
   '.webp': 'image/webp'
 }
 
+/** Read a local image for the markdown renderer. The path must stay in the context and the payload is bounded. */
+export async function readPicture(contextDir: string, relative: string): Promise<{ mimeType: string; data: string }> {
+  const raw = String(relative)
+  if (raw.includes('\\')) throw new Error('That is not a picture of this context.')
+  const parts = raw.split('/')
+  if (parts.some((part) => part === '' || part === '.' || part === '..' || part.startsWith('.'))) throw new Error('That is not a picture of this context.')
+  const mimeType = PICTURE_TYPES[path.extname(parts.at(-1) ?? '').toLowerCase()]
+  if (!mimeType) throw new Error('Mate draws PNG, JPEG, GIF or WebP pictures.')
+  const full = await realInside(contextDir, ...parts)
+  const info = await stat(full)
+  if (!info.isFile()) throw new Error('That is not a picture of this context.')
+  if (info.size > 10 * 1024 * 1024) throw new Error('That picture is larger than 10 MB.')
+  return { mimeType, data: (await readFile(full)).toString('base64') }
+}
+
 /**
  * A picture the reader chose in the dialog is copied into the project's dropbox, so an agent can look at it
  * from inside the context. The original stays where it lies. A picture is never written over.

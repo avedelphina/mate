@@ -231,6 +231,8 @@ export type MateApi = {
   /** The tags each file of a project names, by its path from the project. Only files that name one. */
   projectTags: (project: string) => Promise<Record<string, string[]>>
   readFile: (path: string) => Promise<FileView>
+  /** Read a local PNG, JPEG, GIF or WebP for a markdown image. */
+  readPicture: (path: string) => Promise<{ mimeType: string; data: string }>
   /** Show a file of the context in the system's file manager. It is not opened. */
   revealFile: (path: string) => Promise<void>
   /** A menu of the system, under the pointer or at `at` in the window. `null` is a line between items. Gives the id of the chosen item, or null. */
