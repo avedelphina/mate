@@ -2,7 +2,9 @@
 
 The order Mate grows in. Each step is usable on its own, and none of them
 changes the rules in [model.md](model.md), except step 11, the Hub, which
-says which rules it changes and why ([hub.md](hub.md)). [mvp.md](mvp.md) is step 1.
+says which rules it changes and why ([hub.md](hub.md)), and the proposed
+step 14, which amends one clause of rule 13
+([multi-agent.md](multi-agent.md)). [mvp.md](mvp.md) is step 1.
 
 Do not start a later step because it looks small. The window has to be
 worth opening before it grows a second pane.
@@ -468,6 +470,32 @@ the first publish name starts with the project's. `docs/model.md` no longer
 calls every draft a proposal. Not tried yet: a real project with real
 requests going between two of its projects, and the dialog of the system,
 which a test cannot press.
+
+## 14. More than one agent
+
+The whole proposal, with the reasons, is in
+[multi-agent.md](multi-agent.md). In short:
+
+**One writer, many readers.** The busy flag gates writing, not presence:
+an agent that only reads and comments runs beside the one that writes,
+and answers in the margin. The comment thread is the channel, and it
+needs no lock.
+
+**An agent may ask a listed agent.** The door learns `mate_ask`: the
+question, the files it names, and the answer are noted in the asking
+session. A start is idempotent under a request id, and the asker is told
+when the asked one waits on the reader. The asked agent reads only. Which
+agents may be asked is the reader's list, per context, in Settings.
+
+**Writers in parallel stay out.** For a repository, step 12's branch is
+the answer. For a plain project, the write lock is the design, not a gap.
+
+This step changes one clause of rule 13 — text may go to an agent the
+reader listed as askable in that context — and no other rule. See
+multi-agent.md.
+
+Not this step: a mesh where any agent reaches any other, an agent started
+without the list, an agent driven through its terminal.
 
 ## Beside the steps: an app you can install
 

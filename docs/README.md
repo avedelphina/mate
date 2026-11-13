@@ -11,6 +11,8 @@ Read these in this order if you are new to the project.
 
 Other documents:
 
+- [hub.md](hub.md): the Hub (roadmap step 11).
+- [multi-agent.md](multi-agent.md): more than one agent in a project (roadmap step 14, proposed).
 - [../README.md](../README.md): the overview and quick start.
 - [../apps/desktop/README.md](../apps/desktop/README.md): the desktop app's layout and environment variables.
 - [../CONTRIBUTING.md](../CONTRIBUTING.md): how to build, test, and send a change.
