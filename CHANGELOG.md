@@ -5,7 +5,10 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## [Unreleased]
+## [0.36.0] - 2026-11-13
+
+Every project has a dropbox for uploads. An agent can move and delete files and
+folders of its project. A scanned PDF is read again when its helper was slow.
 
 ### Fixed
 
