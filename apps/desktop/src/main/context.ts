@@ -139,6 +139,17 @@ export async function renameContext(contextDir: string, name: string): Promise<s
  * Give a project of the context a new name. Its folder is renamed, and the text twins of its files
  * go with it, so nothing is read again. Its sessions are moved by `moveSessions`. Gives the new name.
  */
+/**
+ * Make the dropbox of a project that has none: the intake of its uploads, where an agent can file from. A project
+ * made before it was made in every project gets one this way. Nothing else in it changes.
+ */
+export async function addDropbox(contextDir: string, project: string): Promise<DocumentView> {
+  const dir = resolveInside(contextDir, 'projects', project)
+  if (!existsSync(dir)) throw new Error('That project is not in this context.')
+  await mkdir(path.join(await realInside(contextDir, 'projects', project), 'dropbox'), { recursive: true })
+  return readProject(contextDir, project)
+}
+
 export async function renameProject(contextDir: string, from: string, name: string): Promise<string> {
   const title = String(name).trim()
   if (!NAME.test(title)) throw new Error('Name the project with letters and numbers. Spaces, dots, dashes and underscores may follow.')
@@ -316,6 +327,8 @@ export async function createProject(contextDir: string, name: string, template =
       await writeFile(path.join(dir, file), text, { flag: 'wx' })
       mateWrote(contextDir, `projects/${title}/${file}`, Buffer.from(text))
     }
+    // The intake of a project. It is there from the start, so the reader knows where uploads go.
+    await mkdir(path.join(dir, 'dropbox'), { recursive: true })
   } catch (failed) {
     // Half a project is worse than none.
     await rm(dir, { recursive: true, force: true })

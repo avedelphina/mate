@@ -22,6 +22,7 @@ import { extract, refreshTwins } from './twins'
 import { isTwinned, twinOf } from '../shared/twin'
 import {
   addComment,
+  addDropbox,
   copyFolder,
   copyPicture,
   copySource,
@@ -741,6 +742,8 @@ app.whenReady().then(() => {
     readTwins(moved)
     return opened
   })
+
+  ipcMain.handle('project:dropbox', (event, project: string) => addDropbox(requireContext(event), String(project)))
 
   ipcMain.handle('project:rename', async (event, from: string, name: string) => {
     const contextDir = requireContext(event)

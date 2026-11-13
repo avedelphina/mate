@@ -1189,6 +1189,13 @@ project, such as the context's own dropbox. A markdown file there opens
 to be read, a PDF or a Word file as its text, and anything else is shown
 in the file manager.
 
+## The dropbox of a project
+
+`createProject` makes `dropbox/` with every new project, and `addDropbox`
+makes it for one that has none. Uploads for an agent go there, and the agent
+files them: the dropbox's exits (pull into the drafts, leave outside with a
+note) are the reader's. A dropbox is created by Mate and never removed by it.
+
 ## Moving a project
 
 `moveProject` in `context.ts` makes a project a folder of another project.

@@ -640,8 +640,10 @@ test('the window, on the example context: a comment into the file, the tree, a p
     })()`)
     await app.until(`document.querySelector('.row.project.active')?.textContent === 'Next thing'`, 'the new project, open')
     assert.deepEqual(await app.page(names('.projects .row.project')), ['Next thing*', 'document-review', 'sibling'])
+    // A new project has its dropbox, where uploads for an agent go, and the two files that steer it.
     assert.deepEqual(await app.page(names('.projects .tree .row')), ['intents.md', 'principles.md'])
-    assert.deepEqual((await readdir(path.join(context, 'projects/Next thing'))).sort(), ['intents.md', 'principles.md'])
+    assert.deepEqual(await app.page(names('.projects .tree summary')), ['dropbox'])
+    assert.deepEqual((await readdir(path.join(context, 'projects/Next thing'))).sort(), ['dropbox', 'intents.md', 'principles.md'])
     assert.equal(await app.page(`!!document.querySelector('.project-new input')`), false)
 
     // A folder in templates/ starts a whole project: its folders and files, its title filled in.

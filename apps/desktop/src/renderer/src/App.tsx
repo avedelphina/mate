@@ -639,6 +639,12 @@ export function App() {
     }
   }
 
+  /** Make the dropbox of the open project, where uploads for an agent go to be filed. */
+  async function addProjectDropbox() {
+    if (!view) return
+    await change(() => window.mate.addDropbox(view.project), 'Could not add the dropbox.')
+  }
+
   /** Move the open project into another one of the context. The system asks before anything moves. */
   async function moveProjectNow() {
     if (!view || !moveProjectInto?.into || !(await leaveEditor())) return
@@ -1626,6 +1632,7 @@ export function App() {
       add('New folder…', 'Do', () => setMaking(''))
       if (inTree && movable(inTree)) add('Move this file to…', 'Do', () => setMoving({ from: inTree, to: '' }))
       add('Rename this project…', 'Do', () => setRenaming({ what: 'project', name: view.project }))
+      if (!view.folders.includes('dropbox')) add('Add a dropbox to this project', 'Do', () => void addProjectDropbox())
       add('Move this project into…', 'Do', () => setMoveProjectInto({ into: '' }))
       add(review ? `Pull request #${review.number}` : 'Pull requests', 'Show', openPulls)
       if (recordSet.records.length > 0) add('Records', 'Show', openRecords)

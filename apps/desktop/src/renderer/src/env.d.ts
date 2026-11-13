@@ -219,6 +219,8 @@ export type MateApi = {
   renameContext: (name: string) => Promise<Opened>
   /** Give a project a new name. Its folder and its sessions go with it. */
   renameProject: (from: string, name: string) => Promise<{ made: string; context: Opened }>
+  /** Make the dropbox of a project that has none. Nothing else changes. */
+  addDropbox: (project: string) => Promise<DocumentView>
   /** Move a project into another one of the context, as its folder. Null when the reader said no. Its repositories are removed. */
   moveProject: (from: string, into: string) => Promise<{ made: string; into: string; removed: number; context: Opened } | null>
   /** The open context was renamed, from this window or another. */

@@ -566,7 +566,8 @@ test('a context and a project are started as new folders, and nothing that is th
     // A draft started in it lies in the project, and one that came in by the intake is not a draft until it is pulled in.
     assert.equal((await createDraft(dir, 'Client letter', 'reply')).file, 'reply.md')
     assert.equal(existsSync(path.join(dir, 'projects/Client letter/reply.md')), true)
-    await mkdir(path.join(dir, 'projects/Client letter/dropbox'))
+    // A new project has its dropbox already.
+    await mkdir(path.join(dir, 'projects/Client letter/dropbox'), { recursive: true })
     await writeFile(path.join(dir, 'projects/Client letter/dropbox/letter.md'), '# Letter\n')
     assert.deepEqual((await readProject(dir, 'Client letter')).drafts, ['reply.md'])
     assert.equal(placeOf('projects/Client letter/dropbox/letter.md').kind, 'material')
