@@ -226,3 +226,26 @@ test('a workbook is read sheet by sheet as tables, and a CSV as its text, in the
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('a helper that did not answer is tried again, and only its "not a PDF" answer leaves an empty twin', { skip: process.platform !== 'darwin' }, async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-helper-'))
+  try {
+    await mkdir(path.join(root, 'projects/a/dropbox'), { recursive: true })
+    await writeFile(path.join(root, 'projects/a/dropbox/scan.pdf'), '%PDF-1.3 stand-in')
+    const twin = path.join(root, '.indexes/text/projects/a/dropbox/scan.pdf.txt')
+    // A helper that gives no answer: nothing is written, so the next refresh reads the file again.
+    const silent = path.join(root, 'silent')
+    await writeFile(silent, '#!/bin/sh\necho "not json"\n')
+    await chmod(silent, 0o755)
+    assert.equal(await refreshTwins(root, silent), 0)
+    assert.equal(existsSync(twin), false)
+    // A helper that says the file is not a PDF: that is final, and the twin is empty until the file changes.
+    const refusing = path.join(root, 'refusing')
+    await writeFile(refusing, '#!/bin/sh\necho \'{"error":"This is not a PDF that can be read."}\'\n')
+    await chmod(refusing, 0o755)
+    assert.equal(await refreshTwins(root, refusing), 1)
+    assert.equal(await readFile(twin, 'utf8'), '')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})

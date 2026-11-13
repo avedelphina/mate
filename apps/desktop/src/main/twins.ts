@@ -124,7 +124,21 @@ export async function extract(file: string, helper: string): Promise<string> {
   }
   if (lower.endsWith('.pdf')) {
     // A scan is read off its pictures, a fraction of a second a page, and the first takes longer while the model loads.
-    const answer = JSON.parse(await run(helper, ['--pdf'], await readFile(file), 600)) as { text?: unknown; error?: unknown }
+    // A helper that did not finish, or gave no answer, is tried again on the next refresh. Only its own "not a PDF" answer
+    // is final: an empty twin then stays until the file changes.
+    let raw: string
+    try {
+      raw = await run(helper, ['--pdf'], await readFile(file), 600)
+    } catch (failed) {
+      if ((failed as NodeJS.ErrnoException).code === 'ENOENT') throw failed
+      throw Object.assign(new Error('The helper did not finish.'), { transient: true })
+    }
+    let answer: { text?: unknown; error?: unknown }
+    try {
+      answer = JSON.parse(raw) as { text?: unknown; error?: unknown }
+    } catch {
+      throw Object.assign(new Error('The helper gave no answer.'), { transient: true })
+    }
     if (typeof answer.text !== 'string') throw new Error(String(answer.error ?? 'The helper read no text.'))
     return answer.text
   }
@@ -240,6 +254,7 @@ export async function refreshTwins(contextDir: string, helper: string, left: (co
       text = (await extract(path.join(contextDir, relative), helper)).slice(0, MAX_TEXT)
     } catch (caught) {
       if ((caught as NodeJS.ErrnoException).code === 'ENOENT') continue
+      if ((caught as { transient?: boolean }).transient) continue
       // Locked, damaged, or not what its name says. An empty twin says so until the file changes.
     }
     const file = path.join(contextDir, twinOf(relative))
