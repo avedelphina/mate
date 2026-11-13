@@ -348,7 +348,9 @@ export type MateApi = {
   listAllSessions: () => Promise<SessionRow[]>
   startSession: (project: string, agent: AgentKind, host?: string) => Promise<Session>
   /** `wait`: sent while the agent works, it is to go when the turn has ended, even to an agent that would take it into the turn. */
-  sendMessage: (project: string, id: string, text: string, approve: boolean, wait?: boolean) => Promise<Session>
+  sendMessage: (project: string, id: string, text: string, approve: boolean, wait?: boolean, pictures?: string[]) => Promise<Session>
+  /** A picture chosen in the dialog, copied into the project's dropbox. Null when the reader cancels. */
+  addPicture: (project: string) => Promise<string | null>
   stopTurn: (id: string) => Promise<void>
   /** Yes or no to what the agent asked. Yes is for that one thing, once. */
   /** `choice` is the answer to a question that has answers to pick from. Without one, `allow` is a plain yes or no. */

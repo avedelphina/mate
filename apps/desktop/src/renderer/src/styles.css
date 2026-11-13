@@ -315,9 +315,14 @@ mark.pending, mark.found { background: var(--mark-pending); }
 .composer { box-sizing: border-box; padding: 10px 12px 8px; }
 .composer:focus-within { box-shadow: var(--float), 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
 .composer textarea { display: block; width: 100%; box-sizing: border-box; min-height: 1.5em; max-height: 14em; padding: 4px 0; border: 0; outline: 0; background: none; resize: none; field-sizing: content; }
+.composer .picture { margin: 0 0 6px; }
 .composer .replacement { margin-bottom: 6px; padding-bottom: 8px; border-bottom: 0.5px solid var(--line); font: 15px/1.5 var(--read); }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .chips button { padding: 1px 9px; color: var(--soft); font-size: 12px; }
+/* The conversation's box: a card that floats at the foot of the margin, with the text at reading size. */
+.composer.talk { margin: 10px 4px 12px; padding: 10px 12px 8px; border-radius: 16px; background: var(--card); box-shadow: var(--lift); }
+.composer.talk:focus-within { box-shadow: var(--float); }
+.composer.talk textarea { font: 14px/1.5 var(--ui); }
 .composer footer { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
 .composer footer > :first-child { margin-right: auto; }
 .composer footer button { flex: none; white-space: nowrap; }
@@ -419,7 +424,7 @@ details .prose h2, details .prose h3, .pane h2, .pane h3 { font-size: 1em; }
 .talk-page { padding-top: 12px; padding-bottom: 24px; font: 13px/1.5 var(--ui); }
 .talk-page .said { margin-bottom: 18px; }
 .talk-page .said .prose { font: 16px/1.65 var(--read); }
-.talk-page .said.you { margin-left: 20%; font-size: 14.5px; }
+.talk-page .said.you { max-width: 75%; font-size: 14.5px; }
 .margin h3, .talk-page h3 { margin: 18px 8px 6px; }
 h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 /* A session in the list: a dot for where it stands, what was first said, and who it is with. */
@@ -437,29 +442,38 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 .door summary { font-weight: 500; }
 .door p { margin: 8px 0 4px; color: var(--soft); }
 .door pre { margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--hover); font: 11.5px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; }
-.talk-head { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; }
+.talk-head { display: flex; align-items: center; gap: 6px; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 0.5px solid var(--line); }
 .talk-head button { padding: 2px 8px; }
-.said { margin: 0 0 12px; }
+/* One message per block, with air between turns: the reader's words in a bubble, the agent's as prose. */
+.said { margin: 0 0 22px; }
 .said p { margin: 0; white-space: pre-wrap; overflow-wrap: break-word; }
-.said.you { margin-left: 28px; padding: 8px 12px; border-radius: 14px; background: var(--card); box-shadow: var(--lift); }
+.said.you { margin: 0 0 22px; padding: 10px 14px; border-radius: 12px; background: var(--card); box-shadow: var(--edge); }
 .said.you.waiting { background: none; box-shadow: inset 0 0 0 1px var(--line); }
 .said.you.waiting .meta { margin-top: 4px; }
 .said.mate { padding: 8px 12px; border-radius: 10px; background: var(--warn-bg); color: var(--warn); font-size: 12px; }
-.said.agent { padding-top: 12px; border-top: 0.5px solid var(--line); }
-.said .who { margin-bottom: 4px; font-weight: 600; }
+.said.agent { padding: 0 4px; }
+.said .who { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; color: var(--soft); font-size: 12px; font-weight: 600; }
+.said .who::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 .said .prose { font: 14.5px/1.6 var(--read); }
 .said .prose h1, .said .prose h2, .said .prose h3 { font-size: 1.05em; margin-top: 1em; }
 .said .prose p { margin: 0 0 0.8em; }
 .said .prose > :last-child { margin-bottom: 0; }
-.steps { margin-bottom: 4px; color: var(--soft); font-size: 12px; }
+/* The steps of a turn are one quiet grey line that opens into a list, not a block in the way of the answer. */
+.steps { margin: 0 0 8px; color: var(--soft); font-size: 12px; }
+.steps summary { display: flex; align-items: center; gap: 6px; width: fit-content; padding: 2px 0; cursor: pointer; list-style: none; }
+.steps summary::-webkit-details-marker { display: none; }
+.steps summary::before { content: ''; flex: none; width: 5px; height: 5px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg); transition: transform 0.15s; }
+.steps[open] summary { margin-bottom: 6px; }
+.steps[open] summary::before { transform: rotate(45deg); margin-top: -3px; }
 .steps p { margin: 2px 0 0 12px; font: 11.5px/1.5 var(--mono); overflow-wrap: anywhere; }
 .steps p.aside { margin: 6px 0 6px 12px; font: 12.5px/1.5 var(--read); color: var(--soft); }
-.working { margin: 0 0 12px; }
+.working { display: flex; align-items: center; gap: 7px; margin: 0 0 14px; }
+.working::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: working 1.2s ease-in-out infinite; }
 .decide { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: var(--card); box-shadow: 0 0 0 1px var(--warn), var(--lift); }
 .decide p { margin: 0 0 8px; }
 .decide p:last-child { display: flex; gap: 6px; margin: 0; }
 .decide pre { max-height: 12em; margin: 0 0 8px; padding: 8px 10px; border-radius: 8px; background: var(--hover); font: 11.5px/1.5 var(--mono); white-space: pre-wrap; overflow: auto; overflow-wrap: anywhere; }
-.changed { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 6px; color: var(--soft); font-size: 12px; }
+.changed { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 6px; padding: 6px 10px; border-radius: 10px; background: var(--card); box-shadow: var(--lift); color: var(--soft); font-size: 12px; }
 /* What a change is: the lines taken out and the lines put in. */
 .changed .acts { flex: none; }
 .diff { max-height: 24em; margin: 0 0 10px; padding: 8px 0; border-radius: 8px; background: var(--hover); font: 11.5px/1.5 var(--mono); white-space: pre-wrap; overflow: auto; overflow-wrap: anywhere; }

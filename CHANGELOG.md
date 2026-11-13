@@ -15,6 +15,10 @@ then, minor versions may change behaviour.
   what goes: if the project is a repository, its history is removed, and
   its remote is not touched. Every repository inside it is removed too, so
   no repository is nested in a project.
+- A picture can be added to the message to an agent: *Add a picture* in the
+  agent's box. It is copied into the project's dropbox. Hermes is given the
+  picture; the other agents read its path. One picture at a time, and not to
+  another machine.
 
 ## [0.34.0] - 2026-11-12
 

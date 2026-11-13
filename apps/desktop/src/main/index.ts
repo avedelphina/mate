@@ -23,6 +23,7 @@ import { isTwinned, twinOf } from '../shared/twin'
 import {
   addComment,
   copyFolder,
+  copyPicture,
   copySource,
   createContext,
   createDraft,
@@ -897,6 +898,17 @@ app.whenReady().then(() => {
     return keep(chosen, Array.isArray(paths) ? paths.slice(0, 200) : [])
   })
 
+  // A picture the reader chooses is copied into the project's dropbox, so the agent can look at it. The dialog is the
+  // reader's act; the page gets back only the place the copy has in the context.
+  ipcMain.handle('picture:add', async (event, project: string) => {
+    const contextDir = requireContext(event)
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = { properties: ['openFile' as const], filters: [{ name: 'Pictures', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] }] }
+    const result = await (window ? dialog.showOpenDialog(window, options) : dialog.showOpenDialog(options))
+    if (result.canceled || !result.filePaths[0]) return null
+    return copyPicture(contextDir, String(project), result.filePaths[0])
+  })
+
   // Only where the file lies is written down. The file is one the reader picked or dropped, known by its number: the page names no path.
   ipcMain.handle('source:note', (event, project: string, source: string) => {
     const picked = chosen.get(String(source))
@@ -1067,9 +1079,18 @@ app.whenReady().then(() => {
   )
 
   // An approval is a message like any other. The answer arrives as 'session:update' events.
-  ipcMain.handle('session:send', async (event, project: string, id: string, text: string, approve: boolean, wait?: boolean) => {
+  ipcMain.handle('session:send', async (event, project: string, id: string, text: string, approve: boolean, wait?: boolean, pictures?: unknown) => {
     const contextDir = requireContext(event)
-    const turn = await sendMessage(contextDir, project, id, text, approve, (session) => tell(contextDir, session), wait === true)
+    const turn = await sendMessage(
+      contextDir,
+      project,
+      id,
+      text,
+      approve,
+      (session) => tell(contextDir, session),
+      wait === true,
+      Array.isArray(pictures) ? pictures.map(String).slice(0, 1) : []
+    )
     // Said from a pane or from a file's card, not from the conversation: the conversation shows it at once all the same.
     tell(contextDir, turn.started)
     return turn.started

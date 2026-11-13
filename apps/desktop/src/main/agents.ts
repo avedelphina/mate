@@ -24,6 +24,8 @@ export type Turn = {
   /** The model and the thinking effort the reader chose, when they did. See `isModel` and shared/effort.ts. */
   model?: string
   effort?: string
+  /** An absolute path of a picture in the context, for an agent that looks at it. At most one. */
+  picture?: string
 }
 
 /**
@@ -189,8 +191,8 @@ export const AGENTS: Record<AgentKind, Adapter> = {
       'chat',
       '--query-file',
       '-',
-      '--format',
-      'stream-json',
+      // Hermes refuses --image in its stream format, so a turn with a picture is quiet text, read as text.
+      ...(turn.picture ? ['-Q'] : ['--format', 'stream-json']),
       '--in',
       turn.cwd,
       '--source',
@@ -200,6 +202,8 @@ export const AGENTS: Record<AgentKind, Adapter> = {
       // Hermes reads the provider out of the model's name itself.
       ...(isModel(turn.model) ? ['-m', turn.model] : []),
       ...(turn.effort && EFFORTS.includes(turn.effort) ? ['--reasoning', turn.effort] : []),
+      // A path, never a name the agent could take for an option: it is absolute, checked in sessions.ts.
+      ...(turn.picture ? ['--image', turn.picture] : []),
       ...(turn.resume ? ['--resume', turn.resume] : [])
     ],
     acp: ['acp'],
@@ -246,7 +250,8 @@ export const AGENTS: Record<AgentKind, Adapter> = {
     command: 'hermes',
     args: (turn) => ['-p', PROFILE, ...AGENTS.hermes.args({ ...turn, model: undefined, effort: undefined })],
     within: (env, turn) => preparePrivate(env, turn.contextDir),
-    read: (line) => AGENTS.hermes.read(line)
+    read: (line) => AGENTS.hermes.read(line),
+    remoteRead: (line) => AGENTS.hermes.remoteRead!(line)
   }
 }
 

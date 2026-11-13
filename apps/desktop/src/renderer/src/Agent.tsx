@@ -64,6 +64,8 @@ export function Agent(props: {
   // Every session of the context, for the list. Read when the list is shown.
   const [all, setAll] = useState<SessionRow[]>([])
   const [text, setText] = useState('')
+  // A picture the reader chose for the next message of one session. It is copied into the project's dropbox.
+  const [picture, setPicture] = useState<{ id: string; path: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Where the reader's own agent connects, while a session for it is open.
   const [door, setDoor] = useState<{ url: string; token: string } | null>(null)
@@ -217,15 +219,31 @@ export function Agent(props: {
 
   // The agent takes a moment to start, and the message shows only when it has. The box is emptied at once, so
   // Send is seen to work, and the words come back if the message was not taken.
+  const pictured = picture && session && picture.id === session.id ? picture.path : null
   const send = (approve: boolean, wait = false) => {
     if (!session || sending) return
     const said = text
     setText('')
+    setPicture(null)
     setSending(true)
-    void act(() => window.mate.sendMessage(project, session.id, said, approve, wait)).then((taken) => {
-      if (!taken) setText((now) => now || said)
+    void act(() => window.mate.sendMessage(project, session.id, said, approve, wait, pictured ? [pictured] : [])).then((taken) => {
+      if (!taken) {
+        setText((now) => now || said)
+        if (pictured) setPicture({ id: session.id, path: pictured })
+      }
       setSending(false)
     })
+  }
+
+  async function pickPicture() {
+    if (!session) return
+    setError(null)
+    try {
+      const path = await window.mate.addPicture(project)
+      if (path) setPicture({ id: session.id, path })
+    } catch (caught) {
+      setError(reason(caught))
+    }
   }
 
   if (!into && !listInto) return null
@@ -510,6 +528,11 @@ export function Agent(props: {
       {error && <p className="error" role="alert">{error}</p>}
 
       <div className="composer talk" onKeyDown={(event) => event.key === 'Enter' && (event.metaKey || event.ctrlKey) && send(false)}>
+        {pictured && (
+          <p className="meta picture">
+            Picture: {pictured.split('/').pop()} <button className="quiet" onClick={() => setPicture(null)}>Remove</button>
+          </p>
+        )}
         <textarea
           aria-label="Message to the agent"
           rows={2}
@@ -539,6 +562,11 @@ export function Agent(props: {
             <span />
           )}
           {session.running && <button className="quiet" onClick={() => window.mate.stopTurn(session.id)}>Stop</button>}
+          {!session.host && !pictured && (
+            <button className="quiet" disabled={session.running} title="A picture from your computer. It is copied into the project's dropbox, and the agent can look at it." onClick={() => void pickPicture()}>
+              Add a picture
+            </button>
+          )}
           {!session.planApproved && planned && !approving && (
             <button onClick={() => send(true)}>Approve the plan</button>
           )}
@@ -554,7 +582,7 @@ export function Agent(props: {
               After this turn
             </button>
           )}
-          <button className="primary" title={document.documentElement.dataset.platform === 'mac' ? '⌘↵' : 'Ctrl+Enter'} disabled={!text.trim() || sending} onClick={() => send(false)}>
+          <button className="primary" title={document.documentElement.dataset.platform === 'mac' ? '⌘↵' : 'Ctrl+Enter'} disabled={(!text.trim() && !pictured) || sending} onClick={() => send(false)}>
             {sending ? 'Sending…' : 'Send'}
           </button>
         </footer>
