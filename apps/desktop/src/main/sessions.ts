@@ -7,7 +7,7 @@ import path from 'node:path'
 import readline from 'node:readline'
 import { Acp, type Ask, type Door, type Models } from './acp'
 import { AGENTS, SSH, agentEnvironment, isHost, isModel, sshArgs, type AgentKind } from './agents'
-import { PICTURE_TYPES, inCloudOnly, keptDisk, paneIsLocked, realInside, resolveInside } from './context'
+import { FILE_TYPES, PICTURE_TYPES, inCloudOnly, keptDisk, paneIsLocked, realInside, resolveInside } from './context'
 import { placeOf } from './contextIndex'
 import { changesSince, fingerprints, insidePath, mateWrote, put, takeSnapshot, watching, type Change, type Snapshot } from './guard'
 import { changedParts, diffLines, type DiffLine } from '../shared/diff'
@@ -593,7 +593,7 @@ export async function sendMessage(
   approve: boolean,
   emit: (session: Session) => void,
   wait = false,
-  pictures: string[] = []
+  attachments: string[] = []
 ): Promise<{ started: Session; finished: Promise<Session> }> {
   // Two messages sent at the same moment are taken in one after the other, so the second finds the first one's turn.
   const before = entering.get(id) ?? Promise.resolve()
@@ -604,12 +604,12 @@ export async function sendMessage(
     const session = await loadSession(contextDir, project, id)
     // A session from before the context was made private stays in the list, and says nothing more to its agent.
     if (!privacyAllows(contextDir, session.agent, session.host)) throw new Error(privacyRefusal(contextDir))
-    // One picture at a time, and only between turns: a picture that waits in the queue would lose its way to the agent.
-    if (pictures.length > 1) throw new Error('One picture at a time.')
-    const picture = pictures[0] ? await pictureOn(contextDir, project, pictures[0]) : null
-    if (picture && session.host) throw new Error('A picture is not sent to another machine yet.')
-    if (picture && (turns.has(id) || busy.has(contextDir))) throw new Error('Wait for this turn to end before you add a picture.')
-    const said = [text.trim(), picture && `Picture: ${picture.relative}`].filter(Boolean).join('\n\n')
+    // Attachments are only between turns: one that waits in the queue would lose its way to the agent.
+    const { picture, files } = await attachmentsOn(contextDir, project, attachments)
+    const attached = Boolean(picture || files.length)
+    if (attached && session.host) throw new Error('Attachments are not sent to another machine yet.')
+    if (attached && (turns.has(id) || busy.has(contextDir))) throw new Error('Wait for this turn to end before you attach something.')
+    const said = [text.trim(), ...files.map((file) => `Attached: ${file}`), picture && `Attached: ${picture.relative}`].filter(Boolean).join('\n\n')
     if (!said && !approve) throw new Error('The message is empty.')
     const message = approve ? ['The plan is approved. Go ahead.', said].filter(Boolean).join('\n\n') : said
 
@@ -658,15 +658,40 @@ export async function sendMessage(
 /** A picture in the project's dropbox, read for the agent. Only a file of that dropbox, and not a link out of it. */
 type Picture = { path: string; relative: string; mimeType: string; data: string }
 
-async function pictureOn(contextDir: string, project: string, relative: string): Promise<Picture> {
+const ATTACH_LIMIT = 5
+
+/**
+ * What the reader attached to a message: at most one picture, which Hermes is given, and up to five text or PDF files,
+ * which the agent reads by their path. Each must be a file of this project's dropbox, not a link out of it.
+ */
+export async function attachmentsOn(contextDir: string, project: string, relatives: string[]): Promise<{ picture: Picture | null; files: string[] }> {
+  if (relatives.length > ATTACH_LIMIT) throw new Error(`Attach at most ${ATTACH_LIMIT} things to one message.`)
+  const pictures = relatives.filter((each) => PICTURE_TYPES[path.extname(each).toLowerCase()])
+  if (pictures.length > 1) throw new Error('One picture at a time.')
+  const picture = pictures[0] ? await pictureOn(contextDir, project, pictures[0]) : null
+  const files: string[] = []
+  for (const each of relatives.filter((item) => !PICTURE_TYPES[path.extname(item).toLowerCase()])) {
+    await dropboxFile(contextDir, project, each, FILE_TYPES, 20 * 1024 * 1024)
+    files.push(each)
+  }
+  return { picture, files }
+}
+
+/** A file of this project's dropbox, of one of the types given, under the size given. Returns where it lies on disk. */
+async function dropboxFile(contextDir: string, project: string, relative: string, types: Record<string, string>, limit: number): Promise<string> {
   const prefix = `projects/${project}/dropbox/`
   const file = relative.startsWith(prefix) ? relative.slice(prefix.length) : ''
-  const mimeType = PICTURE_TYPES[path.extname(file).toLowerCase()]
-  if (!file || file.includes('/') || !mimeType) throw new Error("A picture is a file of this project's dropbox.")
+  if (!file || file.includes('/') || !types[path.extname(file).toLowerCase()]) throw new Error("That is not a file of this project's dropbox.")
   const full = await realInside(contextDir, ...relative.split('/'))
+  const info = await stat(full)
+  if (!info.isFile() || info.size > limit) throw new Error(`${file} is not a file Mate can attach.`)
+  return full
+}
+
+async function pictureOn(contextDir: string, project: string, relative: string): Promise<Picture> {
+  const full = await dropboxFile(contextDir, project, relative, PICTURE_TYPES, 10 * 1024 * 1024)
   const bytes = await readFile(full)
-  if (bytes.length > 10 * 1024 * 1024) throw new Error('That picture is larger than 10 MB.')
-  return { path: full, relative, mimeType, data: bytes.toString('base64') }
+  return { path: full, relative, mimeType: PICTURE_TYPES[path.extname(relative).toLowerCase()], data: bytes.toString('base64') }
 }
 
 /** One turn of the agent. The reader's message is already in the session. */

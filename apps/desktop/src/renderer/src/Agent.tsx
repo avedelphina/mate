@@ -64,8 +64,8 @@ export function Agent(props: {
   // Every session of the context, for the list. Read when the list is shown.
   const [all, setAll] = useState<SessionRow[]>([])
   const [text, setText] = useState('')
-  // A picture the reader chose for the next message of one session. It is copied into the project's dropbox.
-  const [picture, setPicture] = useState<{ id: string; path: string } | null>(null)
+  // What the reader attached to the next message of a session: pictures and files, each copied into the project's dropbox.
+  const [attachments, setAttachments] = useState<{ id: string; path: string }[]>([])
   const [error, setError] = useState<string | null>(null)
   // Where the reader's own agent connects, while a session for it is open.
   const [door, setDoor] = useState<{ url: string; token: string } | null>(null)
@@ -219,28 +219,30 @@ export function Agent(props: {
 
   // The agent takes a moment to start, and the message shows only when it has. The box is emptied at once, so
   // Send is seen to work, and the words come back if the message was not taken.
-  const pictured = picture && session && picture.id === session.id ? picture.path : null
+  const shown = session ? attachments.filter((each) => each.id === session.id) : []
   const send = (approve: boolean, wait = false) => {
     if (!session || sending) return
     const said = text
+    const sent = shown
     setText('')
-    setPicture(null)
+    setAttachments((now) => now.filter((each) => !sent.includes(each)))
     setSending(true)
-    void act(() => window.mate.sendMessage(project, session.id, said, approve, wait, pictured ? [pictured] : [])).then((taken) => {
+    void act(() => window.mate.sendMessage(project, session.id, said, approve, wait, sent.map((each) => each.path))).then((taken) => {
       if (!taken) {
         setText((now) => now || said)
-        if (pictured) setPicture({ id: session.id, path: pictured })
+        setAttachments((now) => [...now, ...sent])
       }
       setSending(false)
     })
   }
 
-  async function pickPicture() {
+  // The reader picks a file, or pastes a picture; the main process copies it into the project's dropbox.
+  async function attach(take: (project: string) => Promise<string | null>) {
     if (!session) return
     setError(null)
     try {
-      const path = await window.mate.addPicture(project)
-      if (path) setPicture({ id: session.id, path })
+      const path = await take(project)
+      if (path) setAttachments((now) => [...now, { id: session.id, path }])
     } catch (caught) {
       setError(reason(caught))
     }
@@ -528,15 +530,23 @@ export function Agent(props: {
       {error && <p className="error" role="alert">{error}</p>}
 
       <div className="composer talk" onKeyDown={(event) => event.key === 'Enter' && (event.metaKey || event.ctrlKey) && send(false)}>
-        {pictured && (
-          <p className="meta picture">
-            Picture: {pictured.split('/').pop()} <button className="quiet" onClick={() => setPicture(null)}>Remove</button>
+        {shown.map((each) => (
+          <p key={each.path} className="meta picture">
+            Attached: {each.path.split('/').pop()}{' '}
+            <button className="quiet" onClick={() => setAttachments((now) => now.filter((item) => item !== each))}>Remove</button>
           </p>
-        )}
+        ))}
         <textarea
           aria-label="Message to the agent"
           rows={2}
           value={text}
+          onPaste={(event) => {
+            // A picture on the clipboard is saved into the dropbox. Text pastes as it always has.
+            if (!session || session.running || session.host) return
+            if (!Array.from(event.clipboardData.items).some((item) => item.type.startsWith('image/'))) return
+            event.preventDefault()
+            void attach(window.mate.pastePicture)
+          }}
           placeholder={
             session.running
               ? listens
@@ -562,10 +572,15 @@ export function Agent(props: {
             <span />
           )}
           {session.running && <button className="quiet" onClick={() => window.mate.stopTurn(session.id)}>Stop</button>}
-          {!session.host && !pictured && (
-            <button className="quiet" disabled={session.running} title="A picture from your computer. It is copied into the project's dropbox, and the agent can look at it." onClick={() => void pickPicture()}>
-              Add a picture
-            </button>
+          {!session.host && (
+            <>
+              <button className="quiet" disabled={session.running || shown.length >= 5} title="A picture from your computer. It is copied into the project's dropbox, and the agent can look at it. You can also paste one." onClick={() => void attach(window.mate.addPicture)}>
+                Add a picture
+              </button>
+              <button className="quiet" disabled={session.running || shown.length >= 5} title="A Markdown, text, CSV or PDF file. It is copied into the project's dropbox, and the agent reads it there." onClick={() => void attach(window.mate.addFile)}>
+                Add a file
+              </button>
+            </>
           )}
           {!session.planApproved && planned && !approving && (
             <button onClick={() => send(true)}>Approve the plan</button>
@@ -582,7 +597,7 @@ export function Agent(props: {
               After this turn
             </button>
           )}
-          <button className="primary" title={document.documentElement.dataset.platform === 'mac' ? '⌘↵' : 'Ctrl+Enter'} disabled={(!text.trim() && !pictured) || sending} onClick={() => send(false)}>
+          <button className="primary" title={document.documentElement.dataset.platform === 'mac' ? '⌘↵' : 'Ctrl+Enter'} disabled={(!text.trim() && shown.length === 0) || sending} onClick={() => send(false)}>
             {sending ? 'Sending…' : 'Send'}
           </button>
         </footer>

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, safeStorage, shell, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, net, safeStorage, shell, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from 'electron'
 import { firecrawlView, keepFirecrawlIn, scrapePage, setFirecrawl } from './firecrawl'
 import { endpointView, judgeOnEndpoint, keepEndpointIn, keyRefusal, linuxRelay, setEndpoint, stopRelay } from './endpoint'
 import { randomBytes } from 'node:crypto'
@@ -24,7 +24,9 @@ import {
   addComment,
   addDropbox,
   copyFolder,
+  copyFile,
   copyPicture,
+  intoDropbox,
   copySource,
   createContext,
   createDraft,
@@ -916,6 +918,28 @@ app.whenReady().then(() => {
     return copyPicture(contextDir, String(project), result.filePaths[0])
   })
 
+  // A picture on the clipboard is saved into the project's dropbox, as a picture from the dialog is. The page asks;
+  // it is never handed the picture's bytes, and the clipboard's picture is taken only when it is one.
+  ipcMain.handle('picture:paste', async (event, project: string) => {
+    const contextDir = requireContext(event)
+    const image = clipboard.readImage()
+    if (image.isEmpty()) return null
+    const png = image.toPNG()
+    if (png.length > 10 * 1024 * 1024) throw new Error('That picture is larger than 10 MB. Make it smaller first.')
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+    return intoDropbox(contextDir, String(project), `pasted-${stamp}.png`, png)
+  })
+
+  // A text or PDF file the reader picks in the dialog is copied into the project's dropbox, as a picture is.
+  ipcMain.handle('file:add', async (event, project: string) => {
+    const contextDir = requireContext(event)
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = { properties: ['openFile' as const], filters: [{ name: 'Text and PDF', extensions: ['md', 'markdown', 'txt', 'csv', 'pdf'] }] }
+    const result = await (window ? dialog.showOpenDialog(window, options) : dialog.showOpenDialog(options))
+    if (result.canceled || !result.filePaths[0]) return null
+    return copyFile(contextDir, String(project), result.filePaths[0])
+  })
+
   // Only where the file lies is written down. The file is one the reader picked or dropped, known by its number: the page names no path.
   ipcMain.handle('source:note', (event, project: string, source: string) => {
     const picked = chosen.get(String(source))
@@ -1086,7 +1110,7 @@ app.whenReady().then(() => {
   )
 
   // An approval is a message like any other. The answer arrives as 'session:update' events.
-  ipcMain.handle('session:send', async (event, project: string, id: string, text: string, approve: boolean, wait?: boolean, pictures?: unknown) => {
+  ipcMain.handle('session:send', async (event, project: string, id: string, text: string, approve: boolean, wait?: boolean, attachments?: unknown) => {
     const contextDir = requireContext(event)
     const turn = await sendMessage(
       contextDir,
@@ -1096,7 +1120,7 @@ app.whenReady().then(() => {
       approve,
       (session) => tell(contextDir, session),
       wait === true,
-      Array.isArray(pictures) ? pictures.map(String).slice(0, 1) : []
+      Array.isArray(attachments) ? attachments.map(String).slice(0, 5) : []
     )
     // Said from a pane or from a file's card, not from the conversation: the conversation shows it at once all the same.
     tell(contextDir, turn.started)

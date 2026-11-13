@@ -118,9 +118,11 @@ contextBridge.exposeInMainWorld('mate', {
   listAllSessions: () => ipcRenderer.invoke('session:listAll'),
   startSession: (project: string, agent: string, host?: string) =>
     ipcRenderer.invoke('session:start', project, agent, host),
-  sendMessage: (project: string, id: string, text: string, approve: boolean, wait?: boolean, pictures?: string[]) =>
-    ipcRenderer.invoke('session:send', project, id, text, approve, wait, pictures),
+  sendMessage: (project: string, id: string, text: string, approve: boolean, wait?: boolean, attachments?: string[]) =>
+    ipcRenderer.invoke('session:send', project, id, text, approve, wait, attachments),
   addPicture: (project: string) => ipcRenderer.invoke('picture:add', project),
+  pastePicture: (project: string) => ipcRenderer.invoke('picture:paste', project),
+  addFile: (project: string) => ipcRenderer.invoke('file:add', project),
   stopTurn: (id: string) => ipcRenderer.invoke('session:stop', id),
   answerAsk: (id: string, ask: string, allow: boolean, choice?: string, scope?: 'kind' | 'all') => ipcRenderer.invoke('session:answer', id, ask, allow, choice, scope),
   allowNoMore: (project: string, id: string) => ipcRenderer.invoke('session:allow-off', project, id),

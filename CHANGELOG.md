@@ -5,6 +5,19 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [0.37.0] - 2026-11-13
+
+A picture can be pasted into a message, and a Markdown, text, CSV or PDF file can be
+added to one. The agent reads a file where it was copied, in the project's dropbox.
+
+### Added
+
+- A picture can be pasted into the agent's box: a picture on the clipboard is
+  saved into the project's dropbox, and sent with the message.
+- *Add a file* in the agent's box: a Markdown, text, CSV or PDF file is copied
+  into the project's dropbox, and the agent reads it there. Up to five things
+  may be attached to one message; at most one of them is a picture.
+
 ## [0.36.0] - 2026-11-13
 
 Every project has a dropbox for uploads. An agent can move and delete files and
