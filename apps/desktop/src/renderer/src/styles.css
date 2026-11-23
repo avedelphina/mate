@@ -605,3 +605,13 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 .session-row .more { position: absolute; top: 6px; right: 6px; opacity: 0; padding: 0 8px; }
 .session-row:hover .more, .session-row .more:focus-visible { opacity: 1; }
 .only-mate { display: block; margin: 4px 0; }
+
+.whatsnew { width: min(560px, calc(100vw - 48px)); max-height: min(620px, 80vh); margin: 10vh auto 0; padding: 22px 24px 16px; border: 0; border-radius: 18px; background: var(--glass); color: var(--ink); box-shadow: var(--float); -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8); font: 13px/1.55 var(--ui); }
+.whatsnew[open] { display: flex; flex-direction: column; }
+.whatsnew::backdrop { background: rgb(0 0 0 / 8%); }
+.whatsnew h2 { margin: 0 0 10px; font-size: 18px; }
+.whatsnew .notes { overflow-y: auto; min-height: 0; }
+.whatsnew h3 { margin: 14px 0 4px; font-size: 14px; }
+.whatsnew h4 { margin: 10px 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--soft); }
+.whatsnew ul { margin: 2px 0 6px; padding-left: 18px; }
+.whatsnew .end { margin: 12px 0 0; text-align: right; }

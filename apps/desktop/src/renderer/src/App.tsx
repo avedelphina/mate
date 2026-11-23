@@ -4,6 +4,7 @@ import { BarButton } from './BarButton'
 import { Boundary } from './Boundary'
 import { Editor } from './Editor'
 import { Palette, type Act } from './Palette'
+import { WhatsNew, type News } from './News'
 import { fileNamed } from '../../shared/named'
 import { reviewableMarkdown } from '../../shared/reviewable'
 import type { RecordRow } from '../../shared/records'
@@ -289,6 +290,12 @@ export function App() {
   // Whether the reader trusts the open context: git is asked for a file's history only there.
   const [trustedHere, setTrustedHere] = useState(false)
   useEffect(() => window.mate.onSettings(openSettings), [])
+  // After an update, what changed. The menu asks for it again.
+  const [news, setNews] = useState<News | null>(null)
+  useEffect(() => {
+    window.mate.whatsNew(false).then(setNews, () => {})
+    return window.mate.onNews(() => void window.mate.whatsNew(true).then(setNews, () => {}))
+  }, [])
   useEffect(() => {
     window.mate.isTrusted().then(setTrustedHere, () => setTrustedHere(false))
   }, [contextDir, view?.project, settingsOpen])
@@ -2748,6 +2755,7 @@ export function App() {
         </div>
       </aside>
       <Palette acts={palette} onClose={() => setPalette(null)} />
+      <WhatsNew news={news} onClose={() => (setNews(null), void window.mate.newsSeen())} />
       {/* One agent for the open project, drawn into the margin or the page. It is not started again when it moves. */}
       {view && (
         <Agent

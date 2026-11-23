@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { readContextFile } from '../src/main/context.ts'
-import { startMcp, type Binding } from '../src/main/mcp.ts'
+import { TOOLS, startMcp, type Binding } from '../src/main/mcp.ts'
 import { meaningRuns, refreshMeaning } from '../src/main/meaning.ts'
 import { refreshIndex } from '../src/main/contextIndex.ts'
 import { loadSession, ownSession, sendMessage, startSession } from '../src/main/sessions.ts'
@@ -271,4 +271,11 @@ test('an agent proposes documents for the shelf, and nothing is published until 
     door.close()
     await rm(root, { recursive: true, force: true })
   }
+})
+
+test('the skill for agents names every tool the door gives, and no tool it does not', async () => {
+  const skill = await readFile(new URL('../../../skills/mate/SKILL.md', import.meta.url), 'utf8')
+  assert.match(skill, /^---\nname: mate\ndescription: .+\n---\n/)
+  for (const tool of TOOLS) assert.ok(skill.includes(tool.name), `${tool.name} is not in the skill`)
+  for (const named of skill.match(/mate_[a-z]+/g) ?? []) assert.ok(TOOLS.some((tool) => tool.name === named), `${named} is not a tool`)
 })

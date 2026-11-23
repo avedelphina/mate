@@ -151,6 +151,15 @@ contextBridge.exposeInMainWorld('mate', {
     ipcRenderer.on('context:reading', heard)
     return () => ipcRenderer.removeListener('context:reading', heard)
   },
+  /** What is new since the version last seen (null when nothing), or with `force`, in this version. */
+  saveSkill: () => ipcRenderer.invoke('skill:save'),
+  whatsNew: (force: boolean) => ipcRenderer.invoke('news:get', force),
+  newsSeen: () => ipcRenderer.invoke('news:seen'),
+  onNews: (listener: () => void) => {
+    const heard = () => listener()
+    ipcRenderer.on('news:open', heard)
+    return () => ipcRenderer.removeListener('news:open', heard)
+  },
   /** How many files are still to be given their meaning. Returns the function that stops listening. */
   onSettings: (listener: () => void) => {
     const heard = () => listener()

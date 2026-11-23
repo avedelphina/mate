@@ -9,6 +9,11 @@ then, minor versions may change behaviour.
 
 ### Added
 
+- A window with what is new opens once after an update, with the notes of every
+  version since the one you last saw. *Help* › *What's New in Mate…* shows it again.
+- A skill for agents, `skills/mate/SKILL.md`: what an agent can do with Mate and
+  what only you do. *Settings* › *Agents* › *Save the skill…* writes it into the
+  skills folder you choose, for example `~/.claude/skills`.
 - A conversation can be pinned to the top of the list, and deleted. Right click
   it, or press the dots beside it. Deleting asks first.
 - A box in the list of sessions, *Only agents Mate started*, leaves out the

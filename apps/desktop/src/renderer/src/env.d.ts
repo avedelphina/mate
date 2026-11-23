@@ -403,6 +403,12 @@ export type MateApi = {
   onReading: (listener: (left: number) => void) => () => void
   /** Settings… in the app menu. */
   onSettings: (listener: () => void) => () => void
+  /** Save the skill that tells an agent how to work with Mate, in a folder the reader picks. Returns the file, or null. */
+  saveSkill: () => Promise<string | null>
+  /** The sections of the changelog the reader has not seen, or null. With `force`, those of this version. */
+  whatsNew: (force: boolean) => Promise<{ version: string; date: string; body: string }[] | null>
+  newsSeen: () => Promise<void>
+  onNews: (listener: () => void) => () => void
   /** Everything the reader has set, and what this computer has. Never the key. */
   settings: () => Promise<Settings>
   onUpdate: (listener: (update: Update) => void) => () => void

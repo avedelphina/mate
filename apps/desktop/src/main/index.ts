@@ -4,7 +4,8 @@ import { endpointView, judgeOnEndpoint, keepEndpointIn, keyRefusal, linuxRelay, 
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
-import { readFile, stat } from 'node:fs/promises'
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { addReply, anchorComment, applySuggestion, editComment, fileLineOf, readDocument, removeComment, setCommentPrivate, setResolved } from '../shared/comments'
 import { withTags } from '../shared/tags'
@@ -74,6 +75,9 @@ import { refreshIndex, searchIndex, tagsInUse, type Hit } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
 import { noticeFor, seenOf, type Seen } from '../shared/notice'
 import { notify, notifying, setNotifying } from './notify'
+import skill from '../../../../skills/mate/SKILL.md?raw'
+import changelog from '../../../../CHANGELOG.md?raw'
+import { markSeen, keepSeenIn, whatsNew } from './whatsnew'
 import { checkForUpdate, installUpdate, startUpdates, updateNow } from './update'
 import { runScript, stopAllScripts, stopScript, wordsOf } from './scripts'
 import { buildDocuments, newRecord } from './records'
@@ -416,7 +420,11 @@ function setMenu(): void {
       },
       { role: 'editMenu' },
       { role: 'viewMenu' },
-      { role: 'windowMenu' }
+      { role: 'windowMenu' },
+      {
+        role: 'help' as const,
+        submenu: [{ label: "What's New in Mate…", click: () => (BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0])?.webContents.send('news:open') }]
+      }
     ])
   )
 }
@@ -438,6 +446,7 @@ app.whenReady().then(() => {
   keepForgesIn(path.join(app.getPath('userData'), 'forges.json'), seal, net.fetch as typeof fetch)
   keepFirecrawlIn(path.join(app.getPath('userData'), 'firecrawl.json'), seal)
   keepPinsIn(path.join(app.getPath('userData'), 'pins.json'))
+  keepSeenIn(path.join(app.getPath('userData'), 'seen-version.json'))
 
   // Before an agent starts: has what the context tells it changed since the reader last saw it?
   // The reader answers for each file in a dialog of the system, which the page cannot press.
@@ -1613,6 +1622,33 @@ app.whenReady().then(() => {
     runAssist(assistHelper, task, passage, note)
   )
 
+  // The skill that tells an agent how to work with Mate is saved where the reader says: a skills folder of their agent.
+  // The reader picks the folder in a dialog of the system. Mate writes one file in it, mate/SKILL.md, and nothing else.
+  ipcMain.handle('skill:save', async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const starts = path.join(os.homedir(), '.claude', 'skills')
+    const picking = {
+      title: "Save the Mate skill in your agent's skills folder",
+      buttonLabel: 'Save Here',
+      defaultPath: existsSync(starts) ? starts : os.homedir(),
+      properties: ['openDirectory' as const, 'createDirectory' as const]
+    }
+    const picked = await (window ? dialog.showOpenDialog(window, picking) : dialog.showOpenDialog(picking))
+    if (picked.canceled || !picked.filePaths[0]) return null
+    const target = path.join(picked.filePaths[0], 'mate', 'SKILL.md')
+    if (existsSync(target) && (await readFile(target, 'utf8').catch(() => '')) !== skill) {
+      const options = { type: 'question' as const, buttons: ['Cancel', 'Replace'], defaultId: 0, cancelId: 0, message: 'Replace the Mate skill that is there?', detail: target }
+      const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+      if (response !== 1) return null
+    }
+    await mkdir(path.dirname(target), { recursive: true })
+    await writeFile(target, skill)
+    return target
+  })
+
+  // What is new is shown once after an update, and again when the reader asks from the menu.
+  ipcMain.handle('news:get', (_event, force: boolean) => whatsNew(changelog, app.getVersion(), force === true))
+  ipcMain.handle('news:seen', () => markSeen(app.getVersion()))
   ipcMain.handle('update:get', () => updateNow())
   ipcMain.handle('update:check', () => checkForUpdate())
   // Restarting stops nothing an agent is doing: that is asked when Mate quits, and Squirrel puts the update in then too.

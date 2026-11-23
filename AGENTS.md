@@ -34,6 +34,7 @@ apps/desktop/          the Electron app (the only application)
   electron-builder.yml how the app is put together to be installed
   tests/               node:test unit tests
   tests/e2e/           the built app, driven through its window
+skills/mate/           SKILL.md: what an agent can do with Mate (Settings saves it)
 contexts/_example/     a sample context, safe to open and edit
 docs/                  model.md (the rules), architecture.md, roadmap.md,
                        hub.md (the Hub, step 11)

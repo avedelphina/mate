@@ -81,6 +81,7 @@ export function Settings(props: { onClose: () => void }) {
   // The endpoint form: address, model, and a key that is never shown back. Null until it is changed.
   const [editing, setEditing] = useState<{ url: string; model: string; key: string } | null>(null)
   const [saved, setSaved] = useState(false)
+  const [skillFile, setSkillFile] = useState<string | null>(null)
   // A forge being added: its address and a token, which is never shown back. While the forge is asked, and what it said.
   const [forge, setForge] = useState({ url: '', token: '' })
   const [forgeSaid, setForgeSaid] = useState<{ failed: boolean; text: string } | null>(null)
@@ -247,6 +248,15 @@ export function Settings(props: { onClose: () => void }) {
                     </li>
                   ))}
                 </ul>
+                <h3>The Mate skill</h3>
+                <p className="meta">
+                  A short guide that tells an agent what it can do with Mate: the folders, comments, panes, and how to propose documents for the shelf. Save it in the skills folder of
+                  your agent, for example <span className="dir">~/.claude/skills</span>.
+                </p>
+                <p>
+                  <button onClick={() => window.mate.saveSkill().then((file) => file && setSkillFile(file), () => {})}>Save the skill…</button>
+                  {skillFile && <span className="meta"> Saved {skillFile}</span>}
+                </p>
                 <h3>On other machines</h3>
                 <ul className="remote">
                   {added.filter((each) => each.host !== null).map((each) => (

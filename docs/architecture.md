@@ -455,6 +455,16 @@ becomes `shelf/law/a.md`). One dialog of the system names the count and
 how many replace a document, and then each goes through `publish`. A
 name the shelf refuses is left out, and the dialog says so.
 
+**Sessions and what is new.** A session can be pinned (`pinned` in its
+file) and deleted after a dialog of the system. An empty one is not listed,
+`startSession` gives back the empty one it has instead of making another,
+and `pruneEmptySessions` deletes them. After an update `whatsNew`
+(`src/main/whatsnew.ts`) cuts the sections of `CHANGELOG.md`, built into the
+app, for the versions since the one kept in `seen-version.json`. The
+skill `skills/mate/SKILL.md` is built in too: `skill:save` writes it where the
+reader picks in a dialog of the system, and a test keeps it in step with the
+tools of the door.
+
 **Proposing.** An agent that comes in over MCP has `mate_shelve`: a list of
 files of its project (a draft, or a PDF, Word or text file) and the shelf
 name of each. It is kept in the session (`shelve`) and shown in the Agent
