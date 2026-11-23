@@ -5,7 +5,11 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## Unreleased
+## [0.38.0] - 2026-11-23
+
+A folder of drafts, or a list an agent proposes, goes to the shelf in one answer. The list
+of sessions can be searched, pinned and cleared. A window shows what is new after an
+update, and a skill tells agents what they can do with Mate.
 
 ### Added
 
