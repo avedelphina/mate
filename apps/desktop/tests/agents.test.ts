@@ -8,7 +8,7 @@ import test from 'node:test'
 import { AGENTS, SSH, addable, discoverAgents, sshArgs } from '../src/main/agents.ts'
 import { addComment, writeNote } from '../src/main/context.ts'
 import { changesSince, fingerprints, put, takeSnapshot } from '../src/main/guard.ts'
-import { compare, judge, listAllSessions, listSessions, loadSession, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
+import { compare, judge, listAllSessions, listSessions, deleteSession, loadSession, pinSession, pruneEmptySessions, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
 import { isTrusted, keepTrustIn, setTrusted } from '../src/main/trust.ts'
 
 async function context(): Promise<string> {
@@ -120,7 +120,10 @@ test('the sessions of every project are listed together, and one that is only in
     // The reader's first words are the title.
     const said = { ...first, messages: [{ role: 'you' as const, text: 'Review the contract', tools: [] }] }
     await writeFile(path.join(root, '.sessions/review', first.id, 'session.json'), JSON.stringify(said))
-    assert.equal((await listAllSessions(root)).find((row) => row.id === first.id)?.title, 'Review the contract')
+    const row = (await listAllSessions(root)).find((each) => each.id === first.id)
+    assert.equal(row?.title, 'Review the contract')
+    // What was said travels with the row, so the list can be searched.
+    assert.match(row?.said ?? '', /contract/)
     assert.ok(rows.some((row) => row.id === second.id))
   } finally {
     await rm(root, { recursive: true, force: true })
@@ -569,5 +572,48 @@ console.log(JSON.stringify({ type: 'text', text: 'Read.' }))
     await rm(root, { recursive: true, force: true })
     await rm(stub, { force: true })
     await rm(log, { force: true })
+  }
+})
+
+test('inviting an agent twice leaves one empty conversation, and the empty ones can be deleted', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-empty-'))
+  try {
+    const first = await startSession(root, 'review', 'hermes')
+    // Nothing was said: the same conversation is given again, and a different agent gets its own.
+    assert.equal((await startSession(root, 'review', 'hermes')).id, first.id)
+    const other = await startSession(root, 'review', 'kimi')
+    assert.notEqual(other.id, first.id)
+    // Once something is said, it is no longer empty, and the next invitation starts a new one.
+    const spoken = { ...first, messages: [{ role: 'you' as const, text: 'Hello', tools: [] }] }
+    await writeFile(path.join(root, '.sessions/review', first.id, 'session.json'), JSON.stringify(spoken))
+    assert.notEqual((await startSession(root, 'review', 'hermes')).id, first.id)
+    assert.deepEqual((await listAllSessions(root)).filter((row) => row.empty).length, 2)
+    // Only the empty ones go.
+    assert.equal(await pruneEmptySessions(root), 2)
+    assert.deepEqual((await listAllSessions(root)).map((row) => row.id), [first.id])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a conversation is pinned, kept when empty ones go, and deleted on its own', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-pin-'))
+  try {
+    const keep = await startSession(root, 'review', 'hermes')
+    const drop = await startSession(root, 'review', 'kimi')
+    // A pinned conversation is wanted, even with nothing said in it, so it is not one of the empty.
+    await pinSession(root, 'review', keep.id, true)
+    const rows = await listAllSessions(root)
+    assert.equal(rows.find((row) => row.id === keep.id)?.pinned, true)
+    assert.equal(rows.find((row) => row.id === keep.id)?.empty, false)
+    assert.equal(await pruneEmptySessions(root), 1)
+    assert.deepEqual((await listAllSessions(root)).map((row) => row.id), [keep.id])
+    // One conversation goes by itself, and a name that climbs out is refused.
+    await deleteSession(root, 'review', keep.id)
+    assert.deepEqual(await listAllSessions(root), [])
+    await assert.rejects(deleteSession(root, 'review', keep.id), /not there/)
+    await assert.rejects(deleteSession(root, '..', drop.id))
+  } finally {
+    await rm(root, { recursive: true, force: true })
   }
 })

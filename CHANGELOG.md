@@ -9,6 +9,13 @@ then, minor versions may change behaviour.
 
 ### Added
 
+- A conversation can be pinned to the top of the list, and deleted. Right click
+  it, or press the dots beside it. Deleting asks first.
+- A box in the list of sessions, *Only agents Mate started*, leaves out the
+  sessions of agents you run yourself.
+- The list of sessions has a search box. It looks in everything said in each
+  conversation, without regard to case or accents. A session kept only in the
+  cloud is not read, so it is not found until it is opened.
 - *Publish Drafts to the Shelf…* on a folder of drafts, in the file list. All
   the drafts under it go to the shelf in one go, named by their paths, after
   one dialog of the system that says how many and what is replaced. An agent
@@ -18,6 +25,12 @@ then, minor versions may change behaviour.
   Agent tab shows the list, and the reader publishes it with one dialog of the
   system. The agent publishes nothing. Mate takes the text out of PDF and
   Word files.
+
+### Changed
+
+- Inviting an agent again, with nothing said yet, gives back the empty
+  conversation instead of making another. Empty conversations are not listed;
+  *Delete them* clears them.
 
 ## [0.37.1] - 2026-11-13
 

@@ -99,7 +99,7 @@ import {
   setPrivate,
   setTrusted
 } from './trust'
-import { allowNoMore, answerAsk, attend, closeAgentsIn, compare, doors, gate, isBusy, listAllSessions, listModels, listSessions, loadSession, saveSession, moveConversations, moveSessions, ownSession, revertChange, sendMessage, settleHeld, startSession, stopAllTurns, stopTurn, tuneSession, type Invited, type Session, whenIdle, working } from './sessions'
+import { allowNoMore, answerAsk, attend, closeAgentsIn, compare, doors, gate, isBusy, listAllSessions, listModels, listSessions, loadSession, saveSession, pinSession, deleteSession, moveConversations, moveSessions, ownSession, pruneEmptySessions, revertChange, sendMessage, settleHeld, startSession, stopAllTurns, stopTurn, tuneSession, type Invited, type Session, whenIdle, working } from './sessions'
 
 // The name in the menu bar, and of the folder the app keeps its own data in. Run from a checkout it
 // has a name of its own: a checkout can be driven from outside, so it does not share the trusted
@@ -1165,6 +1165,31 @@ app.whenReady().then(() => {
 
   ipcMain.handle('session:list', (event, project: string) => listSessions(requireContext(event), project))
   ipcMain.handle('session:listAll', (event) => listAllSessions(requireContext(event)))
+
+  ipcMain.handle('session:pin', (event, project: string, id: string, pinned: boolean) => pinSession(requireContext(event), String(project), String(id), Boolean(pinned)))
+
+  // A conversation is deleted for good, so the system asks first, naming what it holds.
+  ipcMain.handle('session:delete', async (event, project: string, id: string) => {
+    const contextDir = requireContext(event)
+    const session = await loadSession(contextDir, String(project), String(id))
+    const first = session.messages.find((message) => message.role === 'you')?.text.replace(/\s+/g, ' ').slice(0, 80)
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      type: 'warning' as const,
+      buttons: ['Cancel', 'Delete'],
+      defaultId: 0,
+      cancelId: 0,
+      message: 'Delete this conversation?',
+      detail: `${first ? `“${first}”\n` : ''}${session.messages.length} ${session.messages.length === 1 ? 'message' : 'messages'}.\n\nIt cannot be brought back, and Revert is gone with it. The files the agent changed stay as they are.`
+    }
+    const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+    if (response !== 1) return false
+    await deleteSession(contextDir, String(project), String(id))
+    return true
+  })
+
+  // Conversations nothing happened in are deleted. They hold nothing: no word, no change, no proposal.
+  ipcMain.handle('session:prune', (event) => pruneEmptySessions(requireContext(event)))
 
   ipcMain.handle('session:start', (event, project: string, agent: Invited, host?: string) =>
     startSession(requireContext(event), project, agent, host ?? null)

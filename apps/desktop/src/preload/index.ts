@@ -133,6 +133,9 @@ contextBridge.exposeInMainWorld('mate', {
   revertChange: (project: string, id: string, index: number) => ipcRenderer.invoke('session:revert', project, id, index),
   compare: (project: string, id: string, which: 'kept' | 'held', index: number) =>
     ipcRenderer.invoke('session:compare', project, id, which, index),
+  pinSession: (project: string, id: string, pinned: boolean) => ipcRenderer.invoke('session:pin', project, id, pinned),
+  deleteSession: (project: string, id: string) => ipcRenderer.invoke('session:delete', project, id),
+  pruneSessions: () => ipcRenderer.invoke('session:prune'),
   settleShelve: (project: string, id: string, approve: boolean) => ipcRenderer.invoke('session:shelve', project, id, approve),
   settleHeld: (project: string, id: string, index: number, approve: boolean) =>
     ipcRenderer.invoke('session:settle', project, id, index, approve),

@@ -149,6 +149,11 @@ export type SessionRow = {
   running: boolean
   planApproved: boolean
   title: string | null
+  /** What was said, cut short. The list searches it. */
+  said?: string
+  /** Nothing was said, changed or proposed in it. */
+  empty?: boolean
+  pinned?: boolean
   cloud: boolean
 }
 
@@ -169,6 +174,7 @@ export type Session = {
   held: { path: string; state: 'waiting' | 'approved' | 'discarded' }[]
   /** What the agent proposed for the shelf. Only the reader publishes it. */
   shelve?: { path: string; name: string; state: 'waiting' | 'published' | 'discarded' }[]
+  pinned?: boolean
   running: boolean
   /** What the agent is asking right now. Only while a turn runs, and only from an agent that stays. */
   asks?: Ask[]
@@ -373,6 +379,12 @@ export type MateApi = {
   /** The model and the effort of a conversation, from its next turn on. Null gives the choice back to the agent. */
   tuneSession: (project: string, id: string, model: string | null, effort: string | null) => Promise<Session>
   revertChange: (project: string, id: string, index: number) => Promise<Session>
+  /** Keep a conversation at the top of the list, or let it go. */
+  pinSession: (project: string, id: string, pinned: boolean) => Promise<Session>
+  /** Delete one conversation, after a system dialog. False when the reader declines. */
+  deleteSession: (project: string, id: string) => Promise<boolean>
+  /** Delete the conversations nothing happened in. Returns how many. */
+  pruneSessions: () => Promise<number>
   /** Publish what the agent proposed for the shelf, after one system dialog, or drop the list. */
   settleShelve: (project: string, id: string, approve: boolean) => Promise<Session>
   settleHeld: (project: string, id: string, index: number, approve: boolean) => Promise<Session>

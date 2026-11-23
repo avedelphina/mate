@@ -600,3 +600,8 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 
 /* In the preview the picture is enough: the source is in the field beside it. */
 .preview .diagram-source { display: none; }
+
+.session-row { position: relative; }
+.session-row .more { position: absolute; top: 6px; right: 6px; opacity: 0; padding: 0 8px; }
+.session-row:hover .more, .session-row .more:focus-visible { opacity: 1; }
+.only-mate { display: block; margin: 4px 0; }

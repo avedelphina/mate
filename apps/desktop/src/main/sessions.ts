@@ -61,6 +61,8 @@ export type Session = {
   held: Held[]
   /** What the agent proposed for the shelf. Older sessions have none. */
   shelve?: Shelve[]
+  /** The reader keeps it at the top of the list, and it is never taken for an empty one. */
+  pinned?: boolean
   running: boolean
   /** What the agent will not do until the reader says yes or no. Only while a turn runs. */
   asks?: Ask[]
@@ -366,8 +368,20 @@ export type SessionRow = {
   planApproved: boolean
   /** What the reader first said, or null when nothing was, or the file is in the cloud. */
   title: string | null
+  /** What was said, for the list's search. Cut short, so a long conversation does not weigh down the list. */
+  said?: string
+  /** Nothing was said, changed, held or proposed in it. */
+  empty?: boolean
+  pinned?: boolean
   cloud: boolean
 }
+
+/** A conversation nothing happened in. Inviting an agent starts one, so a reader who looks and leaves leaves one behind. */
+export const isEmpty = (session: Session): boolean =>
+  !session.pinned && session.messages.length === 0 && session.changes.length === 0 && session.held.length === 0 && (session.shelve ?? []).length === 0
+
+/** The words of a conversation, cut at 20,000 characters. */
+const said = (session: Session): string => session.messages.map((message) => message.text).join('\n').slice(0, 20000)
 
 /** Every session of every project, newest first. Read side by side, and none is changed by being listed. */
 export async function listAllSessions(contextDir: string): Promise<SessionRow[]> {
@@ -395,6 +409,9 @@ export async function listAllSessions(contextDir: string): Promise<SessionRow[]>
             running: Boolean(live),
             planApproved: session.planApproved,
             title: session.messages.find((message) => message.role === 'you')?.text ?? null,
+            said: said(session),
+            empty: isEmpty(session),
+            pinned: session.pinned === true,
             cloud: false
           }
         })().catch(() => null)
@@ -402,6 +419,55 @@ export async function listAllSessions(contextDir: string): Promise<SessionRow[]>
     }
   }
   return (await Promise.all(rows)).filter((row) => row !== null).sort((a, b) => b.created.localeCompare(a.created))
+}
+
+/** Keep a conversation at the top of the list, or let it go back. */
+export async function pinSession(contextDir: string, project: string, id: string, pinned: boolean): Promise<Session> {
+  const session = await loadSession(contextDir, project, id)
+  session.pinned = pinned
+  await saveSession(contextDir, session)
+  return session
+}
+
+/** Delete one conversation: its words, and the copies kept for Revert. What the agent changed in the files stays as it is. */
+export async function deleteSession(contextDir: string, project: string, id: string): Promise<void> {
+  if (turns.has(id)) throw new Error('The agent is working in that conversation. Stop it first.')
+  const dir = folder(contextDir, project, id)
+  if (!existsSync(path.join(dir, 'session.json'))) throw new Error('That conversation is not there.')
+  await rm(dir, { recursive: true, force: true })
+}
+
+/** The empty conversations of a project, read from their files. One kept only in the cloud is not fetched to be looked at. */
+async function emptyOf(contextDir: string, project: string): Promise<Session[]> {
+  const found: Session[] = []
+  for (const id of await readdir(folder(contextDir, project)).catch(() => [])) {
+    const file = path.join(folder(contextDir, project, id), 'session.json')
+    const info = await stat(file).catch(() => null)
+    if (!info || inCloudOnly(info) || turns.has(id)) continue
+    try {
+      const session = JSON.parse(await readFile(file, 'utf8')) as Session
+      if (isEmpty(session)) found.push(await loadSession(contextDir, project, id))
+    } catch {
+      // A file that cannot be read is not an empty conversation.
+    }
+  }
+  return found
+}
+
+/**
+ * Delete the conversations nothing happened in. They hold no word, no change and no proposal, and the
+ * folder they are in is a helper that can be deleted anyway. A running one is left, and so is one in the cloud.
+ */
+export async function pruneEmptySessions(contextDir: string): Promise<number> {
+  let gone = 0
+  for (const project of await readdir(path.join(contextDir, '.sessions')).catch(() => [])) {
+    if (project.startsWith('.')) continue
+    for (const session of await emptyOf(contextDir, project)) {
+      await rm(folder(contextDir, project, session.id), { recursive: true, force: true })
+      gone += 1
+    }
+  }
+  return gone
 }
 
 export async function startSession(
@@ -414,6 +480,10 @@ export async function startSession(
   if (agent !== 'mcp' && !AGENTS[agent]) throw new Error('That agent is not one Mate knows.')
   if (host !== null && (agent === 'mcp' || !isHost(host) || !AGENTS[agent].remoteArgs)) {
     throw new Error('That agent cannot be invited from another machine.')
+  }
+  // An empty conversation with the same agent is the one to go back to: no second one is made beside it.
+  for (const each of await emptyOf(contextDir, project)) {
+    if (each.agent === agent && each.host === host && !turns.has(each.id)) return each
   }
   const session: Session = {
     id: randomUUID(),

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { EFFORTS } from '../../shared/effort'
 import { fileNamed } from '../../shared/named'
+import { dropMenu, onRightClick, type Item } from './menu'
 import type { AgentInfo, AgentKind, Compared, Models, Session, SessionRow } from './env'
 import { Boundary } from './Boundary'
 import { Rendered } from './Rendered'
@@ -62,7 +63,8 @@ export function Agent(props: {
   const [sessions, setSessions] = useState<Session[]>([])
   const [open, setOpen] = useState<string | null>(null)
   // Every session of the context, for the list. Read when the list is shown.
-  const [all, setAll] = useState<SessionRow[]>([])
+  const [every, setAll] = useState<SessionRow[]>([])
+  const [find, setFind] = useState('')
   const [text, setText] = useState('')
   // What the reader attached to the next message of a session: pictures and files, each copied into the project's dropbox.
   const [attachments, setAttachments] = useState<{ id: string; path: string }[]>([])
@@ -95,8 +97,28 @@ export function Agent(props: {
     running: next.running,
     planApproved: next.planApproved,
     title: next.messages.find((message) => message.role === 'you')?.text ?? null,
+    said: next.messages.map((message) => message.text).join('\n').slice(0, 20000),
+    pinned: next.pinned === true,
+    empty: !next.pinned && next.messages.length === 0 && next.changes.length === 0 && next.held.length === 0 && (next.shelve ?? []).length === 0,
     cloud: false
   })
+  // Words match without regard to case or accents, so a Czech word is found as it is typed on any keyboard.
+  const plain = (value: string) => value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+  const needle = plain(find.trim())
+  // Only the agents Mate started: the sessions of the reader's own agents, which come in over MCP, are left out. Kept for next time.
+  const [onlyMate, setOnlyMate] = useState(() => {
+    try {
+      return localStorage.getItem('sessions:only-mate') === '1'
+    } catch {
+      return false
+    }
+  })
+  // A conversation nothing happened in is not listed, unless it is the open one. They are deleted by the button below.
+  const empties = every.filter((each) => each.empty && !each.running && !each.cloud)
+  const all = every
+    .filter((each) => !(each.empty && !each.running && !each.cloud && each.id !== open))
+    .filter((each) => !(onlyMate && each.agent === 'mcp'))
+    .filter((each) => !needle || plain(`${each.title ?? ''}\n${each.said ?? ''}`).includes(needle))
   const upsert = (next: Session) =>
     setAll((rows) => (rows.some((each) => each.id === next.id) ? rows.map((each) => (each.id === next.id ? rowOf(next) : each)) : [rowOf(next), ...rows]))
   const keep = (next: Session) => {
@@ -333,7 +355,36 @@ export function Agent(props: {
             )}
           </div>
         )}
-        {all.length > 0 && <h3>Sessions <span className="count">{all.length}</span></h3>}
+        {(every.length > 0 || find) && <h3>Sessions <span className="count">{all.length}</span></h3>}
+        {every.length > 3 && (
+          <input type="search" value={find} placeholder="Search the sessions" aria-label="Search the sessions" onChange={(event) => setFind(event.target.value)} onKeyDown={(event) => event.key === 'Escape' && setFind('')} />
+        )}
+        {every.some((each) => each.agent === 'mcp') && (
+          <label className="meta only-mate">
+            <input
+              type="checkbox"
+              checked={onlyMate}
+              onChange={(event) => {
+                setOnlyMate(event.target.checked)
+                try {
+                  localStorage.setItem('sessions:only-mate', event.target.checked ? '1' : '0')
+                } catch {
+                  // The choice is not kept. The list still works.
+                }
+              }}
+            />{' '}
+            Only agents Mate started
+          </label>
+        )}
+        {find && all.length === 0 && <p className="meta">No session says that.</p>}
+        {empties.length > 0 && !find && (
+          <p className="meta">
+            {empties.length} empty {empties.length === 1 ? 'session is' : 'sessions are'} hidden.{' '}
+            <button className="quiet" onClick={() => void window.mate.pruneSessions().then(() => window.mate.listAllSessions()).then(setAll, (caught) => setError(reason(caught)))}>
+              Delete {empties.length === 1 ? 'it' : 'them'}
+            </button>
+          </p>
+        )}
         {[...new Set([project, ...all.map((each) => each.project)])]
           .filter((name) => all.some((each) => each.project === name))
           .map((name) => (
@@ -341,17 +392,22 @@ export function Agent(props: {
               <p className="meta session-project">{name === project ? `${name} · open` : name}</p>
               {all
                 .filter((each) => each.project === name)
+                .sort((a, b) => Number(b.pinned === true) - Number(a.pinned === true))
                 .map((each) => (
-                  <button key={each.id} className={each.id === open && name === project ? 'row session active' : 'row session'} onClick={() => pick(each)}>
+                  <div key={each.id} className="session-row" {...onRightClick(() => menuOf(each))}>
+                  <button className={each.id === open && name === project ? 'row session active' : 'row session'} onClick={() => pick(each)}>
                     {/* Working, allowed to edit, or still at its plan. */}
                     <span className={each.running ? 'dot running' : each.planApproved ? 'dot on' : 'dot'} />
                     <span className="title">{each.cloud ? 'Kept in the cloud, not read yet' : (each.title ?? 'Nothing said yet')}</span>
                     <span className="meta">
                       {each.agent ? `${label({ agent: each.agent, host: each.host })} · ` : ''}
                       {new Date(each.created).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                      {each.pinned ? ' · pinned' : ''}
                       {each.running ? ' · working' : each.agent && !each.planApproved ? ' · plan not approved' : ''}
                     </span>
                   </button>
+                  <button className="quiet more" aria-label="Pin or delete this conversation" {...dropMenu(() => menuOf(each))}>⋯</button>
+                  </div>
                 ))}
             </div>
           ))}
@@ -375,6 +431,26 @@ export function Agent(props: {
   )
 
   /** The session of this project that was picked, or the one of another project: that project is opened first. */
+  /** What the reader can do with a conversation of the list. */
+  function menuOf(row: SessionRow): Item[] {
+    const again = () => window.mate.listAllSessions().then(setAll, (caught) => setError(reason(caught)))
+    return [
+      { label: row.pinned ? 'Unpin' : 'Pin to the Top', run: () => void window.mate.pinSession(row.project, row.id, !row.pinned).then(again, (caught) => setError(reason(caught))) },
+      null,
+      {
+        label: 'Delete…',
+        enabled: !row.running,
+        run: () =>
+          void window.mate.deleteSession(row.project, row.id).then((gone) => {
+            if (!gone) return
+            if (row.id === open) setOpen(null)
+            setSessions((now) => now.filter((each) => each.id !== row.id))
+            return again()
+          }, (caught) => setError(reason(caught)))
+      }
+    ]
+  }
+
   function pick(row: SessionRow) {
     if (row.project !== project) return onPick(row.project, row.id)
     setOpen(row.id)
