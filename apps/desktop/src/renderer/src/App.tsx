@@ -830,6 +830,20 @@ export function App() {
     }
   }
 
+  /** Publish the drafts under a folder, named by their paths. Main asks the reader once, for all of them. */
+  async function publishFolder(folder: string) {
+    if (!project) return
+    try {
+      const done = await window.mate.publishFolder(project, folder.startsWith(view?.draftsIn ?? '\0') ? folder.slice(view!.draftsIn.length) : folder)
+      if (!done) return
+      setError(null)
+      setNotice(`Published ${done.done} ${done.done === 1 ? 'draft' : 'drafts'}.${done.failed.length > 0 ? ` ${done.failed.length} failed: ${done.failed.slice(0, 3).join(', ')}.` : ''}`)
+      setShelf(await window.mate.listShelf())
+    } catch (caught) {
+      setError(reason(caught, 'Could not publish the folder.'))
+    }
+  }
+
   /** Publish the draft on the page under the name the reader chose. Main asks them once more, by name. */
   async function publishDraft(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -1988,7 +2002,7 @@ export function App() {
                         onOpen={openFile}
                         onReveal={openOther}
                         onMenu={(path, folder) => [
-                          ...(folder ? [{ label: 'New Folder Inside…', run: () => setMaking(`${path}/`) }] : [{ label: 'Open', run: () => (/\.md$/i.test(path) ? openFile(path) : openOther(path)) }]),
+                          ...(folder ? [{ label: 'New Folder Inside…', run: () => setMaking(`${path}/`) }, { label: 'Publish Drafts to the Shelf…', run: () => void publishFolder(path) }] : [{ label: 'Open', run: () => (/\.md$/i.test(path) ? openFile(path) : openOther(path)) }]),
                           ...(movable(path) ? [{ label: 'Move To…', run: () => setMoving({ from: path, to: '' }) }] : []),
                           null,
                           { label: 'Show in Finder', run: () => void window.mate.revealFile(`projects/${view.project}/${path}`) }

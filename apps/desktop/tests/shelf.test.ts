@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { addComment, copyFolder, copySource, editDraft, listShelf, noteSource, publish, pullIn, readProject, takeDown } from '../src/main/context.ts'
+import { addComment, copyFolder, copySource, editDraft, folderToShelf, listShelf, noteSource, publish, pullIn, readProject, takeDown } from '../src/main/context.ts'
 import { addReply, applySuggestion } from '../src/shared/comments.ts'
 import { refreshIndex, searchIndex } from '../src/main/contextIndex.ts'
 
@@ -235,6 +235,30 @@ test('a text file of a project is reviewed like a draft, and a comment changes o
     assert.ok(searchIndex(index, 'detection').some((hit) => hit.path === 'projects/review/config/sysmon.xml'))
     assert.deepEqual([...new Set(searchIndex(index, 'EventFiltering').map((hit) => `${hit.kind} ${hit.path}`))], ['material projects/review/config/sysmon.xml'])
     assert.equal(index.files.find((file) => file.path === 'projects/review/config/picture.bin')?.text, '')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a folder of drafts is named for the shelf by path, and a name the shelf refuses is left out', async () => {
+  const root = await context()
+  try {
+    const put = async (relative: string) => {
+      await mkdir(path.dirname(path.join(root, 'projects/review/draft', relative)), { recursive: true })
+      await writeFile(path.join(root, 'projects/review/draft', relative), '# x\n')
+    }
+    await put('law/act-1.md')
+    await put('law/sub/act-2.md')
+    await put('law/.hidden.md')
+    await put('law/bad&name.md')
+    const { drafts, skipped } = await folderToShelf(root, 'review', 'law/')
+    assert.deepEqual(drafts.map((each) => each.name).sort(), ['law/act-1', 'law/sub/act-2'])
+    assert.deepEqual(skipped, ['law/bad&name.md'])
+    // What it names is what publish takes, and the whole folder lands on the shelf.
+    for (const each of drafts) await publish(root, 'review', each.file, each.name)
+    assert.deepEqual((await listShelf(root)).sort(), ['law/act-1.md', 'law/sub/act-2.md'])
+    // The other draft is not in the folder.
+    assert.equal((await folderToShelf(root, 'review', 'nothing')).drafts.length, 0)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

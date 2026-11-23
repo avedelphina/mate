@@ -1212,7 +1212,11 @@ function shelfName(name: string): string[] {
  */
 export async function publish(contextDir: string, project: string, file: string, name: string): Promise<{ path: string; replaced: boolean }> {
   const raw = await readFile((await draftAt(contextDir, project, file)).full, 'utf8')
-  const text = Buffer.from(readDocument(raw).text.replace(/\n/g, raw.includes('\r\n') ? '\r\n' : '\n'))
+  return putOnShelf(contextDir, name, Buffer.from(readDocument(raw).text.replace(/\n/g, raw.includes('\r\n') ? '\r\n' : '\n')))
+}
+
+/** The text as a named document of the shelf. What was there is kept as history. Only the reader's act reaches this. */
+export async function putOnShelf(contextDir: string, name: string, text: Buffer): Promise<{ path: string; replaced: boolean }> {
   const parts = shelfName(name)
   const relative = ['shelf', ...parts].join('/')
 
@@ -1236,6 +1240,26 @@ export async function publish(contextDir: string, project: string, file: string,
   await rename(temporary, target)
   mateWrote(contextDir, relative, text)
   return { path: relative, replaced: there !== null }
+}
+
+/**
+ * The drafts under a folder of the project, each with the shelf name it would take: its path from where the
+ * project keeps its drafts. `skipped` are the ones whose name the shelf would refuse. Nothing is written.
+ */
+export async function folderToShelf(contextDir: string, project: string, folder: string): Promise<{ drafts: { file: string; name: string }[]; skipped: string[] }> {
+  const prefix = String(folder).replace(/^\/+|\/+$/g, '')
+  const drafts: { file: string; name: string }[] = []
+  const skipped: string[] = []
+  for (const file of await draftsOf(resolveInside(contextDir, 'projects', project))) {
+    if (prefix && !file.startsWith(`${prefix}/`)) continue
+    try {
+      shelfName(file)
+      drafts.push({ file, name: file.replace(/\.md$/i, '') })
+    } catch {
+      skipped.push(file)
+    }
+  }
+  return { drafts, skipped }
 }
 
 /**

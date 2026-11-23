@@ -448,8 +448,23 @@ the shelf under that name is kept in `shelf/.history/`, by its name and
 the time. That folder is hidden, so the index does not read it and
 nothing takes it for current.
 
+**Publishing a folder.** *Publish Drafts to the Shelf…* on a folder of
+the file list publishes every draft under it (`folderToShelf` names
+them: the path from where the project keeps its drafts, so `law/a.md`
+becomes `shelf/law/a.md`). One dialog of the system names the count and
+how many replace a document, and then each goes through `publish`. A
+name the shelf refuses is left out, and the dialog says so.
+
+**Proposing.** An agent that comes in over MCP has `mate_shelve`: a list of
+files of its project (a draft, or a PDF, Word or text file) and the shelf
+name of each. It is kept in the session (`shelve`) and shown in the Agent
+tab. Nothing is written to the shelf. The reader's *Review and publish*
+(`session:shelve`) asks once in a dialog of the system, then takes the
+text out and writes each with `putOnShelf`. A session file may carry any
+path, so `shelfText` holds each one to the project again.
+
 Saving a draft is never publishing. No agent can publish: there is no
-tool for it, and an agent's own change to the shelf is held like any
+tool for it, only one to propose, and an agent's own change to the shelf is held like any
 change outside its project. A shelf folder that is a link to somewhere
 else is not published into.
 

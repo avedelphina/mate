@@ -60,6 +60,7 @@ contextBridge.exposeInMainWorld('mate', {
   copyFolder: (project: string, id: string) => ipcRenderer.invoke('source:copy', project, id),
   /** Where a file dropped on the window lies. The window cannot read it: it can only have it noted. */
   pullIn: (project: string, path: string) => ipcRenderer.invoke('dropbox:pull', project, path),
+  publishFolder: (project: string, folder: string) => ipcRenderer.invoke('folder:publish', project, folder),
   publishDraft: (project: string, file: string, name: string) => ipcRenderer.invoke('draft:publish', project, file, name),
   writeDraft: (project: string, file: string, base: string, text: string) => ipcRenderer.invoke('draft:write', project, file, base, text),
   createDraft: (project: string, name: string, folder?: string, template?: string) => ipcRenderer.invoke('draft:create', project, name, folder, template),
@@ -132,6 +133,7 @@ contextBridge.exposeInMainWorld('mate', {
   revertChange: (project: string, id: string, index: number) => ipcRenderer.invoke('session:revert', project, id, index),
   compare: (project: string, id: string, which: 'kept' | 'held', index: number) =>
     ipcRenderer.invoke('session:compare', project, id, which, index),
+  settleShelve: (project: string, id: string, approve: boolean) => ipcRenderer.invoke('session:shelve', project, id, approve),
   settleHeld: (project: string, id: string, index: number, approve: boolean) =>
     ipcRenderer.invoke('session:settle', project, id, index, approve),
   /** Returns the function that stops listening. */

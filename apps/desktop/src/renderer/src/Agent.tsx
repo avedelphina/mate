@@ -489,6 +489,27 @@ export function Agent(props: {
         </div>
       ))}
 
+      {(() => {
+        const waiting = (session.shelve ?? []).filter((each) => each.state === 'waiting')
+        return (
+          waiting.length > 0 && (
+            <div className="decide">
+              <p>The agent proposes {waiting.length} {waiting.length === 1 ? 'document' : 'documents'} for the shelf. Nothing is published yet.</p>
+              <details className="changes">
+                <summary>See the list</summary>
+                {waiting.map((each) => (
+                  <p key={each.path} className="changed"><span><code>{each.path.split('/').slice(2).join('/')}</code> → <code>shelf/{each.name}</code></span></p>
+                ))}
+              </details>
+              <p>
+                <button onClick={() => act(() => window.mate.settleShelve(project, session.id, true), onChanged)}>Review and publish {waiting.length}…</button>
+                <button className="quiet" onClick={() => act(() => window.mate.settleShelve(project, session.id, false))}>Discard</button>
+              </p>
+            </div>
+          )
+        )
+      })()}
+
       {session.held.map(
         (held, index) =>
           held.state === 'waiting' && (

@@ -167,6 +167,8 @@ export type Session = {
   changes: { path: string; reverted: boolean }[]
   /** Changes Mate put back, waiting for the reader to approve that one file. */
   held: { path: string; state: 'waiting' | 'approved' | 'discarded' }[]
+  /** What the agent proposed for the shelf. Only the reader publishes it. */
+  shelve?: { path: string; name: string; state: 'waiting' | 'published' | 'discarded' }[]
   running: boolean
   /** What the agent is asking right now. Only while a turn runs, and only from an agent that stays. */
   asks?: Ask[]
@@ -266,6 +268,8 @@ export type MateApi = {
   copyFolder: (project: string, id: string) => Promise<string>
   /** Move a document out of a dropbox into a project's drafts. */
   pullIn: (project: string, path: string) => Promise<DocumentView>
+  /** Publish every draft under a folder of the project, named by its path. One system dialog. Null when the reader declines. */
+  publishFolder: (project: string, folder: string) => Promise<{ done: number; failed: string[]; skipped: string[] } | null>
   /** Publish a draft as a named document of the shelf. The reader confirms in a system dialog. Null when they do not. */
   publishDraft: (project: string, file: string, name: string) => Promise<{ path: string; replaced: boolean } | null>
   /** Save what the reader typed. `base` is the text they began from: it is refused when the file holds another by now. */
@@ -369,6 +373,8 @@ export type MateApi = {
   /** The model and the effort of a conversation, from its next turn on. Null gives the choice back to the agent. */
   tuneSession: (project: string, id: string, model: string | null, effort: string | null) => Promise<Session>
   revertChange: (project: string, id: string, index: number) => Promise<Session>
+  /** Publish what the agent proposed for the shelf, after one system dialog, or drop the list. */
+  settleShelve: (project: string, id: string, approve: boolean) => Promise<Session>
   settleHeld: (project: string, id: string, index: number, approve: boolean) => Promise<Session>
   /** A kept change against the copy from before it, or a held change against the file as it is. */
   compare: (project: string, id: string, which: 'kept' | 'held', index: number) => Promise<Compared>

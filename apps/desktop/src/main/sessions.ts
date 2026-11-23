@@ -32,6 +32,9 @@ export function step(message: Message, what: string): void {
 /** A file the agent changed and Mate let through. `backup` names the bytes from before. Null: there was no file. */
 export type Kept = { path: string; backup: string | null; reverted: boolean }
 
+/** A document the agent proposes for the shelf. `path` is a file of the project. Only the reader publishes it. */
+export type Shelve = { path: string; name: string; state: 'waiting' | 'published' | 'discarded' }
+
 /** A change Mate put back and holds. `file` names the agent's bytes. Null: the agent deleted the file. */
 export type Held = { path: string; file: string | null; state: 'waiting' | 'approved' | 'discarded' }
 
@@ -56,6 +59,8 @@ export type Session = {
   queue: { text: string; approve: boolean }[]
   changes: Kept[]
   held: Held[]
+  /** What the agent proposed for the shelf. Older sessions have none. */
+  shelve?: Shelve[]
   running: boolean
   /** What the agent will not do until the reader says yes or no. Only while a turn runs. */
   asks?: Ask[]

@@ -5,6 +5,20 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## Unreleased
+
+### Added
+
+- *Publish Drafts to the Shelf…* on a folder of drafts, in the file list. All
+  the drafts under it go to the shelf in one go, named by their paths, after
+  one dialog of the system that says how many and what is replaced. An agent
+  can arrange the drafts in folders, and the reader publishes the folder.
+- An agent that comes in over MCP has a tool, `mate_shelve`, to propose
+  documents for the shelf: files of its project and the names they take. The
+  Agent tab shows the list, and the reader publishes it with one dialog of the
+  system. The agent publishes nothing. Mate takes the text out of PDF and
+  Word files.
+
 ## [0.37.1] - 2026-11-13
 
 A local picture in a Markdown draft is now drawn in the window, not left as a

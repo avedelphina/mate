@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -224,6 +224,51 @@ test('the door for the reader\'s own agent leads to a session made for it, and t
     await assert.rejects(ownSession(root, 'review', 'no-such-session'))
     await assert.rejects(ownSession(root, 'review', '../../../etc'))
   } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('an agent proposes documents for the shelf, and nothing is published until the reader does it', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-shelve-'))
+  await mkdir(path.join(root, 'projects/law/draft'), { recursive: true })
+  await mkdir(path.join(root, 'projects/other/draft'), { recursive: true })
+  await mkdir(path.join(root, 'shelf'))
+  await writeFile(path.join(root, 'projects/law/draft/act.md'), '# Act\n')
+  await writeFile(path.join(root, 'projects/other/draft/not-mine.md'), '# Not mine\n')
+  const session = await startSession(root, 'law', 'mcp')
+  const binding: Binding = { contextDir: root, project: 'law', id: session.id }
+  const door = await startMcp({ port: 0, token: 'secret', binding: () => binding, changed: () => {} })
+  const call = async (items: unknown) => {
+    const response = await fetch(`http://127.0.0.1:${door.port}/mcp`, {
+      method: 'POST',
+      headers: { authorization: 'Bearer secret' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'mate_shelve', arguments: { items } } })
+    })
+    const { result } = (await response.json()) as { result: { content: { text: string }[]; isError?: boolean } }
+    return { text: result.content[0].text, failed: result.isError === true }
+  }
+  try {
+    assert.equal((await call([{ path: 'projects/law/draft/act.md', name: 'law/act' }])).failed, false)
+    const waiting = async () => (await loadSession(root, 'law', session.id)).shelve ?? []
+    assert.deepEqual(await waiting(), [{ path: 'projects/law/draft/act.md', name: 'law/act', state: 'waiting' }])
+    // A proposal is a list. The shelf is as it was.
+    assert.deepEqual(await readdir(path.join(root, 'shelf')), [])
+    // The same file again changes its name, and is not a second entry.
+    await call([{ path: 'projects/law/draft/act.md', name: 'law/act-2' }])
+    assert.deepEqual((await waiting()).map((each) => each.name), ['law/act-2'])
+    // One bad item keeps the whole list out: another project, a hidden path, a name the shelf refuses, a missing file.
+    for (const bad of [
+      { path: 'projects/other/draft/not-mine.md', name: 'x' },
+      { path: 'projects/law/draft/.x.md', name: 'x' },
+      { path: 'projects/law/draft/act.md', name: '../x' },
+      { path: 'projects/law/draft/nope.md', name: 'x' }
+    ]) {
+      assert.equal((await call([{ path: 'projects/law/draft/act.md', name: 'fine' }, bad])).failed, true)
+    }
+    assert.deepEqual((await waiting()).map((each) => each.name), ['law/act-2'])
+    assert.equal((await call([])).failed, true)
+  } finally {
+    door.close()
     await rm(root, { recursive: true, force: true })
   }
 })

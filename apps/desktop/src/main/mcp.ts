@@ -4,7 +4,7 @@ import { lstat, readFile, readdir, rmdir } from 'node:fs/promises'
 import http from 'node:http'
 import path from 'node:path'
 import { addReply, readDocument } from '../shared/comments'
-import { addComment, diskParts, editDraft, keptDisk, readCommented, readContextFile, realInside } from './context'
+import { addComment, diskParts, shelfPath, editDraft, keptDisk, readCommented, readContextFile, realInside } from './context'
 import { placeOf, refreshIndex, searchIndex, type Kind } from './contextIndex'
 import { meaningRuns, searchMeaning } from './meaning'
 import { judge, loadSession, saveSession, type Session } from './sessions'
@@ -88,7 +88,8 @@ Rules:
    Between the square brackets is the script, then what it is given, and nothing else. It is run from the
    project folder. A word in curly brackets, such as {file}, is asked of the reviewer when they press the
    button. A script cannot ask anything while it runs: what it needs, it is given, or it takes from a file.
-8. Do not invent evidence that the sources do not contain.`
+8. You cannot publish. To put documents on the shelf, call mate_shelve with the files of your project and the names they should take. The reviewer publishes the whole list with one answer.
+9. Do not invent evidence that the sources do not contain.`
 
 const text = { type: 'string' }
 const tool = (name: string, description: string, properties: Json = {}, required = Object.keys(properties)) => ({
@@ -123,6 +124,16 @@ export const TOOLS = [
     from: text,
     to: text
   }),
+  {
+    name: 'mate_shelve',
+    description:
+      'Propose documents of your project for the shelf, the reference every project reads as true. Only the reviewer publishes: this makes a list they approve once, and nothing is published until they do. Each item is a file of your project (a draft, or a PDF, Word or text file) and the name it takes on the shelf, with a folder before a slash if you like.',
+    inputSchema: {
+      type: 'object',
+      properties: { items: { type: 'array', items: { type: 'object', properties: { path: text, name: text }, required: ['path', 'name'] } } },
+      required: ['items']
+    }
+  },
   tool('mate_delete', 'Delete a file of your project, with its comments and its note. Needs the plan approved. The reviewer can revert it.', { path: text })
 ]
 
@@ -260,6 +271,28 @@ async function run(binding: Binding, session: Session, name: string, input: Json
       await pruneEmpty(path.join(contextDir, '.mate', 'projects', session.project, ...from.split('/').slice(2)))
       const count = files.length > 1 ? ` (${files.length} files)` : ''
       return `Moved ${from} to ${to}${count}. The reviewer can revert it, file by file.`
+    }
+    case 'mate_shelve': {
+      const items: unknown[] = Array.isArray(input.items) ? input.items : []
+      if (items.length === 0 || items.length > 500) throw new Error('Send between 1 and 500 items.')
+      // All of it is checked before any of it is kept.
+      const checked: { path: string; name: string }[] = []
+      for (const item of items as Json[]) {
+        const relative = partsOf(item?.path).join('/')
+        inOwnProject(session, relative)
+        if (relative.split('/')[2] === 'panes') throw new Error(`${relative}: a pane is shown, not published.`)
+        if (!(await lstat(path.join(contextDir, ...diskParts(contextDir, relative.split('/')))).catch(() => null))?.isFile()) throw new Error(`${relative} is not a file of your project.`)
+        const name = String(item?.name ?? '').trim()
+        shelfPath(name)
+        checked.push({ path: relative, name })
+      }
+      const list = (session.shelve ??= [])
+      for (const each of checked) {
+        const there = list.find((entry) => entry.state === 'waiting' && entry.path === each.path)
+        if (there) there.name = each.name
+        else list.push({ ...each, state: 'waiting' })
+      }
+      return `${checked.length} proposed for the shelf. The reviewer publishes them, in one go, when they say so. Nothing is published yet.`
     }
     case 'mate_delete': {
       const relative = partsOf(input.path).join('/')

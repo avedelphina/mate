@@ -6,7 +6,7 @@ import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 
 import { spawn } from 'node:child_process'
 import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
-import { addReply, anchorComment, applySuggestion, editComment, fileLineOf, removeComment, setCommentPrivate, setResolved } from '../shared/comments'
+import { addReply, anchorComment, applySuggestion, editComment, fileLineOf, readDocument, removeComment, setCommentPrivate, setResolved } from '../shared/comments'
 import { withTags } from '../shared/tags'
 import { addable, AGENTS, agentEnvironment, describeAgent, discoverAgents, type AgentKind } from './agents'
 import { checkAssist, runAssist, type AssistTask } from './assist'
@@ -54,6 +54,8 @@ import {
   noteSource,
   placeOnDisk,
   publish,
+  putOnShelf,
+  folderToShelf,
   pullIn,
   readContextFile,
   readPicture,
@@ -97,7 +99,7 @@ import {
   setPrivate,
   setTrusted
 } from './trust'
-import { allowNoMore, answerAsk, attend, closeAgentsIn, compare, doors, gate, isBusy, listAllSessions, listModels, listSessions, moveConversations, moveSessions, ownSession, revertChange, sendMessage, settleHeld, startSession, stopAllTurns, stopTurn, tuneSession, type Invited, type Session, whenIdle, working } from './sessions'
+import { allowNoMore, answerAsk, attend, closeAgentsIn, compare, doors, gate, isBusy, listAllSessions, listModels, listSessions, loadSession, saveSession, moveConversations, moveSessions, ownSession, revertChange, sendMessage, settleHeld, startSession, stopAllTurns, stopTurn, tuneSession, type Invited, type Session, whenIdle, working } from './sessions'
 
 // The name in the menu bar, and of the folder the app keeps its own data in. Run from a checkout it
 // has a name of its own: a checkout can be driven from outside, so it does not share the trusted
@@ -228,6 +230,30 @@ function tell(contextDir: string, session: Session): void {
   for (const window of BrowserWindow.getAllWindows()) {
     if (contexts.get(window.webContents.id) === contextDir) window.webContents.send('session:update', session)
   }
+}
+
+/** The text of a PDF, Word file or the like: a Word file keeps its headings and tables, the others are what the twin holds. */
+async function sourceText(contextDir: string, relative: string | null, full: string): Promise<string> {
+  const lower = full.toLowerCase()
+  const twin = relative ? await readFile(path.join(contextDir, twinOf(relative)), 'utf8').catch(() => null) : null
+  const text = lower.endsWith('.docx') ? docxToMarkdown(await readFile(full)) : lower.endsWith('.pdf') ? reflow(twin ?? (await extract(full, assistHelper))) : (twin ?? (await extract(full, assistHelper)))
+  if (!text.trim()) throw new Error('Mate found no text in that file. It may be locked, or hold pictures with no words in them.')
+  return text
+}
+
+/** The text a proposed file gives the shelf. A session file may carry any path, so it is held to the project here. */
+async function shelfText(contextDir: string, project: string, relative: string): Promise<Buffer> {
+  if (!relative.startsWith(`projects/${project}/`)) throw new Error('That file is not in this project.')
+  const full = await placeOnDisk(contextDir, relative)
+  const info = await stat(full)
+  if (!info.isFile() || info.size > 200 * 1024 * 1024) throw new Error('That is not a file to publish.')
+  if (/\.(md|markdown|txt)$/i.test(full)) {
+    const raw = await readFile(full, 'utf8')
+    // A draft is published as the page shows it: its comments are not.
+    return Buffer.from(/\.(md|markdown)$/i.test(full) ? readDocument(raw).text : raw)
+  }
+  if (!isTwinned(path.basename(full))) throw new Error('Mate takes the text out of a PDF, a Word file, a page or a table. That is not one.')
+  return Buffer.from(await sourceText(contextDir, relative, full))
 }
 
 /** Tell every window of a context something on a channel of its own. */
@@ -994,10 +1020,7 @@ app.whenReady().then(() => {
     const info = await stat(full)
     if (!info.isFile() || !isTwinned(name)) throw new Error('Mate takes the text out of a PDF, a Word file, a page or a table. That is not one.')
     if (info.size > 200 * 1024 * 1024) throw new Error('That file is too large to take the text out of here.')
-    const lower = name.toLowerCase()
-    const twin = relative ? await readFile(path.join(contextDir, twinOf(relative)), 'utf8').catch(() => null) : null
-    const text = lower.endsWith('.docx') ? docxToMarkdown(await readFile(full)) : lower.endsWith('.pdf') ? reflow(twin ?? (await extract(full, assistHelper))) : (twin ?? (await extract(full, assistHelper)))
-    if (!text.trim()) throw new Error('Mate found no text in that file. It may be locked, or hold pictures with no words in them.')
+    const text = await sourceText(contextDir, relative, full)
     return draftFromSource(contextDir, String(project), name, text, relative ? relative.slice(`projects/${String(project)}/`.length) : name)
   })
 
@@ -1028,6 +1051,44 @@ app.whenReady().then(() => {
     }
     const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
     return response === 1 ? publish(contextDir, project, file, String(name)) : null
+  })
+
+  // A folder of drafts goes to the shelf in one go, under the names of their paths. One dialog of the system names
+  // the count and what is replaced, so the reader decides once, not once for each file of a big batch.
+  ipcMain.handle('folder:publish', async (event, project: string, folder: string) => {
+    const contextDir = requireContext(event)
+    const { drafts, skipped } = await folderToShelf(contextDir, String(project), String(folder))
+    if (drafts.length === 0) throw new Error('There is no draft in that folder to publish.')
+    const onShelf = new Set(await listShelf(contextDir))
+    const replaced = drafts.filter((each) => onShelf.has(`${each.name}.md`)).length
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const shown = drafts.slice(0, 8).map((each) => `shelf/${each.name}.md`).join('\n')
+    const options = {
+      type: 'question' as const,
+      buttons: ['Cancel', `Publish ${drafts.length}`],
+      defaultId: 0,
+      cancelId: 0,
+      message: `Publish ${drafts.length} ${drafts.length === 1 ? 'draft' : 'drafts'} to the shelf?`,
+      detail:
+        `From projects/${project}/${folder ? `${String(folder).replace(/^\/+|\/+$/g, '')}/` : ''}\n\n${shown}${drafts.length > 8 ? `\n… and ${drafts.length - 8} more` : ''}\n\n` +
+        (replaced > 0 ? `${replaced} of them take the place of a document that is there. Those are kept as history. ` : 'All of them are new on the shelf. ') +
+        'Comments are not published.' +
+        (skipped.length > 0 ? `\n\n${skipped.length} left out, because the shelf cannot take their names: ${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? '…' : ''}` : '') +
+        '\n\nEvery project of this context reads the shelf as what is true now.'
+    }
+    const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+    if (response !== 1) return null
+    const failed: string[] = []
+    let done = 0
+    for (const each of drafts) {
+      try {
+        await publish(contextDir, String(project), each.file, each.name)
+        done += 1
+      } catch {
+        failed.push(each.file)
+      }
+    }
+    return { done, failed, skipped }
   })
 
   // The reader ticks a task in a pane. One character of the pane's file changes, and no other file can.
@@ -1155,6 +1216,60 @@ app.whenReady().then(() => {
   ipcMain.handle('session:settle', (event, project: string, id: string, index: number, approve: boolean) =>
     settleHeld(requireContext(event), project, id, index, approve)
   )
+
+  // The documents an agent proposed for the shelf are published in one go, or dropped. Publishing is the reader's act, so
+  // the system asks once, naming the count and what is replaced. The agent only made the list.
+  ipcMain.handle('session:shelve', async (event, project: string, id: string, approve: boolean) => {
+    const contextDir = requireContext(event)
+    const session = await loadSession(contextDir, String(project), String(id))
+    const waiting = (session.shelve ?? []).filter((each) => each.state === 'waiting')
+    if (waiting.length === 0) throw new Error('Nothing is waiting for the shelf.')
+    if (!approve) {
+      for (const each of waiting) each.state = 'discarded'
+      await saveSession(contextDir, session)
+      return session
+    }
+    const onShelf = new Set(await listShelf(contextDir))
+    const names = waiting.map((each) => {
+      try {
+        return shelfPath(each.name).slice('shelf/'.length)
+      } catch {
+        return null
+      }
+    })
+    const replaced = names.filter((each) => each !== null && onShelf.has(each)).length
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      type: 'question' as const,
+      buttons: ['Cancel', `Publish ${waiting.length}`],
+      defaultId: 0,
+      cancelId: 0,
+      message: `Publish ${waiting.length} ${waiting.length === 1 ? 'document' : 'documents'} to the shelf?`,
+      detail:
+        `The agent proposed these from projects/${project}/:\n\n${waiting.slice(0, 8).map((each, at) => `${each.path.split('/').slice(2).join('/')}\n   → ${names[at] ? `shelf/${names[at]}` : 'a name the shelf cannot take'}`).join('\n')}${waiting.length > 8 ? `\n… and ${waiting.length - 8} more` : ''}\n\n` +
+        (replaced > 0 ? `${replaced} of them take the place of a document that is there. Those are kept as history. ` : 'None of them replaces a document. ') +
+        'Mate takes the text out of PDF and Word files.\n\nEvery project of this context reads the shelf as what is true now.'
+    }
+    const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+    if (response !== 1) return session
+    const failed: string[] = []
+    for (const each of waiting) {
+      try {
+        await putOnShelf(contextDir, each.name, await shelfText(contextDir, String(project), each.path))
+        each.state = 'published'
+      } catch (caught) {
+        failed.push(`${each.path}: ${(caught as Error).message}`)
+      }
+    }
+    const done = waiting.length - failed.length
+    session.messages.push({
+      role: 'mate',
+      text: `Published ${done} ${done === 1 ? 'document' : 'documents'} to the shelf.${failed.length > 0 ? ` ${failed.length} not published, and still waiting:\n${failed.slice(0, 5).join('\n')}` : ''}`,
+      tools: []
+    })
+    await saveSession(contextDir, session)
+    return session
+  })
 
   ipcMain.handle('trust:get', (event) => isTrusted(requireContext(event)))
 
