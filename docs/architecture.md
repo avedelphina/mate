@@ -412,6 +412,14 @@ remembered.
   `extracted` in its front matter. The original stays where it was. The
   reader can still ask the agent, for form Mate cannot see, and the agent
   writes through the guard like any other change.
+- *Its text taken out, beside it.* For a file already in the project,
+  *Extract it beside the file* writes the same text as a markdown file of the
+  same name in the same folder (`extractBeside` in `context.ts`, asked by
+  `source:extractbeside`), with `source` and `extracted` in its front matter.
+  The file stays, and one of that name is never written over. It is material
+  like any file of the project, found by search, and not a draft. The card of
+  a file of the project is for that file: opening another takes it away
+  (`dropCards` in `App.tsx`). A file still being decided about stays.
 
 A folder from outside has one exit of its own. `copyFolder` copies it
 into the project whole, with its folders, under its own name, as

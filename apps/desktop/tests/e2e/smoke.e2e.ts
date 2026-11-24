@@ -326,7 +326,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
       const field = document.querySelector('.record-head input[aria-label="owner"]')
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, 'Jan: "the" owner')
       field.dispatchEvent(new Event('input', { bubbles: true }))
-      field.blur()
+      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
     })()`)
     // The box keeps what was typed whether or not it was saved, so the file is what is waited for.
     for (let waited = 0; waited < 50 && !/owner: "/.test(await readFile(path.join(project, 'draft/page.md'), 'utf8')); waited++) await new Promise((done) => setTimeout(done, 100))
@@ -334,6 +334,23 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.page(`document.querySelector('.record-head button[aria-label="Remove owner"]').click()`)
     await app.until(`!document.querySelector('.record-head input[aria-label="owner"]')`, 'the owner, taken out')
     assert.doesNotMatch(await readFile(path.join(project, 'draft/page.md'), 'utf8'), /owner/)
+    await app.press('.projects .tree .row', 'document.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
+
+    // The text of a file can be taken out beside it, and the card of a file goes when another is opened.
+    await writeFile(path.join(project, 'beside.html'), '<html><body><h1>Annex</h1><p>Pay in 60 days.</p></body></html>')
+    await app.page(`window.dispatchEvent(new Event('focus'))`)
+    await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'beside.html')`, 'the page beside in the tree')
+    await app.press('.projects .tree .row', 'beside.html')
+    await app.until(`[...document.querySelectorAll('.source button')].some((each) => each.textContent === 'Extract it beside the file')`, 'the card, with the button for a file beside')
+    await app.press('.projects .tree .row', 'document.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document.md') && document.querySelectorAll('.source').length === 0`, 'the card gone when another file is opened')
+    await app.press('.projects .tree .row', 'beside.html')
+    await app.until(`[...document.querySelectorAll('.source button')].some((each) => each.textContent === 'Extract it beside the file')`, 'the card again')
+    await app.press('.source button', 'Extract it beside the file')
+    await app.until(`document.querySelector('.center .bar')?.textContent.includes('beside.md')`, 'the text, open beside the file')
+    assert.match(await readFile(path.join(project, 'beside.md'), 'utf8'), /^---\nsource: beside\.html\nextracted: \d{4}-\d{2}-\d{2}\n---\n\n[\s\S]*Annex[\s\S]*Pay in 60 days\./)
+    assert.equal(await readFile(path.join(project, 'beside.html'), 'utf8'), '<html><body><h1>Annex</h1><p>Pay in 60 days.</p></body></html>', 'the file is as it was')
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 
@@ -552,6 +569,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.deepEqual(await app.page(`[...document.querySelectorAll('.source .acts button')].map((each) => each.textContent.trim())`), [
       mac ? 'Show it in Finder' : 'Show it in the file manager',
       'Make a draft from its text',
+      'Extract it beside the file',
       'Or ask the agent to write it',
       'Close'
     ])

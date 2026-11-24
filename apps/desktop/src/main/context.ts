@@ -862,6 +862,27 @@ export async function draftFromSource(contextDir: string, project: string, name:
   return readProject(contextDir, project, file)
 }
 
+/**
+ * Write the text taken out of a file of the project next to it, as a markdown file of the same name, with where it came
+ * from at the top. The file stays where it is. One of that name is never written over. `relative` is the file's path from
+ * the project folder. Gives the new file's path from the project.
+ */
+export async function extractBeside(contextDir: string, project: string, relative: string, text: string): Promise<string> {
+  const parts = String(relative).split('/')
+  const name = parts.pop() ?? ''
+  if (parts.some((part) => part === '' || part.startsWith('.')) || name === '' || name.startsWith('.')) throw new Error('That is not a file of this project.')
+  const folder = await realInside(contextDir, 'projects', project, ...parts)
+  const made = `${name.replace(/\.[^.]+$/, '') || 'extract'}.md`
+  const body = `---\nsource: ${name.replace(/[\r\n]+/g, ' ')}\nextracted: ${new Date().toISOString().slice(0, 10)}\n---\n\n${text.trim()}\n`
+  try {
+    await writeFile(path.join(folder, made), body, { flag: 'wx' })
+  } catch {
+    throw new Error(`${made} is already beside it.`)
+  }
+  mateWrote(contextDir, path.relative(contextDir, path.join(folder, made)).split(path.sep).join('/'), Buffer.from(body))
+  return [...parts, made].join('/')
+}
+
 /** Start a new draft in a project: a file with its title and nothing else. An existing file is never written over. */
 /** The templates of a context: the markdown files in its `templates/` folder. A new draft can start as one. */
 export async function listTemplates(contextDir: string): Promise<string[]> {

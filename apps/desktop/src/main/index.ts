@@ -49,6 +49,7 @@ import {
   sendToProject,
   describeContext,
   draftFromSource,
+  extractBeside,
   editDraft,
   listContextFiles,
   listShelf,
@@ -1095,6 +1096,20 @@ app.whenReady().then(() => {
     if (info.size > 200 * 1024 * 1024) throw new Error('That file is too large to take the text out of here.')
     const text = await sourceText(contextDir, relative, full)
     return draftFromSource(contextDir, String(project), name, text, relative ? relative.slice(`projects/${String(project)}/`.length) : name)
+  })
+
+  // The same text, beside the file in the project and not in draft/: a markdown file of the same name. Only a file of this project.
+  ipcMain.handle('source:extractbeside', async (event, project: string, relative: string) => {
+    const contextDir = requireContext(event)
+    const lead = `projects/${String(project)}/`
+    if (!String(relative).startsWith(lead)) throw new Error('That file is not in this project.')
+    const full = await placeOnDisk(contextDir, String(relative))
+    const name = path.basename(full)
+    const info = await stat(full)
+    if (!info.isFile() || !isTwinned(name)) throw new Error('Mate takes the text out of a PDF, a Word file, a page or a table. That is not one.')
+    if (info.size > 200 * 1024 * 1024) throw new Error('That file is too large to take the text out of here.')
+    const made = await extractBeside(contextDir, String(project), String(relative).slice(lead.length), await sourceText(contextDir, String(relative), full))
+    return { made, view: await readProject(contextDir, String(project), `/${made}`) }
   })
 
   // A document in a dropbox is pulled into the project's drafts. It leaves the dropbox.

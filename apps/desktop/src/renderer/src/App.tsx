@@ -1013,6 +1013,7 @@ export function App() {
 
   async function openProject(name: string, draft?: string) {
     if (!(await leaveEditor())) return
+    dropCards()
     setPullsOpen(false)
     setRecordsOpen(false)
     setError(null)
@@ -1037,6 +1038,7 @@ export function App() {
   /** Put a file on the page to be read, not reviewed. `path` is counted from the context folder. */
   async function read(path: string) {
     if (!(await leaveEditor())) return
+    dropCards(path)
     setPullsOpen(false)
     setRecordsOpen(false)
     setAgentOnPage(false)
@@ -1063,6 +1065,7 @@ export function App() {
     if (!view) return
     const project = view.project
     if (!(await leaveEditor())) return
+    dropCards()
     try {
       const next = await whileOpening(path.split('/').pop() ?? path, window.mate.openProject(project, path))
       setPullsOpen(false)
@@ -1573,6 +1576,9 @@ export function App() {
       )
     )
 
+  /** The card of a file of the project is for that file: opening another takes it away. A file still being decided about stays. */
+  const dropCards = (keep?: string) => setSources((all) => (all.some((each) => each.inContext && each.inContext !== keep) ? all.filter((each) => !each.inContext || each.inContext === keep) : all))
+
   const settled = (source: Source) => setSources((all) => all.filter((each) => each !== source))
 
   /** The reader chooses files and folders in the dialog of the system. Each then leaves by one of the exits. */
@@ -1656,6 +1662,21 @@ export function App() {
       const id = source.inContext ? null : (source.id ?? (await window.mate.pickSources(source.where)).find((each) => !each.markdown && !each.folder)?.id)
       if (!source.inContext && !id) return
       const made = await window.mate.extractSource(view.project, source.inContext ? 'path' : 'id', source.inContext ?? id!)
+      settled(source)
+      setError(null)
+      setReading(null)
+      setAgentOnPage(false)
+      setView(made)
+    } catch (caught) {
+      setError(reason(caught, 'Could not take the text out of that file.'))
+    }
+  }
+
+  /** The text of a file of the project, in a markdown file beside it. The file stays; the new one opens. */
+  async function extractBesideIt(source: Source) {
+    if (!view || !source.inContext || !(await leaveEditor())) return
+    try {
+      const { view: made } = await window.mate.extractBeside(view.project, source.inContext)
       settled(source)
       setError(null)
       setReading(null)
@@ -2402,6 +2423,11 @@ export function App() {
                       {isTwinned(source.name) && (
                         <button className="primary" title="Mate takes the text out itself, with no agent. A Word file keeps its headings, lists and tables." onClick={() => void extractHere(source)}>
                           Make a draft from its text
+                        </button>
+                      )}
+                      {isTwinned(source.name) && source.inContext && (
+                        <button title="The same text, in a markdown file of the same name beside this one. The file stays where it is." onClick={() => void extractBesideIt(source)}>
+                          Extract it beside the file
                         </button>
                       )}
                       <button title="Said to the agent in the open session, for a file Mate cannot read, or form it cannot see." onClick={() => void extract(source)}>

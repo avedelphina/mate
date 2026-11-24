@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, truncate, writeFi
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { readSteeringFile, writeSteeringFile, addComment, createContext, inCloudOnly, listProjectTemplates, listTemplates, createDraft, createFile, createProject, describeContext, draftFromSource, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
+import { readSteeringFile, writeSteeringFile, addComment, createContext, inCloudOnly, listProjectTemplates, listTemplates, createDraft, createFile, createProject, describeContext, draftFromSource, extractBeside, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
@@ -421,6 +421,22 @@ test('a markdown file that is not a draft is reviewed too, with its comments bes
       assert.equal(reviewableMarkdown(no), false, no)
     }
     await assert.rejects(addComment(root, 'review', '/dropbox/letter.md', 'x', 'y', 'you', 0))
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('the text of a file is written beside it, in its own folder, and nothing is written over', async () => {
+  const root = await context()
+  try {
+    await mkdir(path.join(root, 'projects/review/Intune/compare'), { recursive: true })
+    await writeFile(path.join(root, 'projects/review/Intune/compare/tenants.csv'), 'a,b\n1,2\n')
+    assert.equal(await extractBeside(root, 'review', 'Intune/compare/tenants.csv', '| a | b |\n'), 'Intune/compare/tenants.md')
+    assert.match(await readFile(path.join(root, 'projects/review/Intune/compare/tenants.md'), 'utf8'), /^---\nsource: tenants\.csv\nextracted: \d{4}-\d{2}-\d{2}\n---\n\n\| a \| b \|\n$/)
+    assert.equal(await readFile(path.join(root, 'projects/review/Intune/compare/tenants.csv'), 'utf8'), 'a,b\n1,2\n')
+    await assert.rejects(extractBeside(root, 'review', 'Intune/compare/tenants.csv', 'x'), /tenants\.md is already beside it/)
+    await assert.rejects(extractBeside(root, 'review', '../outside.csv', 'x'), /not a file of this project/)
+    await assert.rejects(extractBeside(root, 'review', 'Intune/missing/x.csv', 'x'), /ENOENT|no such|leaves/i)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

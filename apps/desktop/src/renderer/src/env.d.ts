@@ -303,6 +303,7 @@ export type MateApi = {
   getFirecrawl: () => Promise<{ hasKey: boolean; base: string }>
   /** Try the key, then save it. Firecrawl refusing it is an error and nothing is saved. An empty key keeps the saved one, unless the address changed. An empty address is Firecrawl's cloud. `checked` says what the try found. */
   setFirecrawl: (key: string | undefined, base: string) => Promise<{ hasKey: boolean; base: string; checked: string }>
+  extractBeside: (project: string, path: string) => Promise<{ made: string; view: DocumentView }>
   extractSource: (project: string, how: 'path' | 'id', value: string) => Promise<DocumentView>
   moveFile: (project: string, from: string, to: string) => Promise<DocumentView>
   addComment: (

@@ -103,7 +103,9 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   text out itself, with no agent, and writes it as a draft with where it
   came from at the top. A Word file keeps its headings, lists, tables,
   bold and links; a PDF comes as paragraphs, and a scan is read off its
-  pictures. *Or ask the agent to write it* is for form Mate cannot see. A
+  pictures. *Extract it beside the file* writes the same text as a markdown
+  file of the same name next to the original, in its own folder. *Or ask the
+  agent to write it* is for form Mate cannot see. A
   folder is copied into the project whole, with
   its folders, so search reads what is in it.
 - **The files of a context.** The rail lists the shelf, then under

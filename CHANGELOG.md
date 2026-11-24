@@ -5,6 +5,20 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- *Extract it beside the file* on the card of a PDF, Word file, page or table of the project. It
+  writes the text as a markdown file of the same name in the same folder, with where it came from
+  at the top, and opens it. The original stays. A file of that name is never written over.
+
+### Fixed
+
+- The card of a file stayed on the page after another file was opened. It now goes when you open
+  something else.
+- In the Properties row, Enter saves a field at once, as leaving the box does.
+
 ## [0.41.0] - 2026-11-24
 
 ### Added

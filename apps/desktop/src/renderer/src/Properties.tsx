@@ -94,7 +94,8 @@ export function Properties(props: {
                 size={Math.max(6, Math.min(40, value.length + 1))}
                 placeholder="…"
                 onBlur={(event) => event.target.value.trim() !== value && props.onSet(key, event.target.value.trim())}
-                onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
+                // Enter saves at once and does not wait for the box to lose focus.
+                onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.value.trim() !== value && props.onSet(key, event.currentTarget.value.trim())}
               />
             )}
             {suggested.length > 0 && !options && !day && <datalist id={`values-${key}`}>{suggested.map((each) => <option key={each} value={each} />)}</datalist>}

@@ -68,6 +68,7 @@ contextBridge.exposeInMainWorld('mate', {
   listProjectTemplates: () => ipcRenderer.invoke('context:projectTemplates'),
   createFile: (project: string, name: string, folder?: string) => ipcRenderer.invoke('file:create', project, name, folder),
   sendToProject: (project: string, file: string, target: string, passage: string, note: string) => ipcRenderer.invoke('project:send', project, file, target, passage, note),
+  extractBeside: (project: string, path: string) => ipcRenderer.invoke('source:extractbeside', project, path),
   extractSource: (project: string, how: 'path' | 'id', value: string) => ipcRenderer.invoke('source:extract', project, how, value),
   moveFile: (project: string, from: string, to: string) => ipcRenderer.invoke('file:move', project, from, to),
   addComment: (
