@@ -34,6 +34,7 @@ apps/desktop/          the Electron app (the only application)
   electron-builder.yml how the app is put together to be installed
   tests/               node:test unit tests
   tests/e2e/           the built app, driven through its window
+tour/                  the tour: a small context that is the tutorial, copied by Take the tour
 skills/mate/           SKILL.md: what an agent can do with Mate (Settings saves it)
 contexts/_example/     a sample context, safe to open and edit
 docs/                  model.md (the rules), architecture.md, roadmap.md,
@@ -142,6 +143,7 @@ Key modules in `apps/desktop/src/main/`:
   whether an agent's change is kept or held. Also the note of an open
   turn, and what is said when one was cut off.
 - `trust.ts` — the contexts the reader trusts.
+- `tour.ts` — copies the tour (`apps/desktop/tour/`) to where the reader says, file by file.
 - `references.ts` — places outside a context that agents are told of and may read,
   kept outside the context like trust.
 - `recent.ts` — the contexts opened last, for the window that has none open.

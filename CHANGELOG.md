@@ -9,12 +9,16 @@ then, minor versions may change behaviour.
 
 ### Added
 
+- The tour. *Take the tour…* on the first window, and in the Help menu, copies a small context to a
+  folder you choose and opens it. It is the tutorial: a page for each idea, with one thing to try
+  on each, a pane, a dropbox and a table to take the text from. It holds documents only.
 - Folder icons. *Set Icon…* in a folder's menu gives it one of Mate's pictures or one emoji in the
   rail. They are kept in the context's private folder, not in the project, so a repository gets
   nothing, and they follow a folder when it moves.
 
 ### Changed
 
+- A `[[link]]` written inside code, in backticks or a fenced block, is no link. It is text about links.
 - In the rail, Records, Graph and References are one control, since each takes the middle of the
   window and only one can at a time. Files and Tags stay their own. The spacing between the two is
   the same on every project.

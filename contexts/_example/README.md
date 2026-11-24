@@ -1,5 +1,7 @@
 # Example context
 
+For a guided look at Mate, use *Take the tour…* in the app. This folder is only a shape to copy.
+
 A context is a vessel of knowledge. It is not a place where work happens.
 
 This directory is a shape, not a sample of anyone's work. Copy it and

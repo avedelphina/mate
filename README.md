@@ -9,10 +9,13 @@ invited into a project to read the context, propose a plan, make changes
 that you approve, and show you what it gathered in a pane beside the
 draft. Nothing is copied into a database, and nothing needs a server.
 
-> **Status: early.** Version 0.31.0. Built and driven on macOS and Linux.
+> **Status: early.** Built and driven on macOS and Linux. The version is in `apps/desktop/package.json`.
 > [Download it](https://github.com/avedelphina/mate/releases/latest) for a
 > Mac with Apple silicon or an x86-64 Linux computer, or run it from a
 > checkout. See [Known limits](#known-limits) and the [changelog](CHANGELOG.md).
+
+**New here?** *Take the tour…* on the first window, or in the Help menu, copies a small context to a
+folder you choose. It is the tutorial: you read it in Mate, and each page asks you to try one thing.
 
 ## Why it is built this way
 

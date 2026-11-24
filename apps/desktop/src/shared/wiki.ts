@@ -8,8 +8,17 @@ export type WikiLink = { start: number; end: number; target: string; heading: st
 /** `![[x]]` embeds a file in Obsidian, and is not a link. */
 const LINK = /(?<!!)\[\[([^[\]\n|#]+?)(?:#([^[\]\n|]*))?(?:\|([^[\]\n]*))?\]\]/g
 
+/** Where the text is code: a fenced block, or a stretch between backticks. A link written there is text about links. */
+function codeRanges(text: string): [number, number][] {
+  const found: [number, number][] = []
+  for (const block of text.matchAll(/^(```|~~~)[^\n]*\n[\s\S]*?(?:^\1[^\n]*$|$(?![\s\S]))/gm)) found.push([block.index, block.index + block[0].length])
+  for (const span of text.matchAll(/`[^`\n]+`/g)) if (!found.some(([from, to]) => span.index >= from && span.index < to)) found.push([span.index, span.index + span[0].length])
+  return found
+}
+
 export function wikiLinks(text: string): WikiLink[] {
-  return [...text.matchAll(LINK)].filter((found) => found[1].trim() !== '').map((found) => ({
+  const code = text.includes('`') || text.includes('~~~') ? codeRanges(text) : []
+  return [...text.matchAll(LINK)].filter((found) => found[1].trim() !== '' && !code.some(([from, to]) => found.index >= from && found.index < to)).map((found) => ({
     start: found.index,
     end: found.index + found[0].length,
     target: found[1].trim(),

@@ -3,6 +3,11 @@ import test from 'node:test'
 import { linkedFrom, type Index } from '../src/main/contextIndex.ts'
 import { nameFor, relink, resolveWiki, wikiLinks } from '../src/shared/wiki.ts'
 
+test('a link written as code is text about links, not a link', () => {
+  const text = 'Write `[[name]]` for a link. [[real]] is one.\n\n```\n[[in a block]]\n```\n\n~~~md\n[[also code]]\n~~~\n\nAnd [[last]].'
+  assert.deepEqual(wikiLinks(text).map((link) => link.target), ['real', 'last'])
+})
+
 test('a link is read with its heading and its shown words, and an embed is no link', () => {
   const text = 'See [[a]], [[b#Part|the part]] and ![[picture.png]] but not [[ ]] or [single].'
   assert.deepEqual(

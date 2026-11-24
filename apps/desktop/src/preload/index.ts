@@ -9,6 +9,12 @@ contextBridge.exposeInMainWorld('mate', {
   cleanUp: (): Promise<string | null> => ipcRenderer.invoke('cleanup:run'),
   commit: (message: string): Promise<number> => ipcRenderer.invoke('context:commit', message),
   newContext: () => ipcRenderer.invoke('context:create'),
+  startTour: () => ipcRenderer.invoke('tour:start'),
+  onTour: (listener: () => void) => {
+    const heard = () => listener()
+    ipcRenderer.on('tour:open', heard)
+    return () => ipcRenderer.removeListener('tour:open', heard)
+  },
   recentContexts: () => ipcRenderer.invoke('context:recent'),
   reopenContext: (dir: string) => ipcRenderer.invoke('context:reopen', dir),
   currentContext: () => ipcRenderer.invoke('context:current'),

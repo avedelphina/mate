@@ -679,6 +679,17 @@ export function App() {
     }
   }
 
+  /** The tour: a small context that is the tutorial, copied where the reader says, and opened. */
+  async function takeTour() {
+    setError(null)
+    try {
+      enter(await window.mate.startTour())
+    } catch (caught) {
+      setError(reason(caught, 'Could not copy the tour.'))
+    }
+  }
+  useEffect(() => window.mate.onTour(() => void takeTour()))
+
   /** Make the open folder a context, or start a git repository for it. Either is what the reader pressed. */
   async function settle(how: () => Promise<Opened>, failed: string) {
     setError(null)
@@ -1942,7 +1953,7 @@ export function App() {
   const refsHere = useMemo(() => Object.fromEntries(Object.entries(recordSet.refs).filter(([, where]) => where !== inTree)), [recordSet.refs, inTree])
 
   // With no context open, the window greets as Xcode does. Settings still open over it.
-  if (!contextDir && !settingsOpen) return <Welcome error={error} onOpen={() => void openContext()} onNew={() => void newContext()} onReopen={(dir) => void reopenContext(dir)} />
+  if (!contextDir && !settingsOpen) return <Welcome error={error} onOpen={() => void openContext()} onNew={() => void newContext()} onTour={() => void takeTour()} onReopen={(dir) => void reopenContext(dir)} />
 
   return (
     <div

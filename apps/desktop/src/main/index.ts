@@ -89,6 +89,7 @@ import { checkForUpdate, installUpdate, startUpdates, updateNow } from './update
 import { runScript, stopAllScripts, stopScript, wordsOf } from './scripts'
 import { buildDocuments, newRecord } from './records'
 import { propsInUse } from '../shared/props'
+import { copyTour } from './tour'
 import { referenceNamed } from '../shared/references'
 import { addReference, keepReferencesIn, referencesOf, removeReference } from './references'
 import { choicesByKind, recordOf, refsOf, withField } from '../shared/records'
@@ -486,7 +487,7 @@ function setMenu(): void {
       { role: 'windowMenu' },
       {
         role: 'help' as const,
-        submenu: [{ label: "What's New in Mate…", click: () => (BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0])?.webContents.send('news:open') }]
+        submenu: [{ label: 'Take the Tour…', click: () => (BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0])?.webContents.send('tour:open') }, { label: "What's New in Mate…", click: () => (BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0])?.webContents.send('news:open') }]
       }
     ])
   )
@@ -650,6 +651,28 @@ app.whenReady().then(() => {
     await createContext(result.filePath)
     contexts.set(event.sender.id, result.filePath)
     rememberContext(result.filePath)
+    readTwins(result.filePath)
+    return describeContext(result.filePath)
+  })
+
+  // The tour: a small context that is the tutorial, copied to where the reader says, and opened. The dialog is the reader's
+  // act, as when a context is started, and the copy has no program in it.
+  ipcMain.handle('tour:start', async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      title: 'Take the tour',
+      message: 'The tour is a small context. Choose where to put its folder.',
+      buttonLabel: 'Copy the tour here',
+      nameFieldLabel: 'Name:',
+      defaultPath: path.join(app.getPath('documents'), 'Mate tour'),
+      properties: ['createDirectory' as const]
+    }
+    const result = await (window ? dialog.showSaveDialog(window, options) : dialog.showSaveDialog(options))
+    if (result.canceled || !result.filePath) return null
+    await copyTour(path.join(app.getAppPath(), 'tour'), result.filePath)
+    contexts.set(event.sender.id, result.filePath)
+    rememberContext(result.filePath)
+    void refreshIndex(result.filePath).catch(() => {})
     readTwins(result.filePath)
     return describeContext(result.filePath)
   })

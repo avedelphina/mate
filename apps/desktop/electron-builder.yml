@@ -15,6 +15,7 @@ directories:
 files:
   - out/**/*
   - package.json
+  - tour/**/*
 npmRebuild: false
 
 # The release workflow uploads the packages and makes the update feed itself, so electron-builder publishes nothing.

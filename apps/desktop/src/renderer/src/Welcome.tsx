@@ -10,8 +10,8 @@ type Held = Awaited<ReturnType<typeof window.mate.recentContexts>>
  * The window while no context is open, as Xcode greets: the app and its version, the two ways to
  * start, and the contexts opened last. One of those opens with a click.
  */
-export function Welcome(props: { error: string | null; onOpen: () => void; onNew: () => void; onReopen: (dir: string) => void }) {
-  const { error, onOpen, onNew, onReopen } = props
+export function Welcome(props: { error: string | null; onOpen: () => void; onNew: () => void; onTour: () => void; onReopen: (dir: string) => void }) {
+  const { error, onOpen, onNew, onTour, onReopen } = props
   const [held, setHeld] = useState<Held | null>(null)
   useEffect(() => void window.mate.recentContexts().then(setHeld, () => {}), [])
   return (
@@ -23,6 +23,9 @@ export function Welcome(props: { error: string | null; onOpen: () => void; onNew
         <p className="acts">
           <button onClick={onOpen}>Open context…</button>
           <button title="A new folder with a shelf, a dropbox and room for projects" onClick={onNew}>New context…</button>
+        </p>
+        <p className="acts">
+          <button className="quiet" title="A small context that is the tutorial: you read it in Mate and try each thing as you go" onClick={onTour}>Take the tour…</button>
         </p>
         {error && <p className="error" role="alert">{error}</p>}
         <ul className="recent">

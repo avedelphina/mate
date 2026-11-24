@@ -899,6 +899,26 @@ time. The shelf is the accent colour and a draft is dark. A press opens a
 document. Past three hundred documents the most linked are drawn. It is read
 from the index and keeps nothing.
 
+## The tour
+
+*Take the tour…* on the first window, or in the Help menu, copies a small
+context to a folder the reader chooses in the dialog of the system, and opens
+it (`tour:start`). The context is `apps/desktop/tour/`, shipped in the app
+(`tour/**/*` in `electron-builder.yml`) and read from `app.getAppPath()`. It is
+the tutorial: a shelf document, a project with a page for each idea, a pane,
+a dropbox and a table to take the text from. It holds documents only, no script
+and no program, so it needs no trust. The project keeps its documents where they
+lie, with no `draft/` folder.
+
+`copyTour` in `main/tour.ts` copies it file by file with the functions that
+read inside the app's archive, which `fs.cp` does not. What Mate keeps in a hidden
+folder is shipped as `mate-private/` and given its name, `.mate/`, on the way, so
+a build that leaves out hidden folders loses nothing. A folder of that name is
+never written over. `tests/tour.test.ts` checks that every `[[link]]` in the tour
+means a file of it, bar the one that is there to show a broken link, and that
+each lesson is named on the start page. Write a lesson as a Mate document, one
+thing to try on each page, in short sentences.
+
 ## Folder icons
 
 A folder of a project can have its own picture in the rail: one of Mate's

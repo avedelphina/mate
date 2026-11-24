@@ -218,6 +218,8 @@ export type MateApi = {
   commit: (message: string) => Promise<number>
   /** A context in a folder that is not there yet. The reader names it and says where, in a dialog of the system. */
   newContext: () => Promise<Opened | null>
+  startTour: () => Promise<Opened | null>
+  onTour: (listener: () => void) => () => void
   /** The version, and the contexts opened last, newest first, for the window that has none open. `shown` is the folder as the reader knows it. */
   recentContexts: () => Promise<{ version: string; recent: { name: string; dir: string; shown: string }[] }>
   /** Open one of the contexts opened last. Main opens only one that is on its list. */
