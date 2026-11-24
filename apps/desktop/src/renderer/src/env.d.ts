@@ -1,5 +1,8 @@
 import type { RecordRow } from '../../shared/records'
 import type { Reference } from '../../shared/references'
+
+/** A table of a project, for the table view. See main/tables.ts. */
+export type TableView = { name: string; kind: 'csv' | 'tsv' | 'xlsx'; sheets: { name: string; rows: string[][] }[]; editable: boolean; why?: string; stamp: string }
 export type Reply = { text: string; author: string }
 
 export type ReviewComment = {
@@ -327,6 +330,8 @@ export type MateApi = {
   addReference: (name: string, about: string) => Promise<(Reference & { there: boolean })[] | null>
   removeReference: (name: string) => Promise<(Reference & { there: boolean })[]>
   revealReference: (target: string) => Promise<void>
+  readTable: (project: string, path: string) => Promise<TableView>
+  writeTable: (project: string, path: string, rows: string[][], stamp: string) => Promise<TableView>
   folderIcons: (project: string) => Promise<Record<string, string>>
   setFolderIcon: (project: string, folder: string, icon: string | null) => Promise<Record<string, string>>
   contextGraph: () => Promise<{ nodes: { path: string; title: string; kind: Kind; project: string | null }[]; links: [string, string][]; total: number }>

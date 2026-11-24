@@ -9,6 +9,11 @@ then, minor versions may change behaviour.
 
 ### Added
 
+- Tables. *Open as a table* on the card of a CSV, a TSV or an Excel workbook shows the rows and
+  columns, with a box under each column to filter by (`=exact`, `!without`) and a press on a
+  heading to put the rows in order. A CSV or TSV can be changed cell by cell and saved as the file
+  was written, in its own delimiter and line ends. A workbook is shown, not changed, and its dates
+  are dates. A file that changed since you opened it is not written over.
 - The tour. *Take the tour…* on the first window, and in the Help menu, copies a small context to a
   folder you choose and opens it. It is the tutorial: a page for each idea, with one thing to try
   on each, a pane, a dropbox and a table to take the text from. It holds documents only.
@@ -18,6 +23,8 @@ then, minor versions may change behaviour.
 
 ### Changed
 
+- The card of a file that Mate takes the text out of says what each button does: *Make a document
+  from its text*, *Save its text beside the file*, *Ask the agent to write it out*.
 - A `[[link]]` written inside code, in backticks or a fenced block, is no link. It is text about links.
 - In the rail, Records, Graph and References are one control, since each takes the middle of the
   window and only one can at a time. Files and Tags stay their own. The spacing between the two is

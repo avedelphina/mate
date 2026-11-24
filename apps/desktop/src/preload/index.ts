@@ -94,6 +94,8 @@ contextBridge.exposeInMainWorld('mate', {
   addReference: (name: string, about: string) => ipcRenderer.invoke('reference:add', name, about),
   removeReference: (name: string) => ipcRenderer.invoke('reference:remove', name),
   revealReference: (target: string) => ipcRenderer.invoke('reference:reveal', target),
+  readTable: (project: string, path: string) => ipcRenderer.invoke('table:read', project, path),
+  writeTable: (project: string, path: string, rows: string[][], stamp: string) => ipcRenderer.invoke('table:write', project, path, rows, stamp),
   folderIcons: (project: string) => ipcRenderer.invoke('icons:get', project),
   setFolderIcon: (project: string, folder: string, icon: string | null) => ipcRenderer.invoke('icons:set', project, folder, icon),
   contextGraph: () => ipcRenderer.invoke('context:graph'),

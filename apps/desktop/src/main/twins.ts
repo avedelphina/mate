@@ -165,21 +165,47 @@ const attribute = (tag: string, name: string): string => unescape(new RegExp(`\\
 /** The text of every <t> in a piece of a workbook, run together: a cell of rich text has several. */
 const texts = (xml: string): string => [...xml.matchAll(/<t(?:\s[^>]*)?>([^<]*)<\/t>/g)].map((each) => unescape(each[1])).join('')
 
+/** The cell styles of a workbook that show a date, by the number of the style: Excel keeps a date as a number and says by the style that it is one. */
+function dateStyles(xml: string): Set<number> {
+  const BUILT_IN = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 45, 46, 47, 50, 51, 52, 53, 54, 55, 56, 57, 58])
+  const custom = new Map([...xml.matchAll(/<numFmt\b[^>]*>/g)].map((each) => [Number(attribute(each[0], 'numFmtId')), attribute(each[0], 'formatCode')]))
+  // A format holds a date when it has a day, month, year, hour or second outside its quotes and brackets.
+  const dated = (format: string) => /[dmyhs]/i.test(format.replace(/"[^"]*"|\[[^\]]*\]|\\.|_.|\*./g, '')) && !/^general$/i.test(format)
+  const cellXfs = /<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/.exec(xml)?.[1] ?? ''
+  const styles = new Set<number>()
+  ;[...cellXfs.matchAll(/<xf\b[^>]*>/g)].forEach((each, at) => {
+    const id = Number(attribute(each[0], 'numFmtId'))
+    if (BUILT_IN.has(id) || (custom.has(id) && dated(custom.get(id)!))) styles.add(at)
+  })
+  return styles
+}
+
+/** The day Excel's number stands for, as 2026-11-24, with the time when it has one. */
+function excelDate(value: string): string {
+  const serial = Number(value)
+  if (!Number.isFinite(serial) || serial < 1 || serial > 2958465) return value
+  const at = new Date(Math.round((serial - 25569) * 86_400_000))
+  const day = at.toISOString().slice(0, 10)
+  return serial % 1 === 0 ? day : `${day} ${at.toISOString().slice(11, 16)}`
+}
+
+export type Sheet = { name: string; rows: string[][] }
+
 /**
- * The cells of an Excel workbook, each sheet as a markdown table under its name, so the page draws
- * it as a table and a passage found by meaning keeps its rows. A workbook is a zip of XML files: the
- * system's `unzip` gives each one, and its cells are read off it. Formulas give the value they last
- * had. Columns empty all the way down are left out.
+ * The cells of an Excel workbook, each sheet as rows of text. A workbook is a zip of XML files: the system's `unzip`
+ * gives each one, and its cells are read off it. Formulas give the value they last had, and a cell that Excel
+ * styles as a date is a date. Columns empty all the way down are left out.
  */
-// ponytail: the XML is read with patterns, not parsed: what Excel and its likes write is regular. A
-// date is the number Excel keeps for it. Parse properly if a workbook from another tool comes out empty.
-async function workbook(file: string): Promise<string> {
+// ponytail: the XML is read with patterns, not parsed: what Excel and its likes write is regular.
+// Parse properly if a workbook from another tool comes out empty.
+export async function readWorkbook(file: string): Promise<Sheet[]> {
   const part = (name: string) => run('/usr/bin/unzip', ['-p', path.resolve(file), name]).catch(() => '')
   const shared = [...(await part('xl/sharedStrings.xml')).matchAll(/<si>([\s\S]*?)<\/si>/g)].map((each) => texts(each[1]))
+  const dates = dateStyles(await part('xl/styles.xml'))
   const targets = new Map(
     [...(await part('xl/_rels/workbook.xml.rels')).matchAll(/<Relationship\b[^>]*>/g)].map((each) => [attribute(each[0], 'Id'), attribute(each[0], 'Target')])
   )
-  const out: string[] = []
+  const sheets: Sheet[] = []
   for (const sheet of (await part('xl/workbook.xml')).matchAll(/<sheet\b[^>]*>/g)) {
     const target = targets.get(attribute(sheet[0], 'r:id')) ?? ''
     const xml = target ? await part(target.startsWith('/') ? target.slice(1) : `xl/${target}`) : ''
@@ -189,17 +215,27 @@ async function workbook(file: string): Promise<string> {
       for (const cell of (row[1] ?? '').matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
         const [type, body] = [attribute(cell[1], 't'), cell[2] ?? '']
         const value = unescape(/<v>([^<]*)<\/v>/.exec(body)?.[1] ?? '')
-        const text = type === 's' ? (shared[Number(value)] ?? '') : type === 'inlineStr' ? texts(body) : type === 'b' ? (value === '1' ? 'TRUE' : 'FALSE') : value
+        let text = type === 's' ? (shared[Number(value)] ?? '') : type === 'inlineStr' ? texts(body) : type === 'b' ? (value === '1' ? 'TRUE' : 'FALSE') : value
+        if ((type === '' || type === 'n') && value !== '' && dates.has(Number(attribute(cell[1], 's')))) text = excelDate(value)
         const letters = attribute(cell[1], 'r').replace(/\d+$/, '')
         const at = letters ? [...letters].reduce((sum, letter) => sum * 26 + letter.charCodeAt(0) - 64, 0) - 1 : cells.length
-        cells[at] = text.replace(/\s+/g, ' ').trim().replaceAll('|', '\\|')
+        cells[at] = text.replace(/\s+/g, ' ').trim()
       }
       if (cells.some(Boolean)) rows.push(cells)
     }
     if (rows.length === 0) continue
     const used = [...new Set(rows.flatMap((cells) => Object.keys(cells).filter((at) => cells[Number(at)]).map(Number)))].sort((a, b) => a - b)
-    const line = (cells: string[]) => `| ${used.map((at) => cells[at] ?? '').join(' | ')} |`
-    out.push(`## ${attribute(sheet[0], 'name')}`, '', line(rows[0]), `|${' --- |'.repeat(used.length)}`, ...rows.slice(1).map(line), '')
+    sheets.push({ name: attribute(sheet[0], 'name'), rows: rows.map((cells) => used.map((at) => cells[at] ?? '')) })
+  }
+  return sheets
+}
+
+/** A workbook as markdown, each sheet a table under its name, so the page draws it as a table and a passage found by meaning keeps its rows. */
+async function workbook(file: string): Promise<string> {
+  const out: string[] = []
+  for (const { name, rows } of await readWorkbook(file)) {
+    const line = (cells: string[]) => `| ${cells.map((cell) => cell.replaceAll('|', '\\|')).join(' | ')} |`
+    out.push(`## ${name}`, '', line(rows[0]), `|${' --- |'.repeat(rows[0].length)}`, ...rows.slice(1).map(line), '')
   }
   return out.join('\n')
 }

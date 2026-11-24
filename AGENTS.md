@@ -143,6 +143,7 @@ Key modules in `apps/desktop/src/main/`:
   whether an agent's change is kept or held. Also the note of an open
   turn, and what is said when one was cut off.
 - `trust.ts` — the contexts the reader trusts.
+- `tables.ts` — a CSV, TSV or workbook as rows for the table view; a CSV or TSV is written back as it was.
 - `tour.ts` — copies the tour (`apps/desktop/tour/`) to where the reader says, file by file.
 - `references.ts` — places outside a context that agents are told of and may read,
   kept outside the context like trust.

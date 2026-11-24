@@ -899,6 +899,35 @@ time. The shelf is the accent colour and a draft is dark. A press opens a
 document. Past three hundred documents the most linked are drawn. It is read
 from the index and keeps nothing.
 
+## Tables
+
+A CSV, a TSV or an Excel workbook of a project opens as a table: *Open as a
+table* on its card (`Table.tsx`). The rows come from `readTable` in
+`main/tables.ts`, asked by `table:read`. A delimited file is read by the rules of
+RFC 4180 (`parseDelimited` in `shared/table.ts`), with the delimiter it uses
+(`detectDelimiter`: a Czech Excel writes semicolons), and a workbook by
+`readWorkbook` in `twins.ts`, which gives each sheet as rows and a cell that
+Excel styles as a date as a date. The same reader makes the text twin, so
+search and the table agree.
+
+Under each column heading is a box: its words keep the rows that hold them,
+`=words` exactly them, `!words` the rows without them, capitals and accents
+aside. A press on a heading puts the rows in order, numbers as numbers. Both
+are `shownRows`, and both only hide and arrange: nothing of them reaches the
+file. They live in this view and not on the page, because the page holds every
+character of the file (rule 4).
+
+A CSV or TSV can be changed: press a cell, Tab to the next, add or remove a row
+or a column, and *Save* (`table:write`, `writeTable`). It is written back as it
+was written: its delimiter, its line ends and its byte order mark, by a
+temporary file and a rename. A file that is another by then (its size and time
+stamp are not what they were when read) is not written over, and nothing is
+written while an agent works. A cell is quoted only when it must be, so a
+cell that was quoted for no reason is not any more. A file that is not UTF-8 is
+shown and not changed, since it could not go back as it is, and a workbook is
+only shown. Not done: tables inside a markdown document, saving the rows a
+filter kept as a file, and a workbook that can be changed.
+
 ## The tour
 
 *Take the tour…* on the first window, or in the Help menu, copies a small

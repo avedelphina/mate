@@ -308,8 +308,8 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.page(`window.dispatchEvent(new Event('focus'))`)
     await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'page.html')`, 'the page in the tree')
     await app.press('.projects .tree .row', 'page.html')
-    await app.until(`[...document.querySelectorAll('.source button')].some((each) => each.textContent === 'Make a draft from its text')`, 'the card, with the button that needs no agent')
-    await app.press('.source button', 'Make a draft from its text')
+    await app.until(`[...document.querySelectorAll('.source button')].some((each) => each.textContent === 'Make a document from its text')`, 'the card, with the button that needs no agent')
+    await app.press('.source button', 'Make a document from its text')
     await app.until(`document.querySelector('.center .bar')?.textContent.includes('page.md')`, 'the draft made of the page')
     assert.match(await readFile(path.join(project, 'draft/page.md'), 'utf8'), /^---\nsource: page\.html\nextracted: \d{4}-\d{2}-\d{2}\n---\n\n[\s\S]*Terms[\s\S]*Pay in 30 days\./)
     // Tags from the bar go into the front matter that is there, and the rest of it stays.
@@ -379,17 +379,48 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 
+    // A CSV opens as a table: a box under each column filters the rows, a cell is changed and saved as the file was written.
+    await writeFile(path.join(project, 'licences.csv'), 'product;seats\r\nCitrix;12\r\nVMware;40\r\nZoom;7\r\n')
+    await app.page(`window.dispatchEvent(new Event('focus'))`)
+    await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'licences.csv')`, 'the CSV in the tree')
+    await app.press('.projects .tree .row', 'licences.csv')
+    await app.until(`[...document.querySelectorAll('.source button')].some((each) => each.textContent === 'Open as a table')`, 'the card, with the button for a table')
+    await app.press('.source button', 'Open as a table')
+    await app.until(`document.querySelectorAll('.table-view tbody tr').length === 3`, 'the three rows')
+    await app.page(`(() => {
+      const field = document.querySelector('.table-view input[aria-label="Filter column 1"]')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, 'm')
+      field.dispatchEvent(new Event('input', { bubbles: true }))
+    })()`)
+    await app.until(`${names('.table-view tbody tr td:nth-child(2)')}.join() === 'VMware,Zoom'`, 'the rows that hold the letter')
+    await app.page(`document.querySelectorAll('.table-view tbody tr td')[2].click()`)
+    await app.until(`!!document.querySelector('.table-view td.editing input')`, 'the cell, open to change')
+    await app.page(`(() => {
+      const field = document.querySelector('.table-view td.editing input')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, '45')
+      field.dispatchEvent(new Event('input', { bubbles: true }))
+      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    })()`)
+    await app.until(`!!document.querySelector('.bar .acts .primary')`, 'the Save button, once a cell is changed')
+    assert.equal(await readFile(path.join(project, 'licences.csv'), 'utf8'), 'product;seats\r\nCitrix;12\r\nVMware;40\r\nZoom;7\r\n', 'nothing is written until Save')
+    await app.press('.bar .acts .primary', 'Save')
+    for (let waited = 0; waited < 50 && !(await readFile(path.join(project, 'licences.csv'), 'utf8')).includes('VMware;45'); waited++) await new Promise((done) => setTimeout(done, 100))
+    assert.equal(await readFile(path.join(project, 'licences.csv'), 'utf8'), 'product;seats\r\nCitrix;12\r\nVMware;45\r\nZoom;7\r\n', 'only the cell changed, in the delimiter and line ends the file had')
+    await app.press('.bar .acts button', 'Close')
+    await app.press('.projects .tree .row', 'document.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
+
     // The text of a file can be taken out beside it, and the card of a file goes when another is opened.
     await writeFile(path.join(project, 'beside.html'), '<html><body><h1>Annex</h1><p>Pay in 60 days.</p></body></html>')
     await app.page(`window.dispatchEvent(new Event('focus'))`)
     await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'beside.html')`, 'the page beside in the tree')
     await app.press('.projects .tree .row', 'beside.html')
-    await app.until(`[...document.querySelectorAll('.source button')].some((each) => each.textContent === 'Extract it beside the file')`, 'the card, with the button for a file beside')
+    await app.until(`[...document.querySelectorAll('.source button')].some((each) => each.textContent === 'Save its text beside the file')`, 'the card, with the button for a file beside')
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md') && document.querySelectorAll('.source').length === 0`, 'the card gone when another file is opened')
     await app.press('.projects .tree .row', 'beside.html')
-    await app.until(`[...document.querySelectorAll('.source button')].some((each) => each.textContent === 'Extract it beside the file')`, 'the card again')
-    await app.press('.source button', 'Extract it beside the file')
+    await app.until(`[...document.querySelectorAll('.source button')].some((each) => each.textContent === 'Save its text beside the file')`, 'the card again')
+    await app.press('.source button', 'Save its text beside the file')
     await app.until(`document.querySelector('.center .bar')?.textContent.includes('beside.md')`, 'the text, open beside the file')
     assert.match(await readFile(path.join(project, 'beside.md'), 'utf8'), /^---\nsource: beside\.html\nextracted: \d{4}-\d{2}-\d{2}\n---\n\n[\s\S]*Annex[\s\S]*Pay in 60 days\./)
     assert.equal(await readFile(path.join(project, 'beside.html'), 'utf8'), '<html><body><h1>Annex</h1><p>Pay in 60 days.</p></body></html>', 'the file is as it was')
@@ -401,8 +432,8 @@ test('the window, on the example context: a comment into the file, the tree, a p
     const outside = path.join(root, 'outside.html')
     await writeFile(outside, '<html><body><h1>Dropped</h1><p>Pay in 45 days.</p></body></html>')
     await app.drop(outside)
-    await app.until(`[...document.querySelectorAll('.source button')].some((each) => each.textContent === 'Make a draft from its text')`, 'the card of the dropped file')
-    await app.press('.source button', 'Make a draft from its text')
+    await app.until(`[...document.querySelectorAll('.source button')].some((each) => each.textContent === 'Make a document from its text')`, 'the card of the dropped file')
+    await app.press('.source button', 'Make a document from its text')
     await app.until(`document.querySelector('.center .bar')?.textContent.includes('outside.md')`, 'the draft, made with no dialog')
     assert.match(await readFile(path.join(project, 'draft/outside.md'), 'utf8'), /^---\nsource: outside\.html\n[\s\S]*Pay in 45 days\./)
     await app.press('.projects .tree .row', 'document.md')
@@ -610,14 +641,14 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.source strong')?.textContent === 'scan.pdf'`, 'the card of the file')
     assert.deepEqual(await app.page(`[...document.querySelectorAll('.source .acts button')].map((each) => each.textContent.trim())`), [
       mac ? 'Show it in Finder' : 'Show it in the file manager',
-      'Make a draft from its text',
-      'Extract it beside the file',
-      'Or ask the agent to write it',
+      'Make a document from its text',
+      'Save its text beside the file',
+      'Ask the agent to write it out',
       'Close'
     ])
     await app.press('.margin .tabs button', 'Chat')
     await app.until(`!!document.querySelector('.margin .talk')`, 'the session that is still open')
-    await app.press('.source .acts button', 'Or ask the agent to write it')
+    await app.press('.source .acts button', 'Ask the agent to write it out')
     await app.until(`[...document.querySelectorAll('.said.you')].some((each) => each.textContent.includes('Extract the text of dropbox/scan.pdf into draft/scan.md.'))`, 'the request in the conversation')
     assert.equal(await app.page(`document.querySelectorAll('.source').length`), 0)
 

@@ -10,6 +10,7 @@ reach, and says where each line came from.
 - [ ] Look at `drafts-and-the-shelf.md` and press **Publish…**, then cancel
 - [ ] Change a field in `fields-and-tags.md`
 - [ ] Press **Graph** in the rail
+- [ ] Open `material/prices.csv` as a table, and filter it
 - [ ] Take the text out of `material/prices.csv`
 - [ ] Read the plan of an agent before you approve it
 

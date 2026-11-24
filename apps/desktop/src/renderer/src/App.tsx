@@ -18,6 +18,7 @@ import { PullRequests } from './Pull'
 import { hasProps, Properties } from './Properties'
 import type { PropUse } from '../../shared/props'
 import { Graph } from './Graph'
+import { Table } from './Table'
 import { FOLDER_ICONS, isBuiltIn } from '../../shared/icons'
 import { References } from './References'
 import { referenceNamed, type Reference } from '../../shared/references'
@@ -53,6 +54,9 @@ const QUICK_NOTES = [
 const POPOVER_WIDTH = 360
 
 /** A file or folder of a project that can be moved. What a project keeps for itself stays where it is. */
+/** A file the table view shows: a CSV, a TSV or an Excel workbook. */
+const isTable = (name: string) => /\.(csv|tsv|xlsx)$/i.test(name)
+
 const movable = (path: string) =>
   !/^(draft|dropbox|panes|scripts|intents\.md|principles\.md)$/.test(path) && !/^(panes|scripts)\//.test(path) && !/\.(comments|notes)\.md$/i.test(path)
 
@@ -301,7 +305,9 @@ export function App() {
   const [pullsOpen, setPullsOpen] = useState(false)
   // The records of the open project (documents that name an id), in the center like the pull requests, and what each ID in a text opens.
   // What takes the middle of the window in place of a document: the records of the project, or the graph of links.
-  const [centre, setCentre] = useState<'records' | 'graph' | 'references' | null>(null)
+  const [centre, setCentre] = useState<'records' | 'graph' | 'references' | 'table' | null>(null)
+  // The table of the project the table view shows, by its path from the project.
+  const [tablePath, setTablePath] = useState('')
   const recordsOpen = centre === 'records'
   const graphOpen = centre === 'graph'
   const referencesOpen = centre === 'references'
@@ -1207,6 +1213,17 @@ export function App() {
     setHistoryPath(null)
     setPullsOpen(false)
     setRecordsOpen(true)
+  }
+
+  /** A table of the project, a CSV, a TSV or a workbook, takes the middle of the window. */
+  function openTable(where: string) {
+    dropCards()
+    setInquiry(null)
+    setSettingsOpen(false)
+    setHistoryPath(null)
+    setPullsOpen(false)
+    setTablePath(where)
+    setCentre('table')
   }
 
   /** The references of the context take the middle of the window. */
@@ -2436,6 +2453,7 @@ export function App() {
             onClose={() => setPullsOpen(false)}
           />
         )}
+        {centre === 'table' && view && <Table project={view.project} path={tablePath} onClose={() => setCentre(null)} />}
         {referencesOpen && <References items={references} onChange={setReferences} onClose={() => setCentre(null)} />}
         {graphOpen && view && (
           <Graph
@@ -2658,18 +2676,23 @@ export function App() {
                   )}
                   {!source.markdown && !source.folder && !source.where.startsWith('scripts/') && (
                     <>
+                      {isTable(source.name) && source.inContext && (
+                        <button className="primary" title="The rows and columns, with a box under each column to filter by. A CSV or TSV can be changed here and is saved as it was written." onClick={() => openTable(source.where)}>
+                          Open as a table
+                        </button>
+                      )}
                       {isTwinned(source.name) && (
-                        <button className="primary" title="Mate takes the text out itself, with no agent. A Word file keeps its headings, lists and tables." onClick={() => void extractHere(source)}>
-                          Make a draft from its text
+                        <button className={isTable(source.name) && source.inContext ? undefined : 'primary'} title="Mate takes the text out itself, with no agent, and writes it as a new document. A Word file keeps its headings, lists and tables." onClick={() => void extractHere(source)}>
+                          Make a document from its text
                         </button>
                       )}
                       {isTwinned(source.name) && source.inContext && (
                         <button title="The same text, in a markdown file of the same name beside this one. The file stays where it is." onClick={() => void extractBesideIt(source)}>
-                          Extract it beside the file
+                          Save its text beside the file
                         </button>
                       )}
                       <button title="Said to the agent in the open session, for a file Mate cannot read, or form it cannot see." onClick={() => void extract(source)}>
-                        {isTwinned(source.name) ? 'Or ask the agent to write it' : 'Ask the agent to extract its text into draft/'}
+                        {isTwinned(source.name) ? 'Ask the agent to write it out' : 'Ask the agent to write out its text'}
                       </button>
                     </>
                   )}

@@ -89,6 +89,7 @@ import { checkForUpdate, installUpdate, startUpdates, updateNow } from './update
 import { runScript, stopAllScripts, stopScript, wordsOf } from './scripts'
 import { buildDocuments, newRecord } from './records'
 import { propsInUse } from '../shared/props'
+import { readTable, writeTable } from './tables'
 import { copyTour } from './tour'
 import { referenceNamed } from '../shared/references'
 import { addReference, keepReferencesIn, referencesOf, removeReference } from './references'
@@ -1047,6 +1048,15 @@ app.whenReady().then(() => {
     // What the index learned of the file goes with it: a file, with what is kept beside it, or a folder.
     await moveMeaning(contextDir, moved.folder ? `${moved.from}/` : moved.from, moved.folder ? `${moved.to}/` : moved.to)
     return readProject(contextDir, String(project))
+  })
+
+  // A table of a project for the table view: the rows of a CSV, a TSV or a workbook. A CSV or TSV is written back, as the file was
+  // written, and not while an agent works, whose turn would take the change for its own.
+  ipcMain.handle('table:read', (event, project: string, relative: string) => readTable(requireContext(event), String(project), String(relative)))
+  ipcMain.handle('table:write', (event, project: string, relative: string, rows: unknown, stamp: string) => {
+    const contextDir = requireContext(event)
+    if (isBusy(contextDir)) throw new Error('An agent is working in this context. Save the table when the agent has finished.')
+    return writeTable(contextDir, String(project), String(relative), rows, String(stamp))
   })
 
   // The icons the reader gave to the folders of a project, kept in the context's private folder, and one set or taken off.

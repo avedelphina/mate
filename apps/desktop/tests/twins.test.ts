@@ -7,7 +7,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { listShelf, readContextFile } from '../src/main/context.ts'
 import { refreshIndex, searchIndex } from '../src/main/contextIndex.ts'
-import { refreshTwins } from '../src/main/twins.ts'
+import { readWorkbook, refreshTwins } from '../src/main/twins.ts'
 
 // The helper reads a PDF. `pnpm build:assist` makes it, on a Mac.
 const HELPER = path.resolve(import.meta.dirname, '../assist/mate-assist')
@@ -222,6 +222,35 @@ test('a workbook is read sheet by sheet as tables, and a CSV as its text, in the
     const found = async (query: string) => searchIndex(await refreshIndex(root), query).map((hit) => hit.path)
     assert.deepEqual(await found('Licence'), ['projects/a/tables/budget.xlsx'])
     assert.deepEqual(await found('Plzeň'), ['projects/a/tables/places.csv'])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a workbook gives its cells as rows, and a cell with a date style as a date', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-dates-'))
+  try {
+    const book = path.join(root, 'book')
+    await mkdir(path.join(book, 'xl/_rels'), { recursive: true })
+    await mkdir(path.join(book, 'xl/worksheets'))
+    await writeFile(path.join(book, 'xl/workbook.xml'), '<workbook><sheets><sheet name="Licence" sheetId="1" r:id="rId1"/></sheets></workbook>')
+    await writeFile(path.join(book, 'xl/_rels/workbook.xml.rels'), '<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>')
+    // Style 1 is a built-in date, style 2 a custom one with a day in it, and style 3 a plain number that has "d" only in a quoted word.
+    await writeFile(
+      path.join(book, 'xl/styles.xml'),
+      '<styleSheet><numFmts><numFmt numFmtId="164" formatCode="d\\.m\\.yyyy"/><numFmt numFmtId="165" formatCode="0.0&quot; days&quot;"/></numFmts>' +
+        '<cellXfs count="4"><xf numFmtId="0"/><xf numFmtId="14"/><xf numFmtId="164"/><xf numFmtId="165"/></cellXfs></styleSheet>'
+    )
+    await writeFile(
+      path.join(book, 'xl/worksheets/sheet1.xml'),
+      '<worksheet><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Expires</t></is></c><c r="B1" t="inlineStr"><is><t>Left</t></is></c></row>' +
+        '<row r="2"><c r="A2" s="1"><v>46000</v></c><c r="B2" s="3"><v>46000</v></c></row>' +
+        '<row r="3"><c r="A3" s="2"><v>46000.5</v></c><c r="B3" s="0"><v>46000</v></c></row></sheetData></worksheet>'
+    )
+    execFileSync('/usr/bin/zip', ['-qr', path.join(root, 'dates.xlsx'), 'xl'], { cwd: book })
+    assert.deepEqual(await readWorkbook(path.join(root, 'dates.xlsx')), [
+      { name: 'Licence', rows: [['Expires', 'Left'], ['2025-12-09', '46000'], ['2025-12-09 12:00', '46000']] }
+    ])
   } finally {
     await rm(root, { recursive: true, force: true })
   }

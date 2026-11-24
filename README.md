@@ -99,6 +99,8 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   the shelf under a name, after you confirm it in a system dialog. The
   document it replaces is kept in `shelf/.history/`. A shelf document can
   be taken down into a project, as a copy the project owns.
+- **Tables.** A CSV, a TSV or an Excel workbook opens as a table with a filter under each column.
+  A CSV or TSV can be changed and saved as it was written.
 - **Links and references.** `[[name]]` links one document to another, in any project or on the
   shelf, with a *Graph* of them and *Linked from…* on each. *References* names a folder or file
   outside the context that an agent may read when you ask about it, without bringing it in.
