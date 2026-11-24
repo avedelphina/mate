@@ -2120,20 +2120,19 @@ export function App() {
                         )}
                       </div>
                     )}
+                    {/* The pages that take the middle of the window, one at a time, as one control. */}
                     {view && project === name && (
-                      <div className="tabs tree-view links-view" role="group" aria-label="Links">
+                      <div className="tabs tree-view links-view" role="group" aria-label="Pages of this project">
+                        {recordSet.records.length > 0 && (
+                          <button className={recordsOpen ? 'active' : 'quiet'} aria-pressed={recordsOpen} title="The documents of this project that name an id in their front matter, and what needs you" onClick={() => (recordsOpen ? setRecordsOpen(false) : openRecords())}>
+                            Records <span className="meta">{recordSet.records.length}</span>
+                          </button>
+                        )}
                         <button className={graphOpen ? 'active' : 'quiet'} aria-pressed={graphOpen} title="The documents that link to one another with [[name]], drawn as a graph" onClick={() => (graphOpen ? setCentre(null) : openGraph())}>
                           Graph
                         </button>
                         <button className={referencesOpen ? 'active' : 'quiet'} aria-pressed={referencesOpen} title="Places outside this context that agents are told of, without bringing them in" onClick={() => (referencesOpen ? setCentre(null) : openReferences())}>
                           References{references.length > 0 && <span className="meta"> {references.length}</span>}
-                        </button>
-                      </div>
-                    )}
-                    {view && project === name && recordSet.records.length > 0 && (
-                      <div className="tabs tree-view" role="group" aria-label="Records">
-                        <button className={recordsOpen ? 'active' : 'quiet'} aria-pressed={recordsOpen} title="The documents of this project that name an id in their front matter, and what needs you" onClick={() => (recordsOpen ? setRecordsOpen(false) : openRecords())}>
-                          Records <span className="meta">{recordSet.records.length}</span>
                         </button>
                       </div>
                     )}

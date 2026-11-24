@@ -5,6 +5,14 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Changed
+
+- In the rail, Records, Graph and References are one control, since each takes the middle of the
+  window and only one can at a time. Files and Tags stay their own. The spacing between the two is
+  the same on every project.
+
 ## [0.42.0] - 2026-11-24
 
 ### Added
