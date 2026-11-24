@@ -233,6 +233,8 @@ export function App() {
   const [namingIn, setNamingIn] = useState('')
   // A file the reader is moving by typing where, in the rail, from the palette. Null when they are not.
   const [moving, setMoving] = useState<{ from: string; to: string } | null>(null)
+  // The file being given another name in the tree, and the name typed so far.
+  const [renamingFile, setRenamingFile] = useState<{ from: string; name: string } | null>(null)
   // The name or path of a new folder, while the reader is typing it in the rail. Null when they are not.
   const [making, setMaking] = useState<string | null>(null)
   // The address of a page while it is typed, and whether Firecrawl has it yet. Null when no one is adding a link.
@@ -374,6 +376,16 @@ export function App() {
       current = false
     }
   }, [project, view?.text, reading?.text])
+  // Every file of the context by its path, for [[name]] to find a file in any project or on the shelf.
+  const [allPaths, setAllPaths] = useState<string[]>([])
+  useEffect(() => {
+    if (!contextDir) return setAllPaths([])
+    let current = true
+    window.mate.contextPaths().then((next) => current && setAllPaths(next), () => {})
+    return () => {
+      current = false
+    }
+  }, [contextDir, project, view?.files.length, shelf.length])
   useEffect(() => {
     if (!project) return setRecordSet({ records: [], refs: {}, kinds: {} })
     let current = true
@@ -972,6 +984,27 @@ export function App() {
     }
   }
 
+  /** Give a file of the open project another name, and follow it if it is on the page. The dialog of the system asks when links must change. */
+  async function renameFileTo(from: string, name: string) {
+    if (!project || !view || !(await leaveEditor())) return
+    const onPage = inTree
+    try {
+      const done = await window.mate.renameFile(project, from, name)
+      if (!done) return
+      setError(null)
+      setView(done.view)
+      setNotice(done.changed > 0 ? `Renamed. ${done.changed === 1 ? 'One document' : `${done.changed} documents`} now link to the new name.` : null)
+      if (onPage === from) {
+        const draft = done.to.startsWith(done.view.draftsIn) ? done.to.slice(done.view.draftsIn.length) : null
+        if (draft !== null && done.view.drafts.includes(draft)) void openProject(project, draft)
+        else if (isTwinned(done.to) || (/\.md$/i.test(done.to) && !reviewableMarkdown(done.to))) void read(`projects/${project}/${done.to}`)
+        else void openText(/\.md$/i.test(done.to) ? `/${done.to}` : done.to)
+      }
+    } catch (caught) {
+      setError(reason(caught, 'Could not rename that.'))
+    }
+  }
+
   /**
    * Move a file or a folder of the open project into another folder of it, and follow it if it is the
    * one on the page. Where it lands decides what it is: in the drafts it is a draft, and out of them it is not.
@@ -1141,17 +1174,31 @@ export function App() {
     else void read(`projects/${view.project}/${path}`)
   }
 
+  // The heading a [[name#Heading]] link names, scrolled to once the file it is in is the one on the page.
+  const [heading, setHeading] = useState<{ path: string; heading: string } | null>(null)
+  useEffect(() => {
+    if (!heading) return
+    const shown = reading ? reading.path : documentPath()
+    if (shown !== heading.path) return
+    const wanted = heading.heading.toLowerCase().replace(/\s+/g, ' ')
+    const found = [...document.querySelectorAll('.page h1, .page h2, .page h3, .page h4, .page h5, .page h6')].find(
+      (each) => (each.textContent ?? '').replace(/^#+\s*/, '').replace(/\s*#+$/, '').trim().toLowerCase().replace(/\s+/g, ' ') === wanted
+    )
+    found?.scrollIntoView({ block: 'start' })
+    setHeading(null)
+  }, [heading, view?.text, reading?.text])
+
   /** A path of the context, as a [[link]] or a list of what links here gives it: a project's own file opens in the project, any other is read. */
-  function openContextPath(path: string) {
+  function openContextPath(path: string, heading = '') {
+    if (heading) setHeading({ path, heading })
     const own = view ? `projects/${view.project}/` : null
     if (own && path.startsWith(own)) openFile(path.slice(own.length))
     else void read(path)
   }
 
-  /** What `[[name]]` means in the open document: a file of its project or the shelf. A document of the shelf links within the shelf. */
-  const wikiHere = (shelfOnly: boolean) => ({
-    resolve: (target: string) =>
-      resolveWiki(target, shelfOnly || !view ? null : view.project, [...(shelfOnly || !view ? [] : view.files.map((each) => `projects/${view.project}/${each}`)), ...shelf.map((each) => `shelf/${each}`)]),
+  /** What `[[name]]` means in the open document: a file of its own project first, then the shelf, then any project of the context. */
+  const wikiHere = (from: string | null) => ({
+    resolve: (target: string) => resolveWiki(target, from === null ? null : (/^projects\/([^/]+)\//.exec(from)?.[1] ?? null), allPaths),
     open: openContextPath
   })
 
@@ -1753,6 +1800,7 @@ export function App() {
       add('New file…', 'Do', () => (setNamingIn('/'), setNaming('')))
       add('New folder…', 'Do', () => setMaking(''))
       if (inTree && movable(inTree)) add('Move this file to…', 'Do', () => setMoving({ from: inTree, to: '' }))
+      if (inTree && movable(inTree)) add('Rename this file…', 'Do', () => setRenamingFile({ from: inTree, name: inTree.split('/').pop()! }))
       add('Rename this project…', 'Do', () => setRenaming({ what: 'project', name: view.project }))
       if (!view.folders.includes('dropbox')) add('Add a dropbox to this project', 'Do', () => void addProjectDropbox())
       add('Move this project into…', 'Do', () => setMoveProjectInto({ into: '' }))
@@ -2077,6 +2125,7 @@ export function App() {
                         onMenu={(path, folder) => [
                           ...(folder ? [{ label: 'New Folder Inside…', run: () => setMaking(`${path}/`) }, { label: 'Publish to the Shelf…', run: () => void publishFolder(path) }] : [{ label: 'Open', run: () => (/\.md$/i.test(path) ? openFile(path) : openOther(path)) }]),
                           ...(movable(path) ? [{ label: 'Move To…', run: () => setMoving({ from: path, to: '' }) }] : []),
+                          ...(movable(path) && !folder ? [{ label: 'Rename…', run: () => setRenamingFile({ from: path, name: path.split('/').pop()! }) }] : []),
                           null,
                           { label: 'Show in Finder', run: () => void window.mate.revealFile(`projects/${view.project}/${path}`) }
                         ]}
@@ -2088,6 +2137,24 @@ export function App() {
                           renameField('New name of the project')
                         ) : moveProjectInto !== null ? (
                           moveIntoForm()
+                        ) : renamingFile !== null ? (
+                          <form
+                            onSubmit={(event) => {
+                              event.preventDefault()
+                              const done = renamingFile
+                              setRenamingFile(null)
+                              void renameFileTo(done.from, done.name)
+                            }}
+                          >
+                            <input
+                              autoFocus
+                              value={renamingFile.name}
+                              aria-label={`New name of ${renamingFile.from.split('/').pop()}`}
+                              onChange={(event) => setRenamingFile({ ...renamingFile, name: event.target.value })}
+                              onKeyDown={(event) => event.key === 'Escape' && setRenamingFile(null)}
+                              onBlur={() => setRenamingFile(null)}
+                            />
+                          </form>
                         ) : moving !== null ? (
                           <form
                             onSubmit={(event) => {
@@ -2482,7 +2549,7 @@ export function App() {
             <div className="page prose">
               {reading.twin && !reading.text.trim() && <p className="meta">Mate found no text in this file. It may be locked, or hold pictures with no words in them.</p>}
               <Boundary what="This file" of={reading.text}>
-                <Rendered text={reading.text} passages={passages} refs={refsHere} onRef={openFile} wiki={wikiHere(reading.path.startsWith('shelf/'))} image={loadImage} />
+                <Rendered text={reading.text} passages={passages} refs={refsHere} onRef={openFile} wiki={wikiHere(reading.path)} image={loadImage} />
               </Boundary>
             </div>
           ) : !view ? (
@@ -2534,7 +2601,7 @@ export function App() {
                 />
               )}
               <Boundary what="This draft" of={view.text}>
-                <Rendered text={view.text} passages={passages} active={active} onPick={setActive} plain={textFile} refs={refsHere} onRef={openFile} wiki={wikiHere(false)} image={loadImage} />
+                <Rendered text={view.text} passages={passages} active={active} onPick={setActive} plain={textFile} refs={refsHere} onRef={openFile} wiki={wikiHere(documentPath())} image={loadImage} />
               </Boundary>
             </div>
           )}

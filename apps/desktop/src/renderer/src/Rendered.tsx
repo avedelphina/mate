@@ -123,14 +123,14 @@ export function Rendered(props: {
   refs?: Record<string, string>
   onRef?: (path: string) => void
   /** With this, `[[name]]` opens the document it names: `resolve` gives its path, or null, and `open` opens that path. */
-  wiki?: { resolve: (target: string) => string | null; open: (path: string) => void }
+  wiki?: { resolve: (target: string) => string | null; open: (path: string, heading: string) => void }
   /** A local image path, resolved by main and returned as bytes. */
   image?: (path: string) => Promise<{ mimeType: string; data: string }>
 }) {
   const { text, passages = [], active = null, onPick, onTick, onSay, onRun, onName, plain = false, refs, onRef, wiki, image } = props
   const named = useMemo<Link[]>(() => {
     if (plain) return []
-    const links: Link[] = wiki ? wikiLinks(text).map((link) => ({ start: link.start, end: link.end, path: wiki.resolve(link.target) ?? '', open: () => wiki.open(wiki.resolve(link.target)!) })) : []
+    const links: Link[] = wiki ? wikiLinks(text).map((link) => ({ start: link.start, end: link.end, path: wiki.resolve(link.target) ?? '', open: () => wiki.open(wiki.resolve(link.target)!, link.heading) })) : []
     // An ID inside a [[link]] is part of the link.
     const ids = refs && onRef ? refRanges(text, refs).filter((id) => !links.some((link) => id.start < link.end && id.end > link.start)) : []
     return [...ids, ...links].sort((a, b) => a.start - b.start)

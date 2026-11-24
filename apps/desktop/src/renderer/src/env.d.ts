@@ -319,6 +319,8 @@ export type MateApi = {
   /** Write these tags into the front matter of a document: where its tags were, or in a block made at the top. */
   setTags: (project: string, file: string, tags: string[]) => Promise<DocumentView>
   /** One field of the front matter, set to a word. The comment after it is kept. */
+  renameFile: (project: string, from: string, name: string) => Promise<{ to: string; changed: number; view: DocumentView } | null>
+  contextPaths: () => Promise<string[]>
   linkedFrom: (path: string) => Promise<{ path: string; title: string }[]>
   contextProps: () => Promise<{ key: string; count: number; values: string[] }[]>
   setField: (project: string, file: string, key: string, value: string | null) => Promise<DocumentView>

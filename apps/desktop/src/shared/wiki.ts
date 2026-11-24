@@ -49,3 +49,32 @@ export function resolveWiki(target: string, project: string | null, paths: strin
   }
   return find(wanted.replace(/\.md$/, ''), true)
 }
+
+/**
+ * The shortest name that still means `path` among `paths`: its own name, then more of its folders, then
+ * the whole path. A markdown file is named without `.md`, as a link writes it, unless `extension` says to keep it.
+ */
+export function nameFor(path: string, project: string | null, paths: string[], extension = false): string {
+  const parts = path.split('/')
+  const strip = (name: string) => (extension ? name : name.replace(/\.md$/i, ''))
+  for (let from = parts.length - 1; from >= 0; from--) {
+    const name = strip(parts.slice(from).join('/'))
+    if (resolveWiki(name, project, paths) === path) return name
+  }
+  return strip(path)
+}
+
+/**
+ * The text with every link that meant `oldPath` made to mean `newPath`, its heading and its shown words
+ * kept. `before` and `after` are the paths of the context before the file moved and after it. A link that
+ * meant another file is not touched.
+ */
+export function relink(text: string, project: string | null, before: string[], after: string[], oldPath: string, newPath: string): string {
+  let next = text
+  for (const link of wikiLinks(text).reverse()) {
+    if (resolveWiki(link.target, project, before) !== oldPath) continue
+    const target = nameFor(newPath, project, after, /\.md$/i.test(link.target))
+    next = `${next.slice(0, link.start)}[[${target}${link.heading ? `#${link.heading}` : ''}${link.alias ? `|${link.alias}` : ''}]]${next.slice(link.end)}`
+  }
+  return next
+}

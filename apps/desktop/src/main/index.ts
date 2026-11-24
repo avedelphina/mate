@@ -35,6 +35,9 @@ import {
   listProjectTemplates,
   createFile,
   moveEntry,
+  relinkDocuments,
+  renameEntry,
+  renamedTo,
   createProject,
   readSteeringFile,
   writeSteeringFile,
@@ -689,6 +692,9 @@ app.whenReady().then(() => {
     return Object.fromEntries(files.filter((each) => each.path.startsWith(prefix) && each.tags.length > 0).map((each) => [each.path.slice(prefix.length), each.tags]))
   })
 
+  // Every file of the context by its path, for [[name]] to find its file in any project or on the shelf. From the index.
+  ipcMain.handle('context:paths', async (event) => (await refreshIndex(requireContext(event))).files.map((each) => each.path))
+
   // The documents that link to a file with [[name]], read from the index.
   ipcMain.handle('file:linkedfrom', async (event, relative: string) => linkedFrom(await refreshIndex(requireContext(event)), String(relative)))
 
@@ -981,6 +987,42 @@ app.whenReady().then(() => {
     // What the index learned of the file goes with it: a file, with what is kept beside it, or a folder.
     await moveMeaning(contextDir, moved.folder ? `${moved.from}/` : moved.from, moved.folder ? `${moved.to}/` : moved.to)
     return readProject(contextDir, String(project))
+  })
+
+  // A file of a project gets another name. When documents link to it with [[name]], the reader is asked in a dialog of the
+  // system whether they follow it: the documents they are, the shelf's among them, are changed only on that answer.
+  ipcMain.handle('file:rename', async (event, project: string, from: string, typed: string) => {
+    const contextDir = requireContext(event)
+    if (isBusy(contextDir)) throw new Error('An agent is working in this context. Rename it when the agent has finished.')
+    const old = `projects/${String(project)}/${String(from)}`
+    const next = renamedTo(String(from), String(typed))
+    const index = await refreshIndex(contextDir)
+    // A pane or a note is named as a file of its project but lies in `.mate/`: it is not rewritten here.
+    const linking = linkedFrom(index, old).filter((each) => existsSync(path.join(contextDir, each.path)))
+    let update = false
+    if (linking.length > 0) {
+      const window = BrowserWindow.fromWebContents(event.sender)
+      const options = {
+        type: 'question' as const,
+        buttons: ['Cancel', 'Rename and update the links', 'Rename only'],
+        defaultId: 1,
+        cancelId: 0,
+        message: `Rename ${String(from).split('/').pop()} to ${next}?`,
+        detail:
+          `${linking.length === 1 ? 'One document links' : `${linking.length} documents link`} to it with [[name]]:\n` +
+          linking.slice(0, 8).map((each) => `  ${each.path.replace(/^projects\//, '')}`).join('\n') +
+          (linking.length > 8 ? `\n  and ${linking.length - 8} more` : '') +
+          (linking.some((each) => each.path.startsWith('shelf/')) ? '\n\nA document of the shelf is among them. Its old text is kept as history.' : '') +
+          '\n\nOnly the links change. Rename only leaves them, and they show as broken.'
+      }
+      const { response } = window ? await dialog.showMessageBox(window, options) : await dialog.showMessageBox(options)
+      if (response === 0) return null
+      update = response === 1
+    }
+    const moved = await renameEntry(contextDir, String(project), String(from), String(typed))
+    await moveMeaning(contextDir, moved.from, moved.to)
+    const changed = update ? await relinkDocuments(contextDir, linking.map((each) => each.path), index.files.map((each) => each.path), moved.from, moved.to) : 0
+    return { to: moved.to.slice(`projects/${String(project)}/`.length), changed, view: await readProject(contextDir, String(project)) }
   })
 
   ipcMain.handle('shelf:list', (event) => listShelf(requireContext(event)))

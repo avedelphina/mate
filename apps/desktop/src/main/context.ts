@@ -8,6 +8,7 @@ import { statusOf } from '../shared/status'
 import { asText, placeOf, type Place } from './contextIndex'
 import { inRepository } from './git'
 import { mateWrote } from './guard'
+import { relink } from '../shared/wiki'
 import { isTwinned, twinOf } from '../shared/twin'
 
 /**
@@ -997,6 +998,70 @@ export async function moveEntry(contextDir: string, project: string, from: strin
     await rename(kept, moved).catch(() => {})
   }
   return { from: old, to: now, folder: info.isDirectory() }
+}
+
+/** What a file is called after a rename: the name typed, with the file's own extension when the typed one has none. */
+export function renamedTo(from: string, typed: string): string {
+  const name = String(from).split('/').pop() ?? ''
+  const given = String(typed).trim()
+  return /\.[A-Za-z0-9]{1,8}$/.test(given) ? given : `${given}${/\.[A-Za-z0-9]{1,8}$/.exec(name)?.[0] ?? ''}`
+}
+
+/**
+ * Give a file of a project another name, in the folder it is in. What is kept for it goes with it: its
+ * comments, its note, what was read of it. The reader's act, like a move, so nothing asks the agent, and
+ * `still` in the handler has checked that none works here. A folder is not renamed here, and nothing the
+ * project keeps for itself.
+ */
+export async function renameEntry(contextDir: string, project: string, from: string, typed: string): Promise<{ from: string; to: string }> {
+  const source = String(from).split('/')
+  const name = source.pop() ?? ''
+  const next = renamedTo(from, typed)
+  if (source.concat(name).some((part) => part === '' || part.startsWith('.') || part === 'node_modules')) throw new Error('That cannot be renamed.')
+  if (source.length === 0 && (KEPT.has(name) || name === 'intents.md' || name === 'principles.md')) throw new Error(`${name} keeps its name: a project keeps it for itself.`)
+  if (source[0] === 'panes' || source[0] === 'scripts' || BESIDE.test(name)) throw new Error('A pane, a script, the comments and a note keep their names. Rename the file they belong to.')
+  if (!NAME.test(next) || next.startsWith('.') || BESIDE.test(next)) throw new Error('Name the file with letters and numbers. Spaces, dots, dashes and underscores may follow.')
+  if (next === name) throw new Error('It has that name already.')
+  if (source.length === 0 && ['intents.md', 'principles.md'].includes(next)) throw new Error('A project keeps that name for itself.')
+
+  const dir = await realInside(contextDir, 'projects', project, ...source)
+  const info = await lstat(path.join(dir, name)).catch(() => null)
+  if (!info || !info.isFile()) throw new Error('That is not a file of this project.')
+  const sets = [name, `${name}.comments.md`, `${name}.notes.md`].map((each) => [each, each.replace(name, next)])
+  if (existsSync(path.join(dir, next))) throw new Error('A file of that name is already there.')
+  for (const [was, now] of sets) if (existsSync(path.join(dir, was))) await rename(path.join(dir, was), path.join(dir, now))
+
+  const privateAt = (file: string) => path.join(contextDir, '.mate', 'projects', project, ...source, file)
+  for (const [was, now] of sets.slice(1)) if (existsSync(privateAt(was))) await rename(privateAt(was), privateAt(now)).catch(() => {})
+
+  const old = `projects/${project}/${[...source, name].join('/')}`
+  const now = `projects/${project}/${[...source, next].join('/')}`
+  const kept = path.join(contextDir, '.indexes', 'text', `${old}.txt`)
+  if (existsSync(kept)) await rename(kept, path.join(contextDir, '.indexes', 'text', `${now}.txt`)).catch(() => {})
+  return { from: old, to: now }
+}
+
+/**
+ * Make the links in these documents of the context mean the file at its new path. `before` is every path of the
+ * context before the file moved. A document of the shelf is written as the shelf is, with what it was kept as
+ * history; any other is written by a temporary file and a rename. Gives how many were changed.
+ */
+export async function relinkDocuments(contextDir: string, documents: string[], before: string[], oldPath: string, newPath: string): Promise<number> {
+  const after = before.map((each) => (each === oldPath ? newPath : each))
+  let changed = 0
+  for (const document of documents) {
+    if (!document.toLowerCase().endsWith('.md')) continue
+    const full = await realInside(contextDir, ...document.split('/')).catch(() => null)
+    if (!full) continue
+    const raw = await readFile(full, 'utf8')
+    const project = /^projects\/([^/]+)\//.exec(document)?.[1] ?? null
+    const next = relink(raw, project, before, after, oldPath, newPath)
+    if (next === raw) continue
+    if (document.startsWith('shelf/')) await putOnShelf(contextDir, document.slice('shelf/'.length), Buffer.from(next))
+    else await replace(contextDir, full, document, next)
+    changed += 1
+  }
+  return changed
 }
 
 // ponytail: a passage and a note are text for a person to read. Past this it is a file, to be brought in as a source.

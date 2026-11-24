@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, truncate, writeFi
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { readSteeringFile, writeSteeringFile, addComment, createContext, inCloudOnly, listProjectTemplates, listTemplates, createDraft, createFile, createProject, describeContext, draftFromSource, extractBeside, importProject, listProjects, makeFolder, moveEntry, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
+import { readSteeringFile, writeSteeringFile, addComment, createContext, inCloudOnly, listProjectTemplates, listTemplates, createDraft, createFile, createProject, describeContext, draftFromSource, extractBeside, importProject, listProjects, makeFolder, moveEntry, relinkDocuments, renameEntry, renamedTo, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
@@ -421,6 +421,39 @@ test('a markdown file that is not a draft is reviewed too, with its comments bes
       assert.equal(reviewableMarkdown(no), false, no)
     }
     await assert.rejects(addComment(root, 'review', '/dropbox/letter.md', 'x', 'y', 'you', 0))
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a file is renamed in its folder with what is kept for it, and the links to it follow when asked', async () => {
+  const root = await context()
+  try {
+    await mkdir(path.join(root, 'projects/review/Intune'), { recursive: true })
+    await mkdir(path.join(root, '.mate/projects/review/Intune'), { recursive: true })
+    await writeFile(path.join(root, 'projects/review/Intune/old.md'), '# Old\n')
+    await writeFile(path.join(root, '.mate/projects/review/Intune/old.md.comments.md'), 'private\n')
+    await writeFile(path.join(root, 'projects/review/draft/linking.md'), 'See [[old]] and [[old#Part|part]].\n')
+    await writeFile(path.join(root, 'shelf/says.md'), 'The shelf says [[old]].\n')
+    assert.equal(renamedTo('Intune/old.md', 'fresh'), 'fresh.md')
+    assert.equal(renamedTo('Intune/old.csv', 'fresh.txt'), 'fresh.txt')
+
+    const moved = await renameEntry(root, 'review', 'Intune/old.md', 'fresh')
+    assert.deepEqual(moved, { from: 'projects/review/Intune/old.md', to: 'projects/review/Intune/fresh.md' })
+    assert.equal(await readFile(path.join(root, 'projects/review/Intune/fresh.md'), 'utf8'), '# Old\n')
+    assert.equal(await readFile(path.join(root, '.mate/projects/review/Intune/fresh.md.comments.md'), 'utf8'), 'private\n')
+    assert.equal(existsSync(path.join(root, 'projects/review/Intune/old.md')), false)
+    await assert.rejects(renameEntry(root, 'review', 'Intune/fresh.md', 'fresh'), /already/)
+    await assert.rejects(renameEntry(root, 'review', 'Intune/fresh.md', '../x'), /Name the file/)
+    await assert.rejects(renameEntry(root, 'review', 'intents.md', 'x'), /keeps its name/)
+
+    const before = ['shelf/says.md', 'projects/review/Intune/old.md', 'projects/review/draft/linking.md']
+    const changed = await relinkDocuments(root, ['projects/review/draft/linking.md', 'shelf/says.md'], before, moved.from, moved.to)
+    assert.equal(changed, 2)
+    assert.equal(await readFile(path.join(root, 'projects/review/draft/linking.md'), 'utf8'), 'See [[fresh]] and [[fresh#Part|part]].\n')
+    assert.equal(await readFile(path.join(root, 'shelf/says.md'), 'utf8'), 'The shelf says [[fresh]].\n')
+    // The shelf's old text is kept as history.
+    assert.equal((await readdir(path.join(root, 'shelf/.history/says.md'))).length, 1)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

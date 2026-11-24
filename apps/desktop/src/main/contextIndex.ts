@@ -326,18 +326,14 @@ export function tagsInUse(index: Index): { tag: string; count: number }[] {
 
 /**
  * The documents that link to a file with `[[name]]`, from the index. A link is read the way the window
- * reads it: among the files of its own project and the shelf, so a link means one file in both places.
- * `target` is a path of the context.
+ * reads it, among every file of the context, so a link means one file in both places. `target` is a path
+ * of the context.
  */
 export function linkedFrom(index: Index, target: string): { path: string; title: string }[] {
-  const universe = new Map<string | null, string[]>()
-  const paths = (project: string | null) => {
-    if (!universe.has(project)) universe.set(project, index.files.filter((each) => each.path.startsWith('shelf/') || (project !== null && each.path.startsWith(`projects/${project}/`))).map((each) => each.path))
-    return universe.get(project)!
-  }
+  const paths = index.files.map((each) => each.path)
   return index.files
     .filter((each) => each.path !== target && each.path.toLowerCase().endsWith('.md') && each.text.includes('[['))
-    .filter((each) => wikiLinks(each.text).some((link) => resolveWiki(link.target, each.project, paths(each.project)) === target))
+    .filter((each) => wikiLinks(each.text).some((link) => resolveWiki(link.target, each.project, paths) === target))
     .map((each) => ({ path: each.path, title: each.title }))
     .sort((a, b) => a.path.localeCompare(b.path))
 }

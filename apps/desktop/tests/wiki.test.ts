@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { linkedFrom, type Index } from '../src/main/contextIndex.ts'
-import { resolveWiki, wikiLinks } from '../src/shared/wiki.ts'
+import { nameFor, relink, resolveWiki, wikiLinks } from '../src/shared/wiki.ts'
 
 test('a link is read with its heading and its shown words, and an embed is no link', () => {
   const text = 'See [[a]], [[b#Part|the part]] and ![[picture.png]] but not [[ ]] or [single].'
@@ -41,4 +41,26 @@ test('what links to a file is found among the documents that name it', () => {
   } as unknown as Index
   assert.deepEqual(linkedFrom(index, 'shelf/terms.md').map((each) => each.path), ['projects/b/draft/two.md', 'shelf/own.md'])
   assert.deepEqual(linkedFrom(index, 'projects/a/draft/terms.md').map((each) => each.path), ['projects/a/draft/one.md'])
+  // A link reaches a file of another project when nothing of its own project or the shelf has the name.
+  const across = {
+    version: 5,
+    files: [entry('projects/a/draft/only-here.md', 'Here.', 'a'), entry('projects/b/draft/looks.md', 'See [[only-here]].', 'b')]
+  } as unknown as Index
+  assert.deepEqual(linkedFrom(across, 'projects/a/draft/only-here.md').map((each) => each.path), ['projects/b/draft/looks.md'])
+})
+
+test('a link follows the file to its new name, with its heading and its words, and a link to another file stays', () => {
+  const before = ['shelf/terms.md', 'projects/a/draft/old.md', 'projects/a/draft/other.md', 'projects/b/draft/old.md']
+  const after = before.map((each) => (each === 'projects/a/draft/old.md' ? 'projects/a/draft/new.md' : each))
+  const text = 'See [[old]], [[old.md#Part|the part]], [[other]] and [[old|]].'
+  assert.equal(relink(text, 'a', before, after, 'projects/a/draft/old.md', 'projects/a/draft/new.md'), 'See [[new]], [[new.md#Part|the part]], [[other]] and [[new]].')
+  // From project b, [[old]] means its own file, so it is not changed.
+  assert.equal(relink('[[old]]', 'b', before, after, 'projects/a/draft/old.md', 'projects/a/draft/new.md'), '[[old]]')
+})
+
+test('the shortest name that means a file is its own, then more of its path', () => {
+  const paths = ['projects/a/draft/notes.md', 'projects/b/draft/notes.md', 'projects/a/material/report.pdf']
+  assert.equal(nameFor('projects/a/material/report.pdf', 'a', paths), 'report.pdf')
+  assert.equal(nameFor('projects/a/draft/notes.md', 'a', paths), 'notes')
+  assert.equal(nameFor('projects/b/draft/notes.md', null, paths), 'b/draft/notes')
 })
