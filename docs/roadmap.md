@@ -487,8 +487,12 @@ session. A start is idempotent under a request id, and the asker is told
 when the asked one waits on the reader. The asked agent reads only. Which
 agents may be asked is the reader's list, per context, in Settings.
 
-**Writers in parallel stay out.** For a repository, step 12's branch is
-the answer. For a plain project, the write lock is the design, not a gap.
+**Writers in parallel.** Built in one form, opt-in: agents on different
+projects, or folders of one project, when the reader allowed it. Proposed in
+a second: each session works on its own copy of the project, and the results
+are put back at the end of the turn, a clash held for the reader. See
+[session-copies.md](session-copies.md). For a repository, step 12's branch is
+still the answer for a change that is to be reviewed by others.
 
 This step changes one clause of rule 13 — text may go to an agent the
 reader listed as askable in that context — and no other rule. See

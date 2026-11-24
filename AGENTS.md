@@ -371,6 +371,8 @@ marker without it is shared. See *Private comments* in
   because it looks small.
 - `docs/hub.md` — the Hub (roadmap step 11): sync, pairing, and the rules
   it changes.
+- `docs/multi-agent.md`, `docs/session-copies.md` — more than one agent, and
+  sessions that each work on their own copy (a proposal, not built).
 - `docs/mvp.md` — the first slice, kept as history, and the setup repairs.
 - `docs/review-2026-10-12.md` — a review of 0.3.0 with its status at 0.11.0; open findings are listed there.
 - `apps/desktop/README.md` — the desktop app's layout, env vars, packaging.
