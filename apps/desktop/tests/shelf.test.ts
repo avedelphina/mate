@@ -240,25 +240,39 @@ test('a text file of a project is reviewed like a draft, and a comment changes o
   }
 })
 
-test('a folder of drafts is named for the shelf by path, and a name the shelf refuses is left out', async () => {
+test('a folder is named for the shelf by its own name, a name the shelf refuses is made fit, and one document is taken once', async () => {
   const root = await context()
   try {
-    const put = async (relative: string) => {
-      await mkdir(path.dirname(path.join(root, 'projects/review/draft', relative)), { recursive: true })
-      await writeFile(path.join(root, 'projects/review/draft', relative), '# x\n')
+    const put = async (relative: string, text = '# x\n') => {
+      await mkdir(path.dirname(path.join(root, 'projects/review', relative)), { recursive: true })
+      await writeFile(path.join(root, 'projects/review', relative), text)
     }
-    await put('law/act-1.md')
-    await put('law/sub/act-2.md')
-    await put('law/.hidden.md')
-    await put('law/bad&name.md')
-    const { drafts, skipped } = await folderToShelf(root, 'review', 'law/')
-    assert.deepEqual(drafts.map((each) => each.name).sort(), ['law/act-1', 'law/sub/act-2'])
-    assert.deepEqual(skipped, ['law/bad&name.md'])
-    // What it names is what publish takes, and the whole folder lands on the shelf.
-    for (const each of drafts) await publish(root, 'review', each.file, each.name)
-    assert.deepEqual((await listShelf(root)).sort(), ['law/act-1.md', 'law/sub/act-2.md'])
-    // The other draft is not in the folder.
-    assert.equal((await folderToShelf(root, 'review', 'nothing')).drafts.length, 0)
+    // Material, not drafts: the project keeps its drafts in draft/, and this folder is beside it.
+    await put('reference/law/act-1.md')
+    await put('reference/law/sub/act-2.md')
+    await put('reference/law/Ochrana (SSD) - O-D-2024.md')
+    await put(`reference/law/${'Long '.repeat(30)}.md`)
+    // The same document as a Word file, a PDF and Markdown: the Markdown is taken.
+    await put('reference/law/act-3.pdf')
+    await put('reference/law/act-3.docx')
+    await put('reference/law/act-3.md')
+    await put('reference/law/picture.png')
+    await put('reference/law/act-1.comments.md')
+    await put('reference/other/not-here.md')
+    const { files, skipped } = await folderToShelf(root, 'review', 'reference/law/')
+    const names = files.map((each) => each.name)
+    assert.ok(names.includes('law/act-1') && names.includes('law/sub/act-2'))
+    assert.ok(names.includes('law/Ochrana SSD - O-D-2024'))
+    assert.ok(names.every((name) => name.split('/').every((part) => part.length <= 80)))
+    assert.equal(files.find((each) => each.name === 'law/act-3')?.file, 'reference/law/act-3.md')
+    assert.equal(names.length, 5)
+    assert.deepEqual(skipped, [])
+    // Every name is one the shelf takes, so publishing it works.
+    for (const each of files) await publish(root, 'review', 'policy.md', each.name)
+    assert.equal((await listShelf(root)).length, 5)
+    await assert.rejects(folderToShelf(root, 'review', ''), /Choose a folder/)
+    await assert.rejects(folderToShelf(root, 'review', '../x'), /Choose a folder/)
+    assert.equal((await folderToShelf(root, 'review', 'nothing')).files.length, 0)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

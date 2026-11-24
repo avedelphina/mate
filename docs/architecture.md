@@ -448,12 +448,14 @@ the shelf under that name is kept in `shelf/.history/`, by its name and
 the time. That folder is hidden, so the index does not read it and
 nothing takes it for current.
 
-**Publishing a folder.** *Publish Drafts to the Shelf…* on a folder of
-the file list publishes every draft under it (`folderToShelf` names
-them: the path from where the project keeps its drafts, so `law/a.md`
-becomes `shelf/law/a.md`). One dialog of the system names the count and
-how many replace a document, and then each goes through `publish`. A
-name the shelf refuses is left out, and the dialog says so.
+**Publishing a folder.** *Publish to the Shelf…* on a folder of the file
+list publishes every Markdown, text, PDF and Word file under it, a draft
+or material (`folderToShelf`). The folder keeps its own name: `reference/law/a.md`
+becomes `shelf/law/a.md`. A name the shelf refuses is made fit, a document
+that is there as Markdown, Word and PDF is taken once, and the text of a PDF
+or Word file is what is published (`shelfText`). One dialog of the system
+names the count and how many replace a document, and a second says what
+was done.
 
 **Sessions and what is new.** A session can be pinned (`pinned` in its
 file) and deleted after a dialog of the system. An empty one is not listed,

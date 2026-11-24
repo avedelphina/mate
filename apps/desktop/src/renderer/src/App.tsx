@@ -189,6 +189,7 @@ export function App() {
   const [notice, setNotice] = useState<string | null>(null)
   // The documents of the shelf, by their path from the shelf folder.
   const [shelf, setShelf] = useState<string[]>([])
+  const [shelfOpen, setShelfOpen] = useState(false)
   // The name a draft is being published under, while the reader is choosing it. Null when they are not.
   const [publishing, setPublishing] = useState<string | null>(null)
   // The tags of the open document as the reader types them in the bar, comma between.
@@ -843,11 +844,12 @@ export function App() {
   async function publishFolder(folder: string) {
     if (!project) return
     try {
-      const done = await window.mate.publishFolder(project, folder.startsWith(view?.draftsIn ?? '\0') ? folder.slice(view!.draftsIn.length) : folder)
+      const done = await window.mate.publishFolder(project, folder)
       if (!done) return
       setError(null)
       setNotice(`Published ${done.done} ${done.done === 1 ? 'draft' : 'drafts'}.${done.failed.length > 0 ? ` ${done.failed.length} failed: ${done.failed.slice(0, 3).join(', ')}.` : ''}`)
       setShelf(await window.mate.listShelf())
+      setShelfOpen(true)
     } catch (caught) {
       setError(reason(caught, 'Could not publish the folder.'))
     }
@@ -1885,7 +1887,7 @@ export function App() {
               )}
               {/* What is true now, for every project. A document is read from here, and taken down from the page. */}
               {shelf.length > 0 && (
-                <details className="section shelf">
+                <details className="section shelf" open={shelfOpen} onToggle={(event) => setShelfOpen(event.currentTarget.open)}>
                   <summary>Shelf</summary>
                   <Tree
                     paths={shelf}
@@ -2011,7 +2013,7 @@ export function App() {
                         onOpen={openFile}
                         onReveal={openOther}
                         onMenu={(path, folder) => [
-                          ...(folder ? [{ label: 'New Folder Inside…', run: () => setMaking(`${path}/`) }, { label: 'Publish Drafts to the Shelf…', run: () => void publishFolder(path) }] : [{ label: 'Open', run: () => (/\.md$/i.test(path) ? openFile(path) : openOther(path)) }]),
+                          ...(folder ? [{ label: 'New Folder Inside…', run: () => setMaking(`${path}/`) }, { label: 'Publish to the Shelf…', run: () => void publishFolder(path) }] : [{ label: 'Open', run: () => (/\.md$/i.test(path) ? openFile(path) : openOther(path)) }]),
                           ...(movable(path) ? [{ label: 'Move To…', run: () => setMoving({ from: path, to: '' }) }] : []),
                           null,
                           { label: 'Show in Finder', run: () => void window.mate.revealFile(`projects/${view.project}/${path}`) }

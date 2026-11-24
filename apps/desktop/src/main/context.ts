@@ -1242,24 +1242,57 @@ export async function putOnShelf(contextDir: string, name: string, text: Buffer)
   return { path: relative, replaced: there !== null }
 }
 
+/** The kinds of file whose text can be the shelf's: written text, and what Mate reads as text. In the order one is preferred. */
+const SHELVABLE = ['md', 'markdown', 'docx', 'doc', 'odt', 'rtf', 'pdf', 'txt']
+
+/** A part of a name made fit for the shelf: letters, numbers, spaces, dots, dashes and underscores, at most 80. */
+function shelfSafe(part: string): string {
+  return part
+    .replace(/[^\p{L}\p{N} ._-]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^[^\p{L}\p{N}]+/u, '')
+    .slice(0, 80)
+    .trim()
+}
+
 /**
- * The drafts under a folder of the project, each with the shelf name it would take: its path from where the
- * project keeps its drafts. `skipped` are the ones whose name the shelf would refuse. Nothing is written.
+ * The files under a folder of the project that can go to the shelf, each with the name it would take: the folder
+ * itself, then the path inside it, without the ending. A file may be a draft or material: the reader chose the folder.
+ * A name the shelf would refuse is made fit. When a document is there in two forms, such as a Word file and its PDF,
+ * the better form is taken. `skipped` are the files left out. Nothing is written.
  */
-export async function folderToShelf(contextDir: string, project: string, folder: string): Promise<{ drafts: { file: string; name: string }[]; skipped: string[] }> {
+export async function folderToShelf(contextDir: string, project: string, folder: string): Promise<{ files: { file: string; name: string }[]; skipped: string[] }> {
   const prefix = String(folder).replace(/^\/+|\/+$/g, '')
-  const drafts: { file: string; name: string }[] = []
+  if (!prefix || prefix.split('/').some((part) => part === '..' || part.startsWith('.'))) throw new Error('Choose a folder of the project.')
+  const projectDir = resolveInside(contextDir, 'projects', project)
+  const parent = prefix.includes('/') ? prefix.slice(0, prefix.lastIndexOf('/') + 1) : ''
+  const chosen = new Map<string, { file: string; rank: number }>()
   const skipped: string[] = []
-  for (const file of await draftsOf(resolveInside(contextDir, 'projects', project))) {
-    if (prefix && !file.startsWith(`${prefix}/`)) continue
-    try {
-      shelfName(file)
-      drafts.push({ file, name: file.replace(/\.md$/i, '') })
-    } catch {
-      skipped.push(file)
-    }
+  for (const file of await listFiles(projectDir)) {
+    const here = file.split('/')
+    if (!file.startsWith(`${prefix}/`) || BESIDE.test(file) || here.some((part) => part.startsWith('_'))) continue
+    const ending = /\.([^./]+)$/.exec(file)?.[1].toLowerCase() ?? ''
+    if (!SHELVABLE.includes(ending)) continue
+    const stem = file.replace(/\.[^./]+$/, '')
+    const rank = SHELVABLE.indexOf(ending)
+    const had = chosen.get(stem)
+    if (!had || rank < had.rank) chosen.set(stem, { file, rank })
   }
-  return { drafts, skipped }
+  const taken = new Set<string>()
+  const files: { file: string; name: string }[] = []
+  for (const [stem, { file }] of [...chosen].sort(([a], [b]) => a.localeCompare(b))) {
+    const parts = stem.slice(parent.length).split('/').map(shelfSafe)
+    if (parts.some((part) => part === '')) {
+      skipped.push(file)
+      continue
+    }
+    // Two files that come to one name: the second is numbered, and neither is lost.
+    let name = parts.join('/')
+    for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${parts.join('/')} ${n}`
+    taken.add(name.toLowerCase())
+    files.push({ file, name })
+  }
+  return { files, skipped }
 }
 
 /**

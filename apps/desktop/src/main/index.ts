@@ -1076,39 +1076,49 @@ app.whenReady().then(() => {
     return response === 1 ? publish(contextDir, project, file, String(name)) : null
   })
 
-  // A folder of drafts goes to the shelf in one go, under the names of their paths. One dialog of the system names
-  // the count and what is replaced, so the reader decides once, not once for each file of a big batch.
+  // A folder goes to the shelf in one go: every Markdown, text, PDF and Word file under it, a draft or material, under the
+  // folder's own name. One dialog of the system names the count and what is replaced, so the reader decides once, not once
+  // for each file of a big batch. A PDF or Word file gives the text Mate reads from it.
   ipcMain.handle('folder:publish', async (event, project: string, folder: string) => {
     const contextDir = requireContext(event)
-    const { drafts, skipped } = await folderToShelf(contextDir, String(project), String(folder))
-    if (drafts.length === 0) throw new Error('There is no draft in that folder to publish.')
-    const onShelf = new Set(await listShelf(contextDir))
-    const replaced = drafts.filter((each) => onShelf.has(`${each.name}.md`)).length
     const window = BrowserWindow.fromWebContents(event.sender)
-    const shown = drafts.slice(0, 8).map((each) => `shelf/${each.name}.md`).join('\n')
+    const tell = async (message: string, detail: string) => {
+      const options = { type: 'info' as const, buttons: ['OK'], message, detail }
+      await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+    }
+    const { files, skipped } = await folderToShelf(contextDir, String(project), String(folder))
+    if (files.length === 0) {
+      await tell('Nothing in that folder can go to the shelf', 'Mate publishes Markdown, text, PDF and Word files. This folder has none, or only files whose names the shelf cannot take.')
+      return null
+    }
+    const onShelf = new Set(await listShelf(contextDir))
+    const replaced = files.filter((each) => onShelf.has(`${each.name}.md`)).length
+    const converted = files.filter((each) => !/\.(md|markdown|txt)$/i.test(each.file)).length
+    const shown = files.slice(0, 8).map((each) => `${each.file.split('/').pop()}\n   → shelf/${each.name}.md`).join('\n')
     const options = {
       type: 'question' as const,
-      buttons: ['Cancel', `Publish ${drafts.length}`],
+      buttons: ['Cancel', `Publish ${files.length}`],
       defaultId: 0,
       cancelId: 0,
-      message: `Publish ${drafts.length} ${drafts.length === 1 ? 'draft' : 'drafts'} to the shelf?`,
+      message: `Publish ${files.length} ${files.length === 1 ? 'document' : 'documents'} to the shelf?`,
       detail:
-        `From projects/${project}/${folder ? `${String(folder).replace(/^\/+|\/+$/g, '')}/` : ''}\n\n${shown}${drafts.length > 8 ? `\n… and ${drafts.length - 8} more` : ''}\n\n` +
+        `From projects/${project}/${String(folder).replace(/^\/+|\/+$/g, '')}/\n\n${shown}${files.length > 8 ? `\n… and ${files.length - 8} more` : ''}\n\n` +
         (replaced > 0 ? `${replaced} of them take the place of a document that is there. Those are kept as history. ` : 'All of them are new on the shelf. ') +
+        (converted > 0 ? `${converted} ${converted === 1 ? 'is a PDF or Word file: its text is published, not the file. ' : 'are PDF or Word files: their text is published, not the files. '}` : '') +
         'Comments are not published.' +
-        (skipped.length > 0 ? `\n\n${skipped.length} left out, because the shelf cannot take their names: ${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? '…' : ''}` : '') +
+        (skipped.length > 0 ? `\n\n${skipped.length} left out, because the shelf cannot take their names.` : '') +
         '\n\nEvery project of this context reads the shelf as what is true now.'
     }
     const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
     if (response !== 1) return null
     const failed: string[] = []
     let done = 0
-    for (const each of drafts) {
+    for (const each of files) {
       try {
-        await publish(contextDir, String(project), each.file, each.name)
+        await putOnShelf(contextDir, each.name, await shelfText(contextDir, String(project), `projects/${String(project)}/${each.file}`))
         done += 1
-      } catch {
-        failed.push(each.file)
+      } catch (caught) {
+        failed.push(`${each.file.split('/').pop()}: ${(caught as Error).message}`)
       }
     }
     await reportBatch(window, done, failed, skipped)

@@ -274,7 +274,7 @@ export type MateApi = {
   copyFolder: (project: string, id: string) => Promise<string>
   /** Move a document out of a dropbox into a project's drafts. */
   pullIn: (project: string, path: string) => Promise<DocumentView>
-  /** Publish every draft under a folder of the project, named by its path. One system dialog. Null when the reader declines. */
+  /** Publish every Markdown, text, PDF and Word file under a folder of the project, under the folder's name. One system dialog. Null when the reader declines. */
   publishFolder: (project: string, folder: string) => Promise<{ done: number; failed: string[]; skipped: string[] } | null>
   /** Publish a draft as a named document of the shelf. The reader confirms in a system dialog. Null when they do not. */
   publishDraft: (project: string, file: string, name: string) => Promise<{ path: string; replaced: boolean } | null>

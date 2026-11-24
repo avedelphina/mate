@@ -14,6 +14,12 @@ then, minor versions may change behaviour.
 
 ### Changed
 
+- *Publish to the Shelf…* on a folder now takes every Markdown, text, PDF and Word
+  file under it, whether it is a draft or material. It was for drafts only, so on a
+  folder beside the drafts it found nothing, and said so only at the top of the
+  page. The folder keeps its own name on the shelf, a name the shelf refuses is made
+  fit, and a document that is there as Markdown, Word and PDF is taken once. When
+  nothing can go, a dialog says so.
 - Publishing a folder, or the list an agent proposed, now ends with a dialog of the
   system that says how many documents went to the shelf, and which did not.
 
