@@ -108,6 +108,23 @@ export function propsOf(text: string): { key: string; value: string; compound: b
   return found
 }
 
+/**
+ * The choices each kind of record offers, read from the templates of the project: a document with a
+ * `_` in its path and an `id` such as `REG-0000`. A record carries the same lists in the comments of
+ * its own lines, but an editor that rewrites the front matter, as Obsidian's Properties does, drops
+ * them, so the template is where a record that lost them finds its menus again. By the letters of the ID.
+ */
+export function choicesByKind(files: { path: string; text: string }[]): Record<string, Record<string, string[]>> {
+  const kinds: Record<string, Record<string, string[]>> = {}
+  for (const file of files) {
+    if (!file.path.toLowerCase().endsWith('.md') || !file.path.split('/').some((part) => part.startsWith('_'))) continue
+    const { fields, choices } = headerOf(file.text)
+    const kind = /^([A-Za-z][A-Za-z0-9]*)-/.exec(fields.id ?? '')?.[1]
+    if (kind) kinds[kind] = { ...choices, ...kinds[kind] }
+  }
+  return kinds
+}
+
 /** One record, as the list shows it. */
 export type RecordRow = { path: string; id: string; title: string; status: string; owner: string; fields: Fields }
 

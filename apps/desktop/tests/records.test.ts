@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { attention, headerOf, isClosed, recordOf, refRanges, propsOf, refsOf, withField } from '../src/shared/records.ts'
+import { attention, choicesByKind, headerOf, isClosed, recordOf, refRanges, propsOf, refsOf, withField } from '../src/shared/records.ts'
 import { propsInUse } from '../src/shared/props.ts'
 
 const REG = `---
@@ -114,4 +114,14 @@ test('the fields in use are counted over the documents, with the values most use
   assert.deepEqual(used.find((each) => each.key === 'status'), { key: 'status', count: 3, values: ['final', 'draft'] })
   assert.deepEqual(used.find((each) => each.key === 'due'), { key: 'due', count: 1, values: [] })
   assert.equal(used.some((each) => each.key === 'tags'), false)
+})
+
+test('a record that lost the lists in its comments finds its choices in the template of its kind', () => {
+  const template = '---\nid: REG-0000\nstatus: open            # open | in-progress | closed\nowner:                  # owner\n---\n'
+  const kinds = choicesByKind([
+    { path: 'register/_template.md', text: template },
+    { path: 'register/REG-0001.md', text: '---\nid: REG-0001\nstatus: open # a | b\n---\n' },
+    { path: 'notes.md', text: '# none' }
+  ])
+  assert.deepEqual(kinds, { REG: { status: ['open', 'in-progress', 'closed'] } })
 })

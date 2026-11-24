@@ -45,17 +45,19 @@ export async function startRepository(dir: string, env: NodeJS.ProcessEnv): Prom
 }
 
 /**
- * The projects that are repositories of their own, as git is told to leave them out. Their history
- * and their remote are theirs: a commit of the context does not take them in.
+ * What git is told to leave out of a commit of the context. The projects that are repositories of their
+ * own: their history and their remote are theirs. And the settings of Obsidian, in the context or in a
+ * project, which it rewrites whenever a note is opened and which are the reader's editor, not the work.
  */
-async function ownRepositories(dir: string): Promise<string[]> {
+async function leftOut(dir: string): Promise<string[]> {
   const projects = await readdir(path.join(dir, 'projects'), { withFileTypes: true }).catch(() => [])
-  return projects.filter((each) => each.isDirectory() && existsSync(path.join(dir, 'projects', each.name, '.git'))).map((each) => `:(exclude)projects/${each.name}`)
+  const own = projects.filter((each) => each.isDirectory() && existsSync(path.join(dir, 'projects', each.name, '.git'))).map((each) => `:(exclude)projects/${each.name}`)
+  return [...own, ':(exclude,glob)**/.obsidian/**']
 }
 
 /** How many files of the context differ from the last commit. A new file counts, an ignored one does not. */
 export async function uncommitted(dir: string, env: NodeJS.ProcessEnv): Promise<number> {
-  const said = await git(dir, env, ['status', '--porcelain', '--untracked-files=all', '--', '.', ...(await ownRepositories(dir))])
+  const said = await git(dir, env, ['status', '--porcelain', '--untracked-files=all', '--', '.', ...(await leftOut(dir))])
   return said.split('\n').filter(Boolean).length
 }
 
@@ -69,7 +71,7 @@ export async function commitContext(dir: string, message: string, env: NodeJS.Pr
   if (!said) throw new Error('Say what changed.')
   const changed = await uncommitted(dir, env)
   if (changed === 0) throw new Error('Nothing has changed since the last commit.')
-  const leave = await ownRepositories(dir)
+  const leave = await leftOut(dir)
   await git(dir, env, ['add', '--all', '--', '.', ...leave])
   // The words are one value, whatever they begin with.
   await git(dir, env, ['commit', `--message=${said}`, '--', '.', ...leave])

@@ -677,6 +677,11 @@ test('a commit takes what has changed in the context, in the words given, and no
     await mkdir(path.join(dir, 'projects/own'), { recursive: true })
     await new Promise((resolve) => execFile('git', ['init'], { cwd: path.join(dir, 'projects/own'), env }, resolve))
     await writeFile(path.join(dir, 'projects/own/notes.md'), 'Its own.\n')
+    // The settings of Obsidian, in the context and in a project, are the reader's editor: not taken in, not counted.
+    await mkdir(path.join(dir, '.obsidian'))
+    await writeFile(path.join(dir, '.obsidian/workspace.json'), '{}')
+    await mkdir(path.join(dir, 'projects/letter/.obsidian'))
+    await writeFile(path.join(dir, 'projects/letter/.obsidian/app.json'), '{}')
     assert.equal(await uncommitted(dir, env), 2)
     assert.equal(await commitContext(dir, 'Terms on the shelf', env), 2)
     assert.match(await log(root), /^Terms on the shelf\n\nwork\/projects\/letter\/intents.md\nwork\/shelf\/terms.md\n/)

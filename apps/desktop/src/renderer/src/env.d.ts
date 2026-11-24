@@ -322,7 +322,7 @@ export type MateApi = {
   contextProps: () => Promise<{ key: string; count: number; values: string[] }[]>
   setField: (project: string, file: string, key: string, value: string | null) => Promise<DocumentView>
   /** The records of a project, and what each ID in a text opens, by path from the project. */
-  projectRecords: (project: string) => Promise<{ records: RecordRow[]; refs: Record<string, string> }>
+  projectRecords: (project: string) => Promise<{ records: RecordRow[]; refs: Record<string, string>; kinds: Record<string, Record<string, string[]>> }>
   /** A record made with the repository's own tool. Where it is, from the project. Trusted contexts only. */
   newRecord: (project: string, kind: string, title: string, type?: string) => Promise<string>
   /** Word files built with the repository's own tool. Where they are, from the project. Trusted contexts only. */

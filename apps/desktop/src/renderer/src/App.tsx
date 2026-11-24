@@ -291,7 +291,7 @@ export function App() {
   const [pullsOpen, setPullsOpen] = useState(false)
   // The records of the open project (documents that name an id), in the center like the pull requests, and what each ID in a text opens.
   const [recordsOpen, setRecordsOpen] = useState(false)
-  const [recordSet, setRecordSet] = useState<{ records: RecordRow[]; refs: Record<string, string> }>({ records: [], refs: {} })
+  const [recordSet, setRecordSet] = useState<{ records: RecordRow[]; refs: Record<string, string>; kinds: Record<string, Record<string, string[]>> }>({ records: [], refs: {}, kinds: {} })
   const [review, setReview] = useState<Review | null>(null)
   // Whether the reader trusts the open context: git is asked for a file's history only there.
   const [trustedHere, setTrustedHere] = useState(false)
@@ -374,7 +374,7 @@ export function App() {
     }
   }, [project, view?.text, reading?.text])
   useEffect(() => {
-    if (!project) return setRecordSet({ records: [], refs: {} })
+    if (!project) return setRecordSet({ records: [], refs: {}, kinds: {} })
     let current = true
     window.mate.projectRecords(project).then((next) => current && setRecordSet(next), () => {})
     return () => {
@@ -2497,6 +2497,7 @@ export function App() {
                   open={propsOpen === file}
                   onOpen={(open) => setPropsOpen(open ? file : null)}
                   vocab={vocab}
+                  kinds={recordSet.kinds}
                   onTags={() => setTagging(tagsOf(view.text).map((each) => each.tag).join(', '))}
                   onSet={(key, value) =>
                     void window.mate.setField(view.project, file, key, value).then(

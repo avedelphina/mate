@@ -84,7 +84,7 @@ import { checkForUpdate, installUpdate, startUpdates, updateNow } from './update
 import { runScript, stopAllScripts, stopScript, wordsOf } from './scripts'
 import { buildDocuments, newRecord } from './records'
 import { propsInUse } from '../shared/props'
-import { recordOf, refsOf, withField } from '../shared/records'
+import { choicesByKind, recordOf, refsOf, withField } from '../shared/records'
 import { approve, describe, instructionFiles, keepPinsIn, movePins, unapproved } from './pins'
 import {
   PRIVATE,
@@ -696,7 +696,7 @@ app.whenReady().then(() => {
       .filter((each) => each.path.startsWith(prefix) && each.path.toLowerCase().endsWith('.md'))
       .map((each) => ({ path: each.path.slice(prefix.length), text: each.text }))
     const records = files.flatMap((each) => recordOf(each.path, each.text) ?? [])
-    return { records, refs: refsOf(files, records) }
+    return { records, refs: refsOf(files, records), kinds: choicesByKind(files) }
   })
 
   // The passages closest in meaning to the question, from what has its vectors so far.

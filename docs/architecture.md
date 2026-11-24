@@ -1149,6 +1149,11 @@ template, and is no record either.
   `id`, a standard or a pattern by its file name (`STD-IAM-…`), and
   `P-NN` by its heading in a `principles.md`. Only a whole word counts:
   `ADR-0001` is not found in `ADR-00010`.
+- `choicesByKind` reads the same lists from the templates of the project
+  (a `_` in the path, an ID such as `REG-0000`), by the letters of the ID.
+  A record uses its own comments first and the template's lists for what it
+  lost: an editor that rewrites the front matter, as Obsidian's Properties
+  does, drops the comments, and the menus would go with them.
 - `withField` sets one field, keeps its comment and the comment's column,
   and writes the value in quotes when a colon, a `#` or a leading mark would
   change its meaning. A value of more than one line is refused, so a box

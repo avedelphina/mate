@@ -26,10 +26,13 @@ export function Properties(props: {
   onOpen: (open: boolean) => void
   /** What the context's documents use, or null until it is asked. */
   vocab: PropUse[] | null
+  /** The choices each kind of record offers, from its templates, for a record that lost the lists in its own comments. */
+  kinds: Record<string, Record<string, string[]>>
   onSet: (key: string, value: string | null) => void
   onTags: () => void
 }) {
-  const { choices } = headerOf(props.text)
+  const { fields, choices: own } = headerOf(props.text)
+  const choices = { ...(props.kinds[/^([A-Za-z][A-Za-z0-9]*)-/.exec(fields.id ?? '')?.[1] ?? ''] ?? {}), ...own }
   const present = propsOf(props.text)
   const have = new Set([...present.map((each) => each.key), ...(tagsOf(props.text).length > 0 ? ['tags'] : [])])
   const known = new Map(KNOWN.map((each) => [each.key, each]))
