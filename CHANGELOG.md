@@ -5,6 +5,18 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## Unreleased
+
+### Added
+
+- *Settings* › *Sending a message*: choose whether ⌘↵ (Ctrl+Enter) or Enter sends
+  a message to an agent. With Enter, Shift+Enter breaks the line. ⌘↵ always sends.
+
+### Changed
+
+- Publishing a folder, or the list an agent proposed, now ends with a dialog of the
+  system that says how many documents went to the shelf, and which did not.
+
 ## [0.38.0] - 2026-11-23
 
 A folder of drafts, or a list an agent proposes, goes to the shelf in one answer. The list

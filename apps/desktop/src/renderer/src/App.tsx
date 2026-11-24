@@ -5,6 +5,7 @@ import { Boundary } from './Boundary'
 import { Editor } from './Editor'
 import { Palette, type Act } from './Palette'
 import { WhatsNew, type News } from './News'
+import { sendKey, sends, useEnterSends } from './keys'
 import { fileNamed } from '../../shared/named'
 import { reviewableMarkdown } from '../../shared/reviewable'
 import type { RecordRow } from '../../shared/records'
@@ -292,6 +293,7 @@ export function App() {
   useEffect(() => window.mate.onSettings(openSettings), [])
   // After an update, what changed. The menu asks for it again.
   const [news, setNews] = useState<News | null>(null)
+  const enterKey = useEnterSends()
   useEffect(() => {
     window.mate.whatsNew(false).then(setNews, () => {})
     return window.mate.onNews(() => void window.mate.whatsNew(true).then(setNews, () => {}))
@@ -2481,7 +2483,7 @@ export function App() {
               style={{ ...popover, width: POPOVER_WIDTH }}
               role="dialog"
               aria-label="Send the selected passage to another project"
-              onKeyDown={(event) => event.key === 'Enter' && (event.metaKey || event.ctrlKey) && void sendRequest()}
+              onKeyDown={(event) => sends(event) && (event.preventDefault(), void sendRequest())}
             >
               <label className="meta">
                 To{' '}
@@ -2499,7 +2501,7 @@ export function App() {
               />
               <footer>
                 <button className="quiet" onClick={clearComment}>Cancel</button>
-                <button className="primary" title={document.documentElement.dataset.platform === 'mac' ? '⌘↵' : 'Ctrl+Enter'} disabled={!sendTo} onClick={sendRequest}>
+                <button className="primary" title={sendKey(enterKey)} disabled={!sendTo} onClick={sendRequest}>
                   Send…
                 </button>
               </footer>

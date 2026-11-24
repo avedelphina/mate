@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { EFFORTS } from '../../shared/effort'
 import { fileNamed } from '../../shared/named'
+import { sendKey, sends, useEnterSends } from './keys'
 import { dropMenu, onRightClick, type Item } from './menu'
 import type { AgentInfo, AgentKind, Compared, Models, Session, SessionRow } from './env'
 import { Boundary } from './Boundary'
@@ -65,6 +66,8 @@ export function Agent(props: {
   // Every session of the context, for the list. Read when the list is shown.
   const [every, setAll] = useState<SessionRow[]>([])
   const [find, setFind] = useState('')
+  // Which key sends: a setting of Settings, read again when it changes.
+  const enterKey = useEnterSends()
   const [text, setText] = useState('')
   // What the reader attached to the next message of a session: pictures and files, each copied into the project's dropbox.
   const [attachments, setAttachments] = useState<{ id: string; path: string }[]>([])
@@ -626,7 +629,7 @@ export function Agent(props: {
       </Fold>
       {error && <p className="error" role="alert">{error}</p>}
 
-      <div className="composer talk" onKeyDown={(event) => event.key === 'Enter' && (event.metaKey || event.ctrlKey) && send(false)}>
+      <div className="composer talk" onKeyDown={(event) => sends(event) && (event.preventDefault(), send(false))}>
         {shown.map((each) => (
           <p key={each.path} className="meta picture">
             Attached: {each.path.split('/').pop()}{' '}
@@ -694,7 +697,7 @@ export function Agent(props: {
               After this turn
             </button>
           )}
-          <button className="primary" title={document.documentElement.dataset.platform === 'mac' ? '⌘↵' : 'Ctrl+Enter'} disabled={(!text.trim() && shown.length === 0) || sending} onClick={() => send(false)}>
+          <button className="primary" title={sendKey(enterKey)} disabled={(!text.trim() && shown.length === 0) || sending} onClick={() => send(false)}>
             {sending ? 'Sending…' : 'Send'}
           </button>
         </footer>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { setEnterSends, useEnterSends } from './keys'
 import type { AgentInfo, Settings as Held, Update } from './env'
 
 const unwrapped = (caught: unknown) => String((caught as Error)?.message ?? caught).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
@@ -82,6 +83,7 @@ export function Settings(props: { onClose: () => void }) {
   const [editing, setEditing] = useState<{ url: string; model: string; key: string } | null>(null)
   const [saved, setSaved] = useState(false)
   const [skillFile, setSkillFile] = useState<string | null>(null)
+  const enterKey = useEnterSends()
   // A forge being added: its address and a token, which is never shown back. While the forge is asked, and what it said.
   const [forge, setForge] = useState({ url: '', token: '' })
   const [forgeSaid, setForgeSaid] = useState<{ failed: boolean; text: string } | null>(null)
@@ -156,6 +158,19 @@ export function Settings(props: { onClose: () => void }) {
                 </p>
                 <label>
                   <input type="checkbox" checked={held?.notifications ?? true} onChange={(event) => act(() => window.mate.setNotifications(event.target.checked))} /> Tell me
+                </label>
+              </section>
+
+              <section>
+                <h2>Sending a message</h2>
+                <p className="meta">Which key sends a message to an agent. The other key breaks the line.</p>
+                <label>
+                  <input type="radio" name="send-key" checked={!enterKey} onChange={() => setEnterSends(false)} />{' '}
+                  {document.documentElement.dataset.platform === 'mac' ? '⌘↵ sends, Enter breaks the line' : 'Ctrl+Enter sends, Enter breaks the line'}
+                </label>
+                <br />
+                <label>
+                  <input type="radio" name="send-key" checked={enterKey} onChange={() => setEnterSends(true)} /> Enter sends, Shift+Enter breaks the line
                 </label>
               </section>
 

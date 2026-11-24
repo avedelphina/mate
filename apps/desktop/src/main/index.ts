@@ -260,6 +260,20 @@ async function shelfText(contextDir: string, project: string, relative: string):
   return Buffer.from(await sourceText(contextDir, relative, full))
 }
 
+/** Say in a dialog of the system what a batch did. The page shows a line too, but a reader who looked away would not see it. */
+async function reportBatch(window: BrowserWindow | null, done: number, failed: string[], skipped: string[] = []): Promise<void> {
+  const options = {
+    type: failed.length > 0 ? ('warning' as const) : ('info' as const),
+    buttons: ['OK'],
+    message: failed.length > 0 ? `Published ${done}. ${failed.length} did not go.` : `Published ${done} ${done === 1 ? 'document' : 'documents'} to the shelf.`,
+    detail:
+      (failed.length > 0 ? `Not published:\n${failed.slice(0, 8).join('\n')}${failed.length > 8 ? `\n… and ${failed.length - 8} more` : ''}\n\n` : '') +
+      (skipped.length > 0 ? `Left out, because the shelf cannot take their names: ${skipped.length}.\n\n` : '') +
+      'They are on the shelf now. Every project of this context reads them as true.'
+  }
+  await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+}
+
 /** Tell every window of a context something on a channel of its own. */
 function toContext(contextDir: string, channel: string, value: unknown): void {
   for (const window of BrowserWindow.getAllWindows()) {
@@ -1097,6 +1111,7 @@ app.whenReady().then(() => {
         failed.push(each.file)
       }
     }
+    await reportBatch(window, done, failed, skipped)
     return { done, failed, skipped }
   })
 
@@ -1302,6 +1317,7 @@ app.whenReady().then(() => {
       tools: []
     })
     await saveSession(contextDir, session)
+    await reportBatch(window, done, failed.map((each) => each.split(':')[0]))
     return session
   })
 
