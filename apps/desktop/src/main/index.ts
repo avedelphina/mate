@@ -82,6 +82,7 @@ import { keepCopiesIn } from './copies'
 import { checkForUpdate, installUpdate, startUpdates, updateNow } from './update'
 import { runScript, stopAllScripts, stopScript, wordsOf } from './scripts'
 import { buildDocuments, newRecord } from './records'
+import { propsInUse } from '../shared/props'
 import { recordOf, refsOf, withField } from '../shared/records'
 import { approve, describe, instructionFiles, keepPinsIn, movePins, unapproved } from './pins'
 import {
@@ -908,9 +909,15 @@ app.whenReady().then(() => {
     editDraft(requireContext(event), project, file, (markdown) => withTags(markdown, Array.isArray(tags) ? tags.map(String) : []))
   )
 
-  // One field of a document's front matter, picked in the bar: a status, a decision. The reader's word, kept as written.
-  ipcMain.handle('draft:field', (event, project: string, file: string, key: string, value: string) =>
-    editDraft(requireContext(event), project, file, (markdown) => withField(markdown, String(key), String(value)))
+  // One field of a document's front matter, set in the Properties row: a status, a due day. The reader's word, kept as
+  // written. `null` takes the field out.
+  ipcMain.handle('draft:field', (event, project: string, file: string, key: string, value: string | null) =>
+    editDraft(requireContext(event), project, file, (markdown) => withField(markdown, String(key), value === null ? null : String(value)))
+  )
+
+  // The fields the markdown documents of the context use and the values most used for each, for the list of what can be added.
+  ipcMain.handle('context:props', async (event) =>
+    propsInUse((await refreshIndex(requireContext(event))).files.filter((each) => each.path.toLowerCase().endsWith('.md')).map((each) => each.text))
   )
 
   // Words, removal and closing of a comment are the reader's. No agent can reach these three.

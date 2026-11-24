@@ -318,7 +318,8 @@ export type MateApi = {
   /** Write these tags into the front matter of a document: where its tags were, or in a block made at the top. */
   setTags: (project: string, file: string, tags: string[]) => Promise<DocumentView>
   /** One field of the front matter, set to a word. The comment after it is kept. */
-  setField: (project: string, file: string, key: string, value: string) => Promise<DocumentView>
+  contextProps: () => Promise<{ key: string; count: number; values: string[] }[]>
+  setField: (project: string, file: string, key: string, value: string | null) => Promise<DocumentView>
   /** The records of a project, and what each ID in a text opens, by path from the project. */
   projectRecords: (project: string) => Promise<{ records: RecordRow[]; refs: Record<string, string> }>
   /** A record made with the repository's own tool. Where it is, from the project. Trusted contexts only. */

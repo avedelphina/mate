@@ -288,7 +288,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'material.md')`, 'the material in the tree')
     await app.press('.projects .tree .row', 'material.md')
     await app.until(`document.querySelector('.center .bar')?.textContent.includes('material.md') && !!document.querySelector('.page')`, 'the material open for review')
-    assert.equal(await app.page(`[...document.querySelectorAll('.center .bar button')].map((each) => each.textContent.trim()).join()`), 'Open in editor,Edit,Tags…')
+    assert.equal(await app.page(`[...document.querySelectorAll('.center .bar button')].map((each) => each.textContent.trim()).join()`), 'Open in editor,Edit,Tags…,Properties…')
     await span('collector', 'collector')
     await note('Which port?')
     assert.equal(await readFile(path.join(project, 'material.md'), 'utf8'), material, 'the file is as it was')
@@ -316,6 +316,24 @@ test('the window, on the example context: a comment into the file, the tree, a p
     })()`)
     await app.until(`[...document.querySelectorAll('.center .bar .tag')].map((each) => each.textContent).join() === '#terms/payment,#Legal-review'`, 'the tags in the bar')
     assert.match(await readFile(path.join(project, 'draft/page.md'), 'utf8'), /^---\nsource: page\.html\nextracted: \d{4}-\d{2}-\d{2}\ntags: terms\/payment, Legal-review\n---\n/)
+    // Properties: the menu says what can be added, a field is typed in its box, and one is taken out. Each is one line of the file.
+    await app.press('.center .bar .acts button', 'Properties…')
+    await app.until(`!!document.querySelector('.prop-menu')`, 'the menu of fields')
+    assert.equal(await app.page(`[...document.querySelectorAll('.prop-menu button b')].some((each) => each.textContent === 'owner')`), true)
+    await app.page(`[...document.querySelectorAll('.prop-menu button')].find((each) => each.querySelector('b')?.textContent === 'owner').click()`)
+    await app.until(`!!document.querySelector('.record-head input[aria-label="owner"]')`, 'the box of the new field')
+    await app.page(`(() => {
+      const field = document.querySelector('.record-head input[aria-label="owner"]')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, 'Jan: "the" owner')
+      field.dispatchEvent(new Event('input', { bubbles: true }))
+      field.blur()
+    })()`)
+    // The box keeps what was typed whether or not it was saved, so the file is what is waited for.
+    for (let waited = 0; waited < 50 && !/owner: "/.test(await readFile(path.join(project, 'draft/page.md'), 'utf8')); waited++) await new Promise((done) => setTimeout(done, 100))
+    assert.match(await readFile(path.join(project, 'draft/page.md'), 'utf8'), /\ntags: terms\/payment, Legal-review\nowner: "Jan: \\"the\\" owner"\n---\n/)
+    await app.page(`document.querySelector('.record-head button[aria-label="Remove owner"]').click()`)
+    await app.until(`!document.querySelector('.record-head input[aria-label="owner"]')`, 'the owner, taken out')
+    assert.doesNotMatch(await readFile(path.join(project, 'draft/page.md'), 'utf8'), /owner/)
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 

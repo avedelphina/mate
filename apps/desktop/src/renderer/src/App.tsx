@@ -15,7 +15,8 @@ import { isTwinned } from '../../shared/twin'
 import type { AssistState, DocumentView, FileView, Hit, Kind, Opened, Ran, Review } from './env'
 import { History } from './History'
 import { PullRequests } from './Pull'
-import { hasHeader, RecordHeader } from './RecordHeader'
+import { hasProps, Properties } from './Properties'
+import type { PropUse } from '../../shared/props'
 import { Records } from './Records'
 import { Question, type Judged } from './Question'
 import { Rendered, type Passage } from './Rendered'
@@ -194,6 +195,9 @@ export function App() {
   const [publishing, setPublishing] = useState<string | null>(null)
   // The tags of the open document as the reader types them in the bar, comma between.
   const [tagging, setTagging] = useState<string | null>(null)
+  // The file whose Properties menu is open, and what the context's documents use as fields, asked when it opens.
+  const [propsOpen, setPropsOpen] = useState<string | null>(null)
+  const [vocab, setVocab] = useState<PropUse[] | null>(null)
   // The margin shows the threads of the draft, the agent invited into the project, or one of its panes.
   const [tab, setTab] = useState('review')
   // A session that is not about a draft is a conversation, and the conversation may have the page.
@@ -805,6 +809,18 @@ export function App() {
   }
 
   useEffect(() => setTagging(null), [project, file])
+  useEffect(() => setPropsOpen(null), [project, file])
+  useEffect(() => {
+    if (propsOpen === null) return
+    let current = true
+    window.mate.contextProps().then((next) => current && setVocab(next), () => {})
+    return () => {
+      current = false
+    }
+  }, [propsOpen])
+
+  /** Show the row of fields with the menu of what can be added open. */
+  const openProps = () => setPropsOpen(file)
 
   /** What the repository's build tool builds for the open file: the project it is in, or the review it is. Null when it builds nothing of it. */
   const buildTarget =
@@ -2326,7 +2342,10 @@ export function App() {
                   )}
                   <BarButton icon="edit" label="Edit" onClick={edit} />
                   {file.toLowerCase().endsWith('.md') && (
-                    <BarButton icon="tag" label="Tags…" title="The tags of this document, in its front matter" onClick={() => setTagging(tagsOf(view?.text ?? '').map((each) => each.tag).join(', '))} />
+                    <>
+                      <BarButton icon="tag" label="Tags…" title="The tags of this document, in its front matter" onClick={() => setTagging(tagsOf(view?.text ?? '').map((each) => each.tag).join(', '))} />
+                      <BarButton icon="tag" label="Properties…" title="The fields of this document's front matter: what can be added, and what each does" onClick={() => openProps()} />
+                    </>
                   )}
                   {trustedHere && buildTarget && (
                     <BarButton icon="publish" label="Build…" title="A Word file of this, with the repository's tools/build-docs.sh. It goes to dist/ and is shown." onClick={() => void build(buildTarget)} />
@@ -2446,10 +2465,14 @@ export function App() {
           ) : (
             <div className="page prose" ref={page} onMouseUp={pickPassage}>
               {/* Beside the text, not in it: the front matter stays in the page as the file has it. */}
-              {!textFile && hasHeader(view.text) && (
-                <RecordHeader
+              {!textFile && file.toLowerCase().endsWith('.md') && (hasProps(view.text) || propsOpen === file) && (
+                <Properties
                   text={view.text}
-                  onPick={(key, value) =>
+                  open={propsOpen === file}
+                  onOpen={(open) => setPropsOpen(open ? file : null)}
+                  vocab={vocab}
+                  onTags={() => setTagging(tagsOf(view.text).map((each) => each.tag).join(', '))}
+                  onSet={(key, value) =>
                     void window.mate.setField(view.project, file, key, value).then(
                       (next) => (setView(next), setError(null)),
                       (caught) => setError(reason(caught, 'Could not change that field.'))

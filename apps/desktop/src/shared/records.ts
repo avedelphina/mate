@@ -13,7 +13,9 @@ export type Header = { fields: Fields; choices: Record<string, string[]>; order:
 
 /** A value, and the comment after it. A quoted value may hold a `#`. */
 function split(raw: string): { value: string; comment: string } {
-  const quoted = /^\s*"((?:[^"\\]|\\.)*)"(.*)$/.exec(raw) ?? /^\s*'((?:[^']|'')*)'(.*)$/.exec(raw)
+  const double = /^\s*"((?:[^"\\]|\\.)*)"(.*)$/.exec(raw)
+  if (double) return { value: double[1].replace(/\\(.)/g, '$1'), comment: double[2].trim() }
+  const quoted = /^\s*'((?:[^']|'')*)'(.*)$/.exec(raw)
   if (quoted) return { value: quoted[1], comment: quoted[2].trim() }
   const hash = /(^|\s)#/.exec(raw)
   return hash ? { value: raw.slice(0, hash.index).trim(), comment: raw.slice(hash.index).trim() } : { value: raw.trim(), comment: '' }
@@ -44,27 +46,66 @@ export function headerOf(text: string): Header {
   return header
 }
 
+/** A value as YAML takes it on one line: plain when it can be, in double quotes when a `: `, a ` #` or a leading mark would be read as more. */
+function written(value: string): string {
+  const plain = value === value.trim() && !/(^|\s)#|:(\s|$)/.test(value) && !/^[\[\]{}>|*&!%@`'"?,-]/.test(value)
+  return value === '' || plain ? value : `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+}
+
 /**
  * The text with one field of the front matter set, its comment and the comment's column kept. A field
- * that is not there is added at the end of the block; a document with no block is returned as it is.
+ * that is not there is added at the end of the block, and a document with no block gets one at the top.
+ * `null` takes the field out, with the list or the lines indented under it. A value that is more than
+ * one line is no value: the text is returned as it is. `tags` has its own writer, `withTags`.
  */
-export function withField(text: string, key: string, value: string): string {
+export function withField(text: string, key: string, value: string | null): string {
+  if (!/^[A-Za-z][\w-]*$/.test(key) || key.toLowerCase() === 'tags' || /[\r\n]/.test(value ?? '')) return text
   const meta = metaOf(text)
-  if (!meta || !/^[A-Za-z][\w-]*$/.test(key) || !/^[\w-]*$/.test(value)) return text
+  // A file with Windows line ends is no front matter to Mate (`metaOf`), so a block is not made over its own.
+  if (!meta) return value === null || text.startsWith('---\r\n') ? text : `---\n${key}: ${written(value)}\n---\n${text}`
   const lines = text.slice(0, meta.to).split('\n')
   const close = lines.findIndex((each, at) => at > 0 && /^(?:---|\.\.\.)[ \t]*$/.test(each))
   if (close < 0) return text
   for (let at = 1; at < close; at++) {
     const found = new RegExp(`^${key}[ \\t]*:(.*)$`).exec(lines[at])
     if (!found) continue
+    if (value === null) {
+      let end = at + 1
+      while (end < close && /^([ \t]+\S|[ \t]*-[ \t])/.test(lines[end])) end++
+      lines.splice(at, end - at)
+      // A block left with nothing in it goes.
+      if (lines.slice(1, close - (end - at)).every((each) => each.trim() === '')) return text.slice(meta.to)
+      return lines.join('\n') + text.slice(meta.to)
+    }
     const { comment } = split(found[1])
-    let next = `${key}: ${value}`.trimEnd()
+    let next = `${key}: ${written(value)}`.trimEnd()
     if (comment) next = next.padEnd(Math.max(lines[at].indexOf(comment), next.length + 1)) + comment
     lines[at] = next
     return lines.join('\n') + text.slice(meta.to)
   }
-  lines.splice(close, 0, `${key}: ${value}`)
+  if (value === null) return text
+  lines.splice(close, 0, `${key}: ${written(value)}`.trimEnd())
   return lines.join('\n') + text.slice(meta.to)
+}
+
+/**
+ * Each field of the front matter that a person can change in a box: one line, a value or nothing. A
+ * list, a map or a block of text is `compound`, and is left to the file. `tags` has its own place.
+ */
+export function propsOf(text: string): { key: string; value: string; compound: boolean }[] {
+  const meta = metaOf(text)
+  if (!meta) return []
+  const lines = text.slice(0, meta.to).split('\n').map((each) => each.replace(/\r$/, ''))
+  const found: { key: string; value: string; compound: boolean }[] = []
+  for (let at = 1; at < lines.length; at++) {
+    const head = /^([A-Za-z][\w-]*)[ \t]*:(.*)$/.exec(lines[at])
+    if (!head) continue
+    const { value } = split(head[2])
+    const next = lines[at + 1] ?? ''
+    const compound = /^[[{|>]/.test(value) || (value === '' && /^([ \t]+\S|[ \t]*-[ \t])/.test(next))
+    if (head[1].toLowerCase() !== 'tags') found.push({ key: head[1], value: compound ? '' : value, compound })
+  }
+  return found
 }
 
 /** One record, as the list shows it. */

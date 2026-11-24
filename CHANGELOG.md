@@ -5,6 +5,22 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- Properties. The front matter of a draft shows as a row above the page, for every markdown
+  draft that has fields: each field is a box you can change, with a menu for a field that lists
+  its choices and a date picker for a day. A field comes out with its × button. *Properties…* in
+  the bar, or *+ Property* in the row, lists what can be added, with a line on what each field
+  does, and the fields other documents of the context already use. The list is read from the
+  files. Tags keep their own form.
+
+### Changed
+
+- The row of fields is no longer only for records. A value with a colon, a `#` or a quote is
+  written in quotes, so the file stays valid.
+
 ## [0.40.1] - 2026-11-24
 
 0.39.0 and 0.40.0 were tagged, but their releases stopped at a test that failed on Linux, so

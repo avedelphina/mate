@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { attention, headerOf, isClosed, recordOf, refRanges, refsOf, withField } from '../src/shared/records.ts'
+import { attention, headerOf, isClosed, recordOf, refRanges, propsOf, refsOf, withField } from '../src/shared/records.ts'
+import { propsInUse } from '../src/shared/props.ts'
 
 const REG = `---
 id: REG-0007
@@ -35,7 +36,7 @@ test('a field is set with its comment and the comment column kept; a template is
   assert.match(withField(REG, 'decision', 'accept'), /^decision: accept {8}# remediate/m)
   assert.match(withField(REG, 'review', '2027-01-01'), /^review: 2027-01-01\n---/m)
   assert.equal(withField(REG, 'status', 'a\nb'), REG)
-  assert.equal(withField('# plain', 'status', 'x'), '# plain')
+  assert.equal(withField(REG, 'tags', 'x'), REG)
   assert.equal(recordOf('register/_template.md', REG), null)
   assert.equal(recordOf('projects/_template/README.md', '---\nid: key\n---\n'), null)
   assert.equal(recordOf('register/REG-0007-x.md', REG)?.id, 'REG-0007')
@@ -81,4 +82,36 @@ test('an ID in the text opens what it names, as a whole word only', () => {
     ['ADR-0010', 'P-01', 'STD-IAM-privileged-access']
   )
   assert.deepEqual(refRanges(text, {}), [])
+})
+
+test('a field is added, quoted when it must be, and taken out with what is under it; a plain document gets a block', () => {
+  assert.equal(withField('# plain\n', 'owner', 'Jan'), '---\nowner: Jan\n---\n# plain\n')
+  assert.equal(withField('# plain\n', 'owner', null), '# plain\n')
+  const quoted = withField(REG, 'title', 'a: "b" # c')
+  assert.match(quoted, /^title: "a: \\"b\\" # c"$/m)
+  assert.equal(headerOf(quoted).fields.title, 'a: "b" # c')
+  assert.match(withField('---\nid: x\n---\n', 'owner', ''), /^owner:\n---/m)
+  assert.equal(withField('---\nowner: Jan\n---\nbody\n', 'owner', null), 'body\n')
+  assert.equal(withField('---\nid: x\nrefs:\n  - a\n  - b\nowner: Jan\n---\n', 'refs', null), '---\nid: x\nowner: Jan\n---\n')
+  const crlf = '---\r\nid: x\r\n---\r\n'
+  assert.equal(withField(crlf, 'owner', 'Jan'), crlf)
+})
+
+test('the fields a person can change are the one-line ones, and a list is left to the file', () => {
+  const found = propsOf('---\ntags: a, b\nid: x\nrefs:\n  - a\nowner:\ndue: 2026-01-01 # day\nlist: [1, 2]\n---\n')
+  assert.deepEqual(found, [
+    { key: 'id', value: 'x', compound: false },
+    { key: 'refs', value: '', compound: true },
+    { key: 'owner', value: '', compound: false },
+    { key: 'due', value: '2026-01-01', compound: false },
+    { key: 'list', value: '', compound: true }
+  ])
+})
+
+test('the fields in use are counted over the documents, with the values most used', () => {
+  const doc = (head: string) => `---\n${head}\n---\n`
+  const used = propsInUse([doc('status: final\ndue: 2026-01-01'), doc('status: final'), doc('status: draft\ntags: a'), '# no block'])
+  assert.deepEqual(used.find((each) => each.key === 'status'), { key: 'status', count: 3, values: ['final', 'draft'] })
+  assert.deepEqual(used.find((each) => each.key === 'due'), { key: 'due', count: 1, values: [] })
+  assert.equal(used.some((each) => each.key === 'tags'), false)
 })

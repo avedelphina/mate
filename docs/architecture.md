@@ -850,6 +850,25 @@ nothing is read for it, and `tagPaths` makes `tag/nested/name.md` of each,
 a file under every tag it names. The same `Tree` draws it. A tag is
 spelled as it is first met, so `Work` and `work` are one.
 
+## Properties
+
+The front matter of a markdown draft is a row above the page
+(`Properties.tsx`), drawn beside the page and not in it. Each field of one
+line is a box: a menu when its comment lists the choices, a date picker for a
+day, a text box with the values other documents use for it, and a × that
+takes it out. A list or a map shows as "in the file". `id` is read only,
+since other documents name it. The row is written one field at a time by
+`withField` through `draft:field`, so it keeps comments, order and the rest
+of the block, as the tags form does.
+
+*Properties…* in the bar and *+ Property* in the row open the list of what
+can be added. `KNOWN` in `shared/props.ts` has a line for each field Mate
+reads or its template uses. The fields other documents use, with their most
+used values, come from `propsInUse`, asked by `context:props` over the text
+of the index. Nothing new is kept: the files say it. Tags keep their form
+and are only offered here. Not done: nested YAML, lists other than tags, and
+a schema for a context.
+
 ## The index and the search
 
 A context has an index: `.indexes/context.json` inside the context folder.
@@ -1123,7 +1142,12 @@ template, and is no record either.
   `P-NN` by its heading in a `principles.md`. Only a whole word counts:
   `ADR-0001` is not found in `ADR-00010`.
 - `withField` sets one field, keeps its comment and the comment's column,
-  and takes only a plain word, so a pick cannot add a line.
+  and writes the value in quotes when a colon, a `#` or a leading mark would
+  change its meaning. A value of more than one line is refused, so a box
+  cannot add a line. `null` takes the field out with the list under it, and a
+  document with no block gets one at the top. `propsOf` lists the fields a
+  person can change in a box: one line each, and a list or a map is left to
+  the file.
 
 `project:records` makes the list from the index (`refreshIndex`), so no
 file is read that is not read already. That matters in a folder synced on

@@ -538,6 +538,17 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 .record-head .field > span { color: var(--soft); }
 .record-head .field.late { background: var(--warn-bg); color: var(--warn); }
 .record-head select { padding: 0 2px; border: 0; background: none; box-shadow: none; color: inherit; font: inherit; }
+.record-head input { padding: 0 2px; min-width: 3em; border: 0; background: none; box-shadow: none; color: inherit; font: inherit; }
+.record-head .field em { color: var(--soft); font-style: normal; }
+.record-head .drop { padding: 0 2px; color: var(--soft); opacity: 0; }
+.record-head .field:hover .drop, .record-head .drop:focus-visible { opacity: 1; }
+.record-head .add { position: relative; }
+.record-head .add > button { padding: 1px 10px; border-radius: 99px; color: var(--soft); }
+.prop-menu { position: absolute; z-index: 2; top: 100%; left: 0; width: min(26em, 80vw); max-height: 60vh; overflow: auto; margin-top: 4px; padding: 4px; border-radius: 14px; background: var(--glass); box-shadow: var(--float); -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8); }
+.prop-menu > button { display: block; width: 100%; padding: 4px 10px; text-align: left; }
+.prop-menu > button span { display: block; color: var(--soft); }
+.prop-menu form { padding: 4px 6px; }
+.prop-menu form input { width: 100%; }
 .ref { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; cursor: pointer; }
 .page.records { font: 13.5px/1.5 var(--ui); }
 .records h2 { margin: 20px 0 4px; font: 600 14px/1.4 var(--ui); }
