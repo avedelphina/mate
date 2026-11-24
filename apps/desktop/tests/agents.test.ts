@@ -32,6 +32,10 @@ test('each agent is asked to plan first, and its output is read as the same even
   assert.ok(!AGENTS.claude.args(turn).includes('--disallowedTools'))
   const onCopy = AGENTS.claude.args({ ...turn, contextDir: tmpdir(), copy: true })
   assert.equal(onCopy[onCopy.indexOf('--disallowedTools') + 1], `Edit(/${realpathSync(tmpdir())}/**)`)
+  // A reference is a folder outside the context that Claude reads and may not edit.
+  const withReference = AGENTS.claude.args({ ...turn, references: ['/outside/antifragile'] })
+  assert.deepEqual(withReference.slice(withReference.indexOf('--add-dir'), withReference.indexOf('--add-dir') + 3), ['--add-dir', '/c', '/outside/antifragile'])
+  assert.equal(withReference[withReference.indexOf('--disallowedTools') + 1], 'Edit(//outside/antifragile/**)')
   assert.ok(AGENTS.claude.args({ ...turn, mayWrite: true, resume: 'abc' }).join(' ').includes('acceptEdits'))
   assert.deepEqual(AGENTS.claude.args({ ...turn, resume: 'abc' }).slice(-2), ['--resume', 'abc'])
   assert.ok(AGENTS.codex.args(turn).includes('read-only'))

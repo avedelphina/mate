@@ -18,6 +18,8 @@ import { PullRequests } from './Pull'
 import { hasProps, Properties } from './Properties'
 import type { PropUse } from '../../shared/props'
 import { Graph } from './Graph'
+import { References } from './References'
+import { referenceNamed, type Reference } from '../../shared/references'
 import { Records } from './Records'
 import { Question, type Judged } from './Question'
 import { Rendered, type Passage } from './Rendered'
@@ -295,9 +297,10 @@ export function App() {
   const [pullsOpen, setPullsOpen] = useState(false)
   // The records of the open project (documents that name an id), in the center like the pull requests, and what each ID in a text opens.
   // What takes the middle of the window in place of a document: the records of the project, or the graph of links.
-  const [centre, setCentre] = useState<'records' | 'graph' | null>(null)
+  const [centre, setCentre] = useState<'records' | 'graph' | 'references' | null>(null)
   const recordsOpen = centre === 'records'
   const graphOpen = centre === 'graph'
+  const referencesOpen = centre === 'references'
   const setRecordsOpen = (open: boolean) => setCentre(open ? 'records' : null)
   const [recordSet, setRecordSet] = useState<{ records: RecordRow[]; refs: Record<string, string>; kinds: Record<string, Record<string, string[]>> }>({ records: [], refs: {}, kinds: {} })
   const [review, setReview] = useState<Review | null>(null)
@@ -381,6 +384,17 @@ export function App() {
       current = false
     }
   }, [project, view?.text, reading?.text])
+  // The places outside the context that agents are told of, and the one whose card a [[link]] to it has opened.
+  const [references, setReferences] = useState<(Reference & { there: boolean })[]>([])
+  const [referenceCard, setReferenceCard] = useState<string | null>(null)
+  useEffect(() => {
+    if (!contextDir) return setReferences([])
+    let current = true
+    window.mate.referenceList().then((next) => current && setReferences(next), () => {})
+    return () => {
+      current = false
+    }
+  }, [contextDir])
   // Every file of the context by its path, for [[name]] to find a file in any project or on the shelf.
   const [allPaths, setAllPaths] = useState<string[]>([])
   useEffect(() => {
@@ -1160,6 +1174,15 @@ export function App() {
     setRecordsOpen(true)
   }
 
+  /** The references of the context take the middle of the window. */
+  function openReferences() {
+    setInquiry(null)
+    setSettingsOpen(false)
+    setHistoryPath(null)
+    setPullsOpen(false)
+    setCentre('references')
+  }
+
   /** The graph of links takes the middle of the window. */
   function openGraph() {
     setInquiry(null)
@@ -1204,6 +1227,7 @@ export function App() {
 
   /** A path of the context, as a [[link]] or a list of what links here gives it: a project's own file opens in the project, any other is read. */
   function openContextPath(path: string, heading = '') {
+    if (path.startsWith('reference:')) return setReferenceCard(path.slice('reference:'.length))
     if (heading) setHeading({ path, heading })
     const own = view ? `projects/${view.project}/` : null
     if (own && path.startsWith(own)) openFile(path.slice(own.length))
@@ -1212,7 +1236,9 @@ export function App() {
 
   /** What `[[name]]` means in the open document: a file of its own project first, then the shelf, then any project of the context. */
   const wikiHere = (from: string | null) => ({
-    resolve: (target: string) => resolveWiki(target, from === null ? null : (/^projects\/([^/]+)\//.exec(from)?.[1] ?? null), allPaths),
+    // A document of the context first; a reference, when none has the name. A reference is not opened here: it gets a card.
+    resolve: (target: string) =>
+      resolveWiki(target, from === null ? null : (/^projects\/([^/]+)\//.exec(from)?.[1] ?? null), allPaths) ?? (referenceNamed(references, target) ? `reference:${target}` : null),
     open: openContextPath
   })
 
@@ -1663,7 +1689,8 @@ export function App() {
     )
 
   /** The card of a file of the project is for that file: opening another takes it away. A file still being decided about stays. */
-  const dropCards = (keep?: string) => setSources((all) => (all.some((each) => each.inContext && each.inContext !== keep) ? all.filter((each) => !each.inContext || each.inContext === keep) : all))
+  const dropCards = (keep?: string) =>
+    (setReferenceCard(null), setSources((all) => (all.some((each) => each.inContext && each.inContext !== keep) ? all.filter((each) => !each.inContext || each.inContext === keep) : all)))
 
   const settled = (source: Source) => setSources((all) => all.filter((each) => each !== source))
 
@@ -1821,6 +1848,7 @@ export function App() {
       add(review ? `Pull request #${review.number}` : 'Pull requests', 'Show', openPulls)
       if (recordSet.records.length > 0) add('Records', 'Show', openRecords)
       add('Graph of links', 'Show', openGraph)
+      add('References', 'Show', openReferences)
       add("Write this project's own intents…", 'Do', () => void giveSteering('project', 'intents.md'))
       add("Write this project's own principles…", 'Do', () => void giveSteering('project', 'principles.md'))
       add('Add a source…', 'Do', () => void addSources())
@@ -2097,6 +2125,9 @@ export function App() {
                         <button className={graphOpen ? 'active' : 'quiet'} aria-pressed={graphOpen} title="The documents that link to one another with [[name]], drawn as a graph" onClick={() => (graphOpen ? setCentre(null) : openGraph())}>
                           Graph
                         </button>
+                        <button className={referencesOpen ? 'active' : 'quiet'} aria-pressed={referencesOpen} title="Places outside this context that agents are told of, without bringing them in" onClick={() => (referencesOpen ? setCentre(null) : openReferences())}>
+                          References{references.length > 0 && <span className="meta"> {references.length}</span>}
+                        </button>
                       </div>
                     )}
                     {view && project === name && recordSet.records.length > 0 && (
@@ -2340,6 +2371,7 @@ export function App() {
             onClose={() => setPullsOpen(false)}
           />
         )}
+        {referencesOpen && <References items={references} onChange={setReferences} onClose={() => setCentre(null)} />}
         {graphOpen && view && (
           <Graph
             project={view.project}
@@ -2507,6 +2539,24 @@ export function App() {
         </header>
         <div className="scroll" hidden={inquiry !== null || settingsOpen || historyPath !== null || pullsOpen || centre !== null}>
           {/* A file the reader is deciding about. It leaves by one of the exits. There is no exit where it is just remembered. */}
+          {/* The card of a reference a [[link]] named. It is outside the context, so it is shown where it lies and never opened here. */}
+          {view && referenceCard !== null && (() => {
+            const named = referenceNamed(references, referenceCard)
+            if (!named) return null
+            return (
+              <div className="source">
+                <p><strong>{named.reference.name}</strong>{named.inside && <span className="meta"> / {named.inside}</span>}</p>
+                <p className="meta">{`A reference, outside this context: ${named.reference.path}${named.inside ? `/${named.inside}` : ''}`}</p>
+                {named.reference.about && <p>{named.reference.about}</p>}
+                <p className="acts">
+                  <button disabled={!named.reference.there} onClick={() => void window.mate.revealReference(referenceCard).catch((caught) => setError(reason(caught, 'Could not show that.')))}>
+                    Show it in {document.documentElement.dataset.platform === 'mac' ? 'Finder' : 'the file manager'}
+                  </button>
+                  <button className="quiet" onClick={() => setReferenceCard(null)}>Close</button>
+                </p>
+              </div>
+            )
+          })()}
           {view &&
             sources.map((source) => (
               <div key={source.where} className="source">

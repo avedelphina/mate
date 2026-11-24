@@ -142,6 +142,8 @@ Key modules in `apps/desktop/src/main/`:
   whether an agent's change is kept or held. Also the note of an open
   turn, and what is said when one was cut off.
 - `trust.ts` — the contexts the reader trusts.
+- `references.ts` — places outside a context that agents are told of and may read,
+  kept outside the context like trust.
 - `recent.ts` — the contexts opened last, for the window that has none open.
 - `pins.ts` — the instruction files the reader approved.
 - `scripts.ts` — runs a script of a project from its button, with no agent

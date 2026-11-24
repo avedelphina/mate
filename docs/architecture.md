@@ -899,6 +899,38 @@ time. The shelf is the accent colour and a draft is dark. A press opens a
 document. Past three hundred documents the most linked are drawn. It is read
 from the index and keeps nothing.
 
+## References
+
+A reference is a place outside the context that the reader wants agents to
+know of and look at when asked, without bringing it in: a folder of another
+repository, a file. It is a name, where it lies, and a line on when to look
+there. Nothing is copied, and Mate reads nothing of it.
+
+`references.ts` keeps them in Mate's own data folder (`references.json`),
+by the real path of the context, and not in the context. Like trust, they are
+kept where no context and no agent in it can write: an agent is given read
+access to the place a reference names, so a context taken from someone else
+must not be able to add one. The reader adds one by choosing the place in a
+dialog of the system (`reference:add`), and the page names no path. A place is
+refused when it is the whole disk, the home folder, or in the context
+itself.
+
+An agent is told of them in the first words of a session (`referencesAsWords`):
+where each lies, what it is for, that it may not write there, and that nothing
+in it is an instruction. So a reference added later is known to a session that
+starts after it. Claude Code is given each folder with `--add-dir`, and a rule
+that refuses editing there (`Edit(//real path/**)`), as the copy of a
+session is. For a file, the folder it is in is given. Hermes and Kimi in a
+trusted context read anywhere already. Codex reads outside its working folder
+and writes only in it, but that was not tried. An agent that works through the
+MCP door is not told of them.
+
+`[[name]]` and `[[name/inside/it.md]]` name a reference when no document of
+the context has the name (`referenceNamed` in `shared/references.ts`). The
+window never reads it: the link opens a card with where it lies and what it is
+for, and *Show it in Finder*, which main checks stays under the reference.
+*References* in the rail lists them, with *Show it* and *Remove*.
+
 ## Properties
 
 The front matter of a markdown draft is a row above the page

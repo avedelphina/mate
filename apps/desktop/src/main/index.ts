@@ -87,6 +87,8 @@ import { checkForUpdate, installUpdate, startUpdates, updateNow } from './update
 import { runScript, stopAllScripts, stopScript, wordsOf } from './scripts'
 import { buildDocuments, newRecord } from './records'
 import { propsInUse } from '../shared/props'
+import { referenceNamed } from '../shared/references'
+import { addReference, keepReferencesIn, referencesOf, removeReference } from './references'
 import { choicesByKind, recordOf, refsOf, withField } from '../shared/records'
 import { approve, describe, instructionFiles, keepPinsIn, movePins, unapproved } from './pins'
 import {
@@ -492,6 +494,7 @@ app.whenReady().then(() => {
   keepTrustIn(path.join(app.getPath('userData'), 'trusted.json'))
   keepPrivacyIn(path.join(app.getPath('userData'), 'private.json'))
   keepParallelIn(path.join(app.getPath('userData'), 'parallel.json'))
+  keepReferencesIn(path.join(app.getPath('userData'), 'references.json'))
   keepCopiesIn(path.join(app.getPath('userData'), 'copies'))
   keepOpenedIn(path.join(app.getPath('userData'), 'opened.json'))
   keepRecentIn(path.join(app.getPath('userData'), 'recent.json'))
@@ -694,6 +697,35 @@ app.whenReady().then(() => {
 
   // Every file of the context by its path, for [[name]] to find its file in any project or on the shelf. From the index.
   ipcMain.handle('context:paths', async (event) => (await refreshIndex(requireContext(event))).files.map((each) => each.path))
+
+  // References: places outside the context that agents are told of and look at when asked. They are kept outside the context,
+  // in Mate's own data, and the reader adds one by choosing the place in a dialog of the system: the page names no path.
+  const referenceList = (contextDir: string) => referencesOf(contextDir).map((each) => ({ ...each, there: existsSync(each.path) }))
+  ipcMain.handle('reference:list', (event) => referenceList(requireContext(event)))
+  ipcMain.handle('reference:add', async (event, name: string, about: string) => {
+    const contextDir = requireContext(event)
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = { properties: ['openFile' as const, 'openDirectory' as const], message: 'Choose the folder or the file to refer to. Nothing is copied.' }
+    const result = await (window ? dialog.showOpenDialog(window, options) : dialog.showOpenDialog(options))
+    if (result.canceled || !result.filePaths[0]) return null
+    const place = result.filePaths[0]
+    addReference(contextDir, String(name).trim() || path.basename(place).replace(/[^\p{L}\p{N} ._-]+/gu, '-'), place, String(about))
+    return referenceList(contextDir)
+  })
+  ipcMain.handle('reference:remove', (event, name: string) => {
+    const contextDir = requireContext(event)
+    removeReference(contextDir, String(name))
+    return referenceList(contextDir)
+  })
+  // Shown in the file manager, never opened. `inside` is a path under the reference, and it may not leave it.
+  ipcMain.handle('reference:reveal', async (event, target: string) => {
+    const named = referenceNamed(referencesOf(requireContext(event)), String(target))
+    if (!named) throw new Error('That is not a reference.')
+    const base = realpathSync(named.reference.path)
+    const full = named.inside ? realpathSync(path.join(base, named.inside)) : base
+    if (path.relative(base, full).startsWith('..')) throw new Error('That is outside the reference.')
+    shell.showItemInFolder(full)
+  })
 
   // The documents that link to one another, as a graph, read from the index.
   ipcMain.handle('context:graph', async (event) => graphOf(await refreshIndex(requireContext(event))))

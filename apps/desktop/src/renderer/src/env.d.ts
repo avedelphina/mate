@@ -1,4 +1,5 @@
 import type { RecordRow } from '../../shared/records'
+import type { Reference } from '../../shared/references'
 export type Reply = { text: string; author: string }
 
 export type ReviewComment = {
@@ -320,6 +321,10 @@ export type MateApi = {
   setTags: (project: string, file: string, tags: string[]) => Promise<DocumentView>
   /** One field of the front matter, set to a word. The comment after it is kept. */
   renameFile: (project: string, from: string, name: string) => Promise<{ to: string; changed: number; view: DocumentView } | null>
+  referenceList: () => Promise<(Reference & { there: boolean })[]>
+  addReference: (name: string, about: string) => Promise<(Reference & { there: boolean })[] | null>
+  removeReference: (name: string) => Promise<(Reference & { there: boolean })[]>
+  revealReference: (target: string) => Promise<void>
   contextGraph: () => Promise<{ nodes: { path: string; title: string; kind: Kind; project: string | null }[]; links: [string, string][]; total: number }>
   contextPaths: () => Promise<string[]>
   linkedFrom: (path: string) => Promise<{ path: string; title: string }[]>

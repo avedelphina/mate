@@ -20,6 +20,12 @@ then, minor versions may change behaviour.
   the ones that meant that file. A document of the shelf keeps its old text as history.
 - *Graph* in the rail: the documents that link to one another, drawn as points and lines. A press
   opens one.
+- References. *References* in the rail adds a folder or a file outside the context with a name and
+  a line on when to look there, chosen in the dialog of the system. Nothing is copied. Agents are
+  told of them when a session starts, may read them, and may not write there. Claude Code is
+  given the folder to read and refused writes to it. They are kept in Mate's own data, not in the
+  context, so a context cannot add one. `[[name]]` names a reference when no document has the
+  name, and opens a card with where it lies.
 - *Extract it beside the file* on the card of a PDF, Word file, page or table of the project. It
   writes the text as a markdown file of the same name in the same folder, with where it came from
   at the top, and opens it. The original stays. A file of that name is never written over.

@@ -26,7 +26,10 @@ test('the window, on the example context: a comment into the file, the tree, a p
   // Tags for the tag view: one nested, and both on the same file.
   const readme = path.join(project, 'README.md')
   await writeFile(readme, `---\ntags: guide/start, example\n---\n${await readFile(readme, 'utf8')}`)
-  const app = await launch(context)
+  // A reference, as if the reader had added it on an earlier day: a folder outside the context. The dialog that adds one cannot be pressed here.
+  const antifragile = path.join(await realpath(root), 'antifragile')
+  await mkdir(antifragile)
+  const app = await launch(context, { 'references.json': JSON.stringify({ [await realpath(context)]: [{ name: 'antifragile', path: antifragile, about: 'Look here for antifragile principles.', kind: 'folder' }] }) })
   try {
     // The folder on the command line is the open context. No folder dialog is involved.
     await app.until(`document.querySelector('.rail h2')?.textContent === 'example'`, 'the context is open')
@@ -355,6 +358,20 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.equal(await app.page(`[...document.querySelectorAll('.graph .node')].some((each) => each.getAttribute('aria-label').includes('linker.md'))`), true)
     await app.page(`[...document.querySelectorAll('.graph .node')].find((each) => each.getAttribute('aria-label').includes('tagged.md')).dispatchEvent(new MouseEvent('click', { bubbles: true }))`)
     await app.until(`document.querySelector('.center .bar')?.textContent.includes('tagged.md') && !document.querySelector('.graph')`, 'the document opened from the graph')
+    await app.press('.projects .tree .row', 'document.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
+
+    // A link to a reference, which is outside the context, opens its card and nothing is read: it is shown where it lies.
+    await writeFile(path.join(project, 'draft/refers.md'), '# Refers\n\nSee [[antifragile]] and [[antifragile/docs.md]].\n')
+    await app.page(`window.dispatchEvent(new Event('focus'))`)
+    await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'refers.md')`, 'the draft that refers, in the tree')
+    await app.press('.projects .tree .row', 'refers.md')
+    await app.until(`${text('.page .ref:not(.missing)')} === 'antifragile,antifragile/docs.md'`, 'the links to the reference, not dashed')
+    await app.page(`document.querySelector('.page .ref:not(.missing)').click()`)
+    await app.until(`document.querySelector('.source')?.textContent.includes('A reference, outside this context') && document.querySelector('.source')?.textContent.includes('Look here for antifragile principles.')`, 'the card of the reference')
+    await app.press('.projects .links-view button', 'References 1')
+    await app.until(`document.querySelector('.records h1')?.textContent === 'References' && document.querySelector('.records .row')?.textContent.includes('antifragile')`, 'the references listed')
+    await app.press('.bar .acts button', 'Close')
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 

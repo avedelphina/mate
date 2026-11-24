@@ -19,6 +19,8 @@ export type Turn = {
   contextDir: string
   /** The agent works on a copy of the project. It may read the context, and writes only in its working folder. */
   copy?: boolean
+  /** Folders outside the context that the reader gave as references: read, never written. See references.ts. */
+  references?: string[]
   /** The agent's own id for this conversation, from an earlier turn. */
   resume: string | null
   /** False until the reviewer has approved the plan. */
@@ -113,9 +115,12 @@ export const AGENTS: Record<AgentKind, Adapter> = {
       'Read,Glob,Grep,Edit,Write',
       '--add-dir',
       turn.contextDir,
-      // On a copy the context is there to be read. Claude Code lets an added folder be written too, so editing it is refused here:
-      // the copy is the one place it writes. The rule names the real path, which is what Claude Code checks a link against.
-      ...(turn.copy ? ['--disallowedTools', `Edit(/${realpathSync(turn.contextDir)}/**)`] : []),
+      ...(turn.references ?? []),
+      // On a copy the context is there to be read, and so is a reference. Claude Code lets an added folder be written too, so editing
+      // it is refused here: the copy is the one place it writes. The rule names the real path, which is what Claude Code checks a link against.
+      ...(turn.copy || turn.references?.length
+        ? ['--disallowedTools', ...(turn.copy ? [`Edit(/${realpathSync(turn.contextDir)}/**)`] : []), ...(turn.references ?? []).map((each) => `Edit(/${each}/**)`)]
+        : []),
       // The context may come from someone else's repository. Its own settings and hooks are not run,
       // and the reader's plugins do not see what is said here.
       '--strict-mcp-config',

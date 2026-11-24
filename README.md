@@ -96,6 +96,9 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   the shelf under a name, after you confirm it in a system dialog. The
   document it replaces is kept in `shelf/.history/`. A shelf document can
   be taken down into a project, as a copy the project owns.
+- **Links and references.** `[[name]]` links one document to another, in any project or on the
+  shelf, with a *Graph* of them and *Linked from…* on each. *References* names a folder or file
+  outside the context that an agent may read when you ask about it, without bringing it in.
 - **Sources.** *Add a Source…* in the project's menu, or drop a file on the window. A markdown
   file is pulled into the drafts. A file that stays where it is gets a
   note with its path, so a search finds it. For a Word

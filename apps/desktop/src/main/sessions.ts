@@ -9,6 +9,7 @@ import { Acp, type Ask, type Door, type Models } from './acp'
 import { AGENTS, SSH, agentEnvironment, isHost, isModel, sshArgs, type AgentKind } from './agents'
 import { FILE_TYPES, PICTURE_TYPES, inCloudOnly, keptDisk, paneIsLocked, realInside, resolveInside } from './context'
 import { placeOf } from './contextIndex'
+import { readableFolders, referencesAsWords } from './references'
 import { copyOf, copyable, prepareCopy, removeCopy } from './copies'
 import { changesSince, fingerprints, insidePath, mateWrote, put, takeSnapshot, unwatch, watch, type Change, type Snapshot } from './guard'
 import { changedParts, diffLines, type DiffLine } from '../shared/diff'
@@ -554,6 +555,7 @@ async function firstWords(contextDir: string, project: string, remote: boolean, 
     folder && `You work in the folder ${folder}/ of this project. Write only there: the rest of the project may be another agent's. You may read all of it.`,
     `On the shelf (../../shelf/): ${shelf.join(', ') || 'nothing yet'}.`,
     others.length > 0 && `The other projects (../): ${others.join(', ')}.`,
+    referencesAsWords(contextDir),
     intents,
     principles,
     !intents && !principles && 'Nothing steers this project: it has no intents.md or principles.md, and neither has the context.'
@@ -926,7 +928,7 @@ async function begin(
       // The context is trusted no more, or never was: an agent that stayed is sent away.
       live.get(id)?.close()
       live.delete(id)
-      const turn = { cwd: projectDir, contextDir, copy: session.copy === true, resume: session.agentSession, mayWrite, model: session.model, effort: session.effort, picture: picture?.path }
+      const turn = { cwd: projectDir, contextDir, copy: session.copy === true, references: readableFolders(contextDir), resume: session.agentSession, mayWrite, model: session.model, effort: session.effort, picture: picture?.path }
       child = session.host
         ? spawn(SSH.command, sshArgs(session.host, adapter.command, adapter.remoteArgs!(session.agentSession)), {
             env: agentEnvironment()
