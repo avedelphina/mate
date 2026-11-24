@@ -565,7 +565,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.center .settings h1')?.textContent === 'General'`, 'the settings page, at General')
     assert.deepEqual(await app.page(names('[role=tablist] button')), ['General*', 'Agents', 'Connections', 'Privacy'])
     // What is used most is first: nothing is asked for here, and each tab has only what its name says.
-    assert.deepEqual(await app.page(names('.settings section h2')), ['Notifications', 'Your editor', 'Updates', 'On this computer'])
+    assert.deepEqual(await app.page(names('.settings section h2')), ['Notifications', 'Sending a message', 'Your editor', 'Updates', 'On this computer'])
     await app.press('[role=tablist] button', 'Agents')
     // The settings have the whole window: no rail and no margin beside them.
     assert.deepEqual(await app.page(`[document.querySelector('.rail'), document.querySelector('.margin')].map((each) => getComputedStyle(each).display)`), ['none', 'none'])
