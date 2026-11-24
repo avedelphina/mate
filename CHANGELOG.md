@@ -5,7 +5,10 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## Unreleased
+## [0.38.1] - 2026-11-24
+
+Publishing a folder to the shelf works on any folder, and says when it is done. Enter can
+send a message, if you choose it in Settings.
 
 ### Added
 
