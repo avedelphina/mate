@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { EFFORTS } from '../shared/effort'
@@ -17,6 +17,8 @@ export type Turn = {
   /** The project folder. The agent works here. */
   cwd: string
   contextDir: string
+  /** The agent works on a copy of the project. It may read the context, and writes only in its working folder. */
+  copy?: boolean
   /** The agent's own id for this conversation, from an earlier turn. */
   resume: string | null
   /** False until the reviewer has approved the plan. */
@@ -111,6 +113,9 @@ export const AGENTS: Record<AgentKind, Adapter> = {
       'Read,Glob,Grep,Edit,Write',
       '--add-dir',
       turn.contextDir,
+      // On a copy the context is there to be read. Claude Code lets an added folder be written too, so editing it is refused here:
+      // the copy is the one place it writes. The rule names the real path, which is what Claude Code checks a link against.
+      ...(turn.copy ? ['--disallowedTools', `Edit(/${realpathSync(turn.contextDir)}/**)`] : []),
       // The context may come from someone else's repository. Its own settings and hooks are not run,
       // and the reader's plugins do not see what is said here.
       '--strict-mcp-config',

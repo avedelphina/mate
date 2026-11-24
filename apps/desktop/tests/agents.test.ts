@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
-import { chmod, mkdir, mkdtemp, readdir, readFile, rm, symlink, truncate, utimes, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink, truncate, utimes, writeFile } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -10,6 +10,7 @@ import { addComment, writeNote } from '../src/main/context.ts'
 import { changesSince, fingerprints, put, takeSnapshot } from '../src/main/guard.ts'
 import { compare, judge, listAllSessions, listSessions, deleteSession, loadSession, pinSession, pruneEmptySessions, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
 import { isParallel, isTrusted, keepTrustIn, setParallel, setTrusted } from '../src/main/trust.ts'
+import { copyOf, keepCopiesIn } from '../src/main/copies.ts'
 
 async function context(): Promise<string> {
   const root = await mkdtemp(path.join(tmpdir(), 'mate-agents-'))
@@ -27,6 +28,10 @@ async function context(): Promise<string> {
 test('each agent is asked to plan first, and its output is read as the same events', () => {
   const turn = { cwd: '/c/projects/p', contextDir: '/c', resume: null, mayWrite: false }
   assert.deepEqual(AGENTS.claude.args(turn).slice(4, 6), ['--permission-mode', 'plan'])
+  // On a copy, Claude may read the context and may not edit it: the real path is named in a rule that refuses editing.
+  assert.ok(!AGENTS.claude.args(turn).includes('--disallowedTools'))
+  const onCopy = AGENTS.claude.args({ ...turn, contextDir: tmpdir(), copy: true })
+  assert.equal(onCopy[onCopy.indexOf('--disallowedTools') + 1], `Edit(/${realpathSync(tmpdir())}/**)`)
   assert.ok(AGENTS.claude.args({ ...turn, mayWrite: true, resume: 'abc' }).join(' ').includes('acceptEdits'))
   assert.deepEqual(AGENTS.claude.args({ ...turn, resume: 'abc' }).slice(-2), ['--resume', 'abc'])
   assert.ok(AGENTS.codex.args(turn).includes('read-only'))
@@ -783,5 +788,97 @@ test('a snapshot reads again only the files the folder says have changed', async
     assert.deepEqual(fingerprints(first)['shelf/classification.md'], fingerprints(await takeSnapshot(root, first))['shelf/classification.md'])
   } finally {
     await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a session on a copy never writes the project while it works, and what it changed is put back at the end of the turn', { skip: process.platform === 'win32' }, async () => {
+  const root = await context()
+  const command = AGENTS.claude.command
+  const copies = await mkdtemp(path.join(tmpdir(), 'mate-copies-'))
+  try {
+    keepCopiesIn(copies)
+    keepTrustIn(path.join(copies, 'trusted.json'))
+    // The project is a repository, with a file git ignores and one the agent is not told of.
+    const project = path.join(root, 'projects/review')
+    spawnSync('git', ['init', '-q'], { cwd: project })
+    await writeFile(path.join(project, '.gitignore'), 'ignored.txt\n')
+    await writeFile(path.join(project, 'ignored.txt'), 'Never copied.\n')
+    await writeFile(path.join(project, 'other.md'), 'Other.\n')
+    // The agent says where it is, edits its draft and a new file, and writes the shelf through the link it was given.
+    const stub = path.join(root, '..', `${path.basename(root)}-copy.mjs`)
+    const where = path.join(root, '..', `${path.basename(root)}-where.txt`)
+    await writeFile(
+      stub,
+      `#!/usr/bin/env node
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
+const prompt = readFileSync(0, 'utf8')
+const delay = Number(/delay (\\d+)/.exec(prompt)?.[1] ?? 0)
+appendFileSync(${JSON.stringify(where)}, process.cwd() + ' ' + existsSync('.git') + ' ' + existsSync('ignored.txt') + ' ' + existsSync('../../shelf/classification.md') + '\\n')
+await new Promise((resolve) => setTimeout(resolve, delay))
+appendFileSync('draft/document.md', 'Agent line.\\n')
+writeFileSync('new.md', 'New.\\n')
+if (/WRITE_SHELF/.test(prompt)) writeFileSync('../../shelf/classification.md', 'Agent shelf.\\n')
+if (/WRITE_OTHER/.test(prompt)) appendFileSync('other.md', 'Agent other.\\n')
+`
+    )
+    await chmod(stub, 0o755)
+    AGENTS.claude.command = stub
+    const read = (relative: string) => readFile(path.join(root, relative), 'utf8')
+
+    // Only a repository in a context the reader trusts, and not an agent that is not started here.
+    await assert.rejects(startSession(root, 'review', 'claude', null, '', true), /context you trust/)
+    setTrusted(root, true)
+    await assert.rejects(startSession(root, 'sibling', 'claude', null, '', true), /repository/)
+    await assert.rejects(startSession(root, 'review', 'mcp', null, '', true), /started here/)
+
+    const session = await startSession(root, 'review', 'claude', null, '', true)
+    assert.equal(session.copy, true)
+    // Before the plan is approved, the agent's changes wait. The project is as it was.
+    const planned = await (await sendMessage(root, 'review', session.id, 'Go.', false, () => {})).finished
+    assert.equal(await read('projects/review/draft/document.md'), 'Draft text.\n')
+    assert.equal(existsSync(path.join(project, 'new.md')), false)
+    assert.deepEqual(planned.held.map((held) => held.path).sort(), ['projects/review/draft/document.md', 'projects/review/new.md'])
+    assert.match(planned.messages.find((message) => message.role === 'mate')?.text ?? '', /before the plan was approved. It was on a copy/)
+    // The agent worked in the copy, which has no .git and no ignored file, and reads the context through links.
+    const [where1] = (await readFile(where, 'utf8')).trim().split('\n')
+    assert.equal(where1, `${path.join(await realpath(copyOf(root, session.id)), 'projects/review')} false false true`)
+
+    // Approved. What the agent changed goes into the project, and can be reverted. What it wrote through the link is held and put back.
+    const done = await (await sendMessage(root, 'review', session.id, 'Go on. WRITE_SHELF', true, () => {})).finished
+    assert.equal(await read('projects/review/draft/document.md'), 'Draft text.\nAgent line.\n')
+    assert.equal(await read('projects/review/new.md'), 'New.\n')
+    assert.equal(await read('shelf/classification.md'), 'Shelf text.\n')
+    assert.deepEqual(done.changes.map((change) => change.path).sort(), ['projects/review/draft/document.md', 'projects/review/new.md'])
+    assert.ok(done.held.some((held) => held.path === 'shelf/classification.md'))
+    await revertChange(root, 'review', session.id, done.changes.findIndex((change) => change.path === 'projects/review/new.md'))
+    assert.equal(existsSync(path.join(project, 'new.md')), false)
+
+    // The reader changes a file while the agent works on it: the agent's version is held, and the reader's stays.
+    const racing = await sendMessage(root, 'review', session.id, 'Again. WRITE_OTHER delay 400', false, () => {})
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    await writeFile(path.join(project, 'other.md'), 'Reader edit.\n')
+    const raced = await racing.finished
+    assert.equal(await read('projects/review/other.md'), 'Reader edit.\n')
+    assert.ok(raced.held.some((held) => held.path === 'projects/review/other.md'))
+
+    // Two sessions on copies work in one project at once, without the setting that in-place sessions need.
+    const second = await startSession(root, 'review', 'claude', null, '', true)
+    assert.notEqual(second.id, session.id)
+    const first = await sendMessage(root, 'review', session.id, 'Both. delay 300', true, () => {})
+    const other = await sendMessage(root, 'review', second.id, 'Both. delay 50', true, () => {})
+    await Promise.all([first.finished, other.finished])
+    assert.equal(isParallel(root), false)
+
+    // Deleting the conversation takes the copy with it. Nothing of the context goes.
+    await deleteSession(root, 'review', session.id)
+    assert.equal(existsSync(copyOf(root, session.id)), false)
+    assert.equal(await read('shelf/classification.md'), 'Shelf text.\n')
+  } finally {
+    AGENTS.claude.command = command
+    setTrusted(root, false)
+    await rm(root, { recursive: true, force: true })
+    await rm(copies, { recursive: true, force: true })
+    await rm(path.join(root, '..', `${path.basename(root)}-copy.mjs`), { force: true })
+    await rm(path.join(root, '..', `${path.basename(root)}-where.txt`), { force: true })
   }
 })

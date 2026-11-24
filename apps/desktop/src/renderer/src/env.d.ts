@@ -155,6 +155,7 @@ export type SessionRow = {
   empty?: boolean
   pinned?: boolean
   folder?: string
+  copy?: boolean
   cloud: boolean
 }
 
@@ -178,6 +179,8 @@ export type Session = {
   pinned?: boolean
   /** The folder of the project the agent works in. Without one, the whole project. */
   folder?: string
+  /** The agent works on a copy of the project. */
+  copy?: boolean
   running: boolean
   /** What the agent is asking right now. Only while a turn runs, and only from an agent that stays. */
   asks?: Ask[]
@@ -363,8 +366,8 @@ export type MateApi = {
   bindMcp: (project: string, id: string) => Promise<{ url: string; token: string }>
   listSessions: (project: string) => Promise<Session[]>
   listAllSessions: () => Promise<SessionRow[]>
-  /** Invite an agent. With a folder of the project, it works and may change only there, so another can work in another folder. */
-  startSession: (project: string, agent: AgentKind, host?: string, folder?: string) => Promise<Session>
+  /** Invite an agent. With a folder of the project, it works and may change only there. With `copy`, it works on a copy of a repository and what it changes is put back at the end of each turn. */
+  startSession: (project: string, agent: AgentKind, host?: string, folder?: string, copy?: boolean) => Promise<Session>
   /** `wait`: sent while the agent works, it is to go when the turn has ended, even to an agent that would take it into the turn. */
   sendMessage: (project: string, id: string, text: string, approve: boolean, wait?: boolean, attachments?: string[]) => Promise<Session>
   /** A picture chosen in the dialog, copied into the project's dropbox. Null when the reader cancels. */

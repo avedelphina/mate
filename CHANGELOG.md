@@ -5,6 +5,22 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## Unreleased
+
+### Added
+
+- A session can work on a copy of the project. In the Agent tab, tick *Work on a
+  copy of the project* before you invite an agent. It works for a project that is
+  a repository, in a context you trust. The agent works on a copy kept outside the
+  context, so it never writes your files while it works, and other sessions can
+  work in the same project at the same time. At the end of each turn what it changed
+  is put back into the project, and you can revert it. If you changed a file while the
+  agent worked on it, the agent's version is held and yours stays. Files git ignores
+  are not copied, unless the project lists them in `.worktreeinclude`. Claude Code
+  and Codex cannot write outside their copy. Hermes and Kimi can still write anywhere
+  on the computer, so for them a copy protects less. A project of more than 20,000
+  files or 1 GB is not copied.
+
 ## [0.39.0] - 2026-11-24
 
 Agents can work on different projects, or different folders of one project, at the same time.

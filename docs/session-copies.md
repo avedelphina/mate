@@ -2,8 +2,8 @@
 
 Proposed on 2026-11-24 as the second form of "writers in parallel" in
 step 14 of [roadmap.md](roadmap.md) (see [multi-agent.md](multi-agent.md)).
-Nothing of this is built. Until it is accepted, the rules in
-`../AGENTS.md` hold as they are written.
+Accepted the same day. Step 1 of the order below is built: a session on a
+copy of a repository, in a context the reader trusts. The rest is not.
 
 ## Why
 
@@ -150,17 +150,50 @@ has less to explain.
 
 Two ceilings. The dialog that turns copies on must say both.
 
-- An agent that can write anywhere on the computer, such as Hermes or Kimi
-  in a trusted context, can still write into the real project by its
-  absolute path. Mate sees a change in the project that it did not make, and
-  leaves it alone, because it cannot tell that agent from the reader. Today
-  the guard holds such a change when it is made before the plan is
-  approved. So for those agents a copy is weaker than working in place. For
-  Claude Code and Codex, which stay inside their working folder, it is a real
-  wall.
+- **Hermes and Kimi.** An agent that can write anywhere on the computer, such
+  as Hermes or Kimi in a trusted context, can still write into the real
+  project by its absolute path. Mate sees a change in the project that it did
+  not make, and leaves it alone, because it cannot tell that agent from the
+  reader. Today the guard holds such a change when it is made before the
+  plan is approved. So for those agents a copy is weaker than working in
+  place.
 - Writes through the links to `.mate/` for the project's own panes and
   comments reach the real context at once, and are kept at the end of the
   turn, as now.
+
+For Codex and Claude Code the copy is a wall, and it was tried, not assumed.
+
+- **Codex** runs with `--sandbox workspace-write` and the copy as its working
+  folder. It may write there and nowhere else.
+- **Claude Code** is given the context to read with `--add-dir`, and an
+  added folder can be written too. So on a copy it is also given
+  `--disallowedTools "Edit(//<real path of the context>/**)"`. Tried with
+  Claude Code 2.1.318: it read a file of the real context, was refused a write
+  to it, and wrote in its working folder. Without `--add-dir` it could read
+  nothing through the links, because it follows a link to the real path and
+  refuses a path outside the folders it was given. The rule must name the real
+  path, not a link to it.
+
+## What Hermes does
+
+Hermes has the same idea built in (`hermes -w`, `hermes_cli/worktree_ops.py`
+in its repository, looked at on 2026-11-24). It runs `git worktree add -b
+hermes/<name>` under `<repo>/.worktrees/`, from the fetched tip of the
+remote or from HEAD, and locks the tree while the session lives. The branch is
+the result: the reader merges it with git. A tree that is clean is removed on
+exit, one with work in it is kept or archived under a ref, and old trees are
+swept. Files git ignores that the agent needs are named in
+`.worktreeinclude`, which Claude Code reads too. It turns off hooks, the file
+system monitor and every smudge filter the repository names before it
+checks out.
+
+What Mate takes from it: `.worktreeinclude`, which is an existing
+convention and not a new one; the care taken over what git is allowed to run;
+a copy that is removed with its session. What Mate does differently, on
+purpose: it does not use `git worktree`, because a worktree starts from a
+commit and not from the folder the reader sees, runs checkout filters, and
+would make a branch, and Mate never makes one (rule 10). The result is put
+into the reader's working folder, where the reader commits it.
 
 ## Rules
 
@@ -182,7 +215,7 @@ None changes. They are checked here because the proposal touches them.
 
 Each step is usable alone.
 
-1. **The copy and the put-back, for a repository in a trusted context.**
+1. **The copy and the put-back, for a repository in a trusted context.** Built.
    One session, one copy. File-level conflicts held. This alone gives the
    reader sessions that run beside each other in one project.
 2. **Many sessions on copies in one project**, and the setting that allows

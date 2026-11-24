@@ -82,6 +82,8 @@ export function Agent(props: {
   const [together, setTogether] = useState(false)
   // The folder of the project a new agent works in. Empty: the whole project.
   const [inFolder, setInFolder] = useState('')
+  // Whether a new agent works on a copy of the project.
+  const [onCopy, setOnCopy] = useState(false)
   // The folders of the project an agent can be given, from the files it has.
   const folders = useMemo(
     () =>
@@ -114,6 +116,7 @@ export function Agent(props: {
     said: next.messages.map((message) => message.text).join('\n').slice(0, 20000),
     pinned: next.pinned === true,
     folder: next.folder,
+    copy: next.copy === true,
     empty: !next.pinned && next.messages.length === 0 && next.changes.length === 0 && next.held.length === 0 && (next.shelve ?? []).length === 0,
     cloud: false
   })
@@ -226,7 +229,7 @@ export function Agent(props: {
 
   const invite = (agent: AgentInfo) =>
     act(async () => {
-      const started = await window.mate.startSession(project, agent.kind, agent.host ?? undefined, inFolder.trim() || undefined)
+      const started = await window.mate.startSession(project, agent.kind, agent.host ?? undefined, inFolder.trim() || undefined, onCopy || undefined)
       setOpen(started.id)
       onChat()
       return started
@@ -303,6 +306,11 @@ export function Agent(props: {
           <datalist id="agent-folders">
             {folders.map((each) => <option key={each} value={each} />)}
           </datalist>
+        </p>
+        <p className="meta">
+          <label title={trusted ? 'The agent works on a copy of the project, a repository, so it never writes the real files while it works. What it changes is put back at the end of each turn. Another agent can work at the same time.' : 'A copy is made only in a context you trust.'}>
+            <input type="checkbox" checked={onCopy && trusted} disabled={!trusted} onChange={(event) => setOnCopy(event.target.checked)} /> Work on a copy of the project
+          </label>
         </p>
         <p className="invite">
           {/* In a private context only Hermes on the reader's endpoint is offered, and only once it may read it. */}
@@ -436,6 +444,7 @@ export function Agent(props: {
                     <span className="meta">
                       {each.agent ? `${label({ agent: each.agent, host: each.host })} · ` : ''}
                       {each.folder ? `${each.folder}/ · ` : ''}
+                      {each.copy ? 'on a copy · ' : ''}
                       {new Date(each.created).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
                       {each.pinned ? ' · pinned' : ''}
                       {each.running ? ' · working' : each.agent && !each.planApproved ? ' · plan not approved' : ''}
@@ -506,7 +515,7 @@ export function Agent(props: {
       <p className="meta talk-head">
         <button className="quiet" onClick={() => (setOpen(null), onSessions())}>‹ Sessions</button>
         <span>
-          {label(session)} · {session.planApproved ? (session.folder ? `may edit ${session.folder}/` : 'may edit this project') : 'plan not approved'}
+          {label(session)} · {session.planApproved ? (session.folder ? `may edit ${session.folder}/` : 'may edit this project') : 'plan not approved'}{session.copy && ' · on a copy'}
           {listens && ' · trusted'}
         </span>
       </p>

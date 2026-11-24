@@ -9,6 +9,7 @@ import { Acp, type Ask, type Door, type Models } from './acp'
 import { AGENTS, SSH, agentEnvironment, isHost, isModel, sshArgs, type AgentKind } from './agents'
 import { FILE_TYPES, PICTURE_TYPES, inCloudOnly, keptDisk, paneIsLocked, realInside, resolveInside } from './context'
 import { placeOf } from './contextIndex'
+import { copyOf, copyable, prepareCopy, removeCopy } from './copies'
 import { changesSince, fingerprints, insidePath, mateWrote, put, takeSnapshot, unwatch, watch, type Change, type Snapshot } from './guard'
 import { changedParts, diffLines, type DiffLine } from '../shared/diff'
 import { EFFORTS } from '../shared/effort'
@@ -65,6 +66,8 @@ export type Session = {
   pinned?: boolean
   /** A folder of the project, counted from the project, that this agent works in and may change. Without one, the whole project. */
   folder?: string
+  /** The agent works on a copy of the project, outside the context. What it changes is put back at the end of each turn. */
+  copy?: boolean
   running: boolean
   /** What the agent will not do until the reader says yes or no. Only while a turn runs. */
   asks?: Ask[]
@@ -377,6 +380,8 @@ export type SessionRow = {
   pinned?: boolean
   /** The folder of the project the agent works in, when it is not the whole project. */
   folder?: string
+  /** The agent works on a copy of the project. */
+  copy?: boolean
   cloud: boolean
 }
 
@@ -417,6 +422,7 @@ export async function listAllSessions(contextDir: string): Promise<SessionRow[]>
             empty: isEmpty(session),
             pinned: session.pinned === true,
             folder: session.folder,
+            copy: session.copy === true,
             cloud: false
           }
         })().catch(() => null)
@@ -440,6 +446,7 @@ export async function deleteSession(contextDir: string, project: string, id: str
   const dir = folder(contextDir, project, id)
   if (!existsSync(path.join(dir, 'session.json'))) throw new Error('That conversation is not there.')
   await rm(dir, { recursive: true, force: true })
+  await removeCopy(contextDir, id).catch(() => {})
 }
 
 /** The empty conversations of a project, read from their files. One kept only in the cloud is not fetched to be looked at. */
@@ -469,6 +476,7 @@ export async function pruneEmptySessions(contextDir: string): Promise<number> {
     if (project.startsWith('.')) continue
     for (const session of await emptyOf(contextDir, project)) {
       await rm(folder(contextDir, project, session.id), { recursive: true, force: true })
+      await removeCopy(contextDir, session.id).catch(() => {})
       gone += 1
     }
   }
@@ -480,19 +488,25 @@ export async function startSession(
   project: string,
   agent: Invited,
   host: string | null = null,
-  folder = ''
+  folder = '',
+  copy = false
 ): Promise<Session> {
   if (!privacyAllows(contextDir, agent, host)) throw new Error(privacyRefusal(contextDir))
   // ponytail: a folder to work in is for an agent Mate starts on this computer. One on another machine, or one the reader runs, works in the whole project.
   if (folder && (agent === 'mcp' || host !== null)) throw new Error('Only an agent started here, on this computer, can work in a folder of the project.')
   const scope = await scopeFolder(contextDir, project, folder)
+  if (copy) {
+    if (agent === 'mcp' || host !== null) throw new Error('Only an agent started here, on this computer, can work on a copy.')
+    if (!isTrusted(contextDir)) throw new Error('A copy of a repository is made only in a context you trust.')
+    if (!copyable(resolveInside(contextDir, 'projects', project))) throw new Error('Only a project that is a repository can work on a copy.')
+  }
   if (agent !== 'mcp' && !AGENTS[agent]) throw new Error('That agent is not one Mate knows.')
   if (host !== null && (agent === 'mcp' || !isHost(host) || !AGENTS[agent].remoteArgs)) {
     throw new Error('That agent cannot be invited from another machine.')
   }
   // An empty conversation with the same agent is the one to go back to: no second one is made beside it.
   for (const each of await emptyOf(contextDir, project)) {
-    if (each.agent === agent && each.host === host && (each.folder ?? '') === scope && !turns.has(each.id)) return each
+    if (each.agent === agent && each.host === host && (each.folder ?? '') === scope && (each.copy ?? false) === copy && !turns.has(each.id)) return each
   }
   const session: Session = {
     id: randomUUID(),
@@ -508,7 +522,8 @@ export async function startSession(
     changes: [],
     held: [],
     running: false,
-    ...(scope ? { folder: scope } : {})
+    ...(scope ? { folder: scope } : {}),
+    ...(copy ? { copy: true } : {})
   }
   await saveSession(contextDir, session)
   return session
@@ -603,6 +618,12 @@ export async function judge(contextDir: string, session: Session, change: Change
     session.changes.push({ path: change.path, backup, reverted: false })
     return 'kept'
   }
+  return hold(contextDir, session, change, done)
+}
+
+/** Keep a change for the reader. The agent's bytes are kept, and the file is as it was: put back when `done` says the agent already made the change. */
+async function hold(contextDir: string, session: Session, change: Change, done: boolean): Promise<'held'> {
+  const dir = folder(contextDir, session.project, session.id)
   const file = change.after ? `${session.held.length}` : null
   if (change.after) {
     await mkdir(path.join(dir, 'held'), { recursive: true })
@@ -754,7 +775,8 @@ export async function sendMessage(
       return { started: session, finished: turn.finished }
     }
     // One agent works in a project at a time. In a context the reader allowed it, agents work on different projects at once.
-    const others = [...turns].filter(([other, turn]) => other !== id && turn.contextDir === contextDir)
+    // A session on a copy does not write the project while it works, so it waits for nobody and nobody waits for it.
+    const others = session.copy ? [] : [...turns].filter(([other, turn]) => other !== id && turn.contextDir === contextDir && !turn.session.copy)
     if (others.some(([, turn]) => overlap(turn.session, session))) {
       throw new Error(`Another agent is working in ${session.folder ? 'this folder, or the project around it' : 'this project'}. Wait for it to finish.`)
     }
@@ -842,6 +864,8 @@ async function begin(
 
   let child: ChildProcess
   let snapshot: Snapshot
+  // On a copy, the copy as the turn began: what differs from it afterwards is the agent's work.
+  let copyBase: Snapshot | undefined
   let prompt = ''
   let conn: Acp | undefined
   const adapter = AGENTS[session.agent as AgentKind]
@@ -857,7 +881,13 @@ async function begin(
         ? `[The plan is approved. You may edit files inside the folder ${session.folder}/ of this project, and nowhere else. The rest of the project is another agent's or the reviewer's.]`
         : '[The plan is approved. You may edit files inside this project.]'
       : '[The plan is not approved yet. Read and propose. Do not edit any file.]'
-    const projectDir = resolveInside(contextDir, 'projects', project)
+    // The agent works in the project, or on a copy of it. The folder it works in is the same from one turn to the next.
+    let projectDir = resolveInside(contextDir, 'projects', project)
+    if (session.copy) {
+      if (!isTrusted(contextDir)) throw new Error('A copy of a repository is made only in a context you trust.')
+      projectDir = await prepareCopy(contextDir, project, id, agentEnvironment())
+      copyBase = await takeSnapshot(copyOf(contextDir, id))
+    }
     snapshot = await takeSnapshot(contextDir)
     await claim(contextDir, session, snapshot)
     // An agent on another machine is sent the files. One on this machine reads them itself.
@@ -895,7 +925,7 @@ async function begin(
       // The context is trusted no more, or never was: an agent that stayed is sent away.
       live.get(id)?.close()
       live.delete(id)
-      const turn = { cwd: projectDir, contextDir, resume: session.agentSession, mayWrite, model: session.model, effort: session.effort, picture: picture?.path }
+      const turn = { cwd: projectDir, contextDir, copy: session.copy === true, resume: session.agentSession, mayWrite, model: session.model, effort: session.effort, picture: picture?.path }
       child = session.host
         ? spawn(SSH.command, sshArgs(session.host, adapter.command, adapter.remoteArgs!(session.agentSession)), {
             env: agentEnvironment()
@@ -969,19 +999,37 @@ async function begin(
     // An agent on this machine has changed the folder. One on another machine has said what it wants changed.
     const remote = session.host !== null
     // What changed under a project another agent is working in is that agent's, and its own guard rules on it.
-    const theirs = [...turns].filter(([other, turn]) => other !== id && turn.contextDir === contextDir).flatMap(([, turn]) => scopesOf(turn.session))
-    const asked = remote
-      ? await proposed(contextDir, answer.text)
-      : { changes: (await changesSince(contextDir, snapshot)).filter((change) => !theirs.some((prefix) => change.path.startsWith(prefix))), refused: [] }
+    const theirs = [...turns].filter(([other, turn]) => other !== id && turn.contextDir === contextDir && !turn.session.copy).flatMap(([, turn]) => scopesOf(turn.session))
+    // The project folder of the context is not a copy session's to change while it works: a change there is the reader's, or
+    // another session being put back, and is left alone. What it changed is in its copy.
+    const mine = (change: Change) => !theirs.some((prefix) => change.path.startsWith(prefix)) && !(session.copy && change.path.startsWith(`projects/${project}/`))
+    const asked = remote ? await proposed(contextDir, answer.text) : { changes: (await changesSince(contextDir, snapshot)).filter(mine), refused: [] }
+    const copied = session.copy && copyBase && !remote ? await changesSince(copyOf(contextDir, id), copyBase) : []
     if (remote) answer.text = answer.text.replace(FILE, (_, named: string) => `*(new text for \`${named.trim()}\`)*`)
 
     const putBack: string[] = []
     for (const change of asked.changes) {
       if ((await judge(contextDir, session, change, !remote)) === 'held') putBack.push(change.path)
     }
+    // What the agent changed on its copy goes into the project, if the plan is approved and the project is as it was when the
+    // turn began. A file that is not as it was is held, and the reader chooses between the project's and the agent's.
+    const clashed: string[] = []
+    for (const change of copied) {
+      const now = await readFile(path.join(contextDir, change.path)).catch(() => null)
+      const unchanged = now === null || change.before === null ? now === change.before : now.equals(change.before)
+      if (!mayWrite || unchanged) {
+        if ((await judge(contextDir, session, { path: change.path, before: now, after: change.after }, false)) === 'held') putBack.push(change.path)
+      } else {
+        await hold(contextDir, session, { path: change.path, before: now, after: change.after }, false)
+        clashed.push(change.path)
+      }
+    }
+    if (clashed.length > 0) {
+      session.messages.push({ role: 'mate', text: `The agent changed ${clashed.join(', ')}, and the project changed ${clashed.length === 1 ? 'it' : 'them'} too while the agent worked. The agent's version is held: see the change, and approve it to replace the project's.`, tools: [] })
+    }
     if (putBack.length > 0) {
       const why = mayWrite ? (session.folder ? `outside the folder ${session.folder}/` : 'outside this project') : 'before the plan was approved'
-      const what = remote ? `asked to change ${putBack.join(', ')} ${why}.` : `changed ${putBack.join(', ')} ${why}. Mate put it back.`
+      const what = remote ? `asked to change ${putBack.join(', ')} ${why}.` : session.copy ? `changed ${putBack.join(', ')} ${why}. It was on a copy, so the project is as it was.` : `changed ${putBack.join(', ')} ${why}. Mate put it back.`
       session.messages.push({ role: 'mate', text: `The agent ${what} The change is held: approve the file to let it through.`, tools: [] })
     }
     if (asked.refused.length > 0) {

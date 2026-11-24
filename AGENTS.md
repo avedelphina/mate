@@ -149,6 +149,9 @@ Key modules in `apps/desktop/src/main/`:
 - `records.ts` — the tools of a repository made from the security
   architecture template (`tools/repo.py`, `tools/build-docs.sh`), run
   on the reader's button in a trusted context, with a line made here.
+- `copies.ts` — a session's copy of a project, outside the context: made from
+  the repository's file list, brought up to date each turn, removed with the
+  session. The agent works there; `sessions.ts` puts its changes back.
 - `git.ts` — starts a repository, and commits what changed in the context;
   leaves out a project that is a repository of its own. Reads a file's
   history. Fetches and checks out a pull request.

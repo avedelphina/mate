@@ -78,6 +78,7 @@ import { notify, notifying, setNotifying } from './notify'
 import skill from '../../../../skills/mate/SKILL.md?raw'
 import changelog from '../../../../CHANGELOG.md?raw'
 import { markSeen, keepSeenIn, whatsNew } from './whatsnew'
+import { keepCopiesIn } from './copies'
 import { checkForUpdate, installUpdate, startUpdates, updateNow } from './update'
 import { runScript, stopAllScripts, stopScript, wordsOf } from './scripts'
 import { buildDocuments, newRecord } from './records'
@@ -486,6 +487,7 @@ app.whenReady().then(() => {
   keepTrustIn(path.join(app.getPath('userData'), 'trusted.json'))
   keepPrivacyIn(path.join(app.getPath('userData'), 'private.json'))
   keepParallelIn(path.join(app.getPath('userData'), 'parallel.json'))
+  keepCopiesIn(path.join(app.getPath('userData'), 'copies'))
   keepOpenedIn(path.join(app.getPath('userData'), 'opened.json'))
   keepRecentIn(path.join(app.getPath('userData'), 'recent.json'))
   const seal = {
@@ -1266,8 +1268,8 @@ app.whenReady().then(() => {
   // Conversations nothing happened in are deleted. They hold nothing: no word, no change, no proposal.
   ipcMain.handle('session:prune', (event) => pruneEmptySessions(requireContext(event)))
 
-  ipcMain.handle('session:start', (event, project: string, agent: Invited, host?: string, folder?: string) =>
-    startSession(requireContext(event), project, agent, host ?? null, typeof folder === 'string' ? folder : '')
+  ipcMain.handle('session:start', (event, project: string, agent: Invited, host?: string, folder?: string, copy?: boolean) =>
+    startSession(requireContext(event), project, agent, host ?? null, typeof folder === 'string' ? folder : '', copy === true)
   )
 
   // An approval is a message like any other. The answer arrives as 'session:update' events.

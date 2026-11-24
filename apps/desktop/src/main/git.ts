@@ -116,6 +116,16 @@ export async function changedIn(dir: string, env: NodeJS.ProcessEnv): Promise<st
   return said.split('\0').filter(Boolean).map((line) => line.slice(3))
 }
 
+/**
+ * The files of a project that is a repository, by their path from the project: those git keeps, and new ones that it
+ * does not ignore. The index is read and nothing is changed. A repository's own config can name a program to run, so
+ * hooks and the file system monitor are turned off for this command. Main runs it only in a context the reader trusts.
+ */
+export async function projectFiles(dir: string, env: NodeJS.ProcessEnv): Promise<string[]> {
+  const said = await git(dir, env, ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'])
+  return [...new Set(said.split('\0').filter(Boolean))]
+}
+
 /** The branch the repository is on, or the commit when it is on none. */
 export async function whereIs(dir: string, env: NodeJS.ProcessEnv): Promise<string> {
   const branch = (await git(dir, env, ['symbolic-ref', '--short', '-q', 'HEAD']).catch(() => '')).trim()
