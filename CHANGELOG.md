@@ -5,7 +5,11 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## Unreleased
+## [0.39.0] - 2026-11-24
+
+Agents can work on different projects, or different folders of one project, at the same time.
+Each session of your own agents has its own token, and checking what an agent changed is much
+faster, which helps most on a network share.
 
 ### Added
 
@@ -15,7 +19,6 @@ then, minor versions may change behaviour.
   its own project. Two agents in one project never run together. While two work, Mate
   cannot tell which of them wrote a file in a project, so a change in a project is taken
   for the agent that works there. A file outside every working project is still held.
-
 - An agent can be given a folder of its project: *Work in the folder* in the Agent
   tab, before you invite it. It changes only files there, and anything else in the
   project is held and put back. Two agents can work in different folders of one project
