@@ -485,7 +485,7 @@ export function Agent(props: {
           <pre>{door.url}{'\n'}Authorization: Bearer {door.token}</pre>
           <p>In Claude Code, for example:</p>
           <pre>claude mcp add --transport http mate {door.url} --header "Authorization: Bearer {door.token}"</pre>
-          <p>It works in this session while it is the one open here. It follows the same rules as an invited agent.</p>
+          <p>This address is for this session only, so another agent can work in another session at the same time: open that session and give that agent its own. It follows the same rules as an invited agent.</p>
         </details>
       )}
       {session.messages.map((message, index) => (

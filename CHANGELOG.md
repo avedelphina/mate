@@ -5,6 +5,16 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## Unreleased
+
+### Changed
+
+- Each session of an agent you run yourself has its own address and token, so more
+  than one agent can work at once, each in its own session. Before, there was one
+  token and it led to the session opened last, so a second agent landed in the first
+  one's session. Open a session in the Agent tab to see its token. The old token
+  still works, and still leads to the session opened last.
+
 ## [0.38.1] - 2026-11-24
 
 Publishing a folder to the shelf works on any folder, and says when it is done. Enter can

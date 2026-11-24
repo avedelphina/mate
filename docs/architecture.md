@@ -467,6 +467,14 @@ skill `skills/mate/SKILL.md` is built in too: `skill:save` writes it where the
 reader picks in a dialog of the system, and a test keeps it in step with the
 tools of the door.
 
+**Several agents of your own.** The door for an agent the reader runs gives
+each session its own token (`tokenFor` in `index.ts`, kept in `mcp-sessions.json`
+beside the other settings, outside every context). A token leads to its session and
+no other, so two agents work side by side, and each one's steps are noted in its own
+session. The older single token (`mcp-token`) still leads to the session opened
+last. Two agents that write the same file meet as before: `mate_write` replaces the
+whole file, and each change can be reverted in its own session.
+
 **Proposing.** An agent that comes in over MCP has `mate_shelve`: a list of
 files of its project (a draft, or a PDF, Word or text file) and the shelf
 name of each. It is kept in the session (`shelve`) and shown in the Agent

@@ -279,3 +279,44 @@ test('the skill for agents names every tool the door gives, and no tool it does 
   for (const tool of TOOLS) assert.ok(skill.includes(tool.name), `${tool.name} is not in the skill`)
   for (const named of skill.match(/mate_[a-z]+/g) ?? []) assert.ok(TOOLS.some((tool) => tool.name === named), `${named} is not a tool`)
 })
+
+test('each session of the reader\'s own agents has its own token, so two agents work side by side', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mate-two-'))
+  await mkdir(path.join(root, 'projects/a/draft'), { recursive: true })
+  await mkdir(path.join(root, 'projects/b/draft'), { recursive: true })
+  const first = await startSession(root, 'a', 'mcp')
+  const second = await startSession(root, 'b', 'mcp')
+  const tokens = new Map<string, Binding>([
+    ['token-a', { contextDir: root, project: 'a', id: first.id }],
+    ['token-b', { contextDir: root, project: 'b', id: second.id }]
+  ])
+  // The one token of old leads to whichever session was opened last. The tokens of sessions do not follow it.
+  const door = await startMcp({ port: 0, token: 'old', binding: () => tokens.get('token-b') ?? null, changed: () => {}, own: (token) => tokens.get(token) ?? null })
+  const ask = async (token: string, name: string, args: Record<string, unknown> = {}) => {
+    const response = await fetch(`http://127.0.0.1:${door.port}/mcp`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } })
+    })
+    if (response.status !== 200) return { status: response.status, text: '' }
+    const { result } = (await response.json()) as { result: { content: { text: string }[] } }
+    return { status: 200, text: result.content[0].text }
+  }
+  try {
+    assert.match((await ask('token-a', 'mate_project')).text, /Your project is "a"/)
+    assert.match((await ask('token-b', 'mate_project')).text, /Your project is "b"/)
+    assert.match((await ask('old', 'mate_project')).text, /Your project is "b"/)
+    assert.equal((await ask('nobody', 'mate_project')).status, 401)
+    // Each agent's steps are noted in its own session, and in no other.
+    await ask('token-a', 'mate_status')
+    assert.ok((await loadSession(root, 'a', first.id)).messages.some((message) => message.tools.includes('mate_status')))
+    assert.ok(!(await loadSession(root, 'b', second.id)).messages.some((message) => message.tools.includes('mate_status')))
+    // Calls at the same moment each reach their own session.
+    const [one, two] = await Promise.all([ask('token-a', 'mate_project'), ask('token-b', 'mate_project')])
+    assert.match(one.text, /"a"/)
+    assert.match(two.text, /"b"/)
+  } finally {
+    door.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})

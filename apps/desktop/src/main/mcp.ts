@@ -483,10 +483,14 @@ export function startMcp(options: {
   changed: (binding: Binding, session: Session) => void
   /** The session a token that only reads leads to, or null when it leads nowhere. */
   guest?: (token: string) => Binding | null
+  /** The session a token of the reader's own agent leads to, with every tool. One token for each session, so agents run side by side. */
+  own?: (token: string) => Binding | null
   /** The version of the app, which the door says it is. */
   version?: string
 }): Promise<{ port: number; close: () => void }> {
   const who = { name: 'agent', version: options.version }
+  // Each session's agent says who it is for itself: one agent's name is not another's.
+  const whoOf = new Map<string, { name: string; version?: string }>()
   const expected = Buffer.from(`Bearer ${options.token}`)
   const server = http.createServer((request, response) => {
     const send = (status: number, body?: Json) => {
@@ -496,8 +500,10 @@ export function startMcp(options: {
     const given = Buffer.from(request.headers.authorization ?? '')
     if (request.headers.origin) return send(403)
     const owner = given.length === expected.length && timingSafeEqual(given, expected)
-    const guest = owner ? null : (options.guest?.(String(request.headers.authorization ?? '').replace(/^Bearer /, '')) ?? null)
-    if (!owner && !guest) return send(401)
+    const bearer = String(request.headers.authorization ?? '').replace(/^Bearer /, '')
+    const guest = owner ? null : (options.guest?.(bearer) ?? null)
+    const mine = owner || guest ? null : (options.own?.(bearer) ?? null)
+    if (!owner && !guest && !mine) return send(401)
     if (new URL(request.url ?? '/', 'http://127.0.0.1').pathname !== '/mcp') return send(404)
     if (request.method !== 'POST') return send(405)
 
@@ -514,7 +520,11 @@ export function startMcp(options: {
         const messages: Json[] = Array.isArray(body) ? body : [body]
         const replies: Json[] = []
         for (const message of messages) {
-          const reply = guest ? await answer(message, () => guest, options.changed, { name: 'agent', version: options.version }, true) : await answer(message, options.binding, options.changed, who)
+          const reply = guest
+            ? await answer(message, () => guest, options.changed, { name: 'agent', version: options.version }, true)
+            : mine
+              ? await answer(message, () => mine, options.changed, whoOf.get(bearer) ?? (whoOf.set(bearer, { name: 'agent', version: options.version }), whoOf.get(bearer)!))
+              : await answer(message, options.binding, options.changed, who)
           if (reply) replies.push(reply)
         }
         if (replies.length === 0) return send(202)

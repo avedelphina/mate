@@ -349,6 +349,40 @@ function doorToken(): string {
 }
 
 /**
+ * A token for each session of the reader's own agents, so more than one runs at once, each in its own session. They are
+ * kept outside every context, like the one token before them, so an agent is set up once and still works after a restart.
+ * The one token before them still leads to the session last opened.
+ */
+const ownTokens = new Map<string, Binding>()
+let ownLoaded = false
+const ownFile = () => path.join(app.getPath('userData'), 'mcp-sessions.json')
+function ownTokensLoaded(): Map<string, Binding> {
+  if (!ownLoaded) {
+    ownLoaded = true
+    try {
+      const kept: unknown = JSON.parse(readFileSync(ownFile(), 'utf8'))
+      for (const [token, at] of Object.entries(kept && typeof kept === 'object' ? kept : {})) {
+        const { contextDir, project, id } = (at ?? {}) as Record<string, unknown>
+        if (typeof contextDir === 'string' && typeof project === 'string' && typeof id === 'string') ownTokens.set(token, { contextDir, project, id })
+      }
+    } catch {
+      // Nothing kept yet, or a damaged file: no session has a token until the reader opens it.
+    }
+  }
+  return ownTokens
+}
+
+// ponytail: tokens of deleted sessions stay in the file. A token for a session that is gone leads nowhere. Prune them when the file is long.
+function tokenFor(binding: Binding): string {
+  const tokens = ownTokensLoaded()
+  for (const [token, at] of tokens) if (at.contextDir === binding.contextDir && at.project === binding.project && at.id === binding.id) return token
+  const token = randomBytes(24).toString('hex')
+  tokens.set(token, binding)
+  writeFileSync(ownFile(), JSON.stringify(Object.fromEntries(tokens), null, 2), { mode: 0o600 })
+  return token
+}
+
+/**
  * Tokens of the doors that only read, each for the session of an agent Mate started. They last as
  * long as the app: a token reads only a context that whoever runs as the reader can read anyway.
  */
@@ -362,6 +396,7 @@ function startDoor(): Promise<{ port: number }> {
     binding: () => bound,
     changed: (at, session) => tell(at.contextDir, session),
     guest: (token) => guests.get(token) ?? null,
+    own: (token) => ownTokensLoaded().get(token) ?? null,
     version: app.getVersion()
   })
   // A start that failed is not kept, or every later ask would get the same failure.
@@ -371,7 +406,7 @@ function startDoor(): Promise<{ port: number }> {
 
 async function openDoor(binding: Binding): Promise<{ url: string; token: string }> {
   bound = binding
-  return { url: `http://127.0.0.1:${(await startDoor()).port}/mcp`, token: doorToken() }
+  return { url: `http://127.0.0.1:${(await startDoor()).port}/mcp`, token: tokenFor(binding) }
 }
 
 // An agent that stays gets a door of its own, for its session, that only reads.
