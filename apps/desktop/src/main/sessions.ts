@@ -9,10 +9,10 @@ import { Acp, type Ask, type Door, type Models } from './acp'
 import { AGENTS, SSH, agentEnvironment, isHost, isModel, sshArgs, type AgentKind } from './agents'
 import { FILE_TYPES, PICTURE_TYPES, inCloudOnly, keptDisk, paneIsLocked, realInside, resolveInside } from './context'
 import { placeOf } from './contextIndex'
-import { changesSince, fingerprints, insidePath, mateWrote, put, takeSnapshot, watching, type Change, type Snapshot } from './guard'
+import { changesSince, fingerprints, insidePath, mateWrote, put, takeSnapshot, unwatch, watch, type Change, type Snapshot } from './guard'
 import { changedParts, diffLines, type DiffLine } from '../shared/diff'
 import { EFFORTS } from '../shared/effort'
-import { isTrusted, privacyAllows, privacyRefusal } from './trust'
+import { isParallel, isTrusted, privacyAllows, privacyRefusal } from './trust'
 
 /**
  * `waiting`: sent while the agent was working, and not yet given to it.
@@ -558,10 +558,9 @@ export async function judge(contextDir: string, session: Session, change: Change
       await mkdir(path.join(dir, 'backups'), { recursive: true })
       await writeFile(path.join(dir, 'backups', backup!), change.before)
     }
-    if (!done) {
-      await put(contextDir, change.path, change.after)
-      mateWrote(contextDir, change.path, change.after)
-    }
+    if (!done) await put(contextDir, change.path, change.after)
+    // Every other turn in progress is told, so that none takes this change for its own agent's.
+    mateWrote(contextDir, change.path, change.after)
     session.changes.push({ path: change.path, backup, reverted: false })
     return 'kept'
   }
@@ -571,6 +570,7 @@ export async function judge(contextDir: string, session: Session, change: Change
     await writeFile(path.join(dir, 'held', file!), change.after)
   }
   if (done) await put(contextDir, change.path, change.before)
+  mateWrote(contextDir, change.path, change.before)
   session.held.push({ path: change.path, file, state: 'waiting' })
   return 'held'
 }
@@ -585,7 +585,7 @@ export const gate = { before: async (_contextDir: string): Promise<void> => {} }
  * The turns in progress, by session: the session as it is in memory, and when the turn will have ended.
  * `steer` is there when the agent can be told something while it works.
  */
-const turns = new Map<string, { session: Session; finished: Promise<Session>; steer?: (text: string) => Promise<void> }>()
+const turns = new Map<string, { session: Session; contextDir: string; finished: Promise<Session>; steer?: (text: string) => Promise<void> }>()
 /** The agents that stay between turns, by session. See acp.ts. They end with the app. */
 const live = new Map<string, Acp>()
 /** What Hermes offers to think with. Asked once for each run of the app, when the reader first opens the choice. */
@@ -639,8 +639,6 @@ export async function tuneSession(
  */
 export const doors = { forAgent: async (_contextDir: string, _project: string, _id: string): Promise<Door | null> => null }
 
-/** The contexts in which an agent is working, or is about to. */
-const busy = new Set<string>()
 /** The last message of each session to come in. The next one waits until that one has been taken in. */
 const entering = new Map<string, Promise<void>>()
 
@@ -683,7 +681,7 @@ export async function sendMessage(
     const { picture, files } = await attachmentsOn(contextDir, project, attachments)
     const attached = Boolean(picture || files.length)
     if (attached && session.host) throw new Error('Attachments are not sent to another machine yet.')
-    if (attached && (turns.has(id) || busy.has(contextDir))) throw new Error('Wait for this turn to end before you attach something.')
+    if (attached && (turns.has(id) || isBusy(contextDir))) throw new Error('Wait for this turn to end before you attach something.')
     const said = [text.trim(), ...files.map((file) => `Attached: ${file}`), picture && `Attached: ${picture.relative}`].filter(Boolean).join('\n\n')
     if (!said && !approve) throw new Error('The message is empty.')
     const message = approve ? ['The plan is approved. Go ahead.', said].filter(Boolean).join('\n\n') : said
@@ -716,7 +714,12 @@ export async function sendMessage(
       emit(session)
       return { started: session, finished: turn.finished }
     }
-    if (busy.has(contextDir)) throw new Error('Another agent is working in this context. Wait for it to finish.')
+    // One agent works in a project at a time. In a context the reader allowed it, agents work on different projects at once.
+    const others = [...turns].filter(([other, turn]) => other !== id && turn.contextDir === contextDir)
+    if (others.some(([, turn]) => turn.session.project === session.project)) throw new Error('Another agent is working in this project. Wait for it to finish.')
+    if (others.length > 0 && !isParallel(contextDir)) {
+      throw new Error('Another agent is working in this context. Wait for it to finish, or let agents work on different projects at the same time: the button is in the Agent tab.')
+    }
 
     // What was left waiting when the app was last closed goes first.
     const left = session.queue.splice(0)
@@ -781,12 +784,10 @@ async function begin(
   const { id, project } = session
   let settle!: (session: Session) => void
   const finished = new Promise<Session>((resolve) => (settle = resolve))
-  turns.set(id, { session, finished })
-  busy.add(contextDir)
+  turns.set(id, { session, contextDir, finished })
   const release = () => {
     turns.delete(id)
-    busy.delete(contextDir)
-    watching.delete(contextDir)
+    unwatch(contextDir, snapshot)
     running.delete(id)
     session.running = false
   }
@@ -840,7 +841,7 @@ async function begin(
           .filter(Boolean)
           .join('\n\n')
 
-    watching.set(contextDir, snapshot)
+    watch(contextDir, snapshot)
     if (acp) {
       // It takes a few seconds to start. The turn is under way meanwhile, and can be stopped.
       conn = live.get(id)?.alive ? live.get(id)! : Acp.start(adapter.command, acp, projectDir, agentEnvironment(), await doors.forAgent(contextDir, project, id))
@@ -924,7 +925,11 @@ async function begin(
 
     // An agent on this machine has changed the folder. One on another machine has said what it wants changed.
     const remote = session.host !== null
-    const asked = remote ? await proposed(contextDir, answer.text) : { changes: await changesSince(contextDir, snapshot), refused: [] }
+    // What changed under a project another agent is working in is that agent's, and its own guard rules on it.
+    const theirs = [...turns].filter(([other, turn]) => other !== id && turn.contextDir === contextDir).flatMap(([, turn]) => [`projects/${turn.session.project}/`, `.mate/projects/${turn.session.project}/`])
+    const asked = remote
+      ? await proposed(contextDir, answer.text)
+      : { changes: (await changesSince(contextDir, snapshot)).filter((change) => !theirs.some((prefix) => change.path.startsWith(prefix))), refused: [] }
     if (remote) answer.text = answer.text.replace(FILE, (_, named: string) => `*(new text for \`${named.trim()}\`)*`)
 
     const putBack: string[] = []
@@ -954,6 +959,7 @@ async function begin(
       return settle(session)
     }
     // The session stays taken between the two turns, so a message sent just now waits too.
+    unwatch(contextDir, snapshot)
     try {
       const next = await begin(contextDir, session, waited.map((each) => each.text).join('\n\n'), earlier, emit)
       emit(session)
@@ -1074,7 +1080,7 @@ async function begin(
 }
 
 /** Whether an agent is working in a context, or about to. What changes in the folder then is taken for the agent's. */
-export const isBusy = (contextDir: string): boolean => busy.has(contextDir)
+export const isBusy = (contextDir: string): boolean => [...turns.values()].some((turn) => turn.contextDir === contextDir)
 
 export function stopTurn(id: string): void {
   running.get(id)?.kill()

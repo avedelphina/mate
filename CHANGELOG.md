@@ -7,6 +7,15 @@ then, minor versions may change behaviour.
 
 ## Unreleased
 
+### Added
+
+- Agents can work on different projects of one context at the same time. In the Agent
+  tab, *Allow work on several projects…* asks once, in a dialog of the system, for that
+  context. Then one agent works in each project, in the background, and each is judged for
+  its own project. Two agents in one project never run together. While two work, Mate
+  cannot tell which of them wrote a file in a project, so a change in a project is taken
+  for the agent that works there. A file outside every working project is still held.
+
 ### Changed
 
 - Each session of an agent you run yourself has its own address and token, so more

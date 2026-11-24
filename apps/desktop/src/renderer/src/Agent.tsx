@@ -79,6 +79,7 @@ export function Agent(props: {
   const [compared, setCompared] = useState<({ key: string } & Compared) | null>(null)
   // Whether the reader trusts this context. It decides what an invited Hermes may use.
   const [trusted, setTrusted] = useState(false)
+  const [together, setTogether] = useState(false)
   // Whether the context is private. Then no agent can be invited, and main refuses one all the same.
   const [kept, setKept] = useState(false)
   // In a private context: whether Hermes on the reader's own endpoint may read it, and that endpoint.
@@ -164,6 +165,7 @@ export function Agent(props: {
   // What may be changed on the settings page is read again when it closes.
   useEffect(() => {
     window.mate.isTrusted().then(setTrusted, () => setTrusted(false))
+    window.mate.isParallel().then(setTogether, () => setTogether(false))
     window.mate.isPrivate().then(setKept, () => setKept(false))
     window.mate.isOpened().then(setOpened, () => setOpened(false))
     window.mate.getEndpoint().then(setEndpoint, () => setEndpoint(null))
@@ -312,6 +314,14 @@ export function Agent(props: {
             : 'This context is not trusted. An agent gets tools for files and nothing else, and Kimi waits.'}
           <button onClick={() => window.mate.setTrusted(!trusted).then(setTrusted, (caught) => setError(reason(caught)))}>
             {trusted ? 'Stop trusting' : 'Trust this context…'}
+          </button>
+        </p>
+        <p className="meta hint trust">
+          {together
+            ? 'Agents may work on different projects of this context at the same time, one in each project. Two in one project never run together.'
+            : 'One agent works in this context at a time.'}
+          <button onClick={() => window.mate.setParallel(!together).then(setTogether, (caught) => setError(reason(caught)))}>
+            {together ? 'Stop allowing it' : 'Allow work on several projects…'}
           </button>
         </p>
         <p className="meta hint trust private">

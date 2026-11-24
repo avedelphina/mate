@@ -403,6 +403,10 @@ export type MateApi = {
   onReading: (listener: (left: number) => void) => () => void
   /** Settings… in the app menu. */
   onSettings: (listener: () => void) => () => void
+  /** Whether agents may work on different projects of this context at once. */
+  isParallel: () => Promise<boolean>
+  /** Allow it, after a system dialog, or stop allowing it. Returns the answer in force. */
+  setParallel: (yes: boolean) => Promise<boolean>
   /** Save the skill that tells an agent how to work with Mate, in a folder the reader picks. Returns the file, or null. */
   saveSkill: () => Promise<string | null>
   /** The sections of the changelog the reader has not seen, or null. With `force`, those of this version. */

@@ -9,7 +9,7 @@ import { AGENTS, SSH, addable, discoverAgents, sshArgs } from '../src/main/agent
 import { addComment, writeNote } from '../src/main/context.ts'
 import { changesSince, fingerprints, put, takeSnapshot } from '../src/main/guard.ts'
 import { compare, judge, listAllSessions, listSessions, deleteSession, loadSession, pinSession, pruneEmptySessions, revertChange, sendMessage, settleHeld, startSession } from '../src/main/sessions.ts'
-import { isTrusted, keepTrustIn, setTrusted } from '../src/main/trust.ts'
+import { isParallel, isTrusted, keepTrustIn, setParallel, setTrusted } from '../src/main/trust.ts'
 
 async function context(): Promise<string> {
   const root = await mkdtemp(path.join(tmpdir(), 'mate-agents-'))
@@ -615,5 +615,72 @@ test('a conversation is pinned, kept when empty ones go, and deleted on its own'
     await assert.rejects(deleteSession(root, '..', drop.id))
   } finally {
     await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('agents work on different projects at once, each judged for its own project, when the reader allowed it', { skip: process.platform === 'win32' }, async () => {
+  const root = await context()
+  const command = AGENTS.hermes.command
+  try {
+    // An agent that works for the time the message says, writes in its own project, and the one called review also writes the shelf.
+    const stub = path.join(root, '..', `${path.basename(root)}-slow.mjs`)
+    await writeFile(
+      stub,
+      `#!/usr/bin/env node
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs'
+const prompt = readFileSync(0, 'utf8')
+const delay = Number(/delay (\\d+)/.exec(prompt)?.[1] ?? 0)
+const project = process.cwd().split('/').pop()
+await new Promise((resolve) => setTimeout(resolve, delay))
+appendFileSync('draft/out.md', project + ' line.\\n')
+if (project === 'review') writeFileSync('../../shelf/classification.md', 'Agent shelf.\\n')
+console.log(JSON.stringify({ type: 'system', subtype: 'init', session_id: 's-' + project }))
+console.log(JSON.stringify({ type: 'text', text: 'Done in ' + project }))
+`
+    )
+    await chmod(stub, 0o755)
+    AGENTS.hermes.command = stub
+    const read = (relative: string) => readFile(path.join(root, relative), 'utf8')
+    const work = async (project: string, delay: number) => {
+      const session = await startSession(root, project, 'hermes')
+      const { finished } = await sendMessage(root, project, session.id, `Go. delay ${delay}`, true, () => {})
+      return { session, finished }
+    }
+
+    // Not allowed: the second waits, as before.
+    const alone = await work('review', 300)
+    await assert.rejects(work('sibling', 0), /Another agent is working in this context/)
+    await alone.finished
+    assert.equal(isParallel(root), false)
+
+    setParallel(root, true)
+    // The first is slow and the second quick: the second has finished, and kept its change, when the first ends.
+    const slow = await work('review', 600)
+    const quick = await work('sibling', 50)
+    // Two in one project never run together.
+    await assert.rejects(sendMessage(root, 'review', (await startSession(root, 'review', 'hermes')).id, 'Again. delay 0', true, () => {}), /Another agent is working in this project/)
+    const [reviewed, sibling] = await Promise.all([slow.finished, quick.finished])
+    assert.deepEqual(sibling.changes.map((change) => change.path), ['projects/sibling/draft/out.md'])
+    assert.deepEqual(sibling.held, [])
+    assert.deepEqual(reviewed.changes.map((change) => change.path), ['projects/review/draft/out.md'])
+    // What review wrote outside its project is held and put back, and nothing of sibling's is taken for its.
+    assert.deepEqual(reviewed.held.map((held) => held.path), ['shelf/classification.md'])
+    assert.equal(await read('projects/sibling/draft/out.md'), 'sibling line.\n')
+    assert.equal(await read('projects/review/draft/out.md'), 'review line.\nreview line.\n')
+    assert.equal(await read('shelf/classification.md'), 'Shelf text.\n')
+
+    // The other way round: the second is the slow one, and the first ends while it is still working.
+    const quickReview = await work('review', 50)
+    const slowSibling = await work('sibling', 600)
+    const [again, last] = await Promise.all([quickReview.finished, slowSibling.finished])
+    assert.deepEqual(again.changes.map((change) => change.path), ['projects/review/draft/out.md'])
+    assert.deepEqual(last.changes.map((change) => change.path), ['projects/sibling/draft/out.md'])
+    assert.deepEqual(last.held, [])
+    assert.equal(await read('projects/sibling/draft/out.md'), 'sibling line.\nsibling line.\n')
+  } finally {
+    AGENTS.hermes.command = command
+    setParallel(root, false)
+    await rm(root, { recursive: true, force: true })
+    await rm(path.join(root, '..', `${path.basename(root)}-slow.mjs`), { force: true })
   }
 })

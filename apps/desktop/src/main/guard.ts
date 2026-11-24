@@ -16,15 +16,31 @@ export type Snapshot = Map<string, Buffer>
 /** `before` is null for a file the agent made. `after` is null for a file it deleted. */
 export type Change = { path: string; before: Buffer | null; after: Buffer | null }
 
-/** The snapshot of the turn in progress, by context folder. One agent works in a context at a time. */
-export const watching = new Map<string, Snapshot>()
+/** The snapshots of the turns in progress, by context folder. More than one when agents work on different projects at once. */
+export const watching = new Map<string, Set<Snapshot>>()
 
-/** Mate wrote this file itself while an agent was working. The guard must not take it for the agent's. */
+export function watch(contextDir: string, snapshot: Snapshot): void {
+  const here = watching.get(contextDir) ?? new Set<Snapshot>()
+  here.add(snapshot)
+  watching.set(contextDir, here)
+}
+
+export function unwatch(contextDir: string, snapshot: Snapshot | undefined): void {
+  const here = watching.get(contextDir)
+  if (!here || !snapshot) return
+  here.delete(snapshot)
+  if (here.size === 0) watching.delete(contextDir)
+}
+
+/**
+ * Mate wrote this file itself while an agent was working: the reader, or the guard of another agent that has just
+ * finished. Every turn in progress is told, so that none takes it for its own agent's.
+ */
 export function mateWrote(contextDir: string, relative: string, bytes: Buffer | null): void {
-  const snapshot = watching.get(contextDir)
-  if (!snapshot) return
-  if (bytes) snapshot.set(relative, bytes)
-  else snapshot.delete(relative)
+  for (const snapshot of watching.get(contextDir) ?? []) {
+    if (bytes) snapshot.set(relative, bytes)
+    else snapshot.delete(relative)
+  }
 }
 
 // ponytail: the whole context is held in memory for the length of a turn, and a file over this

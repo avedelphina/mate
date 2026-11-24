@@ -95,6 +95,10 @@ import {
   moveOpened,
   movePrivacy,
   moveTrust,
+  moveParallel,
+  keepParallelIn,
+  isParallel,
+  setParallel,
   privacyAllows,
   privacyRefusal,
   privateContexts,
@@ -481,6 +485,7 @@ function setMenu(): void {
 app.whenReady().then(() => {
   keepTrustIn(path.join(app.getPath('userData'), 'trusted.json'))
   keepPrivacyIn(path.join(app.getPath('userData'), 'private.json'))
+  keepParallelIn(path.join(app.getPath('userData'), 'parallel.json'))
   keepOpenedIn(path.join(app.getPath('userData'), 'opened.json'))
   keepRecentIn(path.join(app.getPath('userData'), 'recent.json'))
   const seal = {
@@ -819,6 +824,7 @@ app.whenReady().then(() => {
     if (moved === contextDir) return describeContext(contextDir)
     // Trust, privacy and the approved instruction files were given to this folder. They follow it to its new name.
     moveTrust(was, moved)
+    moveParallel(was, moved)
     movePrivacy(was, moved)
     moveOpened(was, moved)
     movePins(was, moved)
@@ -1390,6 +1396,35 @@ app.whenReady().then(() => {
     }
     setTrusted(contextDir, yes === true)
     return isTrusted(contextDir)
+  })
+
+  ipcMain.handle('parallel:get', (event) => isParallel(requireContext(event)))
+
+  // Agents on different projects at once is allowed in a dialog of the system, which the page cannot press. It gives up one
+  // guarantee: while two work, a change in a project is taken for the agent of that project, so one that writes in another
+  // project's folder is not held. Turning it off asks nothing.
+  ipcMain.handle('parallel:set', async (event, yes: boolean) => {
+    const contextDir = requireContext(event)
+    if (yes === true) {
+      const window = BrowserWindow.fromWebContents(event.sender)
+      const options = {
+        type: 'warning' as const,
+        buttons: ['Cancel', 'Allow'],
+        defaultId: 0,
+        cancelId: 0,
+        message: 'Let agents work on different projects at the same time?',
+        detail:
+          `${contextDir}\n\n` +
+          'Each agent works in its own project, and one project never has two. Mate rules on what each one changed in its project, and holds what it changed anywhere else, as it does now.\n\n' +
+          'While two agents work, Mate cannot tell which of them wrote a file. If one writes into the folder of the project the other is working in, Mate takes it for that agent’s work: you see it there, with Diff and Revert, and it is not held. ' +
+          'A file outside every working project is still held and put back.\n\n' +
+          'Allow it only for agents you can tell to stay in their project.'
+      }
+      const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))
+      if (response !== 1) return false
+    }
+    setParallel(contextDir, yes === true)
+    return isParallel(contextDir)
   })
 
   ipcMain.handle('privacy:get', (event) => isPrivate(requireContext(event)))

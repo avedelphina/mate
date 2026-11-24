@@ -55,10 +55,16 @@ checked, a table read, a language it does not have. It asks a listed
 agent through the door and gets an answer, noted in its session. The
 asked agent reads only.
 
-**Writers in parallel.** Not taken. For a project that is a repository,
-step 12's branches answer it: each agent on its own branch, the merge the
-approval, the hold enforceable on the forge. For a plain project, the
-write lock is the design, not the lack of one.
+**Writers in parallel.** One form is built, and it is opt-in: agents on
+*different projects* of a context, when the reader allowed it for that
+context (see architecture.md). It gives up one guarantee, said in the
+dialog that asks: while two agents work, Mate cannot tell which wrote a
+file in a project, so a write into the other's project is taken for that
+agent's work, shown with Diff and Revert, and not held. Two writers in
+one project are not taken. For a project that is a repository, step 12's
+branches answer it: each agent on its own branch, the merge the approval,
+the hold enforceable on the forge. For a plain project, the write lock is
+the design, not the lack of one.
 
 ## The changes, in order
 

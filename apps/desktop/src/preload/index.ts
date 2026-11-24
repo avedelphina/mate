@@ -152,6 +152,8 @@ contextBridge.exposeInMainWorld('mate', {
     return () => ipcRenderer.removeListener('context:reading', heard)
   },
   /** What is new since the version last seen (null when nothing), or with `force`, in this version. */
+  isParallel: (): Promise<boolean> => ipcRenderer.invoke('parallel:get'),
+  setParallel: (yes: boolean): Promise<boolean> => ipcRenderer.invoke('parallel:set', yes),
   saveSkill: () => ipcRenderer.invoke('skill:save'),
   whatsNew: (force: boolean) => ipcRenderer.invoke('news:get', force),
   newsSeen: () => ipcRenderer.invoke('news:seen'),

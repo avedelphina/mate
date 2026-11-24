@@ -467,6 +467,20 @@ skill `skills/mate/SKILL.md` is built in too: `skill:save` writes it where the
 reader picks in a dialog of the system, and a test keeps it in step with the
 tools of the door.
 
+**Agents on different projects at once.** The busy flag is no longer one for
+the context: it is one for each project (`turns` in `sessions.ts` holds the context
+of each turn, and a second turn in a project is refused). A second turn in another
+project of the same context starts only when the reader allowed it for that context
+(`parallel.json`, outside every context, asked in a dialog of the system). Each
+turn keeps its own snapshot (`watching` is a set of them). At the end of a turn, what
+changed under a project another turn is working in is left to that turn. When a
+turn keeps a change, or puts one back, every other snapshot is told (`mateWrote`
+in `judge`), so a turn that ends later does not take it for its agent's. The
+ceiling: while two agents work, a write by one into the other's project folder is
+taken for that agent's work, shown with Diff and Revert, and not held. A file outside
+every working project is held as before. A sub-folder of a project cannot be a
+turn's own yet: a session works in its whole project.
+
 **Several agents of your own.** The door for an agent the reader runs gives
 each session its own token (`tokenFor` in `index.ts`, kept in `mcp-sessions.json`
 beside the other settings, outside every context). A token leads to its session and

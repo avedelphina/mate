@@ -82,6 +82,13 @@ export const setOpenedToEndpoint = opened.set
 /** The endpoint's host changed: no context is open to the new one until the reader says so, by name. */
 export const closeAllToEndpoint = opened.clear
 
+// The contexts in which agents may work on different projects at the same time. See sessions.ts.
+const together = listOf()
+export const keepParallelIn = together.keepIn
+export const isParallel = together.has
+export const moveParallel = together.move
+export const setParallel = together.set
+
 /** What an agent, or the reader trying to invite one, is told in a private context. */
 export const PRIVATE = 'This context is private. Nothing of it leaves this computer, so no agent works in it.'
 export const PRIVATE_BUT_ENDPOINT = 'This context is private. Only Hermes on your own endpoint works in it.'
