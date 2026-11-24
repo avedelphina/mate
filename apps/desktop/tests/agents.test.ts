@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { chmod, mkdir, mkdtemp, readdir, readFile, rm, symlink, truncate, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, symlink, truncate, utimes, writeFile } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -750,5 +750,38 @@ console.log(JSON.stringify({ type: 'text', text: 'Done in ' + dir }))
     setParallel(root, false)
     await rm(root, { recursive: true, force: true })
     await rm(path.join(root, '..', `${path.basename(root)}-folder.mjs`), { force: true })
+  }
+})
+
+test('a snapshot reads again only the files the folder says have changed', async () => {
+  const root = await context()
+  try {
+    const hourAgo = new Date(Date.now() - 3600_000)
+    await writeFile(path.join(root, 'shelf/old.md'), 'Old text.\n')
+    await utimes(path.join(root, 'shelf/old.md'), hourAgo, hourAgo)
+    const first = await takeSnapshot(root)
+    // Nothing changed: the second snapshot holds the very bytes of the first, for a file that has not been touched for a long time.
+    const second = await takeSnapshot(root, first)
+    assert.equal(second.get('shelf/old.md'), first.get('shelf/old.md'))
+    // A file written a moment ago is read again every time: it may be written once more to the same stamp.
+    assert.notEqual(second.get('shelf/classification.md'), first.get('shelf/classification.md'))
+    assert.deepEqual(await changesSince(root, first), [])
+
+    // The same size, and the old time stamp put back: the change time still says it was written.
+    await writeFile(path.join(root, 'shelf/old.md'), 'New text.\n')
+    await utimes(path.join(root, 'shelf/old.md'), hourAgo, hourAgo)
+    const changes = await changesSince(root, first)
+    assert.deepEqual(changes.map((change) => [change.path, change.before?.toString(), change.after?.toString()]), [['shelf/old.md', 'Old text.\n', 'New text.\n']])
+    // A file that is gone, or new, is found too.
+    await rm(path.join(root, 'shelf/old.md'))
+    await writeFile(path.join(root, 'shelf/made.md'), 'Made.\n')
+    assert.deepEqual((await changesSince(root, first)).map((change) => [change.path, change.before === null, change.after === null]), [
+      ['shelf/made.md', true, false],
+      ['shelf/old.md', false, true]
+    ])
+    // Hashes of what did not change come from the same bytes.
+    assert.deepEqual(fingerprints(first)['shelf/classification.md'], fingerprints(await takeSnapshot(root, first))['shelf/classification.md'])
+  } finally {
+    await rm(root, { recursive: true, force: true })
   }
 })

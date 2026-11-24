@@ -1587,8 +1587,20 @@ agent says it did. `.git/hooks` is watched too. A file Mate writes itself
 during a turn, such as a comment, is told to the guard and is not taken
 for the agent's.
 
-One agent works in a context at a time. Two at once could not be told
-apart by looking at the folder.
+One agent works in a context at a time, unless the reader allowed agents on
+different projects, or folders of one project, at once. Then each turn has its
+own snapshot, and what changed in another working agent's project or folder is
+left to that agent. See "Agents on different projects at once".
+
+**Reading is what costs.** A snapshot reads a file only when the folder says it
+changed: the size, the modification time or the change time is not what it was in
+the latest snapshot of the context, or the file was stamped within five seconds of
+that snapshot. Other files keep the bytes already in memory, shared between the
+snapshots. The after-turn compare is therefore mostly `stat`, which is what makes
+a network share bearable. Files are read sixteen at a time. The latest snapshot of
+a context is kept for ten minutes, up to 512 MB. The ceiling: a file written again
+to the same size within the granularity of its time stamp, on a share whose clock is
+far from this computer's, can be missed.
 
 ### An agent on another machine
 

@@ -61,8 +61,43 @@ async function walk(contextDir: string, base: string, found: string[]): Promise<
   return found
 }
 
-export async function takeSnapshot(contextDir: string): Promise<Snapshot> {
+/** What the folder said of a file when it was read. A file read again only when it says something else. */
+type Mark = { size: number; mtime: number; ctime: number }
+const marks = new WeakMap<Snapshot, Map<string, Mark>>()
+const takenAt = new WeakMap<Snapshot, number>()
+
+// ponytail: a file whose size, modification time and change time are as they were is taken to be as it was, and is not read again.
+// A file written again within the granularity of the time stamp to a text of the same size would be missed, so a file stamped within
+// this window of the moment it was read is always read again. A share whose clock is far from this computer's can hide such a file.
+// Read every file again when that is a problem.
+const WINDOW = 5000
+/** At the most this many files are read at once, so a share is not asked for thousands of files in one breath. */
+const AT_ONCE = 16
+
+/** The latest snapshot of each context, kept for a while so that the next one reads only what changed. */
+const recent = new Map<string, Snapshot>()
+const KEPT_BYTES = 512 * 1024 * 1024
+const KEPT_FOR = 10 * 60 * 1000
+const forgetting = new Map<string, NodeJS.Timeout>()
+
+function keep(contextDir: string, snapshot: Snapshot): void {
+  let total = 0
+  for (const bytes of snapshot.values()) total += bytes.length
+  clearTimeout(forgetting.get(contextDir))
+  if (total > KEPT_BYTES) return void recent.delete(contextDir)
+  recent.set(contextDir, snapshot)
+  forgetting.set(contextDir, setTimeout(() => (recent.delete(contextDir), forgetting.delete(contextDir)), KEPT_FOR).unref())
+}
+
+/**
+ * Every file of the context, as it is. Reading is what costs, on a network share most of all, so a file that the
+ * folder says is as it was in `known` (by default the latest snapshot of this context) is not read again.
+ */
+export async function takeSnapshot(contextDir: string, known: Snapshot | undefined = recent.get(contextDir)): Promise<Snapshot> {
   const snapshot: Snapshot = new Map()
+  const here = new Map<string, Mark>()
+  const before = known && marks.get(known)
+  const when = Date.now()
   const files = await walk(contextDir, '', [])
   await walk(contextDir, '.git/hooks', files)
   // `core.hooksPath` here would send git to hooks the walk never sees. Only a real file counts.
@@ -74,10 +109,22 @@ export async function takeSnapshot(contextDir: string): Promise<Snapshot> {
     await walk(contextDir, `${git}/hooks`, files)
     if ((await lstat(path.join(contextDir, git, 'config')).catch(() => null))?.isFile()) files.push(`${git}/config`)
   }
-  for (const relative of files) {
+  const one = async (relative: string): Promise<void> => {
     const file = path.join(contextDir, relative)
-    if ((await stat(file)).size <= MAX_BYTES) snapshot.set(relative, await readFile(file))
+    const info = await stat(file).catch(() => null)
+    if (!info || info.size > MAX_BYTES) return
+    const mark = { size: info.size, mtime: info.mtimeMs, ctime: info.ctimeMs }
+    const was = before?.get(relative)
+    const same = was && was.size === mark.size && was.mtime === mark.mtime && was.ctime === mark.ctime && mark.mtime > 0
+    // Stamped near the moment it was read, a file may still be written again to the same stamp.
+    const settled = same && Math.abs((takenAt.get(known!) ?? 0) - mark.mtime) > WINDOW
+    here.set(relative, mark)
+    snapshot.set(relative, settled && known!.has(relative) ? known!.get(relative)! : await readFile(file))
   }
+  for (let at = 0; at < files.length; at += AT_ONCE) await Promise.all(files.slice(at, at + AT_ONCE).map(one))
+  marks.set(snapshot, here)
+  takenAt.set(snapshot, when)
+  keep(contextDir, snapshot)
   return snapshot
 }
 
@@ -85,17 +132,26 @@ export async function takeSnapshot(contextDir: string): Promise<Snapshot> {
  * A snapshot as it is written down: a mark for each file, not the file. It says later which files
  * are no longer as they were. It cannot put one back.
  */
+const hashed = new WeakMap<Buffer, string>()
 export const fingerprints = (snapshot: Snapshot): Record<string, string> =>
-  Object.fromEntries([...snapshot].map(([file, bytes]) => [file, createHash('sha256').update(bytes).digest('hex').slice(0, 16)]))
+  Object.fromEntries(
+    [...snapshot].map(([file, bytes]) => {
+      // The same bytes, kept from one snapshot to the next, are hashed once.
+      const kept = hashed.get(bytes) ?? createHash('sha256').update(bytes).digest('hex').slice(0, 16)
+      hashed.set(bytes, kept)
+      return [file, kept]
+    })
+  )
 
 /** What is different in the folder now. */
 export async function changesSince(contextDir: string, before: Snapshot): Promise<Change[]> {
-  const after = await takeSnapshot(contextDir)
+  // Only what the folder says has changed since `before` is read again.
+  const after = await takeSnapshot(contextDir, before)
   const changes: Change[] = []
   for (const relative of new Set([...before.keys(), ...after.keys()])) {
     const was = before.get(relative) ?? null
     const is = after.get(relative) ?? null
-    if (was && is ? !was.equals(is) : was !== is) changes.push({ path: relative, before: was, after: is })
+    if (was && is ? was !== is && !was.equals(is) : was !== is) changes.push({ path: relative, before: was, after: is })
   }
   return changes.sort((a, b) => a.path.localeCompare(b.path))
 }

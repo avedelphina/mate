@@ -24,6 +24,11 @@ then, minor versions may change behaviour.
 
 ### Changed
 
+- The check of what an agent changed reads only the files whose size or time stamp
+  changed, sixteen at a time, and keeps the latest one for ten minutes. Before, it read
+  every file of the context before each turn and again after it. On a folder with 6,000
+  files, a check that took four seconds now takes about thirty milliseconds. It matters
+  most on a network share.
 - Each session of an agent you run yourself has its own address and token, so more
   than one agent can work at once, each in its own session. Before, there was one
   token and it led to the session opened last, so a second agent landed in the first
