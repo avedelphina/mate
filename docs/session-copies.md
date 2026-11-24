@@ -199,17 +199,14 @@ Each step is usable alone.
 - A way for two agents to write the same file without the reader seeing it.
   Their results meet at the put-back, and a clash is the reader's.
 
-## For the owner to decide
+## Decided
 
-1. **Put back at the end of the turn, or wait for the reader?** The proposal
-   does what Mate does now: after the plan is approved, a turn's changes
-   go into the project and can be reverted. The other way is that nothing
-   goes until the reader presses Apply. It is safer and slower.
-2. **Is the ceiling for Hermes acceptable?** Only Claude Code and Codex get
-   the wall. For Hermes and Kimi a copy is weaker than working in place:
-   a write by absolute path into the project is no longer held before
-   approval. The alternative is that a session of those agents never uses a
-   copy.
-3. **The size limit.** A copy of a very large project is slow on a disk
-   without clones. The proposal refuses over a limit and works in place. What
-   limit?
+The owner decided on 2026-11-24:
+
+1. **Put back at the end of the turn**, as Mate does now. Before the plan is
+   approved the changes are held, so the reader sees them.
+2. **The ceiling for Hermes and Kimi is accepted.** A copy is weaker than
+   working in place for an agent that can write anywhere.
+3. **The size limit** was left to the builder: a project of at most 20,000
+   files and 1 GB is copied. A larger one is refused, with the reason, and
+   works in place. Reconsider it when real projects are seen.
