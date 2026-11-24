@@ -5,7 +5,11 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
-## Unreleased
+## [0.40.0] - 2026-11-24
+
+A session can work on a copy of a repository, so several agents can work in one project at once
+and none of them writes your files while it works. What an agent changed is put back at the end of
+each turn.
 
 ### Added
 
