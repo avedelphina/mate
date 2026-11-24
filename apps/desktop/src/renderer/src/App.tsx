@@ -29,7 +29,8 @@ import { Rendered, type Passage } from './Rendered'
 import { Settings, UpdateNotice } from './Settings'
 import { Notes } from './Notes'
 import { useTyping } from './Steering'
-import { dropOn, fileIcon, Tree } from './Tree'
+import { dropOn, fileIcon, folderPicture, Tree } from './Tree'
+import { Tabs } from './Tabs'
 import { Icon } from './Icon'
 import { PaneBar } from './PaneBar'
 import { Welcome } from './Welcome'
@@ -245,6 +246,10 @@ export function App() {
   // The pictures given to the folders of the open project, and the folder whose picture is being chosen with what is typed so far.
   const [folderIcons, setFolderIcons] = useState<Record<string, string>>({})
   const [iconing, setIconing] = useState<{ folder: string; value: string } | null>(null)
+  // The folders the reader pinned above the files of the project.
+  const [pins, setPins] = useState<string[]>([])
+  // "Chat about this file" was pressed: the Agent tab starts a session and clears this.
+  const [freshChat, setFreshChat] = useState(false)
   useEffect(() => applyMeasure(), [])
   // The file being given another name in the tree, and the name typed so far.
   const [renamingFile, setRenamingFile] = useState<{ from: string; name: string } | null>(null)
@@ -874,6 +879,23 @@ export function App() {
     }
   }, [project, view?.folders.length])
   useEffect(() => setIconing(null), [project])
+  useEffect(() => {
+    if (!project) return setPins([])
+    let current = true
+    window.mate.pinnedFolders(project).then((next) => current && setPins(next), () => {})
+    return () => {
+      current = false
+    }
+  }, [project])
+  async function pinFolder(folder: string, pinned: boolean) {
+    if (!project) return
+    try {
+      setPins(await window.mate.pinFolder(project, folder, pinned))
+      setError(null)
+    } catch (caught) {
+      setError(reason(caught, 'Could not pin the folder.'))
+    }
+  }
   /** Give a folder a picture, or with `null` take it off. */
   async function giveIcon(folder: string, icon: string | null) {
     if (!project) return
@@ -1969,8 +1991,71 @@ export function App() {
 
   // Where the page is in the tree of the open project, when it is in it at all.
   const inTree = reading ? (reading.project === project ? reading.path.split('/').slice(2).join('/') : null) : file && (outside ? file.replace(/^\//, '') : `${view?.draftsIn ?? ''}${file}`)
+  // The files open in this project, one tab each. They are kept in the window's own storage, for this context and project.
+  const tabKey = contextDir && view ? `mate.tabs:${contextDir}:${view.project}` : null
+  const [tabs, setTabs] = useState<{ key: string | null; paths: string[] }>({ key: null, paths: [] })
+  const setTabPaths = (paths: string[]) => {
+    setTabs({ key: tabKey, paths })
+    try {
+      if (tabKey) localStorage.setItem(tabKey, JSON.stringify(paths))
+    } catch {
+      /* The tabs are only a convenience. */
+    }
+  }
+  useEffect(() => {
+    let paths: string[] = []
+    try {
+      const kept: unknown = JSON.parse((tabKey && localStorage.getItem(tabKey)) || '[]')
+      if (Array.isArray(kept)) paths = kept.filter((each): each is string => typeof each === 'string').slice(0, 30)
+    } catch {
+      /* None kept. */
+    }
+    setTabs({ key: tabKey, paths })
+  }, [tabKey])
+  useEffect(() => {
+    if (tabKey === null || tabs.key !== tabKey || !inTree || tabs.paths.includes(inTree)) return
+    setTabPaths([...tabs.paths, inTree].slice(-30))
+  }, [inTree, tabKey, tabs.key])
+  // A file that is gone, or moved, has no tab.
+  const shownTabs = tabs.key === tabKey && view ? tabs.paths.filter((each) => view.files.includes(each)) : []
+  const openTab = (path: string) => (/\.md$/i.test(path) ? openFile(path) : openOther(path))
+  function closeTab(path: string) {
+    const at = shownTabs.indexOf(path)
+    const rest = shownTabs.filter((each) => each !== path)
+    setTabPaths(tabs.paths.filter((each) => each !== path))
+    // The tab of the page closes: the page goes to the tab beside it.
+    if (path === inTree && rest.length > 0) openTab(rest[Math.min(at, rest.length - 1)])
+  }
   // What an ID opens, but not the document it is in: its own id in its front matter links to itself.
   const refsHere = useMemo(() => Object.fromEntries(Object.entries(recordSet.refs).filter(([, where]) => where !== inTree)), [recordSet.refs, inTree])
+
+  /** The files of the open project, or of one folder of it when it is pinned. */
+  const filesTree = (view: DocumentView, folder = '') => (
+    <Tree
+      paths={folder ? view.files.filter((each) => each.startsWith(`${folder}/`)) : view.files}
+      folders={folder ? view.folders.filter((each) => each.startsWith(`${folder}/`)) : view.folders}
+      base={folder ? `${folder}/` : ''}
+      unfolded={folder ? '' : undefined}
+      icons={folderIcons}
+      onMove={moveTo}
+      final={view.final.map((each) => `${view.draftsIn}${each}`)}
+      draftsIn={view.draftsIn}
+      onNewDraft={(folder) => (setNamingIn(folder), setNaming(''))}
+      onNewFile={(folder) => (setNamingIn(`/${folder}`), setNaming(''))}
+      current={inTree}
+      onOpen={openFile}
+      onReveal={openOther}
+      onMenu={(path, folder) => [
+        ...(folder ? [{ label: 'Set Icon…', run: () => setIconing({ folder: path, value: folderIcons[path] && !isBuiltIn(folderIcons[path]) ? folderIcons[path] : '' }) }] : []),
+        ...(folder ? [{ label: pins.includes(path) ? 'Unpin from the Top' : 'Pin to the Top', run: () => void pinFolder(path, !pins.includes(path)) }] : []),
+        ...(folder ? [{ label: 'New Folder Inside…', run: () => setMaking(`${path}/`) }, { label: 'Publish to the Shelf…', run: () => void publishFolder(path) }] : [{ label: 'Open', run: () => (/\.md$/i.test(path) ? openFile(path) : openOther(path)) }]),
+        ...(movable(path) ? [{ label: 'Move To…', run: () => setMoving({ from: path, to: '' }) }] : []),
+        ...(movable(path) && !folder ? [{ label: 'Rename…', run: () => setRenamingFile({ from: path, name: path.split('/').pop()! }) }] : []),
+        null,
+        { label: 'Show in Finder', run: () => void window.mate.revealFile(`projects/${view.project}/${path}`) }
+      ]}
+    />
+  )
 
   // With no context open, the window greets as Xcode does. Settings still open over it.
   if (!contextDir && !settingsOpen) return <Welcome error={error} onOpen={() => void openContext()} onNew={() => void newContext()} onTour={() => void takeTour()} onReopen={(dir) => void reopenContext(dir)} />
@@ -2191,6 +2276,33 @@ export function App() {
                         </button>
                       </div>
                     )}
+                    {view && project === name && (() => {
+                      // A pin on a folder that has gone shows nothing. Its pin stays until the reader takes it off, or the folder comes back.
+                      const there = pins.filter((folder) => view.folders.includes(folder) || view.files.some((each) => each.startsWith(`${folder}/`)))
+                      if (there.length === 0) return null
+                      return (
+                        <div className="pinned">
+                          <p className="meta">Pinned</p>
+                          {there.map((folder) => (
+                            <details key={folder} open={inTree?.startsWith(`${folder}/`) ?? false}>
+                              <summary title={folder}>
+                                {folderPicture(folderIcons, folder)}
+                                {folder.split('/').pop()}
+                                <button
+                                  className="add"
+                                  title="Unpin"
+                                  aria-label={`Unpin ${folder.split('/').pop()}`}
+                                  onClick={(event) => (event.preventDefault(), event.stopPropagation(), void pinFolder(folder, false))}
+                                >
+                                  <Icon name="close" size={13} />
+                                </button>
+                              </summary>
+                              <ul className="tree">{filesTree(view, folder)}</ul>
+                            </details>
+                          ))}
+                        </div>
+                      )
+                    })()}
                     {view && project === name && Object.keys(tagged).length > 0 && (
                       <div className="tabs tree-view" role="group" aria-label="Show the files">
                         <button className={byTag ? 'quiet' : 'active'} aria-pressed={!byTag} onClick={() => setByTag(false)}>Files</button>
@@ -2218,27 +2330,7 @@ export function App() {
                       )
                     })()}
                     {view && project === name && !(byTag && Object.keys(tagged).length > 0) && (
-                      <Tree
-                        paths={view.files}
-                        folders={view.folders}
-                        icons={folderIcons}
-                        onMove={moveTo}
-                        final={view.final.map((each) => `${view.draftsIn}${each}`)}
-                        draftsIn={view.draftsIn}
-                        onNewDraft={(folder) => (setNamingIn(folder), setNaming(''))}
-                        onNewFile={(folder) => (setNamingIn(`/${folder}`), setNaming(''))}
-                        current={inTree}
-                        onOpen={openFile}
-                        onReveal={openOther}
-                        onMenu={(path, folder) => [
-                          ...(folder ? [{ label: 'Set Icon…', run: () => setIconing({ folder: path, value: folderIcons[path] && !isBuiltIn(folderIcons[path]) ? folderIcons[path] : '' }) }] : []),
-                          ...(folder ? [{ label: 'New Folder Inside…', run: () => setMaking(`${path}/`) }, { label: 'Publish to the Shelf…', run: () => void publishFolder(path) }] : [{ label: 'Open', run: () => (/\.md$/i.test(path) ? openFile(path) : openOther(path)) }]),
-                          ...(movable(path) ? [{ label: 'Move To…', run: () => setMoving({ from: path, to: '' }) }] : []),
-                          ...(movable(path) && !folder ? [{ label: 'Rename…', run: () => setRenamingFile({ from: path, name: path.split('/').pop()! }) }] : []),
-                          null,
-                          { label: 'Show in Finder', run: () => void window.mate.revealFile(`projects/${view.project}/${path}`) }
-                        ]}
-                      />
+                      filesTree(view)
                     )}
                     {view && project === name && (
                       <div className="tree-new">
@@ -2601,6 +2693,7 @@ export function App() {
                   {trustedHere && (
                     <BarButton icon="history" label="History" title="What changed since the last commit, and each commit that changed it" onClick={() => openHistory()} />
                   )}
+                  <BarButton icon="chat" label="Chat about this" title="Start a new conversation with an agent about this file" onClick={() => setFreshChat(true)} />
                   <BarButton icon="edit" label="Edit" onClick={edit} />
                   {file.toLowerCase().endsWith('.md') && (
                     <>
@@ -2623,6 +2716,7 @@ export function App() {
             </span>
           )}
         </header>
+        {!(inquiry !== null || settingsOpen || historyPath !== null || pullsOpen || centre !== null) && <Tabs paths={shownTabs} current={inTree} onOpen={openTab} onClose={closeTab} />}
         <div className="scroll" hidden={inquiry !== null || settingsOpen || historyPath !== null || pullsOpen || centre !== null}>
           {/* A file the reader is deciding about. It leaves by one of the exits. There is no exit where it is just remembered. */}
           {/* The card of a reference a [[link]] named. It is outside the context, so it is shown where it lies and never opened here. */}
@@ -3093,6 +3187,8 @@ export function App() {
           onOpen={openFile}
           onSettings={openSettings}
           settingsOpen={settingsOpen}
+          fresh={freshChat}
+          onFresh={() => setFreshChat(false)}
           reading={view.file === null || (centre !== null && centre !== 'table') ? null : view.file.startsWith('/') ? view.file.slice(1) : `${view.draftsIn}${view.file}`}
         />
       )}

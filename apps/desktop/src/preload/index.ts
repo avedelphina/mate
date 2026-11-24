@@ -97,6 +97,8 @@ contextBridge.exposeInMainWorld('mate', {
   readTable: (project: string, path: string) => ipcRenderer.invoke('table:read', project, path),
   writeTable: (project: string, path: string, rows: string[][], stamp: string) => ipcRenderer.invoke('table:write', project, path, rows, stamp),
   folderIcons: (project: string) => ipcRenderer.invoke('icons:get', project),
+  pinnedFolders: (project: string) => ipcRenderer.invoke('pins:get', project),
+  pinFolder: (project: string, folder: string, pinned: boolean) => ipcRenderer.invoke('pins:set', project, folder, pinned),
   setFolderIcon: (project: string, folder: string, icon: string | null) => ipcRenderer.invoke('icons:set', project, folder, icon),
   contextGraph: () => ipcRenderer.invoke('context:graph'),
   contextPaths: () => ipcRenderer.invoke('context:paths'),

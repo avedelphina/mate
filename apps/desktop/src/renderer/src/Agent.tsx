@@ -60,8 +60,11 @@ export function Agent(props: {
   settingsOpen: boolean
   /** The document open in the window, by its path from the project folder. Said to the agent with each message. */
   reading: string | null
+  /** "Chat about this file" was pressed: start a new session and leave the box ready. */
+  fresh: boolean
+  onFresh: () => void
 }) {
-  const { project, onChanged, into, page, listInto, wanted, onWanted, onPick, onChat, onSessions, onSession, files, onOpen, onSettings, settingsOpen, reading } = props
+  const { project, onChanged, into, page, listInto, wanted, onWanted, onPick, onChat, onSessions, onSession, files, onOpen, onSettings, settingsOpen, reading, fresh, onFresh } = props
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [open, setOpen] = useState<string | null>(null)
@@ -77,6 +80,7 @@ export function Agent(props: {
   // Where the reader's own agent connects, while a session for it is open.
   const [door, setDoor] = useState<{ url: string; token: string } | null>(null)
   const end = useRef<HTMLDivElement>(null)
+  const box = useRef<HTMLTextAreaElement>(null)
   // The change the reader is looking at, as lines. One at a time.
   const [compared, setCompared] = useState<({ key: string } & Compared) | null>(null)
   // Whether the reader trusts this context. It decides what an invited Hermes may use.
@@ -236,6 +240,20 @@ export function Agent(props: {
       onChat()
       return started
     })
+
+  // A new session, with the agent of the one open, else the first found on this computer. The box is ready for the first words.
+  useEffect(() => {
+    if (!fresh || agents.length === 0) return
+    onFresh()
+    const mine = agents.filter((each) => each.found && !each.host && each.kind !== 'mcp')
+    const agent = mine.find((each) => each.kind === sessions.find((one) => one.id === open)?.agent) ?? mine[0]
+    if (!agent) {
+      setError('No agent was found on this computer. Settings lists the agents Mate can invite.')
+      onSessions()
+      return
+    }
+    void invite(agent).then((started) => started && setTimeout(() => box.current?.focus(), 80))
+  }, [fresh, agents])
 
   /** Show what a change is, or put it away again. */
   const look = (which: 'kept' | 'held', index: number) => {
@@ -680,6 +698,7 @@ export function Agent(props: {
           </p>
         ))}
         <textarea
+          ref={box}
           aria-label="Message to the agent"
           rows={2}
           value={text}

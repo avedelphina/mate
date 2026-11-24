@@ -83,7 +83,7 @@ export function Tree(props: {
                 {...(onMove && !['panes', 'scripts'].includes(full.split('/')[0]) ? dropOn(full, onMove) : {})}
                 {...menu(full, true)}
               >
-                {folderIcon ? <Icon name={folderIcon} /> : icons?.[full] && !isBuiltIn(icons[full]) ? <span className="emoji" aria-hidden="true">{icons[full]}</span> : <Icon name={(icons?.[full] as IconName | undefined) ?? FOLDERS.get(full) ?? 'folder'} />}
+                {folderIcon ? <Icon name={folderIcon} /> : folderPicture(icons, full)}
                 {name}
                 {onNewDraft && !['dropbox', 'panes', 'scripts'].includes(full.split('/')[0]) && (
                   <button
@@ -103,6 +103,13 @@ export function Tree(props: {
       })}
     </ul>
   )
+}
+
+/** The picture of a folder: the one the reader gave it, else the one of a folder Mate keeps, else a folder. */
+export function folderPicture(icons: Record<string, string> | undefined, full: string) {
+  const given = icons?.[full]
+  if (given && !isBuiltIn(given)) return <span className="emoji" aria-hidden="true">{given}</span>
+  return <Icon name={(given as IconName | undefined) ?? FOLDERS.get(full) ?? 'folder'} />
 }
 
 /** The folders a project keeps for itself have pictures of their own. */

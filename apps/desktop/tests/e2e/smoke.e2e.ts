@@ -295,13 +295,21 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'material.md')`, 'the material in the tree')
     await app.press('.projects .tree .row', 'material.md')
     await app.until(`document.querySelector('.center .bar')?.textContent.includes('material.md') && !!document.querySelector('.page')`, 'the material open for review')
-    assert.equal(await app.page(`[...document.querySelectorAll('.center .bar button')].map((each) => each.textContent.trim()).join()`), 'Open in editor,Edit,Tags…,Properties…,Linked from…')
+    assert.equal(await app.page(`[...document.querySelectorAll('.center .bar button')].map((each) => each.textContent.trim()).join()`), 'Open in editor,Chat about this,Edit,Tags…,Properties…,Linked from…')
     await span('collector', 'collector')
     await note('Which port?')
     assert.equal(await readFile(path.join(project, 'material.md'), 'utf8'), material, 'the file is as it was')
     assert.match(await readFile(path.join(context, '.mate/projects/document-review/material.md.comments.md'), 'utf8'), /Which port\?/)
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
+
+    // The files that were open are tabs. A tab opens its file, and its cross closes it and goes to the one beside it.
+    await app.until(`document.querySelector('.doc-tab.active')?.textContent.includes('document.md') && [...document.querySelectorAll('.doc-tab')].some((each) => each.textContent.includes('material.md'))`, 'the open files as tabs')
+    await app.page(`[...document.querySelectorAll('.doc-tab button[role=tab]')].find((each) => each.textContent === 'material.md').click()`)
+    await app.until(`document.querySelector('.center .bar')?.textContent.includes('material.md')`, 'the material, by its tab')
+    await app.page(`[...document.querySelectorAll('.doc-tab')].find((each) => each.textContent === 'material.md').querySelector('.close').click()`)
+    await app.until(`![...document.querySelectorAll('.doc-tab')].some((each) => each.textContent === 'material.md')`, 'the tab closed')
+    await app.until(`(() => { const tab = document.querySelector('.doc-tab.active'); return !!tab && tab.textContent !== 'material.md' && document.querySelector('.center .bar').textContent.includes(tab.textContent.replace(/^.*\\//, '')) })()`, 'the file beside it open')
 
     // The text of a page, a PDF or a Word file becomes a draft with no agent, and where it came from is at its top.
     await writeFile(path.join(project, 'page.html'), '<html><body><h1>Terms</h1><p>Pay in 30 days.</p></body></html>')

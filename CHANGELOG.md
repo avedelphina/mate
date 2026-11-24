@@ -5,6 +5,19 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- Files you open stay open as tabs above the page, one for each. A tab opens its file, the cross (or a
+  middle click) closes it, and the page goes to the tab beside it. They are kept for each project, and
+  are there again when you come back. A file that is moved or gone has no tab.
+- *Chat about this* in the bar of a document starts a new conversation about it. It uses the agent of the
+  conversation you have open, or the first one found on this computer. The one you have open is left alone.
+- *Pin to the Top* in a folder's menu puts the folder above the files of the project, with what is in it.
+  For a deep tree: pin the folders you work in. The cross takes the pin off. A pin is kept in the
+  context's private folder, like a folder's picture, and follows the folder when it moves.
+
 ## [0.44.0] - 2026-11-24
 
 ### Added

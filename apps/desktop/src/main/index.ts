@@ -36,6 +36,8 @@ import {
   createFile,
   moveEntry,
   readIcons,
+  readPins,
+  setPin,
   setIcon,
   relinkDocuments,
   renameEntry,
@@ -1064,6 +1066,10 @@ app.whenReady().then(() => {
   ipcMain.handle('icons:set', (event, project: string, folder: string, icon: string | null) =>
     setIcon(requireContext(event), String(project), String(folder), icon === null ? null : String(icon))
   )
+
+  // The folders the reader pinned to the top of a project's files, kept in the context's private folder like the icons.
+  ipcMain.handle('pins:get', (event, project: string) => readPins(requireContext(event), String(project)))
+  ipcMain.handle('pins:set', (event, project: string, folder: string, pinned: boolean) => setPin(requireContext(event), String(project), String(folder), pinned === true))
 
   // A file of a project gets another name. When documents link to it with [[name]], the reader is asked in a dialog of the
   // system whether they follow it: the documents they are, the shelf's among them, are changed only on that answer.

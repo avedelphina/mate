@@ -979,6 +979,24 @@ the folders in it, along when it moves. A project that is renamed takes the
 file with the rest of `.mate/projects/`. Not done: an icon for a file or a
 project, and a colour.
 
+## Tabs and pinned folders
+
+The files the reader opened in a project are tabs above the page (`Tabs.tsx`). They are the window's own
+convenience, kept in `localStorage` for each context and project, and they hold paths from the project
+folder only. A path that is no longer in the project's files is not shown. The page goes to a tab with
+`openFile` or `openOther`, as a click in the tree does, so nothing about a file changes. The state of the
+page (scroll, selection) is not kept for a tab.
+
+A folder can be pinned above the files of a project (*Pin to the Top* in its menu). The pins are kept in
+the context's private folder, `.mate/projects/NAME/pins.json`, as a list of paths from the project, and not
+in the project (rule 14). `readPins` keeps only what is a path of the project, `setPin` pins only a folder
+that is there (and takes a pin off one that has gone), and `moveEntry` takes the pins of a moved folder
+along (`movePins`). A pinned folder is drawn with the same `Tree` as the project, started at that folder.
+
+*Chat about this* in the bar of a document starts a new session (`Agent.tsx`, `fresh`), with the agent of
+the session that is open, else the first one found here. It leaves the open session alone. The agent is
+told which file is open as with any message (see *Agents*).
+
 ## References
 
 A reference is a place outside the context that the reader wants agents to

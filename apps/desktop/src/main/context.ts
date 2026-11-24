@@ -998,7 +998,10 @@ export async function moveEntry(contextDir: string, project: string, from: strin
     await mkdir(path.dirname(moved), { recursive: true })
     await rename(kept, moved).catch(() => {})
   }
-  if (info.isDirectory()) await moveIcons(contextDir, project, source.join('/'), [...target, name].join('/'))
+  if (info.isDirectory()) {
+    await moveIcons(contextDir, project, source.join('/'), [...target, name].join('/'))
+    await movePins(contextDir, project, source.join('/'), [...target, name].join('/'))
+  }
   return { from: old, to: now, folder: info.isDirectory() }
 }
 
@@ -1014,6 +1017,18 @@ export async function readIcons(contextDir: string, project: string): Promise<Re
   }
 }
 
+/** What the context keeps about a project, in its private folder: written as JSON, or the file taken away when nothing is left. */
+async function writeKept(contextDir: string, full: string, value: unknown): Promise<void> {
+  const relative = path.relative(contextDir, full).split(path.sep).join('/')
+  if (value === null) {
+    await rm(full, { force: true })
+    mateWrote(contextDir, relative, null)
+    return
+  }
+  await mkdir(path.dirname(full), { recursive: true })
+  await replace(contextDir, full, relative, `${JSON.stringify(value, null, 2)}\n`)
+}
+
 /** Mark a folder of the project with an icon, or with `null` take the mark off. Only a folder that is there, and an icon that is one. */
 export async function setIcon(contextDir: string, project: string, folder: string, value: string | null): Promise<Record<string, string>> {
   const parts = String(folder).split('/')
@@ -1025,14 +1040,7 @@ export async function setIcon(contextDir: string, project: string, folder: strin
   const icons = await readIcons(contextDir, project)
   if (icon) icons[parts.join('/')] = icon
   else delete icons[parts.join('/')]
-  const full = iconFile(contextDir, project)
-  await mkdir(path.dirname(full), { recursive: true })
-  if (Object.keys(icons).length === 0) {
-    await rm(full, { force: true })
-    mateWrote(contextDir, path.relative(contextDir, full).split(path.sep).join('/'), null)
-  } else {
-    await replace(contextDir, full, path.relative(contextDir, full).split(path.sep).join('/'), `${JSON.stringify(icons, null, 2)}\n`)
-  }
+  await writeKept(contextDir, iconFile(contextDir, project), Object.keys(icons).length === 0 ? null : icons)
   return icons
 }
 
@@ -1045,8 +1053,45 @@ async function moveIcons(contextDir: string, project: string, from: string, to: 
     delete icons[folder]
     icons[`${to}${folder.slice(from.length)}`] = icon
   }
-  const full = iconFile(contextDir, project)
-  await replace(contextDir, full, path.relative(contextDir, full).split(path.sep).join('/'), `${JSON.stringify(icons, null, 2)}\n`)
+  await writeKept(contextDir, iconFile(contextDir, project), icons)
+}
+
+const pinFile = (contextDir: string, project: string) => path.join(contextDir, '.mate', 'projects', project, 'pins.json')
+const PINS_MOST = 30
+
+/** The folders of a project the reader pinned to the top of its files, each by its path from the project. */
+export async function readPins(contextDir: string, project: string): Promise<string[]> {
+  try {
+    const found: unknown = JSON.parse(await readFile(pinFile(contextDir, String(project)), 'utf8'))
+    if (!Array.isArray(found)) return []
+    const folder = (each: unknown): each is string => typeof each === 'string' && each !== '' && !each.split('/').some((part) => part === '' || part === '..' || part.startsWith('.'))
+    return found.filter(folder).slice(0, PINS_MOST)
+  } catch {
+    return []
+  }
+}
+
+/** Pin a folder, or take its pin off. Only a folder that is there is pinned; a pin on one that has gone can always be taken off. */
+export async function setPin(contextDir: string, project: string, folder: string, pinned: boolean): Promise<string[]> {
+  const parts = String(folder).split('/')
+  const key = parts.join('/')
+  const pins = (await readPins(contextDir, project)).filter((each) => each !== key)
+  if (pinned) {
+    if (parts.some((part) => part === '' || part.startsWith('.') || part === 'node_modules')) throw new Error('That is not a folder of this project.')
+    const there = await realInside(contextDir, 'projects', project, ...parts).then((full) => stat(full)).catch(() => null)
+    if (!there?.isDirectory()) throw new Error('That is not a folder of this project.')
+    if (pins.length >= PINS_MOST) throw new Error(`Pin at most ${PINS_MOST} folders. Take one off first.`)
+    pins.push(key)
+  }
+  await writeKept(contextDir, pinFile(contextDir, project), pins.length === 0 ? null : pins)
+  return pins
+}
+
+/** A folder moved: its pin, and the pins of folders in it, follow. */
+async function movePins(contextDir: string, project: string, from: string, to: string): Promise<void> {
+  const pins = await readPins(contextDir, project)
+  if (!pins.some((each) => each === from || each.startsWith(`${from}/`))) return
+  await writeKept(contextDir, pinFile(contextDir, project), pins.map((each) => (each === from || each.startsWith(`${from}/`) ? `${to}${each.slice(from.length)}` : each)))
 }
 
 /** What a file is called after a rename: the name typed, with the file's own extension when the typed one has none. */

@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, truncate, writeFi
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { readSteeringFile, writeSteeringFile, addComment, createContext, inCloudOnly, listProjectTemplates, listTemplates, createDraft, createFile, createProject, describeContext, draftFromSource, extractBeside, importProject, listProjects, makeFolder, moveEntry, readIcons, setIcon, relinkDocuments, renameEntry, renamedTo, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
+import { readSteeringFile, writeSteeringFile, addComment, createContext, inCloudOnly, listProjectTemplates, listTemplates, createDraft, createFile, createProject, describeContext, draftFromSource, extractBeside, importProject, listProjects, makeFolder, moveEntry, readIcons, readPins, setIcon, setPin, relinkDocuments, renameEntry, renamedTo, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
@@ -454,6 +454,35 @@ test('a folder gets an icon, kept in the context and not in the project, and it 
     await setIcon(root, 'review', 'archive/Intune', null)
     await setIcon(root, 'review', 'archive/Intune/compare', null)
     assert.equal(existsSync(path.join(root, '.mate/projects/review/icons.json')), false)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a folder is pinned, kept in the context and not in the project, and the pin follows the folder when it moves', async () => {
+  const root = await context()
+  try {
+    await mkdir(path.join(root, 'projects/review/Intune/compare'), { recursive: true })
+    await mkdir(path.join(root, 'projects/review/archive'), { recursive: true })
+    assert.deepEqual(await readPins(root, 'review'), [])
+    assert.deepEqual(await setPin(root, 'review', 'Intune/compare', true), ['Intune/compare'])
+    assert.deepEqual(await setPin(root, 'review', 'Intune/compare', true), ['Intune/compare'], 'pinned twice is pinned once')
+    assert.equal(existsSync(path.join(root, 'projects/review/pins.json')), false, 'nothing is written in the project')
+    await assert.rejects(setPin(root, 'review', 'missing', true), /not a folder/)
+    await assert.rejects(setPin(root, 'review', '../x', true), /not a folder/)
+
+    // A file somebody else wrote is read only for what is a path.
+    await writeFile(path.join(root, '.mate/projects/review/pins.json'), JSON.stringify(['Intune', '../out', '.mate', '', 3]))
+    assert.deepEqual(await readPins(root, 'review'), ['Intune'])
+
+    await setPin(root, 'review', 'Intune/compare', true)
+    await moveEntry(root, 'review', 'Intune', 'archive')
+    assert.deepEqual(await readPins(root, 'review'), ['archive/Intune', 'archive/Intune/compare'])
+    // A pin on a folder that has gone can still be taken off, and the last one removes the file.
+    await rm(path.join(root, 'projects/review/archive/Intune'), { recursive: true })
+    await setPin(root, 'review', 'archive/Intune', false)
+    await setPin(root, 'review', 'archive/Intune/compare', false)
+    assert.equal(existsSync(path.join(root, '.mate/projects/review/pins.json')), false)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

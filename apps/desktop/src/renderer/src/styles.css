@@ -670,3 +670,20 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 .table-view tbody tr:hover td { background: var(--tint); }
 .table-view td.editing { padding: 0; }
 .table-view td.editing input { width: 100%; min-width: 10em; border-radius: 0; }
+
+/* The files open in a project, as tabs above the page. */
+.doc-tabs { flex: none; display: flex; gap: 2px; padding: 0 12px 0 16px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
+.doc-tabs::-webkit-scrollbar { display: none; }
+.doc-tab { display: flex; flex: none; align-items: center; max-width: 220px; border-radius: 7px 7px 0 0; color: var(--soft); font-size: 12.5px; }
+.doc-tab button { border: 0; background: none; color: inherit; font: inherit; cursor: default; }
+.doc-tab button[role='tab'] { min-width: 0; overflow: hidden; padding: 6px 4px 6px 10px; text-overflow: ellipsis; white-space: nowrap; }
+.doc-tab .close { display: grid; place-items: center; width: 18px; height: 18px; margin-right: 6px; padding: 0; border-radius: 5px; opacity: 0; }
+.doc-tab:hover { background: var(--tint); }
+.doc-tab:hover .close, .doc-tab.active .close { opacity: 0.7; }
+.doc-tab .close:hover { background: var(--chosen); opacity: 1; }
+.doc-tab.active { background: var(--page); box-shadow: inset 0 -2px 0 var(--accent); color: var(--ink); font-weight: 600; }
+
+/* The folders the reader pinned, above the files of the project. */
+.pinned { margin: 0 0 6px; }
+.pinned > .meta { margin: 4px 10px 2px; font-size: 11px; letter-spacing: 0.02em; text-transform: uppercase; }
+.pinned details { margin: 0; }
