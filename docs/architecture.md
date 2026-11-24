@@ -478,8 +478,19 @@ turn keeps a change, or puts one back, every other snapshot is told (`mateWrote`
 in `judge`), so a turn that ends later does not take it for its agent's. The
 ceiling: while two agents work, a write by one into the other's project folder is
 taken for that agent's work, shown with Diff and Revert, and not held. A file outside
-every working project is held as before. A sub-folder of a project cannot be a
-turn's own yet: a session works in its whole project.
+every working project is held as before.
+
+**A folder of a project.** An agent started here may be given a folder of its
+project (`folder` in the session, `scopesOf` in `sessions.ts`). It works with
+the whole project as its working folder, so what the rules tell it still holds,
+and it is told to write only in that folder. `judge` keeps a change only in
+that folder, and the reader's comments on its files; anything else in the
+project is held and put back, the panes of the project too. Two agents cannot
+work where one's scope holds the other's: two in a project, or one in a folder
+and one in the project around it. Two in different folders of one project can,
+where work on several projects is allowed. Only an agent started here can have
+a folder: one on another machine, and one the reader runs, work in the whole
+project.
 
 **Several agents of your own.** The door for an agent the reader runs gives
 each session its own token (`tokenFor` in `index.ts`, kept in `mcp-sessions.json`

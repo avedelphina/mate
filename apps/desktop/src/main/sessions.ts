@@ -63,6 +63,8 @@ export type Session = {
   shelve?: Shelve[]
   /** The reader keeps it at the top of the list, and it is never taken for an empty one. */
   pinned?: boolean
+  /** A folder of the project, counted from the project, that this agent works in and may change. Without one, the whole project. */
+  folder?: string
   running: boolean
   /** What the agent will not do until the reader says yes or no. Only while a turn runs. */
   asks?: Ask[]
@@ -373,6 +375,8 @@ export type SessionRow = {
   /** Nothing was said, changed, held or proposed in it. */
   empty?: boolean
   pinned?: boolean
+  /** The folder of the project the agent works in, when it is not the whole project. */
+  folder?: string
   cloud: boolean
 }
 
@@ -412,6 +416,7 @@ export async function listAllSessions(contextDir: string): Promise<SessionRow[]>
             said: said(session),
             empty: isEmpty(session),
             pinned: session.pinned === true,
+            folder: session.folder,
             cloud: false
           }
         })().catch(() => null)
@@ -474,16 +479,20 @@ export async function startSession(
   contextDir: string,
   project: string,
   agent: Invited,
-  host: string | null = null
+  host: string | null = null,
+  folder = ''
 ): Promise<Session> {
   if (!privacyAllows(contextDir, agent, host)) throw new Error(privacyRefusal(contextDir))
+  // ponytail: a folder to work in is for an agent Mate starts on this computer. One on another machine, or one the reader runs, works in the whole project.
+  if (folder && (agent === 'mcp' || host !== null)) throw new Error('Only an agent started here, on this computer, can work in a folder of the project.')
+  const scope = await scopeFolder(contextDir, project, folder)
   if (agent !== 'mcp' && !AGENTS[agent]) throw new Error('That agent is not one Mate knows.')
   if (host !== null && (agent === 'mcp' || !isHost(host) || !AGENTS[agent].remoteArgs)) {
     throw new Error('That agent cannot be invited from another machine.')
   }
   // An empty conversation with the same agent is the one to go back to: no second one is made beside it.
   for (const each of await emptyOf(contextDir, project)) {
-    if (each.agent === agent && each.host === host && !turns.has(each.id)) return each
+    if (each.agent === agent && each.host === host && (each.folder ?? '') === scope && !turns.has(each.id)) return each
   }
   const session: Session = {
     id: randomUUID(),
@@ -498,14 +507,15 @@ export async function startSession(
     queue: [],
     changes: [],
     held: [],
-    running: false
+    running: false,
+    ...(scope ? { folder: scope } : {})
   }
   await saveSession(contextDir, session)
   return session
 }
 
 const running = new Map<string, ChildProcess>()
-async function firstWords(contextDir: string, project: string, remote: boolean): Promise<string> {
+async function firstWords(contextDir: string, project: string, remote: boolean, folder?: string): Promise<string> {
   if (remote) return `${REMOTE_RULES}\n\nYour project is "${project}". Its files are under projects/${project}/.`
   // A project's own, else the context's. Which it is, is said: the agent should not guess where it came from.
   const steering = async (name: 'intents.md' | 'principles.md') => {
@@ -526,6 +536,7 @@ async function firstWords(contextDir: string, project: string, remote: boolean):
   return [
     RULES,
     `The project is "${project}".`,
+    folder && `You work in the folder ${folder}/ of this project. Write only there: the rest of the project may be another agent's. You may read all of it.`,
     `On the shelf (../../shelf/): ${shelf.join(', ') || 'nothing yet'}.`,
     others.length > 0 && `The other projects (../): ${others.join(', ')}.`,
     intents,
@@ -534,6 +545,34 @@ async function firstWords(contextDir: string, project: string, remote: boolean):
   ]
     .filter(Boolean)
     .join('\n\n')
+}
+
+/**
+ * What an agent may change: its project, or the folder of it that it was given, and the private layer of the same
+ * (the reader's comments on those files). The paths start at the context folder and end with a slash.
+ */
+export const scopesOf = (session: { project: string; folder?: string }): string[] => {
+  const here = session.folder ? `${session.project}/${session.folder}/` : `${session.project}/`
+  return [`projects/${here}`, `.mate/projects/${here}`]
+}
+
+/** Two agents cannot work where one's scope holds the other's: the same project, or a folder and the project around it. */
+const overlap = (a: { project: string; folder?: string }, b: { project: string; folder?: string }): boolean => {
+  const [x, y] = [scopesOf(a)[0], scopesOf(b)[0]]
+  return x.startsWith(y) || y.startsWith(x)
+}
+
+/** A folder of a project to work in: inside the project, nothing hidden, not the panes, and there. Empty is the whole project. */
+async function scopeFolder(contextDir: string, project: string, folder: string): Promise<string> {
+  const clean = String(folder ?? '').replace(/^\/+|\/+$/g, '')
+  if (clean === '') return ''
+  const parts = clean.split('/')
+  if (parts.some((part) => part === '' || part === '.' || part === '..' || part.startsWith('.')) || parts[0] === 'panes') {
+    throw new Error('Choose a folder of the project. The panes and hidden folders are not one.')
+  }
+  const info = await stat(await realInside(contextDir, 'projects', project, ...parts)).catch(() => null)
+  if (!info?.isDirectory()) throw new Error('That folder is not in the project.')
+  return clean
 }
 
 /**
@@ -550,7 +589,7 @@ export async function judge(contextDir: string, session: Session, change: Change
   // What git runs is never the agent's to change, in the project or out of it: a hook, a config.
   const git = change.path.split('/').includes('.git')
   // The comments the reader keeps private for this project are kept in the context, and are the project's own.
-  const own = change.path.startsWith(`projects/${session.project}/`) || change.path.startsWith(`.mate/projects/${session.project}/`)
+  const own = scopesOf(session).some((prefix) => change.path.startsWith(prefix))
   // A pane the reader locked is theirs: the agent's write waits for them, as one outside the project does.
   if (session.planApproved && !git && own && !(await paneIsLocked(contextDir, session.project, change.path))) {
     const backup = change.before ? `${session.changes.length}` : null
@@ -716,7 +755,9 @@ export async function sendMessage(
     }
     // One agent works in a project at a time. In a context the reader allowed it, agents work on different projects at once.
     const others = [...turns].filter(([other, turn]) => other !== id && turn.contextDir === contextDir)
-    if (others.some(([, turn]) => turn.session.project === session.project)) throw new Error('Another agent is working in this project. Wait for it to finish.')
+    if (others.some(([, turn]) => overlap(turn.session, session))) {
+      throw new Error(`Another agent is working in ${session.folder ? 'this folder, or the project around it' : 'this project'}. Wait for it to finish.`)
+    }
     if (others.length > 0 && !isParallel(contextDir)) {
       throw new Error('Another agent is working in this context. Wait for it to finish, or let agents work on different projects at the same time: the button is in the Agent tab.')
     }
@@ -812,7 +853,9 @@ async function begin(
     // An agent on this computer reads the instruction files of the folder itself. The reader sees them first.
     if (!session.host) await gate.before(contextDir)
     const state = mayWrite
-      ? '[The plan is approved. You may edit files inside this project.]'
+      ? session.folder
+        ? `[The plan is approved. You may edit files inside the folder ${session.folder}/ of this project, and nowhere else. The rest of the project is another agent's or the reviewer's.]`
+        : '[The plan is approved. You may edit files inside this project.]'
       : '[The plan is not approved yet. Read and propose. Do not edit any file.]'
     const projectDir = resolveInside(contextDir, 'projects', project)
     snapshot = await takeSnapshot(contextDir)
@@ -832,7 +875,7 @@ async function begin(
     prompt = known
       ? [files && `These files are new or have changed:\n\n${files}`, state, message].filter(Boolean).join('\n\n')
       : [
-          await firstWords(contextDir, project, session.host !== null),
+          await firstWords(contextDir, project, session.host !== null, session.folder),
           files && `The files of the context:\n\n${files}`,
           soFar && `The conversation so far:\n\n${soFar}`,
           state,
@@ -926,7 +969,7 @@ async function begin(
     // An agent on this machine has changed the folder. One on another machine has said what it wants changed.
     const remote = session.host !== null
     // What changed under a project another agent is working in is that agent's, and its own guard rules on it.
-    const theirs = [...turns].filter(([other, turn]) => other !== id && turn.contextDir === contextDir).flatMap(([, turn]) => [`projects/${turn.session.project}/`, `.mate/projects/${turn.session.project}/`])
+    const theirs = [...turns].filter(([other, turn]) => other !== id && turn.contextDir === contextDir).flatMap(([, turn]) => scopesOf(turn.session))
     const asked = remote
       ? await proposed(contextDir, answer.text)
       : { changes: (await changesSince(contextDir, snapshot)).filter((change) => !theirs.some((prefix) => change.path.startsWith(prefix))), refused: [] }
@@ -937,7 +980,7 @@ async function begin(
       if ((await judge(contextDir, session, change, !remote)) === 'held') putBack.push(change.path)
     }
     if (putBack.length > 0) {
-      const why = mayWrite ? 'outside this project' : 'before the plan was approved'
+      const why = mayWrite ? (session.folder ? `outside the folder ${session.folder}/` : 'outside this project') : 'before the plan was approved'
       const what = remote ? `asked to change ${putBack.join(', ')} ${why}.` : `changed ${putBack.join(', ')} ${why}. Mate put it back.`
       session.messages.push({ role: 'mate', text: `The agent ${what} The change is held: approve the file to let it through.`, tools: [] })
     }

@@ -684,3 +684,71 @@ console.log(JSON.stringify({ type: 'text', text: 'Done in ' + project }))
     await rm(path.join(root, '..', `${path.basename(root)}-slow.mjs`), { force: true })
   }
 })
+
+test('an agent given a folder of the project changes only there, and another works in another folder at once', { skip: process.platform === 'win32' }, async () => {
+  const root = await context()
+  const command = AGENTS.hermes.command
+  try {
+    await mkdir(path.join(root, 'projects/review/a'), { recursive: true })
+    await mkdir(path.join(root, 'projects/review/b'), { recursive: true })
+    await mkdir(path.join(root, 'projects/review/panes'), { recursive: true })
+    // The agent writes in the folder the message names, and also a file in the project's own folder.
+    const stub = path.join(root, '..', `${path.basename(root)}-folder.mjs`)
+    await writeFile(
+      stub,
+      `#!/usr/bin/env node
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs'
+const prompt = readFileSync(0, 'utf8')
+const delay = Number(/delay (\\d+)/.exec(prompt)?.[1] ?? 0)
+const dir = /dir (\\w+)/.exec(prompt)?.[1]
+await new Promise((resolve) => setTimeout(resolve, delay))
+appendFileSync(dir + '/out.md', dir + ' line.\\n')
+writeFileSync('stray-' + dir + '.md', 'Not in the folder.\\n')
+console.log(JSON.stringify({ type: 'text', text: 'Done in ' + dir }))
+`
+    )
+    await chmod(stub, 0o755)
+    AGENTS.hermes.command = stub
+    const read = (relative: string) => readFile(path.join(root, relative), 'utf8')
+
+    // A folder is one of the project, with nothing hidden, and not the panes. An agent the reader runs, or on another machine, has none.
+    for (const bad of ['../x', 'a/../b', '.git', 'a/.hidden', 'panes', 'nothing']) await assert.rejects(startSession(root, 'review', 'hermes', null, bad), /folder/i)
+    await assert.rejects(startSession(root, 'review', 'mcp', null, 'a'), /Only an agent started here/)
+    await assert.rejects(startSession(root, 'review', 'hermes', 'some-host', 'a'), /Only an agent started here/)
+
+    const inA = await startSession(root, 'review', 'hermes', null, 'a/')
+    assert.equal(inA.folder, 'a')
+    // An empty conversation with the same agent is given back only for the same folder.
+    assert.equal((await startSession(root, 'review', 'hermes', null, 'a')).id, inA.id)
+    assert.notEqual((await startSession(root, 'review', 'hermes', null, 'b')).id, inA.id)
+    assert.notEqual((await startSession(root, 'review', 'hermes')).id, inA.id)
+
+    const go = async (session: { id: string }, text: string) => (await sendMessage(root, 'review', session.id, text, true, () => {})).finished
+    setParallel(root, true)
+    const first = await sendMessage(root, 'review', inA.id, 'Go. dir a delay 500', true, () => {})
+    const inB = await startSession(root, 'review', 'hermes', null, 'b')
+    const second = await sendMessage(root, 'review', inB.id, 'Go. dir b delay 50', true, () => {})
+    // The same folder, or the whole project around it, is taken.
+    await assert.rejects(go(await startSession(root, 'review', 'kimi', null, 'a'), 'dir a delay 0'), /this folder, or the project around it/)
+    await assert.rejects(go(await startSession(root, 'review', 'hermes'), 'dir a delay 0'), /this project/)
+    const [done, other] = await Promise.all([first.finished, second.finished])
+
+    // Each kept its folder. The file in the project's own folder is neither's to change: it is held and put back.
+    assert.deepEqual(done.changes.map((change) => change.path), ['projects/review/a/out.md'])
+    assert.deepEqual(other.changes.map((change) => change.path), ['projects/review/b/out.md'])
+    assert.deepEqual(done.held.map((held) => held.path), ['projects/review/stray-a.md'])
+    assert.deepEqual(other.held.map((held) => held.path), ['projects/review/stray-b.md'])
+    assert.equal(existsSync(path.join(root, 'projects/review/stray-a.md')), false)
+    assert.equal(existsSync(path.join(root, 'projects/review/stray-b.md')), false)
+    assert.equal(await read('projects/review/a/out.md'), 'a line.\n')
+    assert.equal(await read('projects/review/b/out.md'), 'b line.\n')
+    assert.match(done.messages.find((message) => message.role === 'mate')?.text ?? '', /outside the folder a\//)
+    // A conversation in a folder says so in the list.
+    assert.equal((await listAllSessions(root)).find((row) => row.id === inA.id)?.folder, 'a')
+  } finally {
+    AGENTS.hermes.command = command
+    setParallel(root, false)
+    await rm(root, { recursive: true, force: true })
+    await rm(path.join(root, '..', `${path.basename(root)}-folder.mjs`), { force: true })
+  }
+})

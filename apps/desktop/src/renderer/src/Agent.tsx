@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { EFFORTS } from '../../shared/effort'
 import { fileNamed } from '../../shared/named'
@@ -80,6 +80,16 @@ export function Agent(props: {
   // Whether the reader trusts this context. It decides what an invited Hermes may use.
   const [trusted, setTrusted] = useState(false)
   const [together, setTogether] = useState(false)
+  // The folder of the project a new agent works in. Empty: the whole project.
+  const [inFolder, setInFolder] = useState('')
+  // The folders of the project an agent can be given, from the files it has.
+  const folders = useMemo(
+    () =>
+      [...new Set(files.flatMap((each) => each.split('/').slice(0, -1).map((_, at, parts) => parts.slice(0, at + 1).join('/'))))]
+        .filter((each) => !each.split('/').some((part) => part.startsWith('.')) && each.split('/')[0] !== 'panes')
+        .sort(),
+    [files]
+  )
   // Whether the context is private. Then no agent can be invited, and main refuses one all the same.
   const [kept, setKept] = useState(false)
   // In a private context: whether Hermes on the reader's own endpoint may read it, and that endpoint.
@@ -103,6 +113,7 @@ export function Agent(props: {
     title: next.messages.find((message) => message.role === 'you')?.text ?? null,
     said: next.messages.map((message) => message.text).join('\n').slice(0, 20000),
     pinned: next.pinned === true,
+    folder: next.folder,
     empty: !next.pinned && next.messages.length === 0 && next.changes.length === 0 && next.held.length === 0 && (next.shelve ?? []).length === 0,
     cloud: false
   })
@@ -215,7 +226,7 @@ export function Agent(props: {
 
   const invite = (agent: AgentInfo) =>
     act(async () => {
-      const started = await window.mate.startSession(project, agent.kind, agent.host ?? undefined)
+      const started = await window.mate.startSession(project, agent.kind, agent.host ?? undefined, inFolder.trim() || undefined)
       setOpen(started.id)
       onChat()
       return started
@@ -282,6 +293,16 @@ export function Agent(props: {
         {error && <p className="error" role="alert">{error}</p>}
         <p className="meta hint">
           Invite an agent into {project}. It may read the whole context. It plans first, and it writes only in this project.
+        </p>
+        <p className="meta">
+          <label>
+            Work in the folder{' '}
+            <input list="agent-folders" value={inFolder} placeholder="the whole project" aria-label="The folder of the project the agent works in" onChange={(event) => setInFolder(event.target.value)} />
+          </label>{' '}
+          An agent given a folder changes only files there. Where work on several projects is allowed, another agent can work in another folder of the project.
+          <datalist id="agent-folders">
+            {folders.map((each) => <option key={each} value={each} />)}
+          </datalist>
         </p>
         <p className="invite">
           {/* In a private context only Hermes on the reader's endpoint is offered, and only once it may read it. */}
@@ -414,6 +435,7 @@ export function Agent(props: {
                     <span className="title">{each.cloud ? 'Kept in the cloud, not read yet' : (each.title ?? 'Nothing said yet')}</span>
                     <span className="meta">
                       {each.agent ? `${label({ agent: each.agent, host: each.host })} · ` : ''}
+                      {each.folder ? `${each.folder}/ · ` : ''}
                       {new Date(each.created).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
                       {each.pinned ? ' · pinned' : ''}
                       {each.running ? ' · working' : each.agent && !each.planApproved ? ' · plan not approved' : ''}
@@ -484,7 +506,7 @@ export function Agent(props: {
       <p className="meta talk-head">
         <button className="quiet" onClick={() => (setOpen(null), onSessions())}>‹ Sessions</button>
         <span>
-          {label(session)} · {session.planApproved ? 'may edit this project' : 'plan not approved'}
+          {label(session)} · {session.planApproved ? (session.folder ? `may edit ${session.folder}/` : 'may edit this project') : 'plan not approved'}
           {listens && ' · trusted'}
         </span>
       </p>

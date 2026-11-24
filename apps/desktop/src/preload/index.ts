@@ -117,8 +117,8 @@ contextBridge.exposeInMainWorld('mate', {
   bindMcp: (project: string, id: string) => ipcRenderer.invoke('mcp:bind', project, id),
   listSessions: (project: string) => ipcRenderer.invoke('session:list', project),
   listAllSessions: () => ipcRenderer.invoke('session:listAll'),
-  startSession: (project: string, agent: string, host?: string) =>
-    ipcRenderer.invoke('session:start', project, agent, host),
+  startSession: (project: string, agent: string, host?: string, folder?: string) =>
+    ipcRenderer.invoke('session:start', project, agent, host, folder),
   sendMessage: (project: string, id: string, text: string, approve: boolean, wait?: boolean, attachments?: string[]) =>
     ipcRenderer.invoke('session:send', project, id, text, approve, wait, attachments),
   addPicture: (project: string) => ipcRenderer.invoke('picture:add', project),

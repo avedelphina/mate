@@ -16,6 +16,12 @@ then, minor versions may change behaviour.
   cannot tell which of them wrote a file in a project, so a change in a project is taken
   for the agent that works there. A file outside every working project is still held.
 
+- An agent can be given a folder of its project: *Work in the folder* in the Agent
+  tab, before you invite it. It changes only files there, and anything else in the
+  project is held and put back. Two agents can work in different folders of one project
+  at once, where work on several projects is allowed. Two agents in one folder, or one in
+  a folder and one in the project around it, never run together.
+
 ### Changed
 
 - Each session of an agent you run yourself has its own address and token, so more

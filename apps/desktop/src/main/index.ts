@@ -1266,8 +1266,8 @@ app.whenReady().then(() => {
   // Conversations nothing happened in are deleted. They hold nothing: no word, no change, no proposal.
   ipcMain.handle('session:prune', (event) => pruneEmptySessions(requireContext(event)))
 
-  ipcMain.handle('session:start', (event, project: string, agent: Invited, host?: string) =>
-    startSession(requireContext(event), project, agent, host ?? null)
+  ipcMain.handle('session:start', (event, project: string, agent: Invited, host?: string, folder?: string) =>
+    startSession(requireContext(event), project, agent, host ?? null, typeof folder === 'string' ? folder : '')
   )
 
   // An approval is a message like any other. The answer arrives as 'session:update' events.

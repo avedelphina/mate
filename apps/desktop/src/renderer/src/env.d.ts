@@ -154,6 +154,7 @@ export type SessionRow = {
   /** Nothing was said, changed or proposed in it. */
   empty?: boolean
   pinned?: boolean
+  folder?: string
   cloud: boolean
 }
 
@@ -175,6 +176,8 @@ export type Session = {
   /** What the agent proposed for the shelf. Only the reader publishes it. */
   shelve?: { path: string; name: string; state: 'waiting' | 'published' | 'discarded' }[]
   pinned?: boolean
+  /** The folder of the project the agent works in. Without one, the whole project. */
+  folder?: string
   running: boolean
   /** What the agent is asking right now. Only while a turn runs, and only from an agent that stays. */
   asks?: Ask[]
@@ -360,7 +363,8 @@ export type MateApi = {
   bindMcp: (project: string, id: string) => Promise<{ url: string; token: string }>
   listSessions: (project: string) => Promise<Session[]>
   listAllSessions: () => Promise<SessionRow[]>
-  startSession: (project: string, agent: AgentKind, host?: string) => Promise<Session>
+  /** Invite an agent. With a folder of the project, it works and may change only there, so another can work in another folder. */
+  startSession: (project: string, agent: AgentKind, host?: string, folder?: string) => Promise<Session>
   /** `wait`: sent while the agent works, it is to go when the turn has ended, even to an agent that would take it into the turn. */
   sendMessage: (project: string, id: string, text: string, approve: boolean, wait?: boolean, attachments?: string[]) => Promise<Session>
   /** A picture chosen in the dialog, copied into the project's dropbox. Null when the reader cancels. */
