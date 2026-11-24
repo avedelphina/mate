@@ -86,6 +86,9 @@ test('the guard sees what changed in the folder, and can put it back', async () 
     await writeFile(path.join(root, '.git/config'), '[core]\n\thooksPath = elsewhere\n')
     await mkdir(path.join(root, '.sessions/x'), { recursive: true })
     await writeFile(path.join(root, '.sessions/x/session.json'), '{}')
+    // Obsidian's settings, opened in the same folder, are not the agent's work.
+    await mkdir(path.join(root, '.obsidian'), { recursive: true })
+    await writeFile(path.join(root, '.obsidian/workspace.json'), '{}')
 
     const changes = await changesSince(root, before)
     assert.deepEqual(changes.map((change) => [change.path, change.before === null, change.after === null]), [

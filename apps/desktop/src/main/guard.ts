@@ -47,8 +47,11 @@ export function mateWrote(contextDir: string, relative: string, bytes: Buffer | 
 // size is not watched. A context is documents. Hash the files and copy on change if that stops being true.
 const MAX_BYTES = 5 * 1024 * 1024
 
-/** Mate's own folders, and the bulk of git. `.git/hooks` and `.git/config` are watched: a hook written or pointed at would run later. */
-const SKIPPED = new Set(['.sessions', '.indexes', '.git', 'node_modules', '.DS_Store'])
+/**
+ * Mate's own folders, the bulk of git, and the settings of Obsidian, which rewrites `.obsidian/workspace.json` whenever a note is
+ * opened and is the reader's editor, not an agent. `.git/hooks` and `.git/config` are watched: a hook written or pointed at would run later.
+ */
+const SKIPPED = new Set(['.sessions', '.indexes', '.git', '.obsidian', 'node_modules', '.DS_Store'])
 
 async function walk(contextDir: string, base: string, found: string[]): Promise<string[]> {
   const entries = await readdir(path.join(contextDir, base), { withFileTypes: true }).catch(() => [])
