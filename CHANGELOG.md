@@ -9,12 +9,27 @@ then, minor versions may change behaviour.
 
 ### Added
 
+- Links between documents, written as Obsidian writes them: `[[name]]`, `[[name|words]]` and
+  `[[name#Heading]]`. In a draft, on the shelf or in a pane, a link opens the file of that name
+  in its own project or on the shelf. A name no file has is dashed and does not open. The page
+  still holds the text of the file. *Linked from…* in the bar lists the documents that link to the
+  open one. The skill tells agents to link this way.
 - *Extract it beside the file* on the card of a PDF, Word file, page or table of the project. It
   writes the text as a markdown file of the same name in the same folder, with where it came from
   at the top, and opens it. The original stays. A file of that name is never written over.
 
+### Changed
+
+- A record's menus (status, decision and the like) come from the lists in its own comments, and now
+  also from the template of its kind, a `_template.md` with an ID such as `REG-0000`. Obsidian's
+  Properties editor drops those comments when it rewrites the front matter. A record edited there
+  keeps its menus.
+
 ### Fixed
 
+- A context opened in Obsidian no longer has its `.obsidian/` settings taken for an agent's work
+  during a turn. The guard skips that folder, and a commit of the context leaves it out, in the
+  context or in a project.
 - The card of a file stayed on the page after another file was opened. It now goes when you open
   something else.
 - In the Properties row, Enter saves a field at once, as leaving the box does.
