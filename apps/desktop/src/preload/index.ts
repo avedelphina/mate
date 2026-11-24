@@ -84,6 +84,7 @@ contextBridge.exposeInMainWorld('mate', {
     ipcRenderer.invoke('comment:reply', project, file, id, text, author),
   setTags: (project: string, file: string, tags: string[]) => ipcRenderer.invoke('draft:tags', project, file, tags),
   renameFile: (project: string, from: string, name: string) => ipcRenderer.invoke('file:rename', project, from, name),
+  contextGraph: () => ipcRenderer.invoke('context:graph'),
   contextPaths: () => ipcRenderer.invoke('context:paths'),
   linkedFrom: (path: string) => ipcRenderer.invoke('file:linkedfrom', path),
   contextProps: () => ipcRenderer.invoke('context:props'),

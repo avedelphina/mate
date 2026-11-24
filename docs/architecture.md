@@ -867,20 +867,37 @@ agent can too, and nothing keeps them. `resolveWiki` says which file a name
 means, from the paths of the context: a name with no extension is a markdown
 note, one with an extension (`policy.pdf`) is the file of that name, and the
 end of a path counts (`sub/deep`). A file of the link's own project comes
-before the shelf, and the shelf before other places. Two files that match
-equally give no answer, so a link never goes to a guess. The window looks only
-among the files of the open project and the shelf, and a document of the shelf
-only among the shelf; `linkedFrom` in `contextIndex.ts` reads the index the
-same way, so a link means one file in both places.
+before the shelf, and the shelf before any other project. Two files that
+match equally give no answer, so a link never goes to a guess. A link to a
+place outside the context is broken. The window gets the paths by
+`context:paths` and `linkedFrom` in `contextIndex.ts` reads the index the same
+way, so a link means one file in both places.
 
 `Rendered.tsx` draws a link as it draws an ID (see Records): the text is cut
 where the link starts and ends and each piece is wrapped, no character added
 or dropped (rule 4). The page draws the inner brackets as markup of its own,
-so a link is a few elements. A link to nothing is dashed and does not open.
-*Linked from…* in the bar asks `file:linkedfrom`, which reads the text of the
-index, and shows the documents as a menu. Not done: the heading of a link
-(it opens the file, not the part), a graph, and rewriting links when a file is
-renamed or moved: they show as broken.
+so a link is a few elements. A link to nothing is dashed and does not open. A
+heading in a link is scrolled to once the file is on the page: the heading
+that has those words, in the page as drawn. *Linked from…* in the bar asks
+`file:linkedfrom`, which reads the text of the index.
+
+A file of a project can be renamed in its folder (*Rename…* in the tree, or
+the palette): `renameEntry` takes its comments, its note and what was read of
+it with it. When documents link to it, `file:rename` asks in a dialog of the
+system whether the links follow, naming the documents. On yes,
+`relinkDocuments` rewrites only the links that meant that file, by
+`relink`, keeping the heading and the shown words, with the shortest name
+that still means the file (`nameFor`). A document of the shelf is written as
+the shelf is, so its old text is kept as history. A pane and a note are not
+rewritten. Moving a file does not rewrite links: a name is still its name. A
+folder is not renamed.
+
+*Graph* in the rail shows the documents that link to one another as points
+and lines, by `graphOf` over the index and `layout` in `shared/graph.ts`, a
+force layout with no random numbers, so one graph is drawn the same way each
+time. The shelf is the accent colour and a draft is dark. A press opens a
+document. Past three hundred documents the most linked are drawn. It is read
+from the index and keeps nothing.
 
 ## Properties
 

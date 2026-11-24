@@ -39,8 +39,8 @@ test('the window, on the example context: a comment into the file, the tree, a p
       ['README.md', 'README.md', 'count-words.py', 'document.md*', 'intents.md', 'principles.md']
     )
     // The tree can show the files under their tags instead: a slash nests a tag, and a file is under each of its tags.
-    await app.until(`!!document.querySelector('.projects .tree-view')`, 'the switch to the tags')
-    await app.press('.projects .tree-view button', 'Tags')
+    await app.until(`!!document.querySelector('.projects .tree-view:not(.links-view)')`, 'the switch to the tags')
+    await app.press('.projects .tree-view:not(.links-view) button', 'Tags')
     await app.until(`document.querySelectorAll('.projects .tree .row').length === 2`, 'the tag view')
     assert.deepEqual(await app.page(names('.projects .tree summary')), ['example', 'guide', 'start'])
     assert.deepEqual(await app.page(names('.projects .tree .row')), ['README.md', 'README.md'])
@@ -346,6 +346,15 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.equal(await app.page(`document.querySelector('.page.prose').textContent.includes('See [[tagged]], [[tagged|the tagged one]] and [[nowhere]].')`), true, 'the page still holds the text of the file')
     await app.page(`document.querySelector('.page .ref:not(.missing)').click()`)
     await app.until(`document.querySelector('.center .bar')?.textContent.includes('tagged.md')`, 'the linked draft opened')
+    await app.press('.projects .tree .row', 'document.md')
+    await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
+
+    // The graph of links: the two drafts that link to tagged.md are in it, and a press on one opens it.
+    await app.press('.projects .links-view button', 'Graph')
+    await app.until(`document.querySelectorAll('.graph .node').length >= 2`, 'the graph, with documents that link')
+    assert.equal(await app.page(`[...document.querySelectorAll('.graph .node')].some((each) => each.getAttribute('aria-label').includes('linker.md'))`), true)
+    await app.page(`[...document.querySelectorAll('.graph .node')].find((each) => each.getAttribute('aria-label').includes('tagged.md')).dispatchEvent(new MouseEvent('click', { bubbles: true }))`)
+    await app.until(`document.querySelector('.center .bar')?.textContent.includes('tagged.md') && !document.querySelector('.graph')`, 'the document opened from the graph')
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 

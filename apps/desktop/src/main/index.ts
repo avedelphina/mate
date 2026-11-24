@@ -75,7 +75,7 @@ import {
   writeNote,
   writeSteering
 } from './context'
-import { linkedFrom, refreshIndex, searchIndex, tagsInUse, type Hit } from './contextIndex'
+import { graphOf, linkedFrom, refreshIndex, searchIndex, tagsInUse, type Hit } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
 import { noticeFor, seenOf, type Seen } from '../shared/notice'
 import { notify, notifying, setNotifying } from './notify'
@@ -694,6 +694,9 @@ app.whenReady().then(() => {
 
   // Every file of the context by its path, for [[name]] to find its file in any project or on the shelf. From the index.
   ipcMain.handle('context:paths', async (event) => (await refreshIndex(requireContext(event))).files.map((each) => each.path))
+
+  // The documents that link to one another, as a graph, read from the index.
+  ipcMain.handle('context:graph', async (event) => graphOf(await refreshIndex(requireContext(event))))
 
   // The documents that link to a file with [[name]], read from the index.
   ipcMain.handle('file:linkedfrom', async (event, relative: string) => linkedFrom(await refreshIndex(requireContext(event)), String(relative)))

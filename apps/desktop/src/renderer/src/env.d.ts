@@ -320,6 +320,7 @@ export type MateApi = {
   setTags: (project: string, file: string, tags: string[]) => Promise<DocumentView>
   /** One field of the front matter, set to a word. The comment after it is kept. */
   renameFile: (project: string, from: string, name: string) => Promise<{ to: string; changed: number; view: DocumentView } | null>
+  contextGraph: () => Promise<{ nodes: { path: string; title: string; kind: Kind; project: string | null }[]; links: [string, string][]; total: number }>
   contextPaths: () => Promise<string[]>
   linkedFrom: (path: string) => Promise<{ path: string; title: string }[]>
   contextProps: () => Promise<{ key: string; count: number; values: string[] }[]>

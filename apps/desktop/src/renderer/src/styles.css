@@ -627,3 +627,17 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 .whatsnew h4 { margin: 10px 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--soft); }
 .whatsnew ul { margin: 2px 0 6px; padding-left: 18px; }
 .whatsnew .end { margin: 12px 0 0; text-align: right; }
+
+/* The graph of links: points and lines in the middle of the window. */
+.graph { height: calc(100vh - 110px); min-height: 320px; }
+.graph svg { width: 100%; height: 100%; cursor: grab; user-select: none; }
+.graph svg:active { cursor: grabbing; }
+.graph .edge { stroke: var(--line); stroke-width: 1.5; }
+.graph .edge.lit { stroke: var(--accent); stroke-width: 2.5; }
+.graph .node { cursor: pointer; }
+.graph .node circle { fill: var(--soft); stroke: var(--page); stroke-width: 2; }
+.graph .node.shelf circle { fill: var(--accent); }
+.graph .node.draft circle { fill: var(--ink); }
+.graph .node.open circle { stroke: var(--accent); stroke-width: 4; }
+.graph .node.dim { opacity: 0.25; }
+.graph .node text { fill: var(--ink); font: 13px var(--ui); text-anchor: middle; pointer-events: none; paint-order: stroke; stroke: var(--page); stroke-width: 4px; }

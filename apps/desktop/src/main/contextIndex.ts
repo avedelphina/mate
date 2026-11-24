@@ -337,3 +337,37 @@ export function linkedFrom(index: Index, target: string): { path: string; title:
     .map((each) => ({ path: each.path, title: each.title }))
     .sort((a, b) => a.path.localeCompare(b.path))
 }
+
+/** The documents that link to one another, as a graph: each linked document once, and each link from one to the file it means. */
+export type Graph = { nodes: { path: string; title: string; kind: Kind; project: string | null }[]; links: [string, string][]; total: number }
+
+const MAX_NODES = 300
+
+/**
+ * The graph of `[[name]]` links among the files of the context, from the index. Only a document with a link
+ * to or from it is in it. Past some hundreds the most linked are kept, and `total` says how many there were.
+ */
+export function graphOf(index: Index): Graph {
+  const paths = index.files.map((each) => each.path)
+  const known = new Set(paths)
+  const seen = new Set<string>()
+  const links: [string, string][] = []
+  for (const each of index.files) {
+    if (!each.path.toLowerCase().endsWith('.md') || !each.text.includes('[[')) continue
+    for (const link of wikiLinks(each.text)) {
+      const to = resolveWiki(link.target, each.project, paths)
+      if (!to || to === each.path || !known.has(to) || seen.has(`${each.path}\n${to}`)) continue
+      seen.add(`${each.path}\n${to}`)
+      links.push([each.path, to])
+    }
+  }
+  const degree = new Map<string, number>()
+  for (const [a, b] of links) for (const end of [a, b]) degree.set(end, (degree.get(end) ?? 0) + 1)
+  const keep = new Set([...degree].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, MAX_NODES).map(([path]) => path))
+  const by = new Map(index.files.map((each) => [each.path, each]))
+  return {
+    nodes: [...keep].sort().map((path) => ({ path, title: by.get(path)!.title, kind: by.get(path)!.kind, project: by.get(path)!.project })),
+    links: links.filter(([a, b]) => keep.has(a) && keep.has(b)),
+    total: degree.size
+  }
+}

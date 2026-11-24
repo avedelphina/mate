@@ -48,7 +48,8 @@ below hold either way.
   person publishes it with one answer.
 - **Link** to a document with `[[name]]`, as Obsidian does: `[[name|words]]`
   shows other words, and `[[name#Heading]]` names a part. The name is the
-  file's name with no folder or `.md`, in your project or on the shelf. Use it
+  file's name with no folder or `.md`, in your project, on the shelf or in
+  another project of the context. Use it
   where a document names another, so the person can open it and see what links
   to it. A name no file has is shown as broken.
 - **Search** with `mate_search`. It finds by meaning as well as by words, and

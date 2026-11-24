@@ -10,10 +10,16 @@ then, minor versions may change behaviour.
 ### Added
 
 - Links between documents, written as Obsidian writes them: `[[name]]`, `[[name|words]]` and
-  `[[name#Heading]]`. In a draft, on the shelf or in a pane, a link opens the file of that name
-  in its own project or on the shelf. A name no file has is dashed and does not open. The page
-  still holds the text of the file. *Linked from…* in the bar lists the documents that link to the
-  open one. The skill tells agents to link this way.
+  `[[name#Heading]]`. In a draft, on the shelf or in a pane, a link opens the file of that name:
+  one of its own project first, then the shelf, then any project of the context. A heading in the
+  link is scrolled to. A name no file has is dashed and does not open. The page still holds the
+  text of the file. *Linked from…* in the bar lists the documents that link to the open one. The
+  skill tells agents to link this way.
+- *Rename…* for a file of a project, in the tree or the palette. Its comments, note and text go
+  with it. When documents link to it, a dialog asks whether the links follow, and rewrites only
+  the ones that meant that file. A document of the shelf keeps its old text as history.
+- *Graph* in the rail: the documents that link to one another, drawn as points and lines. A press
+  opens one.
 - *Extract it beside the file* on the card of a PDF, Word file, page or table of the project. It
   writes the text as a markdown file of the same name in the same folder, with where it came from
   at the top, and opens it. The original stays. A file of that name is never written over.

@@ -17,6 +17,7 @@ import { History } from './History'
 import { PullRequests } from './Pull'
 import { hasProps, Properties } from './Properties'
 import type { PropUse } from '../../shared/props'
+import { Graph } from './Graph'
 import { Records } from './Records'
 import { Question, type Judged } from './Question'
 import { Rendered, type Passage } from './Rendered'
@@ -293,7 +294,11 @@ export function App() {
   // The pull requests of the open project, in the center like the history, and the one it is checked out on.
   const [pullsOpen, setPullsOpen] = useState(false)
   // The records of the open project (documents that name an id), in the center like the pull requests, and what each ID in a text opens.
-  const [recordsOpen, setRecordsOpen] = useState(false)
+  // What takes the middle of the window in place of a document: the records of the project, or the graph of links.
+  const [centre, setCentre] = useState<'records' | 'graph' | null>(null)
+  const recordsOpen = centre === 'records'
+  const graphOpen = centre === 'graph'
+  const setRecordsOpen = (open: boolean) => setCentre(open ? 'records' : null)
   const [recordSet, setRecordSet] = useState<{ records: RecordRow[]; refs: Record<string, string>; kinds: Record<string, Record<string, string[]>> }>({ records: [], refs: {}, kinds: {} })
   const [review, setReview] = useState<Review | null>(null)
   // Whether the reader trusts the open context: git is asked for a file's history only there.
@@ -1155,6 +1160,15 @@ export function App() {
     setRecordsOpen(true)
   }
 
+  /** The graph of links takes the middle of the window. */
+  function openGraph() {
+    setInquiry(null)
+    setSettingsOpen(false)
+    setHistoryPath(null)
+    setPullsOpen(false)
+    setCentre('graph')
+  }
+
   /** After a pull request was checked out, sent or left: the files of the project are others now. */
   async function refreshProject() {
     if (!view) return
@@ -1806,6 +1820,7 @@ export function App() {
       add('Move this project into…', 'Do', () => setMoveProjectInto({ into: '' }))
       add(review ? `Pull request #${review.number}` : 'Pull requests', 'Show', openPulls)
       if (recordSet.records.length > 0) add('Records', 'Show', openRecords)
+      add('Graph of links', 'Show', openGraph)
       add("Write this project's own intents…", 'Do', () => void giveSteering('project', 'intents.md'))
       add("Write this project's own principles…", 'Do', () => void giveSteering('project', 'principles.md'))
       add('Add a source…', 'Do', () => void addSources())
@@ -2077,6 +2092,13 @@ export function App() {
                         )}
                       </div>
                     )}
+                    {view && project === name && (
+                      <div className="tabs tree-view links-view" role="group" aria-label="Links">
+                        <button className={graphOpen ? 'active' : 'quiet'} aria-pressed={graphOpen} title="The documents that link to one another with [[name]], drawn as a graph" onClick={() => (graphOpen ? setCentre(null) : openGraph())}>
+                          Graph
+                        </button>
+                      </div>
+                    )}
                     {view && project === name && recordSet.records.length > 0 && (
                       <div className="tabs tree-view" role="group" aria-label="Records">
                         <button className={recordsOpen ? 'active' : 'quiet'} aria-pressed={recordsOpen} title="The documents of this project that name an id in their front matter, and what needs you" onClick={() => (recordsOpen ? setRecordsOpen(false) : openRecords())}>
@@ -2318,6 +2340,14 @@ export function App() {
             onClose={() => setPullsOpen(false)}
           />
         )}
+        {graphOpen && view && (
+          <Graph
+            project={view.project}
+            open={reading ? reading.path : documentPath()}
+            onOpen={(where) => (setCentre(null), openContextPath(where))}
+            onClose={() => setCentre(null)}
+          />
+        )}
         {recordsOpen && view && (
           <Records
             project={view.project}
@@ -2353,7 +2383,7 @@ export function App() {
             onClose={() => setInquiry(null)}
           />
         )}
-        <header className="bar" hidden={inquiry !== null || settingsOpen || historyPath !== null || pullsOpen || recordsOpen}>
+        <header className="bar" hidden={inquiry !== null || settingsOpen || historyPath !== null || pullsOpen || centre !== null}>
           {/* The title of the page, as a Mac app has it: the name, and under it where it is. */}
           {onPage && (
             <span className="title">
@@ -2475,7 +2505,7 @@ export function App() {
             </span>
           )}
         </header>
-        <div className="scroll" hidden={inquiry !== null || settingsOpen || historyPath !== null || pullsOpen || recordsOpen}>
+        <div className="scroll" hidden={inquiry !== null || settingsOpen || historyPath !== null || pullsOpen || centre !== null}>
           {/* A file the reader is deciding about. It leaves by one of the exits. There is no exit where it is just remembered. */}
           {view &&
             sources.map((source) => (
