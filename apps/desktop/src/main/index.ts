@@ -72,7 +72,7 @@ import {
   writeNote,
   writeSteering
 } from './context'
-import { refreshIndex, searchIndex, tagsInUse, type Hit } from './contextIndex'
+import { linkedFrom, refreshIndex, searchIndex, tagsInUse, type Hit } from './contextIndex'
 import { startMcp, type Binding } from './mcp'
 import { noticeFor, seenOf, type Seen } from '../shared/notice'
 import { notify, notifying, setNotifying } from './notify'
@@ -688,6 +688,9 @@ app.whenReady().then(() => {
     const files = (await refreshIndex(requireContext(event))).files
     return Object.fromEntries(files.filter((each) => each.path.startsWith(prefix) && each.tags.length > 0).map((each) => [each.path.slice(prefix.length), each.tags]))
   })
+
+  // The documents that link to a file with [[name]], read from the index.
+  ipcMain.handle('file:linkedfrom', async (event, relative: string) => linkedFrom(await refreshIndex(requireContext(event)), String(relative)))
 
   // The records of a project (documents with an `id` in their front matter) and what each ID opens, from the index.
   ipcMain.handle('project:records', async (event, project: string) => {

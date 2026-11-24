@@ -1,10 +1,14 @@
 import { createElement, Fragment, useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { refRanges, type RefRange } from '../../shared/records'
+import { wikiLinks } from '../../shared/wiki'
 import { Diagram } from './Diagram'
 import { renderMarkdown, type Piece } from './markdown'
 
 /** A stretch of the document that a thread quotes. `id` is null for the passage being commented now. */
 export type Passage = { id: string | null; tone?: 'pending' | 'found'; start: number; end: number }
+
+/** What the text names that opens a file: an ID, or a `[[name]]`. A link with no `path` names nothing that is there. */
+type Link = RefRange & { open?: () => void }
 
 /** One stretch of the text, cut wherever a passage starts or ends, so passages that overlap each keep their mark. */
 function marked(
@@ -14,7 +18,7 @@ function marked(
   passages: Passage[],
   active: string | null,
   onPick?: (id: string) => void,
-  refs: RefRange[] = [],
+  refs: Link[] = [],
   onRef?: (path: string) => void
 ) {
   const named = refs.filter((ref) => ref.end > from && ref.start < to)
@@ -24,7 +28,11 @@ function marked(
     const end = cuts[index + 1]
     const ref = named.find((each) => each.start <= start && each.end >= end)
     // An ID that names a record is a link. The words are the same, so the page still holds the text of the file.
-    const piece = ref ? (
+    const piece = ref && !ref.path ? (
+      <span key={`ref${start}`} className="ref missing" title="No document of this project or the shelf has that name.">
+        {text.slice(start, end)}
+      </span>
+    ) : ref ? (
       <span
         key={`ref${start}`}
         className="ref"
@@ -35,12 +43,12 @@ function marked(
           // Selecting the words is not pressing them.
           if (window.getSelection()?.toString()) return
           event.stopPropagation()
-          onRef?.(ref.path)
+          ref.open ? ref.open() : onRef?.(ref.path)
         }}
         onKeyDown={(event) => {
           if (event.key !== 'Enter' && event.key !== ' ') return
           event.preventDefault()
-          onRef?.(ref.path)
+          ref.open ? ref.open() : onRef?.(ref.path)
         }}
       >
         {text.slice(start, end)}
@@ -114,11 +122,19 @@ export function Rendered(props: {
   /** With these, an ID such as `ADR-0004` in the text opens the file it names. `refs` maps each ID to a path. */
   refs?: Record<string, string>
   onRef?: (path: string) => void
+  /** With this, `[[name]]` opens the document it names: `resolve` gives its path, or null, and `open` opens that path. */
+  wiki?: { resolve: (target: string) => string | null; open: (path: string) => void }
   /** A local image path, resolved by main and returned as bytes. */
   image?: (path: string) => Promise<{ mimeType: string; data: string }>
 }) {
-  const { text, passages = [], active = null, onPick, onTick, onSay, onRun, onName, plain = false, refs, onRef, image } = props
-  const named = useMemo(() => (refs && onRef && !plain ? refRanges(text, refs) : []), [text, refs, onRef, plain])
+  const { text, passages = [], active = null, onPick, onTick, onSay, onRun, onName, plain = false, refs, onRef, wiki, image } = props
+  const named = useMemo<Link[]>(() => {
+    if (plain) return []
+    const links: Link[] = wiki ? wikiLinks(text).map((link) => ({ start: link.start, end: link.end, path: wiki.resolve(link.target) ?? '', open: () => wiki.open(wiki.resolve(link.target)!) })) : []
+    // An ID inside a [[link]] is part of the link.
+    const ids = refs && onRef ? refRanges(text, refs).filter((id) => !links.some((link) => id.start < link.end && id.end > link.start)) : []
+    return [...ids, ...links].sort((a, b) => a.start - b.start)
+  }, [text, refs, onRef, plain, wiki])
   const pieces = useMemo(() => (plain ? [] : renderMarkdown(text)), [text, plain])
   /** The words of a piece as the reader sees them. */
   const shown = (piece: Piece): string => ('tag' in piece ? piece.children.map(shown).join('') : piece.hidden ? '' : text.slice(piece.from, piece.to))

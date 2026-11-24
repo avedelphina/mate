@@ -288,7 +288,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'material.md')`, 'the material in the tree')
     await app.press('.projects .tree .row', 'material.md')
     await app.until(`document.querySelector('.center .bar')?.textContent.includes('material.md') && !!document.querySelector('.page')`, 'the material open for review')
-    assert.equal(await app.page(`[...document.querySelectorAll('.center .bar button')].map((each) => each.textContent.trim()).join()`), 'Open in editor,Edit,Tags…,Properties…')
+    assert.equal(await app.page(`[...document.querySelectorAll('.center .bar button')].map((each) => each.textContent.trim()).join()`), 'Open in editor,Edit,Tags…,Properties…,Linked from…')
     await span('collector', 'collector')
     await note('Which port?')
     assert.equal(await readFile(path.join(project, 'material.md'), 'utf8'), material, 'the file is as it was')
@@ -334,6 +334,18 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.page(`document.querySelector('.record-head button[aria-label="Remove owner"]').click()`)
     await app.until(`!document.querySelector('.record-head input[aria-label="owner"]')`, 'the owner, taken out')
     assert.doesNotMatch(await readFile(path.join(project, 'draft/page.md'), 'utf8'), /owner/)
+
+    const text = (selector: string) => `[...document.querySelectorAll(${JSON.stringify(selector)})].map((each) => each.textContent).filter((words) => words.length > 1).join()`
+    // [[name]] in a draft is a link to the document of that name, and one that names nothing is marked and does not open.
+    await writeFile(path.join(project, 'draft/linker.md'), '# Linker\n\nSee [[tagged]], [[tagged|the tagged one]] and [[nowhere]].\n')
+    await app.page(`window.dispatchEvent(new Event('focus'))`)
+    await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'linker.md')`, 'the linking draft in the tree')
+    await app.press('.projects .tree .row', 'linker.md')
+    // The page draws the inner brackets as markup of its own, so a link is a few elements: the words are what is looked at.
+    await app.until(`${text('.page .ref:not(.missing)')} === 'tagged,tagged|the tagged one' && ${text('.page .ref.missing')} === 'nowhere'`, 'the links, one of them to nothing')
+    assert.equal(await app.page(`document.querySelector('.page.prose').textContent.includes('See [[tagged]], [[tagged|the tagged one]] and [[nowhere]].')`), true, 'the page still holds the text of the file')
+    await app.page(`document.querySelector('.page .ref:not(.missing)').click()`)
+    await app.until(`document.querySelector('.center .bar')?.textContent.includes('tagged.md')`, 'the linked draft opened')
     await app.press('.projects .tree .row', 'document.md')
     await app.until(`document.querySelector('.center .bar').textContent.includes('document.md')`, 'the draft again')
 

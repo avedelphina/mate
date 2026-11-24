@@ -550,6 +550,7 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 .prop-menu form { padding: 4px 6px; }
 .prop-menu form input { width: 100%; }
 .ref { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; cursor: pointer; }
+.ref.missing { color: var(--soft); text-decoration-style: dashed; cursor: default; }
 .page.records { font: 13.5px/1.5 var(--ui); }
 .records h2 { margin: 20px 0 4px; font: 600 14px/1.4 var(--ui); }
 .records .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

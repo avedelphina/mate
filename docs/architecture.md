@@ -858,6 +858,30 @@ nothing is read for it, and `tagPaths` makes `tag/nested/name.md` of each,
 a file under every tag it names. The same `Tree` draws it. A tag is
 spelled as it is first met, so `Work` and `work` are one.
 
+## Links between documents
+
+`[[name]]`, `[[name|shown words]]` and `[[name#Heading]]` are read as
+Obsidian reads them (`wikiLinks` in `shared/wiki.ts`), and `![[x]]` is an
+embed, not a link. They are text in the file, so a person writes them and an
+agent can too, and nothing keeps them. `resolveWiki` says which file a name
+means, from the paths of the context: a name with no extension is a markdown
+note, one with an extension (`policy.pdf`) is the file of that name, and the
+end of a path counts (`sub/deep`). A file of the link's own project comes
+before the shelf, and the shelf before other places. Two files that match
+equally give no answer, so a link never goes to a guess. The window looks only
+among the files of the open project and the shelf, and a document of the shelf
+only among the shelf; `linkedFrom` in `contextIndex.ts` reads the index the
+same way, so a link means one file in both places.
+
+`Rendered.tsx` draws a link as it draws an ID (see Records): the text is cut
+where the link starts and ends and each piece is wrapped, no character added
+or dropped (rule 4). The page draws the inner brackets as markup of its own,
+so a link is a few elements. A link to nothing is dashed and does not open.
+*Linked from…* in the bar asks `file:linkedfrom`, which reads the text of the
+index, and shows the documents as a menu. Not done: the heading of a link
+(it opens the file, not the part), a graph, and rewriting links when a file is
+renamed or moved: they show as broken.
+
 ## Properties
 
 The front matter of a markdown draft is a row above the page

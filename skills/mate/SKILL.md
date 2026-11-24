@@ -46,6 +46,11 @@ below hold either way.
 - **Propose documents for the shelf** with `mate_shelve`: the files of your
   project and the name each takes. Send the whole batch in one call. The
   person publishes it with one answer.
+- **Link** to a document with `[[name]]`, as Obsidian does: `[[name|words]]`
+  shows other words, and `[[name#Heading]]` names a part. The name is the
+  file's name with no folder or `.md`, in your project or on the shelf. Use it
+  where a document names another, so the person can open it and see what links
+  to it. A name no file has is shown as broken.
 - **Search** with `mate_search`. It finds by meaning as well as by words, and
   reads PDF and Word files as text.
 

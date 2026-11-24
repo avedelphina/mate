@@ -27,7 +27,8 @@ import { dropOn, fileIcon, Tree } from './Tree'
 import { Icon } from './Icon'
 import { PaneBar } from './PaneBar'
 import { Welcome } from './Welcome'
-import { dropMenu, onRightClick, type Item } from './menu'
+import { dropMenu, onRightClick, popMenu, type Item } from './menu'
+import { resolveWiki } from '../../shared/wiki'
 import { asked, filled } from '../../shared/run'
 import './styles.css'
 
@@ -1138,6 +1139,30 @@ export function App() {
     // Any other markdown file of the project is reviewed too, with its comments beside it. Intake, panes and scripts are read.
     else if (reviewableMarkdown(path)) void openText(`/${path}`)
     else void read(`projects/${view.project}/${path}`)
+  }
+
+  /** A path of the context, as a [[link]] or a list of what links here gives it: a project's own file opens in the project, any other is read. */
+  function openContextPath(path: string) {
+    const own = view ? `projects/${view.project}/` : null
+    if (own && path.startsWith(own)) openFile(path.slice(own.length))
+    else void read(path)
+  }
+
+  /** What `[[name]]` means in the open document: a file of its project or the shelf. A document of the shelf links within the shelf. */
+  const wikiHere = (shelfOnly: boolean) => ({
+    resolve: (target: string) =>
+      resolveWiki(target, shelfOnly || !view ? null : view.project, [...(shelfOnly || !view ? [] : view.files.map((each) => `projects/${view.project}/${each}`)), ...shelf.map((each) => `shelf/${each}`)]),
+    open: openContextPath
+  })
+
+  /** The documents that link to the open one with [[name]], as a menu to open one from. */
+  async function showLinkedFrom() {
+    if (!view) return
+    const path = reading ? reading.path : file === null ? null : file.startsWith('/') ? `projects/${view.project}/${file.slice(1)}` : `projects/${view.project}/${view.draftsIn}${file}`
+    if (!path) return
+    const found = await window.mate.linkedFrom(path).catch(() => [])
+    if (found.length === 0) return setNotice('No document links here yet. A link is [[name]] in the text of another.')
+    void popMenu(found.map((each) => ({ label: `${each.title}  ·  ${each.path.replace(/^projects\//, '')}`, run: () => openContextPath(each.path) })))
   }
 
   /** A file of the open project that Mate does not draw as markdown, picked in the tree. */
@@ -2366,6 +2391,7 @@ export function App() {
                     <>
                       <BarButton icon="tag" label="Tags…" title="The tags of this document, in its front matter" onClick={() => setTagging(tagsOf(view?.text ?? '').map((each) => each.tag).join(', '))} />
                       <BarButton icon="tag" label="Properties…" title="The fields of this document's front matter: what can be added, and what each does" onClick={() => openProps()} />
+                      <BarButton icon="file" label="Linked from…" title="The documents that link here with [[name]]" onClick={() => void showLinkedFrom()} />
                     </>
                   )}
                   {trustedHere && buildTarget && (
@@ -2456,7 +2482,7 @@ export function App() {
             <div className="page prose">
               {reading.twin && !reading.text.trim() && <p className="meta">Mate found no text in this file. It may be locked, or hold pictures with no words in them.</p>}
               <Boundary what="This file" of={reading.text}>
-                <Rendered text={reading.text} passages={passages} refs={refsHere} onRef={openFile} image={loadImage} />
+                <Rendered text={reading.text} passages={passages} refs={refsHere} onRef={openFile} wiki={wikiHere(reading.path.startsWith('shelf/'))} image={loadImage} />
               </Boundary>
             </div>
           ) : !view ? (
@@ -2508,7 +2534,7 @@ export function App() {
                 />
               )}
               <Boundary what="This draft" of={view.text}>
-                <Rendered text={view.text} passages={passages} active={active} onPick={setActive} plain={textFile} refs={refsHere} onRef={openFile} image={loadImage} />
+                <Rendered text={view.text} passages={passages} active={active} onPick={setActive} plain={textFile} refs={refsHere} onRef={openFile} wiki={wikiHere(false)} image={loadImage} />
               </Boundary>
             </div>
           )}
