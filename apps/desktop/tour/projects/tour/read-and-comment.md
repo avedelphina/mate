@@ -23,4 +23,4 @@ gets this document sees it. When you share it, Mate writes it into the file as a
 under the passage. Look at the line under the sentence above in a text editor, and you will see
 the one that came with the tour. It lives in git with the sentence it points at.
 
-Next: [[drafts-and-the-shelf]].
+Next: [[documents-and-the-shelf]].

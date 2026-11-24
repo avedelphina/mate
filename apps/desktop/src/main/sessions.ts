@@ -106,11 +106,11 @@ const RULES = `You have been invited into a project on a Mate desk. Mate is a to
 Your working folder is one project. The project is part of a context: a folder of related work.
 
 Where things are, from your working folder:
-- draft/ holds the documents under review in this project. They are proposals, not the reference.
-  A draft whose front matter says "status: final" is the finished document of this project. It is
-  still not the shelf: only the shelf is what is true for the whole context.
-  A project with no draft/ folder, such as a repository brought in as it is, has its markdown files
-  as its drafts, where they are.
+- The markdown files of the project, wherever they lie, are the documents under review. They are
+  proposals, not the reference. A document whose front matter says "status: final" is the finished
+  document of this project. It is still not the shelf: only the shelf is what is true for the whole
+  context. A project may keep its documents in a draft/ folder instead, and then only those are
+  proposals, and any other file of the project is material.
 - intents.md and principles.md steer a project, and no other file does. A project may have its own, in
   its folder. One that has none is steered by the context's, at ../../intents.md and ../../principles.md.
   Below you are given those that steer this project. Follow them. If none is given, nothing steers this

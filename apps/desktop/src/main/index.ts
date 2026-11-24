@@ -1240,7 +1240,9 @@ app.whenReady().then(() => {
   // reader says yes in a dialog of the system, which the page cannot press. It names what is replaced.
   ipcMain.handle('draft:publish', async (event, project: string, file: string, name: string) => {
     const contextDir = requireContext(event)
-    const open = (await readProject(contextDir, project, file)).comments.filter((each) => !each.resolved).length
+    const reviewed = await readProject(contextDir, project, file)
+    const draftsIn = reviewed.draftsIn
+    const open = reviewed.comments.filter((each) => !each.resolved).length
     const target = shelfPath(String(name))
     const replaces = (await listShelf(contextDir)).includes(target.slice('shelf/'.length))
     const window = BrowserWindow.fromWebContents(event.sender)
@@ -1251,11 +1253,11 @@ app.whenReady().then(() => {
       cancelId: 0,
       message: `Publish ${file} to the shelf?`,
       detail:
-        `projects/${project}/draft/${file}\nbecomes\n${target}\n\n` +
+        `projects/${project}/${draftsIn}${file}\nbecomes\n${target}\n\n` +
         (replaces
           ? 'It takes the place of the document that is there. That one is kept as history, and is no longer current.'
           : 'It is a new document on the shelf.') +
-        (open > 0 ? `\n\n${open === 1 ? 'One comment on the draft is' : `${open} comments on the draft are`} still open. Comments are not published.` : '') +
+        (open > 0 ? `\n\n${open === 1 ? 'One comment on the document is' : `${open} comments on the document are`} still open. Comments are not published.` : '') +
         '\n\nEvery project of this context reads the shelf as what is true now.'
     }
     const { response } = await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options))

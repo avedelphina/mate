@@ -88,8 +88,8 @@ export function Tree(props: {
                 {onNewDraft && !['dropbox', 'panes', 'scripts'].includes(full.split('/')[0]) && (
                   <button
                     className="add"
-                    title={drafts(full) ? `A new draft in ${name}` : `A new file in ${name}`}
-                    aria-label={drafts(full) ? `A new draft in ${name}` : `A new file in ${name}`}
+                    title={drafts(full) ? `A new document in ${name}` : `A new file in ${name}`}
+                    aria-label={drafts(full) ? `A new document in ${name}` : `A new file in ${name}`}
                     onClick={(event) => (event.preventDefault(), event.stopPropagation(), drafts(full) ? onNewDraft(full.slice(draftsIn.length)) : onNewFile?.(full))}
                   >
                     <Icon name="plus" size={14} />

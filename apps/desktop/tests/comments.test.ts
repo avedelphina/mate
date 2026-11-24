@@ -214,7 +214,7 @@ test('a draft is saved from what the reader began with, and a new draft never wr
     const made = await createDraft(root, 'review', 'Second thoughts')
     assert.deepEqual([made.file, made.text, made.drafts], ['Second thoughts.md', '# Second thoughts\n', ['Second thoughts.md', 'document.md']])
     await assert.rejects(createDraft(root, 'review', 'Second thoughts.md'), /already there/)
-    for (const name of ['', '.hidden', '../up', 'a/b']) await assert.rejects(createDraft(root, 'review', name), /Name the draft/)
+    for (const name of ['', '.hidden', '../up', 'a/b']) await assert.rejects(createDraft(root, 'review', name), /Name the document/)
     await assert.rejects(createDraft(root, 'nowhere', 'x'), /not in this context/)
     // A project with no draft folder gets one with its first draft.
     await mkdir(path.join(root, 'projects', 'empty'))

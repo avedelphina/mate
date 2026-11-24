@@ -255,9 +255,9 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.doesNotMatch(await readFile(path.join(project, 'draft/contracts/inline.md'), 'utf8'), /@comment/)
     assert.match(await readFile(path.join(context, '.mate/projects/document-review/draft/contracts/inline.md.comments.md'), 'utf8'), /"text":"Over markup\."/)
     await app.page(`[...document.querySelectorAll('.projects .tree summary')].find((each) => each.textContent === 'contracts').querySelector('.add').click()`)
-    await app.until(`document.querySelector('input[aria-label="Name of the new draft"]')?.placeholder === 'Name of the draft in contracts'`, 'the name of a draft in the folder')
+    await app.until(`document.querySelector('input[aria-label="Name of the new document"]')?.placeholder === 'Name of the document in contracts'`, 'the name of a draft in the folder')
     await app.page(`(() => {
-      const field = document.querySelector('input[aria-label="Name of the new draft"]')
+      const field = document.querySelector('input[aria-label="Name of the new document"]')
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, 'terms')
       field.dispatchEvent(new Event('input', { bubbles: true }))
       field.form.requestSubmit()
@@ -277,7 +277,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
       select.dispatchEvent(new Event('change', { bubbles: true }))
     })()`)
     await app.page(`(() => {
-      const field = document.querySelector('input[aria-label="Name of the new draft"]')
+      const field = document.querySelector('input[aria-label="Name of the new document"]')
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, 'kickoff')
       field.dispatchEvent(new Event('input', { bubbles: true }))
       field.form.requestSubmit()
@@ -308,8 +308,13 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.page(`window.dispatchEvent(new Event('focus'))`)
     await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'page.html')`, 'the page in the tree')
     await app.press('.projects .tree .row', 'page.html')
-    await app.until(`[...document.querySelectorAll('.source button')].some((each) => each.textContent === 'Make a document from its text')`, 'the card, with the button that needs no agent')
-    await app.press('.source button', 'Make a document from its text')
+    // For a file of the project the text goes beside it. A new document of the project is for a file from outside, which has no beside.
+    await app.until(`[...document.querySelectorAll('.source button')].some((each) => each.textContent === 'Save its text beside the file') && ![...document.querySelectorAll('.source button')].some((each) => each.textContent === 'Make a document from its text')`, 'the card, with the button that needs no agent')
+    // The same text as a draft of the project, as a file dropped on the window gets it, so that the steps below have a draft to work on.
+    await app.page(`window.mate.extractSource('document-review', 'path', 'projects/document-review/page.html')`)
+    await app.page(`window.dispatchEvent(new Event('focus'))`)
+    await app.until(`[...document.querySelectorAll('.projects .tree .row')].some((each) => each.textContent === 'page.md')`, 'the draft made of the page, in the tree')
+    await app.press('.projects .tree .row', 'page.md')
     await app.until(`document.querySelector('.center .bar')?.textContent.includes('page.md')`, 'the draft made of the page')
     assert.match(await readFile(path.join(project, 'draft/page.md'), 'utf8'), /^---\nsource: page\.html\nextracted: \d{4}-\d{2}-\d{2}\n---\n\n[\s\S]*Terms[\s\S]*Pay in 30 days\./)
     // Tags from the bar go into the front matter that is there, and the rest of it stays.
@@ -536,7 +541,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     assert.equal(await app.page(`document.querySelectorAll('.thread').length`), 2)
 
     // A new draft is a file with its title, open to be written. Then back to the first one.
-    await fromPalette(app, 'New draft…')
+    await fromPalette(app, 'New document…')
     await app.page(`(() => {
       const input = document.querySelector('.tree-new input')
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Second draft')
@@ -641,7 +646,6 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.source strong')?.textContent === 'scan.pdf'`, 'the card of the file')
     assert.deepEqual(await app.page(`[...document.querySelectorAll('.source .acts button')].map((each) => each.textContent.trim())`), [
       mac ? 'Show it in Finder' : 'Show it in the file manager',
-      'Make a document from its text',
       'Save its text beside the file',
       'Ask the agent to write it out',
       'Close'
@@ -649,7 +653,7 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.press('.margin .tabs button', 'Chat')
     await app.until(`!!document.querySelector('.margin .talk')`, 'the session that is still open')
     await app.press('.source .acts button', 'Ask the agent to write it out')
-    await app.until(`[...document.querySelectorAll('.said.you')].some((each) => each.textContent.includes('Extract the text of dropbox/scan.pdf into draft/scan.md.'))`, 'the request in the conversation')
+    await app.until(`[...document.querySelectorAll('.said.you')].some((each) => each.textContent.includes('Extract the text of dropbox/scan.pdf into dropbox/scan.md.'))`, 'the request in the conversation')
     assert.equal(await app.page(`document.querySelectorAll('.source').length`), 0)
 
     // The conversation with the agent can have the page. Nothing is trusted, and no agent is started here.

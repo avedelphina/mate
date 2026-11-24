@@ -23,6 +23,14 @@ then, minor versions may change behaviour.
 
 ### Changed
 
+- No drafts folder. A markdown file of a project is a document under review wherever it lies, and
+  what it is, is in its front matter: no `status` is a draft, `status: final` is finished. Mate
+  made no `draft/` folder for a new project already; now it says so everywhere. The window says
+  "document" where it said "draft", and the publish dialog names the real path of the file. A
+  project that keeps a `draft/` folder works as before.
+- The card of a file of the project that Mate takes the text out of has one button for its text,
+  *Save its text beside the file*. *Make a document from its text* is for a file from outside the
+  project, which has no beside.
 - The card of a file that Mate takes the text out of says what each button does: *Make a document
   from its text*, *Save its text beside the file*, *Ask the agent to write it out*.
 - A `[[link]]` written inside code, in backticks or a fenced block, is no link. It is text about links.

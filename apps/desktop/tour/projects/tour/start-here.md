@@ -11,7 +11,7 @@ stay.
 Work through these in order. Each takes a minute.
 
 1. [[read-and-comment]]: select a sentence and comment on it.
-2. [[drafts-and-the-shelf]]: what a proposal is, and how one becomes true.
+2. [[documents-and-the-shelf]]: what a proposal is, and how one becomes true.
 3. [[fields-and-tags]]: the front matter of a document, as a row you can edit.
 4. [[links-and-the-graph]]: documents that point at each other.
 5. [[sources]]: bring in a file that is not markdown.

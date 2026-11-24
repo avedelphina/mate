@@ -123,16 +123,14 @@ The full rules are in [docs/model.md](docs/model.md). The design is in
   opens for review. So does any other markdown file of the project, such
   as material that came in: its comments are kept in the context, and the
   file itself is left as it was. Only a
-  draft can be published. The dropbox, the panes, the scripts and the
+  document under review can be published. The dropbox, the panes, the scripts and the
   intents and principles open to be read, and a file Mate cannot draw is
   shown in the file manager. *New Folder…* in the project's menu makes a
-  folder in the project: `notes`, or `draft/contracts`. A folder inside
-  `draft/` keeps drafts, and they are reviewed and published as the others
-  are. A folder of the drafts has a *+* that starts a draft in it. A file
+  folder in the project: `notes`, or `contracts`. A folder of the documents has a *+* that starts a document in it. A file
   or a folder is moved by dragging its row onto another folder, or onto
   the project's name for the project's own place, or with *Move this file
-  to…* in ⌘K. Its comments and its note go with it. A draft moved out of
-  `draft/` is material, and one moved in is a draft; Mate says so. Nothing
+  to…* in ⌘K. Its comments and its note go with it. In a project that keeps a `draft/`
+  folder, a file moved out of it is material, and one moved in is a document under review; Mate says so. Nothing
   moves to the shelf: only publishing puts a document there. Nothing moves
   while an agent works in the context.
 - **Search by meaning.** With Ollama on your computer and its `bge-m3`
@@ -365,12 +363,12 @@ my-context/
   shelf/                 what is true now; changed only by publishing
     .history/            what a publish replaced, by name and time
   dropbox/               intake for material not yet placed
-  templates/             optional: what a new draft can start as (*.md),
+  templates/             optional: what a new document can start as (*.md),
                          and what a new project can start as (a folder)
   projects/
     my-project/
       *.md               the documents being written and reviewed, anywhere in the project
-      draft/             optional: when it is there, only what is in it is a draft
+      draft/             optional, and not made by Mate: when it is there, only what is in it is under review
       intents.md         which way to lean; never "done"
       principles.md      rules of engagement; not traded away
       dropbox/           intake for this project

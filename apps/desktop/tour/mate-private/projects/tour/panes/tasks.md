@@ -7,7 +7,7 @@ reach, and says where each line came from.
 ## The tour
 
 - [ ] Comment on a sentence in `read-and-comment.md`
-- [ ] Look at `drafts-and-the-shelf.md` and press **Publish…**, then cancel
+- [ ] Look at `documents-and-the-shelf.md` and press **Publish…**, then cancel
 - [ ] Change a field in `fields-and-tags.md`
 - [ ] Press **Graph** in the rail
 - [ ] Open `material/prices.csv` as a table, and filter it

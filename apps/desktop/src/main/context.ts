@@ -591,7 +591,7 @@ export async function readCommented(contextDir: string, relative: string): Promi
 /** The place of a draft, checked: it must be one the project has. */
 async function draftAt(contextDir: string, project: string, file: string): Promise<{ full: string; relative: string }> {
   const projectDir = resolveInside(contextDir, 'projects', project)
-  if (!(await draftsOf(projectDir)).includes(file)) throw new Error('That draft is not in this project.')
+  if (!(await draftsOf(projectDir)).includes(file)) throw new Error('That document is not in this project.')
   const full = path.join(draftHome(projectDir), file)
   return { full, relative: path.relative(contextDir, full).split(path.sep).join('/') }
 }
@@ -730,7 +730,7 @@ export async function readProject(contextDir: string, project: string, file?: st
   const draftDir = draftHome(projectDir)
   const drafts = await draftsOf(projectDir)
   const text = file !== undefined && !drafts.includes(file) ? await textFileAt(contextDir, project, file) : null
-  if (file !== undefined && !drafts.includes(file) && !text) throw new Error('That draft is not in this project.')
+  if (file !== undefined && !drafts.includes(file) && !text) throw new Error('That document is not in this project.')
   // With several drafts the reader picks. Opening the first sorted name would be a guess.
   const chosen = file ?? (drafts.length === 1 ? drafts[0] : null)
   // A pane is read like any file that is not reviewed, so it passes the same path check.
@@ -776,7 +776,7 @@ export async function editDraft(
 ): Promise<DocumentView> {
   const projectDir = resolveInside(contextDir, 'projects', project)
   const text = (await draftsOf(projectDir)).includes(file) ? await draftTarget(contextDir, project, file) : await textFileAt(contextDir, project, file)
-  if (!text) throw new Error('That draft is not in this project.')
+  if (!text) throw new Error('That document is not in this project.')
   const combined = await readWithComments(text)
   const next = change(combined)
   const name = path.basename(text.full)
@@ -821,7 +821,7 @@ export function addComment(
 export function writeDraft(contextDir: string, project: string, file: string, base: string, text: string): Promise<DocumentView> {
   return editDraft(contextDir, project, file, (markdown) => {
     if (readDocument(markdown).text !== base) {
-      throw new Error('The file has changed since you began to edit it. Nothing was saved. Copy what you typed, then open the draft again.')
+      throw new Error('The file has changed since you began to edit it. Nothing was saved. Copy what you typed, then open the document again.')
     }
     return retype(markdown, text)
   })
@@ -860,7 +860,7 @@ export async function draftFromSource(contextDir: string, project: string, name:
   const stem = String(name).replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N} ._-]+/gu, '-').replace(/^[^\p{L}\p{N}]+/u, '').trim().slice(0, 80) || 'extract'
   const file = `${stem}.md`
   const body = `---\nsource: ${String(from).replace(/[\r\n]+/g, ' ')}\nextracted: ${new Date().toISOString().slice(0, 10)}\n---\n\n${text.trim()}\n`
-  await putDraft(contextDir, project, file, body, 'A draft of that name is already in this project.')
+  await putDraft(contextDir, project, file, body, 'A document of that name is already in this project.')
   return readProject(contextDir, project, file)
 }
 
@@ -900,7 +900,7 @@ async function fromTemplate(contextDir: string, template: string, title: string)
 
 export async function createDraft(contextDir: string, project: string, name: string, folder = '', template = ''): Promise<DocumentView> {
   const title = String(name).trim().replace(/\.md$/i, '')
-  if (!NAME.test(title)) throw new Error('Name the draft with letters and numbers. Spaces, dots, dashes and underscores may follow.')
+  if (!NAME.test(title)) throw new Error('Name the document with letters and numbers. Spaces, dots, dashes and underscores may follow.')
   const projectDir = resolveInside(contextDir, 'projects', project)
   if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
   // In a folder that is there already, inside the place the project keeps its drafts.
@@ -912,7 +912,7 @@ export async function createDraft(contextDir: string, project: string, name: str
   }
   const file = [...inside, `${title}.md`].join('/')
   const text = template ? await fromTemplate(contextDir, template, title) : `# ${title}\n`
-  await putDraft(contextDir, project, file, text, 'A draft of that name is already there.')
+  await putDraft(contextDir, project, file, text, 'A document of that name is already there.')
   return readProject(contextDir, project, file)
 }
 
@@ -1442,7 +1442,7 @@ export async function takeDown(contextDir: string, project: string, relative: st
   const projectDir = resolveInside(contextDir, 'projects', project)
   if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
   const file = parts[parts.length - 1]
-  await putDraft(contextDir, project, file, text, 'A draft of that name is already in this project. It was not written over.')
+  await putDraft(contextDir, project, file, text, 'A document of that name is already in this project. It was not written over.')
   return readProject(contextDir, project, file)
 }
 
@@ -1457,14 +1457,14 @@ export const inDropbox = (project: string, relative: string) =>
  */
 export async function pullIn(contextDir: string, project: string, relative: string): Promise<DocumentView> {
   if (!inDropbox(project, String(relative))) throw new Error('Only a file of a dropbox is pulled in this way.')
-  if (!relative.toLowerCase().endsWith('.md')) throw new Error('That is not a document Mate can open as a draft.')
+  if (!relative.toLowerCase().endsWith('.md')) throw new Error('That is not a document Mate can open.')
   if (relative.endsWith('.source.md')) throw new Error('That is a note about a file that was left outside. It stays in the dropbox.')
   const source = await placeOnDisk(contextDir, relative)
   const projectDir = resolveInside(contextDir, 'projects', project)
   if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
   const file = relative.split('/').pop()!
   const text = await readFile(source)
-  await putDraft(contextDir, project, file, text, 'A draft of that name is already in this project. The file was left in the dropbox.')
+  await putDraft(contextDir, project, file, text, 'A document of that name is already in this project. The file was left in the dropbox.')
   // It has left the dropbox only once the draft is written.
   await rm(source)
   mateWrote(contextDir, relative, null)
@@ -1515,11 +1515,11 @@ export async function noteSource(contextDir: string, project: string, source: st
  */
 export async function copySource(contextDir: string, project: string, source: string): Promise<DocumentView> {
   const file = path.basename(String(source)).replace(/^\.+/, '')
-  if (!path.isAbsolute(String(source)) || !file.toLowerCase().endsWith('.md')) throw new Error('That is not a document Mate can open as a draft.')
+  if (!path.isAbsolute(String(source)) || !file.toLowerCase().endsWith('.md')) throw new Error('That is not a document Mate can open.')
   const projectDir = resolveInside(contextDir, 'projects', project)
   if (!existsSync(projectDir)) throw new Error('That project is not in this context.')
   const text = await readFile(source)
-  await putDraft(contextDir, project, file, text, 'A draft of that name is already in this project. It was not written over.')
+  await putDraft(contextDir, project, file, text, 'A document of that name is already in this project. It was not written over.')
   return readProject(contextDir, project, file)
 }
 

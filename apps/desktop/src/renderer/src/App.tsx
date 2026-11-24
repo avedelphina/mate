@@ -65,9 +65,9 @@ const KINDS: Record<Kind, { label: string; note: string }> = {
   shelf: { label: 'Shelf', note: 'The shelf: what is true now. It is read here. It changes only when a project publishes.' },
   draft: { label: 'Proposal', note: '' },
   project: { label: 'Steers', note: 'A file that steers: a project'+"'"+'s own, or the context'+"'"+'s, for every project that has none. It is read here, not reviewed.' },
-  material: { label: 'Material', note: 'A file of its project that is not a draft: what came in for the work, or was made in it. It is read here.' },
+  material: { label: 'Material', note: 'A file of its project that is not under review: what came in for the work, or was made in it. It is read here.' },
   context: { label: 'Context', note: 'A file of the whole context. It is read here, not reviewed.' },
-  pane: { label: 'Pane', note: 'A pane of its project: what an agent gathered to show beside the draft. It is not a source.' }
+  pane: { label: 'Pane', note: 'A pane of its project: what an agent gathered to show beside the document. It is not a source.' }
 }
 
 /**
@@ -854,7 +854,7 @@ export function App() {
         return true
       },
       (caught) => {
-        setError(reason(caught, 'Could not save the draft.'))
+        setError(reason(caught, 'Could not save the document.'))
         return false
       }
     )
@@ -936,7 +936,7 @@ export function App() {
       const done = await window.mate.publishFolder(project, folder)
       if (!done) return
       setError(null)
-      setNotice(`Published ${done.done} ${done.done === 1 ? 'draft' : 'drafts'}.${done.failed.length > 0 ? ` ${done.failed.length} failed: ${done.failed.slice(0, 3).join(', ')}.` : ''}`)
+      setNotice(`Published ${done.done} ${done.done === 1 ? 'document' : 'documents'}.${done.failed.length > 0 ? ` ${done.failed.length} failed: ${done.failed.slice(0, 3).join(', ')}.` : ''}`)
       setShelf(await window.mate.listShelf())
       setShelfOpen(true)
     } catch (caught) {
@@ -956,7 +956,7 @@ export function App() {
       setNotice(`Published as ${done.path}.${done.replaced ? ' The document that was there is kept as history.' : ''}`)
       setShelf(await window.mate.listShelf())
     } catch (caught) {
-      setError(reason(caught, 'Could not publish the draft.'))
+      setError(reason(caught, 'Could not publish the document.'))
     }
   }
 
@@ -1003,7 +1003,7 @@ export function App() {
       based.current = made.text
       setTyping(made.text)
     } catch (caught) {
-      setError(reason(caught, 'Could not start the draft.'))
+      setError(reason(caught, 'Could not start the document.'))
     }
   }
 
@@ -1080,7 +1080,7 @@ export function App() {
       const inDrafts = (path: string) => next.draftsIn !== '' && path.startsWith(next.draftsIn)
       const landed = [to, name].filter(Boolean).join('/')
       if (inDrafts(from) !== inDrafts(landed)) {
-        setNotice(inDrafts(landed) ? `${name} is a draft now, and can be published.` : `${name} is material now. It is reviewed as before, but it is no longer a draft and cannot be published.`)
+        setNotice(inDrafts(landed) ? `${name} is under review now, and can be published.` : `${name} is material now. It is reviewed as before, but it cannot be published.`)
       }
       if (onPage && (onPage === from || onPage.startsWith(`${from}/`))) {
         const now = `${landed}${onPage.slice(from.length)}`
@@ -1349,7 +1349,7 @@ export function App() {
     )
   }
 
-  /** What else in the context is close in meaning to the passage the reader selected: notes, the shelf, other drafts. */
+  /** What else in the context is close in meaning to the passage the reader selected: notes, the shelf, other documents. */
   function nearSelection() {
     if (!view || file === null || !anchor) return
     const clip = anchor.length > 90 ? `${anchor.slice(0, 90).trimEnd()}…` : anchor
@@ -1856,7 +1856,8 @@ export function App() {
   async function extract(source: Source) {
     if (!view) return
     const from = source.inContext ? source.inContext.replace(`projects/${view.project}/`, '') : `the file at ${source.where}`
-    const into = `draft/${source.name.replace(/\.[^.]+$/, '')}.md`
+    const stem = `${source.name.replace(/\.[^.]+$/, '')}.md`
+    const into = source.inContext ? `${source.inContext.replace(`projects/${view.project}/`, '').split('/').slice(0, -1).concat(stem).join('/')}` : `${view.draftsIn}${stem}`
     if (await tell(`Extract the text of ${from} into ${into}. Keep its wording and do not summarise it. Say what you could not read.`)) settled(source)
   }
 
@@ -1887,9 +1888,9 @@ export function App() {
       add('Sessions', 'Show', () => setTab('sessions'))
       if (!agentOnPage) add('Chat', 'Show', () => setTab('agent'))
       for (const each of view.panes) add(each.name.replace(/\.md$/, ''), 'Show pane', () => setTab(`pane:${each.name}`))
-      if (file !== null && typing === null && !reading) add('Edit this draft', 'Do', edit)
-      if (file !== null && !reading && !outside) add('Publish this draft…', 'Do', () => setPublishing(publishName(file)))
-      add('New draft…', 'Do', () => (setNamingIn(''), setNaming('')))
+      if (file !== null && typing === null && !reading) add('Edit this document', 'Do', edit)
+      if (file !== null && !reading && !outside) add('Publish this document…', 'Do', () => setPublishing(publishName(file)))
+      add('New document…', 'Do', () => (setNamingIn(''), setNaming('')))
       add('New file…', 'Do', () => (setNamingIn('/'), setNaming('')))
       add('New folder…', 'Do', () => setMaking(''))
       if (inTree && movable(inTree)) add('Move this file to…', 'Do', () => setMoving({ from: inTree, to: '' }))
@@ -1941,7 +1942,7 @@ export function App() {
   const projectMenu = (name: string): Item[] =>
     view?.project === name
       ? [
-          { label: 'New Draft', run: () => (setNamingIn(''), setNaming('')) },
+          { label: 'New Document', run: () => (setNamingIn(''), setNaming('')) },
           { label: 'New File…', run: () => (setNamingIn('/'), setNaming('')) },
           { label: 'New Folder…', run: () => setMaking('') },
           { label: 'Add a Source…', run: () => void addSources() },
@@ -2143,7 +2144,7 @@ export function App() {
                       {name}
                     </button>
                     {view && project === name && (
-                      <button className="quiet tool more" title="New draft, folder or source, and the project's name" aria-label={`${name}: more`} {...dropMenu(() => projectMenu(name))}>
+                      <button className="quiet tool more" title="New document, folder or source, and the project's name" aria-label={`${name}: more`} {...dropMenu(() => projectMenu(name))}>
                         <Icon name="more" />
                       </button>
                     )}
@@ -2328,7 +2329,7 @@ export function App() {
                             <input
                               autoFocus
                               value={making}
-                              placeholder="Folder, or draft/folder"
+                              placeholder="Folder"
                               aria-label="Name of the new folder"
                               title="A path goes from the project. Only the last folder is new."
                               onChange={(event) => setMaking(event.target.value)}
@@ -2341,14 +2342,14 @@ export function App() {
                             <input
                               autoFocus
                               value={naming}
-                              placeholder={namingIn.startsWith('/') ? `Name of the file in ${namingIn.slice(1) || 'the project'}` : namingIn ? `Name of the draft in ${namingIn}` : 'Name of the draft'}
-                              aria-label={namingIn.startsWith('/') ? 'Name of the new file' : 'Name of the new draft'}
+                              placeholder={namingIn.startsWith('/') ? `Name of the file in ${namingIn.slice(1) || 'the project'}` : namingIn ? `Name of the document in ${namingIn}` : 'Name of the document'}
+                              aria-label={namingIn.startsWith('/') ? 'Name of the new file' : 'Name of the new document'}
                               onChange={(event) => setNaming(event.target.value)}
                               onKeyDown={(event) => event.key === 'Escape' && setNaming(null)}
                               onBlur={(event) => naming.trim() === '' && !event.currentTarget.form?.contains(event.relatedTarget) && setNaming(null)}
                             />
                             {!namingIn.startsWith('/') && templates.length > 0 && (
-                              <select aria-label="Template of the new draft" title="The files in templates/ of the context. {{title}} and {{date}} in one are filled in." value={template} onChange={(event) => (setTemplate(event.target.value), event.currentTarget.form?.querySelector('input')?.focus())}>
+                              <select aria-label="Template of the new document" title="The files in templates/ of the context. {{title}} and {{date}} in one are filled in." value={template} onChange={(event) => (setTemplate(event.target.value), event.currentTarget.form?.querySelector('input')?.focus())}>
                                 <option value="">Blank</option>
                                 {templates.map((name) => (
                                   <option key={name} value={name}>
@@ -2609,7 +2610,7 @@ export function App() {
                   {trustedHere && buildTarget && (
                     <BarButton icon="publish" label="Build…" title="A Word file of this, with the repository's tools/build-docs.sh. It goes to dist/ and is shown." onClick={() => void build(buildTarget)} />
                   )}
-                  {!outside && <BarButton icon="publish" label="Publish…" fit={statusOf(view?.text ?? '') === 'final'} title={statusOf(view?.text ?? '') === 'final' ? 'The draft is final. Make it a document of the shelf, which every project of the context reads as true.' : 'Make this draft a document of the shelf, which every project of the context reads as true.'} onClick={() => setPublishing(publishName(file))} />}
+                  {!outside && <BarButton icon="publish" label="Publish…" fit={statusOf(view?.text ?? '') === 'final'} title={statusOf(view?.text ?? '') === 'final' ? 'The document is final. Put it on the shelf, which every project of the context reads as true.' : 'Put this document on the shelf, which every project of the context reads as true.'} onClick={() => setPublishing(publishName(file))} />}
                 </>
               ) : (
                 <>
@@ -2668,10 +2669,10 @@ export function App() {
                   )}
                   {source.markdown && !source.inContext && (
                     <button
-                      title={source.id ? 'A copy in draft/, to work on.' : 'A copy in draft/, to work on. You choose the file once more, in the dialog of the system.'}
+                      title={source.id ? `A copy in ${view.draftsIn || 'the project'}, to work on.` : `A copy in ${view.draftsIn || 'the project'}, to work on. You choose the file once more, in the dialog of the system.`}
                       onClick={() => void pullSource(source)}
                     >
-                      {source.id ? 'Pull it into draft/' : 'Pull it into draft/…'}
+                      {source.id ? `Pull it into ${view.draftsIn || 'the project'}` : `Pull it into ${view.draftsIn || 'the project'}…`}
                     </button>
                   )}
                   {!source.markdown && !source.folder && !source.where.startsWith('scripts/') && (
@@ -2681,14 +2682,15 @@ export function App() {
                           Open as a table
                         </button>
                       )}
-                      {isTwinned(source.name) && (
-                        <button className={isTable(source.name) && source.inContext ? undefined : 'primary'} title="Mate takes the text out itself, with no agent, and writes it as a new document. A Word file keeps its headings, lists and tables." onClick={() => void extractHere(source)}>
-                          Make a document from its text
+                      {/* A file of the project has its text written beside it. One from outside has no beside, so its text is a new document of the project. */}
+                      {isTwinned(source.name) && source.inContext && (
+                        <button className={isTable(source.name) ? undefined : 'primary'} title="Mate takes the text out itself, with no agent, and writes it as a markdown file of the same name beside this one. The file stays where it is. A Word file keeps its headings, lists and tables." onClick={() => void extractBesideIt(source)}>
+                          Save its text beside the file
                         </button>
                       )}
-                      {isTwinned(source.name) && source.inContext && (
-                        <button title="The same text, in a markdown file of the same name beside this one. The file stays where it is." onClick={() => void extractBesideIt(source)}>
-                          Save its text beside the file
+                      {isTwinned(source.name) && !source.inContext && (
+                        <button className="primary" title="Mate takes the text out itself, with no agent, and writes it as a new document of this project. A Word file keeps its headings, lists and tables." onClick={() => void extractHere(source)}>
+                          Make a document from its text
                         </button>
                       )}
                       <button title="Said to the agent in the open session, for a file Mate cannot read, or form it cannot see." onClick={() => void extract(source)}>
@@ -2721,14 +2723,14 @@ export function App() {
               </Boundary>
             </div>
           ) : !view ? (
-            <div className="empty"><p>Open a project on the left. The draft is the page.</p></div>
+            <div className="empty"><p>Open a project on the left. The document is the page.</p></div>
           ) : file === null ? (
             <div className="empty">
               {view.drafts.length === 0 ? (
                 <>
                   <p>This project has no document yet.</p>
                   <p className="acts">
-                    <button className="primary" onClick={() => (setNamingIn(''), setNaming(''))}>New draft</button>
+                    <button className="primary" onClick={() => (setNamingIn(''), setNaming(''))}>New document</button>
                     <button onClick={() => void addSources()}>Add a source…</button>
                   </p>
                 </>
@@ -2768,7 +2770,7 @@ export function App() {
                   }
                 />
               )}
-              <Boundary what="This draft" of={view.text}>
+              <Boundary what="This document" of={view.text}>
                 <Rendered text={view.text} passages={passages} active={active} onPick={setActive} plain={textFile} refs={refsHere} onRef={openFile} wiki={wikiHere(documentPath())} image={loadImage} />
               </Boundary>
             </div>
@@ -2779,7 +2781,7 @@ export function App() {
               <button className="quiet" onClick={() => compose('comment')}>Comment</button>
               <button className="quiet" onClick={() => compose('rewrite')}>Rewrite</button>
               <button className="quiet" onClick={() => compose('remove')}>Remove</button>
-              <button className="quiet" title="What else in this context is close to this passage in meaning: notes, the shelf, other drafts" onClick={nearSelection}>
+              <button className="quiet" title="What else in this context is close to this passage in meaning: notes, the shelf, other documents" onClick={nearSelection}>
                 Near it
               </button>
               {projects.length > 1 && (

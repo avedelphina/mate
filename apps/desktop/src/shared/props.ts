@@ -7,7 +7,7 @@ import { propsOf } from './records'
  */
 export const KNOWN: { key: string; meaning: string; values?: string[]; day?: boolean }[] = [
   { key: 'tags', meaning: 'Names to find the document by. A slash nests one. Typed in the bar.' },
-  { key: 'status', meaning: 'Where it stands. final makes a draft its project’s finished result.', values: ['final'] },
+  { key: 'status', meaning: 'Where it stands. final makes a document its project’s finished result.', values: ['draft', 'final'] },
   { key: 'id', meaning: 'Makes the document a record, such as ADR-0001. Other documents can name it.' },
   { key: 'title', meaning: 'The name of a record in the lists.' },
   { key: 'owner', meaning: 'Who answers for it. A register item with no owner needs you.' },
