@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, truncate, writeFi
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { readSteeringFile, writeSteeringFile, addComment, createContext, inCloudOnly, listProjectTemplates, listTemplates, createDraft, createFile, createProject, describeContext, draftFromSource, extractBeside, importProject, listProjects, makeFolder, moveEntry, relinkDocuments, renameEntry, renamedTo, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
+import { readSteeringFile, writeSteeringFile, addComment, createContext, inCloudOnly, listProjectTemplates, listTemplates, createDraft, createFile, createProject, describeContext, draftFromSource, extractBeside, importProject, listProjects, makeFolder, moveEntry, readIcons, setIcon, relinkDocuments, renameEntry, renamedTo, readNote, readProject, renameContext, renameProject, sendToProject, shapeContext, tickPane, writeDraft, writeNote, writeSteering } from '../src/main/context.ts'
 import { refreshMeaning } from '../src/main/meaning.ts'
 import { moveMeaning } from '../src/main/meaning.ts'
 import { listSessions, moveSessions, startSession } from '../src/main/sessions.ts'
@@ -421,6 +421,39 @@ test('a markdown file that is not a draft is reviewed too, with its comments bes
       assert.equal(reviewableMarkdown(no), false, no)
     }
     await assert.rejects(addComment(root, 'review', '/dropbox/letter.md', 'x', 'y', 'you', 0))
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a folder gets an icon, kept in the context and not in the project, and it follows the folder when it moves', async () => {
+  const root = await context()
+  try {
+    await mkdir(path.join(root, 'projects/review/Intune/compare'), { recursive: true })
+    await mkdir(path.join(root, 'projects/review/archive'), { recursive: true })
+    assert.deepEqual(await readIcons(root, 'review'), {})
+    assert.deepEqual(await setIcon(root, 'review', 'Intune', '🛡️'), { Intune: '🛡️' })
+    assert.deepEqual(await setIcon(root, 'review', 'Intune/compare', 'tag'), { Intune: '🛡️', 'Intune/compare': 'tag' })
+    assert.equal(existsSync(path.join(root, 'projects/review/icons.json')), false, 'nothing is written in the project')
+    assert.deepEqual(await readIcons(root, 'review'), { Intune: '🛡️', 'Intune/compare': 'tag' })
+
+    await assert.rejects(setIcon(root, 'review', 'Intune', 'not an icon'), /one emoji/)
+    await assert.rejects(setIcon(root, 'review', 'missing', '📝'), /not a folder/)
+    await assert.rejects(setIcon(root, 'review', '../x', '📝'), /not a folder/)
+    await assert.rejects(setIcon(root, 'review', '.mate', '📝'), /not a folder/)
+
+    // A file somebody else wrote is read only for what is an icon.
+    await writeFile(path.join(root, '.mate/projects/review/icons.json'), JSON.stringify({ Intune: '🛡️', evil: '<svg onload=x>', '../out': '📝' }))
+    assert.deepEqual(await readIcons(root, 'review'), { Intune: '🛡️' })
+
+    // The folder moves, with the folders in it, and its icon goes with it.
+    await setIcon(root, 'review', 'Intune/compare', 'tag')
+    await moveEntry(root, 'review', 'Intune', 'archive')
+    assert.deepEqual(await readIcons(root, 'review'), { 'archive/Intune': '🛡️', 'archive/Intune/compare': 'tag' })
+    // Taking the last one off removes the file.
+    await setIcon(root, 'review', 'archive/Intune', null)
+    await setIcon(root, 'review', 'archive/Intune/compare', null)
+    assert.equal(existsSync(path.join(root, '.mate/projects/review/icons.json')), false)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

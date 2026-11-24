@@ -8,6 +8,7 @@ import { statusOf } from '../shared/status'
 import { asText, placeOf, type Place } from './contextIndex'
 import { inRepository } from './git'
 import { mateWrote } from './guard'
+import { iconOf, iconsIn } from '../shared/icons'
 import { relink } from '../shared/wiki'
 import { isTwinned, twinOf } from '../shared/twin'
 
@@ -997,7 +998,55 @@ export async function moveEntry(contextDir: string, project: string, from: strin
     await mkdir(path.dirname(moved), { recursive: true })
     await rename(kept, moved).catch(() => {})
   }
+  if (info.isDirectory()) await moveIcons(contextDir, project, source.join('/'), [...target, name].join('/'))
   return { from: old, to: now, folder: info.isDirectory() }
+}
+
+/** Where a project's folder icons are kept: in the context's private folder, never in the project. */
+const iconFile = (contextDir: string, project: string) => path.join(contextDir, '.mate', 'projects', project, 'icons.json')
+
+/** The icons of a project's folders, each for a path from the project. Only what is an icon is given back. */
+export async function readIcons(contextDir: string, project: string): Promise<Record<string, string>> {
+  try {
+    return iconsIn(JSON.parse(await readFile(iconFile(contextDir, String(project)), 'utf8')))
+  } catch {
+    return {}
+  }
+}
+
+/** Mark a folder of the project with an icon, or with `null` take the mark off. Only a folder that is there, and an icon that is one. */
+export async function setIcon(contextDir: string, project: string, folder: string, value: string | null): Promise<Record<string, string>> {
+  const parts = String(folder).split('/')
+  if (parts.some((part) => part === '' || part.startsWith('.') || part === 'node_modules')) throw new Error('That is not a folder of this project.')
+  const there = await realInside(contextDir, 'projects', project, ...parts).then((full) => stat(full)).catch(() => null)
+  if (!there?.isDirectory()) throw new Error('That is not a folder of this project.')
+  const icon = value === null ? null : iconOf(value)
+  if (value !== null && !icon) throw new Error('An icon is one of the pictures in the list, or one emoji.')
+  const icons = await readIcons(contextDir, project)
+  if (icon) icons[parts.join('/')] = icon
+  else delete icons[parts.join('/')]
+  const full = iconFile(contextDir, project)
+  await mkdir(path.dirname(full), { recursive: true })
+  if (Object.keys(icons).length === 0) {
+    await rm(full, { force: true })
+    mateWrote(contextDir, path.relative(contextDir, full).split(path.sep).join('/'), null)
+  } else {
+    await replace(contextDir, full, path.relative(contextDir, full).split(path.sep).join('/'), `${JSON.stringify(icons, null, 2)}\n`)
+  }
+  return icons
+}
+
+/** A folder moved: the icons of it and of the folders in it follow. */
+async function moveIcons(contextDir: string, project: string, from: string, to: string): Promise<void> {
+  const icons = await readIcons(contextDir, project)
+  const moved = Object.entries(icons).filter(([folder]) => folder === from || folder.startsWith(`${from}/`))
+  if (moved.length === 0) return
+  for (const [folder, icon] of moved) {
+    delete icons[folder]
+    icons[`${to}${folder.slice(from.length)}`] = icon
+  }
+  const full = iconFile(contextDir, project)
+  await replace(contextDir, full, path.relative(contextDir, full).split(path.sep).join('/'), `${JSON.stringify(icons, null, 2)}\n`)
 }
 
 /** What a file is called after a rename: the name typed, with the file's own extension when the typed one has none. */

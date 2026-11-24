@@ -641,3 +641,10 @@ h3 .count { margin-left: 4px; font-weight: 400; letter-spacing: 0; }
 .graph .node.open circle { stroke: var(--accent); stroke-width: 4; }
 .graph .node.dim { opacity: 0.25; }
 .graph .node text { fill: var(--ink); font: 13px var(--ui); text-anchor: middle; pointer-events: none; paint-order: stroke; stroke: var(--page); stroke-width: 4px; }
+
+/* A folder's own picture in the tree: an emoji where Mate's line pictures would be, and the picker for one. */
+.tree summary .emoji { flex: none; width: 16px; text-align: center; font-size: 14px; line-height: 1; }
+.icon-picker form { display: flex; gap: 4px; }
+.icon-picker input { flex: 1; min-width: 0; }
+.icon-picker .choices { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 4px; }
+.icon-picker .choices button { padding: 4px 6px; }

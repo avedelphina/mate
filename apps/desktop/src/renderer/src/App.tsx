@@ -18,6 +18,7 @@ import { PullRequests } from './Pull'
 import { hasProps, Properties } from './Properties'
 import type { PropUse } from '../../shared/props'
 import { Graph } from './Graph'
+import { FOLDER_ICONS, isBuiltIn } from '../../shared/icons'
 import { References } from './References'
 import { referenceNamed, type Reference } from '../../shared/references'
 import { Records } from './Records'
@@ -236,6 +237,9 @@ export function App() {
   const [namingIn, setNamingIn] = useState('')
   // A file the reader is moving by typing where, in the rail, from the palette. Null when they are not.
   const [moving, setMoving] = useState<{ from: string; to: string } | null>(null)
+  // The pictures given to the folders of the open project, and the folder whose picture is being chosen with what is typed so far.
+  const [folderIcons, setFolderIcons] = useState<Record<string, string>>({})
+  const [iconing, setIconing] = useState<{ folder: string; value: string } | null>(null)
   // The file being given another name in the tree, and the name typed so far.
   const [renamingFile, setRenamingFile] = useState<{ from: string; name: string } | null>(null)
   // The name or path of a new folder, while the reader is typing it in the rail. Null when they are not.
@@ -842,6 +846,26 @@ export function App() {
 
   useEffect(() => setTagging(null), [project, file])
   useEffect(() => setPropsOpen(null), [project, file])
+  useEffect(() => {
+    if (!project) return setFolderIcons({})
+    let current = true
+    window.mate.folderIcons(project).then((next) => current && setFolderIcons(next), () => {})
+    return () => {
+      current = false
+    }
+  }, [project, view?.folders.length])
+  useEffect(() => setIconing(null), [project])
+  /** Give a folder a picture, or with `null` take it off. */
+  async function giveIcon(folder: string, icon: string | null) {
+    if (!project) return
+    try {
+      setFolderIcons(await window.mate.setFolderIcon(project, folder, icon))
+      setIconing(null)
+      setError(null)
+    } catch (caught) {
+      setError(reason(caught, 'Could not change the icon.'))
+    }
+  }
   useEffect(() => {
     if (propsOpen === null) return
     let current = true
@@ -2166,6 +2190,7 @@ export function App() {
                       <Tree
                         paths={view.files}
                         folders={view.folders}
+                        icons={folderIcons}
                         onMove={moveTo}
                         final={view.final.map((each) => `${view.draftsIn}${each}`)}
                         draftsIn={view.draftsIn}
@@ -2175,6 +2200,7 @@ export function App() {
                         onOpen={openFile}
                         onReveal={openOther}
                         onMenu={(path, folder) => [
+                          ...(folder ? [{ label: 'Set Icon…', run: () => setIconing({ folder: path, value: folderIcons[path] && !isBuiltIn(folderIcons[path]) ? folderIcons[path] : '' }) }] : []),
                           ...(folder ? [{ label: 'New Folder Inside…', run: () => setMaking(`${path}/`) }, { label: 'Publish to the Shelf…', run: () => void publishFolder(path) }] : [{ label: 'Open', run: () => (/\.md$/i.test(path) ? openFile(path) : openOther(path)) }]),
                           ...(movable(path) ? [{ label: 'Move To…', run: () => setMoving({ from: path, to: '' }) }] : []),
                           ...(movable(path) && !folder ? [{ label: 'Rename…', run: () => setRenamingFile({ from: path, name: path.split('/').pop()! }) }] : []),
@@ -2189,6 +2215,35 @@ export function App() {
                           renameField('New name of the project')
                         ) : moveProjectInto !== null ? (
                           moveIntoForm()
+                        ) : iconing !== null ? (
+                          <div className="icon-picker" role="group" aria-label={`Icon of ${iconing.folder.split('/').pop()}`}>
+                            <form
+                              onSubmit={(event) => {
+                                event.preventDefault()
+                                void giveIcon(iconing.folder, iconing.value.trim() === '' ? null : iconing.value)
+                              }}
+                            >
+                              <input
+                                autoFocus
+                                value={iconing.value}
+                                placeholder={`An emoji for ${iconing.folder.split('/').pop()}`}
+                                aria-label="An emoji"
+                                title={document.documentElement.dataset.platform === 'mac' ? 'Control-Command-Space opens the emoji picker' : 'An emoji'}
+                                onChange={(event) => setIconing({ ...iconing, value: event.target.value })}
+                                onKeyDown={(event) => event.key === 'Escape' && setIconing(null)}
+                              />
+                              <button className="primary">Set</button>
+                              <button type="button" className="quiet" title="Take the picture off" onClick={() => void giveIcon(iconing.folder, null)}>Reset</button>
+                              <button type="button" className="quiet" onClick={() => setIconing(null)}>Cancel</button>
+                            </form>
+                            <div className="choices">
+                              {FOLDER_ICONS.map((name) => (
+                                <button key={name} type="button" className="quiet" aria-label={name} title={name} onClick={() => void giveIcon(iconing.folder, name)}>
+                                  <Icon name={name} />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         ) : renamingFile !== null ? (
                           <form
                             onSubmit={(event) => {

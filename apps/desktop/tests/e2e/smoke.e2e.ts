@@ -29,12 +29,16 @@ test('the window, on the example context: a comment into the file, the tree, a p
   // A reference, as if the reader had added it on an earlier day: a folder outside the context. The dialog that adds one cannot be pressed here.
   const antifragile = path.join(await realpath(root), 'antifragile')
   await mkdir(antifragile)
+  // A picture the reader gave to a folder on an earlier day, kept in the context's private folder.
+  await mkdir(path.join(context, '.mate/projects/document-review'), { recursive: true })
+  await writeFile(path.join(context, '.mate/projects/document-review/icons.json'), JSON.stringify({ draft: '📝' }))
   const app = await launch(context, { 'references.json': JSON.stringify({ [await realpath(context)]: [{ name: 'antifragile', path: antifragile, about: 'Look here for antifragile principles.', kind: 'folder' }] }) })
   try {
     // The folder on the command line is the open context. No folder dialog is involved.
     await app.until(`document.querySelector('.rail h2')?.textContent === 'example'`, 'the context is open')
     await app.press('.rail .row', 'document-review')
     await app.until(`document.querySelectorAll('.projects .tree .row').length > 0`, 'the project is open')
+    await app.until(`document.querySelector('.projects .tree summary .emoji')?.textContent === '📝'`, 'the picture the reader gave to the draft folder')
     assert.deepEqual(await app.page(names('.margin .tabs button')), ['Review*', 'Notes', 'Sessions', 'Chat', 'tasks', 'workflow'])
     // Every file of the project is in the tree, those in folded folders too. The draft is the one on the page. The panes are in the margin, and in the context, not in the project.
     assert.deepEqual(

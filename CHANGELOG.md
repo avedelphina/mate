@@ -7,6 +7,12 @@ then, minor versions may change behaviour.
 
 ## [Unreleased]
 
+### Added
+
+- Folder icons. *Set Icon…* in a folder's menu gives it one of Mate's pictures or one emoji in the
+  rail. They are kept in the context's private folder, not in the project, so a repository gets
+  nothing, and they follow a folder when it moves.
+
 ### Changed
 
 - In the rail, Records, Graph and References are one control, since each takes the middle of the

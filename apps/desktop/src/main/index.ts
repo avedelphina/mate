@@ -35,6 +35,8 @@ import {
   listProjectTemplates,
   createFile,
   moveEntry,
+  readIcons,
+  setIcon,
   relinkDocuments,
   renameEntry,
   renamedTo,
@@ -1023,6 +1025,12 @@ app.whenReady().then(() => {
     await moveMeaning(contextDir, moved.folder ? `${moved.from}/` : moved.from, moved.folder ? `${moved.to}/` : moved.to)
     return readProject(contextDir, String(project))
   })
+
+  // The icons the reader gave to the folders of a project, kept in the context's private folder, and one set or taken off.
+  ipcMain.handle('icons:get', (event, project: string) => readIcons(requireContext(event), String(project)))
+  ipcMain.handle('icons:set', (event, project: string, folder: string, icon: string | null) =>
+    setIcon(requireContext(event), String(project), String(folder), icon === null ? null : String(icon))
+  )
 
   // A file of a project gets another name. When documents link to it with [[name]], the reader is asked in a dialog of the
   // system whether they follow it: the documents they are, the shelf's among them, are changed only on that answer.

@@ -1,3 +1,4 @@
+import { isBuiltIn } from '../../shared/icons'
 import type { DragEvent } from 'react'
 import { isTwinned } from '../../shared/twin'
 import { Icon, type IconName } from './Icon'
@@ -34,8 +35,10 @@ export function Tree(props: {
   onMenu?: (path: string, folder: boolean) => Item[]
   /** The picture of every folder, where they are not folders on the disk: the tags. */
   folderIcon?: IconName
+  /** The pictures the reader gave to folders, by path from the project: one of Mate's, or an emoji. */
+  icons?: Record<string, string>
 }) {
-  const { paths, folders = [], base = '', current, onOpen, onReveal, unfolded = 'draft', onMove, onNewDraft, onNewFile, draftsIn = 'draft/', final = [], onMenu, folderIcon } = props
+  const { paths, folders = [], base = '', current, onOpen, onReveal, unfolded = 'draft', onMove, onNewDraft, onNewFile, draftsIn = 'draft/', final = [], onMenu, folderIcon, icons } = props
   const menu = (full: string, folder: boolean) => (onMenu ? onRightClick(() => onMenu(full, folder)) : {})
   const manager = document.documentElement.dataset.platform === 'mac' ? 'Finder' : 'the file manager'
   const isFile = (name: string) => paths.includes(base + name)
@@ -80,7 +83,7 @@ export function Tree(props: {
                 {...(onMove && !['panes', 'scripts'].includes(full.split('/')[0]) ? dropOn(full, onMove) : {})}
                 {...menu(full, true)}
               >
-                <Icon name={folderIcon ?? FOLDERS.get(full) ?? 'folder'} />
+                {folderIcon ? <Icon name={folderIcon} /> : icons?.[full] && !isBuiltIn(icons[full]) ? <span className="emoji" aria-hidden="true">{icons[full]}</span> : <Icon name={(icons?.[full] as IconName | undefined) ?? FOLDERS.get(full) ?? 'folder'} />}
                 {name}
                 {onNewDraft && !['dropbox', 'panes', 'scripts'].includes(full.split('/')[0]) && (
                   <button
@@ -93,7 +96,7 @@ export function Tree(props: {
                   </button>
                 )}
               </summary>
-              <Tree paths={paths.filter((each) => each.startsWith(`${full}/`))} folders={folders.filter((each) => each.startsWith(`${full}/`))} base={`${full}/`} current={current} onOpen={onOpen} onReveal={onReveal} unfolded={unfolded} onMove={onMove} onNewDraft={onNewDraft} onNewFile={onNewFile} draftsIn={draftsIn} final={final} onMenu={onMenu} folderIcon={folderIcon} />
+              <Tree paths={paths.filter((each) => each.startsWith(`${full}/`))} folders={folders.filter((each) => each.startsWith(`${full}/`))} base={`${full}/`} current={current} onOpen={onOpen} onReveal={onReveal} unfolded={unfolded} onMove={onMove} onNewDraft={onNewDraft} onNewFile={onNewFile} draftsIn={draftsIn} final={final} onMenu={onMenu} folderIcon={folderIcon} icons={icons} />
             </details>
           </li>
         )

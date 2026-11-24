@@ -899,6 +899,25 @@ time. The shelf is the accent colour and a draft is dark. A press opens a
 document. Past three hundred documents the most linked are drawn. It is read
 from the index and keeps nothing.
 
+## Folder icons
+
+A folder of a project can have its own picture in the rail: one of Mate's
+line pictures, or one emoji (*Set Icon…* in the folder's menu). `iconOf` in
+`shared/icons.ts` decides what is an icon: a name from `FOLDER_ICONS`, or a
+single mark with its joiners, tone and flags, found with `Intl.Segmenter`.
+Nothing else is drawn, so an icon cannot carry a picture, an SVG or code
+(rule 8).
+
+They are kept in the context's private folder, `.mate/projects/NAME/icons.json`,
+as the path of each folder from the project and its icon, and not in the
+project, so a repository brought in gets nothing (rule 14). A file there may
+have been written by anything, so `iconsIn` keeps only what is an icon for a
+path of the project, where it is read as well as where it is set (`readIcons`,
+`setIcon` in `context.ts`). `moveEntry` takes the icons of a folder, and of
+the folders in it, along when it moves. A project that is renamed takes the
+file with the rest of `.mate/projects/`. Not done: an icon for a file or a
+project, and a colour.
+
 ## References
 
 A reference is a place outside the context that the reader wants agents to

@@ -88,6 +88,8 @@ contextBridge.exposeInMainWorld('mate', {
   addReference: (name: string, about: string) => ipcRenderer.invoke('reference:add', name, about),
   removeReference: (name: string) => ipcRenderer.invoke('reference:remove', name),
   revealReference: (target: string) => ipcRenderer.invoke('reference:reveal', target),
+  folderIcons: (project: string) => ipcRenderer.invoke('icons:get', project),
+  setFolderIcon: (project: string, folder: string, icon: string | null) => ipcRenderer.invoke('icons:set', project, folder, icon),
   contextGraph: () => ipcRenderer.invoke('context:graph'),
   contextPaths: () => ipcRenderer.invoke('context:paths'),
   linkedFrom: (path: string) => ipcRenderer.invoke('file:linkedfrom', path),
