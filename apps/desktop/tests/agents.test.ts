@@ -718,6 +718,8 @@ console.log(JSON.stringify({ type: 'text', text: 'Done in ' + dir }))
 
     // A folder is one of the project, with nothing hidden, and not the panes. An agent the reader runs, or on another machine, has none.
     for (const bad of ['../x', 'a/../b', '.git', 'a/.hidden', 'panes', 'nothing']) await assert.rejects(startSession(root, 'review', 'hermes', null, bad), /folder/i)
+    // The message is the same wherever the folder is missing from, and not a system's own: it is what the reader is told.
+    await assert.rejects(startSession(root, 'review', 'hermes', null, 'nothing'), /That folder is not in the project\./)
     await assert.rejects(startSession(root, 'review', 'mcp', null, 'a'), /Only an agent started here/)
     await assert.rejects(startSession(root, 'review', 'hermes', 'some-host', 'a'), /Only an agent started here/)
 

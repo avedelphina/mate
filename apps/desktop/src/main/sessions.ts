@@ -585,7 +585,8 @@ async function scopeFolder(contextDir: string, project: string, folder: string):
   if (parts.some((part) => part === '' || part === '.' || part === '..' || part.startsWith('.')) || parts[0] === 'panes') {
     throw new Error('Choose a folder of the project. The panes and hidden folders are not one.')
   }
-  const info = await stat(await realInside(contextDir, 'projects', project, ...parts)).catch(() => null)
+  // A folder that is not there makes realpath fail on some systems, and a link that leaves the context is refused: both are "not in the project".
+  const info = await realInside(contextDir, 'projects', project, ...parts).then((full) => stat(full)).catch(() => null)
   if (!info?.isDirectory()) throw new Error('That folder is not in the project.')
   return clean
 }
