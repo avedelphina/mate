@@ -5,6 +5,16 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [0.40.1] - 2026-11-24
+
+0.39.0 and 0.40.0 were tagged, but their releases stopped at a test that failed on Linux, so
+neither was published. Everything in them is in this version.
+
+### Fixed
+
+- Giving an agent a folder that is not in the project showed the system's own "no such file"
+  message on some systems. It now says "That folder is not in the project."
+
 ## [0.40.0] - 2026-11-24
 
 A session can work on a copy of a repository, so several agents can work in one project at once
