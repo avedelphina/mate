@@ -58,8 +58,10 @@ export function Agent(props: {
   /** The settings page, where the endpoint is set. What it shows is read again when the page closes. */
   onSettings: () => void
   settingsOpen: boolean
+  /** The document open in the window, by its path from the project folder. Said to the agent with each message. */
+  reading: string | null
 }) {
-  const { project, onChanged, into, page, listInto, wanted, onWanted, onPick, onChat, onSessions, onSession, files, onOpen, onSettings, settingsOpen } = props
+  const { project, onChanged, into, page, listInto, wanted, onWanted, onPick, onChat, onSessions, onSession, files, onOpen, onSettings, settingsOpen, reading } = props
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [open, setOpen] = useState<string | null>(null)
@@ -268,7 +270,7 @@ export function Agent(props: {
     setText('')
     setAttachments((now) => now.filter((each) => !sent.includes(each)))
     setSending(true)
-    void act(() => window.mate.sendMessage(project, session.id, said, approve, wait, sent.map((each) => each.path))).then((taken) => {
+    void act(() => window.mate.sendMessage(project, session.id, said, approve, wait, sent.map((each) => each.path), reading ?? undefined)).then((taken) => {
       if (!taken) {
         setText((now) => now || said)
         setAttachments((now) => [...now, ...sent])

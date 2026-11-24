@@ -1588,6 +1588,11 @@ working folder: Claude Code, Codex, or Hermes. `agents.ts` holds, for each,
 the arguments to run it without a terminal and how to read its output as
 the same few events. The message goes in on stdin.
 
+Each message from the Agent tab carries the document the reader has open, by its path from the project
+folder. `sendMessage` puts one line about it before the message (`openNote`, control characters taken
+out). The line goes to the agent only. The conversation keeps the reader's words as they were. It is a
+path and nothing of the document, and the agent reads the file itself.
+
 Each agent gets tools for reading and editing files and nothing else. It
 has no shell and no web. Claude is started without the settings and hooks
 of the context folder or of the reader, because a context may come from

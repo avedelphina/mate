@@ -1418,7 +1418,7 @@ app.whenReady().then(() => {
   )
 
   // An approval is a message like any other. The answer arrives as 'session:update' events.
-  ipcMain.handle('session:send', async (event, project: string, id: string, text: string, approve: boolean, wait?: boolean, attachments?: unknown) => {
+  ipcMain.handle('session:send', async (event, project: string, id: string, text: string, approve: boolean, wait?: boolean, attachments?: unknown, open?: unknown) => {
     const contextDir = requireContext(event)
     const turn = await sendMessage(
       contextDir,
@@ -1428,7 +1428,8 @@ app.whenReady().then(() => {
       approve,
       (session) => tell(contextDir, session),
       wait === true,
-      Array.isArray(attachments) ? attachments.map(String).slice(0, 5) : []
+      Array.isArray(attachments) ? attachments.map(String).slice(0, 5) : [],
+      typeof open === 'string' ? open : ''
     )
     // Said from a pane or from a file's card, not from the conversation: the conversation shows it at once all the same.
     tell(contextDir, turn.started)

@@ -729,7 +729,8 @@ export async function sendMessage(
   approve: boolean,
   emit: (session: Session) => void,
   wait = false,
-  attachments: string[] = []
+  attachments: string[] = [],
+  open = ''
 ): Promise<{ started: Session; finished: Promise<Session> }> {
   // Two messages sent at the same moment are taken in one after the other, so the second finds the first one's turn.
   const before = entering.get(id) ?? Promise.resolve()
@@ -793,7 +794,7 @@ export async function sendMessage(
     for (const each of session.messages) delete each.waiting
     if (approve || left.some((each) => each.approve)) session.planApproved = true
     session.messages.push({ role: 'you', text: message, tools: [] })
-    return await begin(contextDir, session, [...left.map((each) => each.text), message].join('\n\n'), soFar, emit, picture)
+    return await begin(contextDir, session, [openNote(open), ...left.map((each) => each.text), message].filter(Boolean).join('\n\n'), soFar, emit, picture)
   } finally {
     taken()
   }
@@ -803,6 +804,12 @@ export async function sendMessage(
 type Picture = { path: string; relative: string; mimeType: string; data: string }
 
 const ATTACH_LIMIT = 5
+
+/** Which document the reader has open, said with the message and kept out of the conversation. One line, and only a path. */
+export function openNote(open: string): string {
+  const path = open.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 300)
+  return path ? `[The reader has this open now: ${path}. If they say "this" or "here", they mean it.]` : ''
+}
 
 /**
  * What the reader attached to a message: at most one picture, which Hermes is given, and up to five text or PDF files,

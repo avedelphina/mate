@@ -389,7 +389,7 @@ export type MateApi = {
   /** Invite an agent. With a folder of the project, it works and may change only there. With `copy`, it works on a copy of a repository and what it changes is put back at the end of each turn. */
   startSession: (project: string, agent: AgentKind, host?: string, folder?: string, copy?: boolean) => Promise<Session>
   /** `wait`: sent while the agent works, it is to go when the turn has ended, even to an agent that would take it into the turn. */
-  sendMessage: (project: string, id: string, text: string, approve: boolean, wait?: boolean, attachments?: string[]) => Promise<Session>
+  sendMessage: (project: string, id: string, text: string, approve: boolean, wait?: boolean, attachments?: string[], open?: string) => Promise<Session>
   /** A picture chosen in the dialog, copied into the project's dropbox. Null when the reader cancels. */
   addPicture: (project: string) => Promise<string | null>
   /** The picture on the clipboard, saved into the project's dropbox. Null when the clipboard holds no picture. */

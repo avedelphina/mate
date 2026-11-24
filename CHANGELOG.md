@@ -5,6 +5,18 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- The agent is told which document you have open. Each message you send carries one line with its path, so
+  "this" and "here" mean that document. The line is not shown in the conversation.
+
+### Changed
+
+- *Properties…* and *Linked from…* in the bar of a document have pictures of their own. Properties had the
+  same picture as *Tags…*.
+
 ## [0.43.1] - 2026-11-24
 
 ### Changed

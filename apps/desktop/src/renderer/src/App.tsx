@@ -2605,8 +2605,8 @@ export function App() {
                   {file.toLowerCase().endsWith('.md') && (
                     <>
                       <BarButton icon="tag" label="Tags…" title="The tags of this document, in its front matter" onClick={() => setTagging(tagsOf(view?.text ?? '').map((each) => each.tag).join(', '))} />
-                      <BarButton icon="tag" label="Properties…" title="The fields of this document's front matter: what can be added, and what each does" onClick={() => openProps()} />
-                      <BarButton icon="file" label="Linked from…" title="The documents that link here with [[name]]" onClick={() => void showLinkedFrom()} />
+                      <BarButton icon="properties" label="Properties…" title="The fields of this document's front matter: what can be added, and what each does" onClick={() => openProps()} />
+                      <BarButton icon="link" label="Linked from…" title="The documents that link here with [[name]]" onClick={() => void showLinkedFrom()} />
                     </>
                   )}
                   {trustedHere && buildTarget && (
@@ -3093,6 +3093,7 @@ export function App() {
           onOpen={openFile}
           onSettings={openSettings}
           settingsOpen={settingsOpen}
+          reading={view.file === null || (centre !== null && centre !== 'table') ? null : view.file.startsWith('/') ? view.file.slice(1) : `${view.draftsIn}${view.file}`}
         />
       )}
     </div>
