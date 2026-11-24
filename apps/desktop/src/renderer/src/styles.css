@@ -239,7 +239,14 @@ button.tool { display: inline-flex; align-items: center; justify-content: center
 .source .acts { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
 
 /* The page */
-.page { max-width: 720px; margin: 0 auto; padding: 20px 32px 96px; font: 17px/1.7 var(--read); }
+/* The text keeps a width to be read at, and sits in the middle. A table, code and a diagram may use the room the page has. */
+:root { --measure: 60rem; --room: 1800px; }
+:root[data-measure='comfortable'] { --measure: 44rem; }
+:root[data-measure='full'] { --measure: none; --room: none; }
+.page { max-width: var(--room); margin: 0 auto; padding: 20px 32px 96px; font: 17px/1.7 var(--read); }
+.page.history { max-width: 720px; }
+.page.prose > :not(.table):not(pre):not(.plain-file):not(.diagram):not(.image-rendered):not(.rule) { max-width: var(--measure); margin-left: auto; margin-right: auto; }
+.page.prose > .table, .page.prose > pre:not(.plain), .page.prose > .diagram { max-width: 100%; margin-left: auto; margin-right: auto; }
 
 /* Markdown, drawn. The markup stays in the page and is only hidden: see markdown.ts. */
 .syntax { display: none; }

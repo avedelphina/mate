@@ -5,6 +5,15 @@ All notable changes to Mate are recorded here. The format follows
 uses [semantic versioning](https://semver.org/) once it reaches 1.0. Until
 then, minor versions may change behaviour.
 
+## [Unreleased]
+
+### Changed
+
+- The page uses more of a wide window. Text keeps a width it can be read at and sits in the middle, and
+  a table, code or a diagram may use the room the page has, up to 1800 pixels. *Page width* in Settings
+  chooses how wide the text may be: Comfortable (about 75 characters a line), Wide (about 110, what it
+  starts as) or Full (the whole page).
+
 ## [0.43.0] - 2026-11-24
 
 ### Added

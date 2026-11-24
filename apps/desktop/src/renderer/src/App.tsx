@@ -18,6 +18,7 @@ import { PullRequests } from './Pull'
 import { hasProps, Properties } from './Properties'
 import type { PropUse } from '../../shared/props'
 import { Graph } from './Graph'
+import { applyMeasure } from './measure'
 import { Table } from './Table'
 import { FOLDER_ICONS, isBuiltIn } from '../../shared/icons'
 import { References } from './References'
@@ -244,6 +245,7 @@ export function App() {
   // The pictures given to the folders of the open project, and the folder whose picture is being chosen with what is typed so far.
   const [folderIcons, setFolderIcons] = useState<Record<string, string>>({})
   const [iconing, setIconing] = useState<{ folder: string; value: string } | null>(null)
+  useEffect(() => applyMeasure(), [])
   // The file being given another name in the tree, and the name typed so far.
   const [renamingFile, setRenamingFile] = useState<{ from: string; name: string } | null>(null)
   // The name or path of a new folder, while the reader is typing it in the rail. Null when they are not.

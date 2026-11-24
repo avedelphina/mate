@@ -678,7 +678,12 @@ test('the window, on the example context: a comment into the file, the tree, a p
     await app.until(`document.querySelector('.center .settings h1')?.textContent === 'General'`, 'the settings page, at General')
     assert.deepEqual(await app.page(names('[role=tablist] button')), ['General*', 'Agents', 'Connections', 'Privacy'])
     // What is used most is first: nothing is asked for here, and each tab has only what its name says.
-    assert.deepEqual(await app.page(names('.settings section h2')), ['Notifications', 'Sending a message', 'Your editor', 'Updates', 'On this computer'])
+    assert.deepEqual(await app.page(names('.settings section h2')), ['Notifications', 'Sending a message', 'Page width', 'Your editor', 'Updates', 'On this computer'])
+    // The page width is a choice of the window: it goes on the root, where the style sheet reads it. Wide is what it starts as.
+    assert.equal(await app.page(`document.documentElement.dataset.measure`), 'wide')
+    await app.page(`document.querySelectorAll('input[name="page-width"]')[2].click()`)
+    assert.equal(await app.page(`document.documentElement.dataset.measure`), 'full')
+    await app.page(`document.querySelectorAll('input[name="page-width"]')[1].click()`)
     await app.press('[role=tablist] button', 'Agents')
     // The settings have the whole window: no rail and no margin beside them.
     assert.deepEqual(await app.page(`[document.querySelector('.rail'), document.querySelector('.margin')].map((each) => getComputedStyle(each).display)`), ['none', 'none'])

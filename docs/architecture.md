@@ -899,6 +899,18 @@ time. The shelf is the accent colour and a draft is dark. A press opens a
 document. Past three hundred documents the most linked are drawn. It is read
 from the index and keeps nothing.
 
+## The width of a page
+
+The text of a page keeps a width to be read at, and sits in the middle: a
+paragraph, a heading and a list are held to `--measure`. A table, code that is
+not a plain file, and a diagram may use the room the page has, `--room`, 1800
+pixels, so a table with many columns is not squeezed to the width of a
+paragraph. *Page width* in Settings (`measure.ts`) chooses `--measure`:
+comfortable (44rem), wide (60rem, the start) or full, which takes both limits
+off. The choice is the reader's and their screen's, so it is kept in the
+window, as the key that sends a message is, and not in a context. Pages that
+are lists, such as the records and the references, keep their own width.
+
 ## Tables
 
 A CSV, a TSV or an Excel workbook of a project opens as a table: *Open as a

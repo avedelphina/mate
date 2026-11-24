@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { setEnterSends, useEnterSends } from './keys'
+import { MEASURES, setMeasure, useMeasure } from './measure'
 import type { AgentInfo, Settings as Held, Update } from './env'
 
 const unwrapped = (caught: unknown) => String((caught as Error)?.message ?? caught).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
@@ -84,6 +85,7 @@ export function Settings(props: { onClose: () => void }) {
   const [saved, setSaved] = useState(false)
   const [skillFile, setSkillFile] = useState<string | null>(null)
   const enterKey = useEnterSends()
+  const width = useMeasure()
   // A forge being added: its address and a token, which is never shown back. While the forge is asked, and what it said.
   const [forge, setForge] = useState({ url: '', token: '' })
   const [forgeSaid, setForgeSaid] = useState<{ failed: boolean; text: string } | null>(null)
@@ -172,6 +174,16 @@ export function Settings(props: { onClose: () => void }) {
                 <label>
                   <input type="radio" name="send-key" checked={enterKey} onChange={() => setEnterSends(true)} /> Enter sends, Shift+Enter breaks the line
                 </label>
+              </section>
+
+              <section>
+                <h2>Page width</h2>
+                <p className="meta">How wide the text of a page may be. A table, code and a diagram use the room the page has, whatever you choose here.</p>
+                {MEASURES.map((each) => (
+                  <label key={each.value} style={{ display: 'block' }}>
+                    <input type="radio" name="page-width" checked={width === each.value} onChange={() => setMeasure(each.value)} /> {each.label} <span className="meta">{each.note}</span>
+                  </label>
+                ))}
               </section>
 
               <section className="endpoint">
